@@ -1,31 +1,225 @@
 @page "/shelter/adoption-requests"
+@using Microsoft.AspNetCore.Identity
+@using PawConnect.Data
 @attribute [Authorize(Roles = "Shelter")]
+@inject IAdoptionRequestService AdoptionRequestService
+@inject IShelterService ShelterService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject UserManager<ApplicationUser> UserManager
+@inject ISnackbar Snackbar
 
 <PageTitle>Shelter Adoption Requests</PageTitle>
 
-<MudStack Spacing="3">
-    <MudText Typo="Typo.h4">Adoption Requests</MudText>
-    <MudTable Items="_requests" Dense="true" Hover="true">
-        <HeaderContent>
-            <MudTh>Dog</MudTh>
-            <MudTh>Adopter</MudTh>
-            <MudTh>Status</MudTh>
-            <MudTh></MudTh>
-        </HeaderContent>
-        <RowTemplate>
-            <MudTd DataLabel="Dog">@context.DogName</MudTd>
-            <MudTd DataLabel="Adopter">@context.AdopterEmail</MudTd>
-            <MudTd DataLabel="Status"><MudChip T="string" Color="Color.Warning" Size="Size.Small">@context.Status</MudChip></MudTd>
-            <MudTd><MudButton Variant="Variant.Text" Color="Color.Primary">Review</MudButton></MudTd>
-        </RowTemplate>
-        <NoRecordsContent>
-            <MudText Class="pa-4">There are no adoption requests yet.</MudText>
-        </NoRecordsContent>
-    </MudTable>
-</MudStack>
+<MudContainer MaxWidth="MaxWidth.False" Class="px-0">
+    <MudStack Spacing="3">
+        <div class="page-header">
+            <MudText Typo="Typo.h4">Adoption Requests</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Review adoption requests for dogs in your shelter.</MudText>
+        </div>
+
+        @if (_isLoading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="py-8">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Loading adoption requests...</MudText>
+            </MudStack>
+        }
+        else if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <MudAlert Severity="Severity.Error">@_error</MudAlert>
+        }
+        else if (_requests.Count == 0)
+        {
+            <MudAlert Severity="Severity.Info">There are no adoption requests for your shelter yet.</MudAlert>
+        }
+        else
+        {
+            <MudTable Items="_requests" Dense="true" Hover="true">
+                <HeaderContent>
+                    <MudTh>Dog</MudTh>
+                    <MudTh>Adopter</MudTh>
+                    <MudTh>Message</MudTh>
+                    <MudTh>Status</MudTh>
+                    <MudTh>Created</MudTh>
+                    <MudTh>Updated</MudTh>
+                    <MudTh></MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Dog">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudAvatar Size="Size.Large">
+                                <MudImage Src="@GetImageUrl(context.Dog)" Alt="@context.Dog?.Name" />
+                            </MudAvatar>
+                            <MudText Typo="Typo.body2">@context.Dog?.Name</MudText>
+                        </MudStack>
+                    </MudTd>
+                    <MudTd DataLabel="Adopter">@GetAdopterName(context.Adopter)</MudTd>
+                    <MudTd DataLabel="Message">@(string.IsNullOrWhiteSpace(context.Message) ? "-" : context.Message)</MudTd>
+                    <MudTd DataLabel="Status">
+                        <MudChip T="string" Color="@GetStatusColor(context.Status)" Size="Size.Small">@context.Status</MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Created">@context.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
+                    <MudTd DataLabel="Updated">@context.UpdatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
+                    <MudTd>
+                        @if (context.Status == AdoptionRequestStatus.Pending)
+                        {
+                            <MudStack Row="true" Spacing="1">
+                                <MudButton Variant="Variant.Text" Color="Color.Success" StartIcon="@Icons.Material.Filled.CheckCircle" Disabled="@_isUpdating" OnClick="@(() => AcceptRequestAsync(context))">Accept</MudButton>
+                                <MudButton Variant="Variant.Text" Color="Color.Error" StartIcon="@Icons.Material.Filled.Cancel" Disabled="@_isUpdating" OnClick="@(() => RejectRequestAsync(context))">Reject</MudButton>
+                            </MudStack>
+                        }
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        }
+    </MudStack>
+</MudContainer>
 
 @code {
-    private readonly List<RequestRow> _requests = [];
+    private List<AdoptionRequest> _requests = [];
+    private bool _isLoading = true;
+    private bool _isUpdating;
+    private string? _error;
+    private int? _shelterId;
 
-    private sealed record RequestRow(string DogName, string AdopterEmail, string Status);
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var user = await UserManager.GetUserAsync(authState.User);
+            if (user is null)
+            {
+                _error = "Current shelter account could not be found.";
+                return;
+            }
+
+            var shelter = await ShelterService.GetShelterForUserAsync(user.Id);
+            if (shelter is null)
+            {
+                _error = "No shelter profile is linked to this account.";
+                return;
+            }
+
+            _shelterId = shelter.Id;
+            _requests = await AdoptionRequestService.GetRequestsForShelterAsync(shelter.Id);
+        }
+        catch
+        {
+            _error = "Adoption requests could not be loaded right now.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task AcceptRequestAsync(AdoptionRequest request)
+    {
+        if (_shelterId is null)
+        {
+            Snackbar.Add("Current shelter profile could not be found.", Severity.Error);
+            return;
+        }
+
+        _isUpdating = true;
+
+        try
+        {
+            await AdoptionRequestService.AcceptRequestAsync(request.Id, _shelterId.Value);
+
+            var now = DateTime.UtcNow;
+            request.Status = AdoptionRequestStatus.Accepted;
+            request.UpdatedAt = now;
+            if (request.Dog is not null)
+            {
+                request.Dog.Status = DogStatus.Reserved;
+
+                foreach (var otherRequest in _requests.Where(r =>
+                    r.Id != request.Id &&
+                    r.DogId == request.DogId &&
+                    r.Status == AdoptionRequestStatus.Pending))
+                {
+                    otherRequest.Status = AdoptionRequestStatus.Rejected;
+                    otherRequest.UpdatedAt = now;
+                }
+            }
+
+            Snackbar.Add("Adoption request accepted.", Severity.Success);
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch
+        {
+            Snackbar.Add("Adoption request could not be accepted right now.", Severity.Error);
+        }
+        finally
+        {
+            _isUpdating = false;
+        }
+    }
+
+    private async Task RejectRequestAsync(AdoptionRequest request)
+    {
+        if (_shelterId is null)
+        {
+            Snackbar.Add("Current shelter profile could not be found.", Severity.Error);
+            return;
+        }
+
+        _isUpdating = true;
+
+        try
+        {
+            await AdoptionRequestService.RejectRequestAsync(request.Id, _shelterId.Value);
+            request.Status = AdoptionRequestStatus.Rejected;
+            request.UpdatedAt = DateTime.UtcNow;
+            Snackbar.Add("Adoption request rejected.", Severity.Success);
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch
+        {
+            Snackbar.Add("Adoption request could not be rejected right now.", Severity.Error);
+        }
+        finally
+        {
+            _isUpdating = false;
+        }
+    }
+
+    private static string GetImageUrl(Dog? dog)
+    {
+        return dog?.Images.FirstOrDefault(i => i.IsMainImage)?.ImageUrl
+            ?? dog?.Images.FirstOrDefault()?.ImageUrl
+            ?? "https://placehold.co/100x100?text=Dog";
+    }
+
+    private static string GetAdopterName(ApplicationUser? adopter)
+    {
+        if (adopter is null)
+        {
+            return "Unknown adopter";
+        }
+
+        return string.IsNullOrWhiteSpace(adopter.FullName)
+            ? adopter.Email ?? adopter.UserName ?? "Unknown adopter"
+            : $"{adopter.FullName} ({adopter.Email})";
+    }
+
+    private static Color GetStatusColor(AdoptionRequestStatus status)
+    {
+        return status switch
+        {
+            AdoptionRequestStatus.Pending => Color.Warning,
+            AdoptionRequestStatus.Accepted => Color.Success,
+            AdoptionRequestStatus.Rejected => Color.Error,
+            AdoptionRequestStatus.Cancelled => Color.Default,
+            _ => Color.Default
+        };
+    }
 }
