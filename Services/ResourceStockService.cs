@@ -4,7 +4,7 @@ using PawConnect.Entities;
 
 namespace PawConnect.Services;
 
-public class ResourceStockService(ApplicationDbContext context) : IResourceStockService
+public class ResourceStockService(ApplicationDbContext context, IEmailService emailService, ILogger<ResourceStockService> logger) : IResourceStockService
 {
     public Task<List<ResourceStock>> GetAllAsync()
     {
@@ -102,6 +102,7 @@ public class ResourceStockService(ApplicationDbContext context) : IResourceStock
 
         context.ResourceStocks.Add(resource);
         await context.SaveChangesAsync();
+        await NotifyShelterIfLowStockAsync(resource.Id, "created");
     }
 
     public async Task UpdateResourceAsync(ResourceStock resource, int shelterId)
@@ -123,6 +124,7 @@ public class ResourceStockService(ApplicationDbContext context) : IResourceStock
         existingResource.LastUpdatedAt = DateTime.UtcNow;
 
         await context.SaveChangesAsync();
+        await NotifyShelterIfLowStockAsync(existingResource.Id, "updated");
     }
 
     public async Task DeleteResourceAsync(int resourceId, int shelterId)
@@ -189,6 +191,45 @@ public class ResourceStockService(ApplicationDbContext context) : IResourceStock
         if (string.IsNullOrWhiteSpace(resource.Unit))
         {
             throw new InvalidOperationException("Unit is required.");
+        }
+    }
+
+    private async Task NotifyShelterIfLowStockAsync(int resourceId, string action)
+    {
+        try
+        {
+            var resource = await context.ResourceStocks
+                .Include(r => r.ResourceCategory)
+                .Include(r => r.FoodType)
+                .Include(r => r.Shelter)
+                .ThenInclude(s => s!.ApplicationUser)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(r => r.Id == resourceId);
+
+            if (resource is null || resource.Quantity > resource.LowStockThreshold)
+            {
+                return;
+            }
+
+            var shelterEmail = resource.Shelter?.ApplicationUser?.Email ?? resource.Shelter?.Email;
+            var body = $"""
+                Hello,
+
+                A shelter resource was {action} and is now at or below its low-stock threshold.
+
+                Resource: {resource.Name}
+                Category: {resource.ResourceCategory?.Name ?? "Unknown"}
+                Current quantity: {resource.Quantity} {resource.Unit}
+                Low-stock threshold: {resource.LowStockThreshold} {resource.Unit}
+
+                Please review your shelter resources in PawConnect.
+                """;
+
+            await emailService.SendEmailAsync(shelterEmail ?? string.Empty, $"Low stock warning: {resource.Name}", body);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Low-stock email notification failed for resource {ResourceId}.", resourceId);
         }
     }
 }

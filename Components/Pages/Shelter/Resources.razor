@@ -202,12 +202,12 @@
             if (_model.Id == 0)
             {
                 await ResourceStockService.CreateResourceAsync(_model, _shelterId.Value);
-                Snackbar.Add("Resource stock item added.", Severity.Success);
+                Snackbar.Add(IsLowStock(_model) ? "Resource added. Low-stock notification attempted." : "Resource stock item added.", Severity.Success);
             }
             else
             {
                 await ResourceStockService.UpdateResourceAsync(_model, _shelterId.Value);
-                Snackbar.Add("Resource stock item updated.", Severity.Success);
+                Snackbar.Add(IsLowStock(_model) ? "Resource updated. Low-stock notification attempted." : "Resource stock item updated.", Severity.Success);
             }
 
             ResetForm();

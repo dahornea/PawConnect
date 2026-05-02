@@ -29,7 +29,7 @@ public static class IdentitySeedData
     private static readonly (string Id, string Email, string FullName, string Role)[] Users =
     [
         (AdopterUserId, "adopter@test.com", "Demo Adopter", AdopterRole),
-        (ShelterUserId, "shelter@test.com", "Demo Shelter", ShelterRole),
+        (ShelterUserId, "u8878233525@id.gle", "Demo Shelter", ShelterRole),
         (AdminUserId, "admin@test.com", "Demo Admin", AdminRole)
     ];
 
@@ -127,7 +127,7 @@ public static class IdentitySeedData
             Address = "123 Shelter Street",
             City = "Bucharest",
             PhoneNumber = "+40 700 000 001",
-            Email = "shelter@test.com",
+            Email = "u8878233525@id.gle",
             ApplicationUserId = ShelterUserId
         };
 
