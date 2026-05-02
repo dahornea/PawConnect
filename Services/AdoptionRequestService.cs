@@ -175,7 +175,7 @@ public class AdoptionRequestService(ApplicationDbContext context, IEmailService 
             r.Status == AdoptionRequestStatus.Pending);
     }
 
-    public async Task AcceptRequestAsync(int requestId, int shelterId)
+    public async Task AcceptRequestAsync(int requestId, int shelterId, string? changedByUserId = null)
     {
         var request = await context.AdoptionRequests
             .Include(r => r.Dog)
@@ -189,7 +189,14 @@ public class AdoptionRequestService(ApplicationDbContext context, IEmailService 
         var now = DateTime.UtcNow;
         request!.Status = AdoptionRequestStatus.Accepted;
         request.UpdatedAt = now;
+        var oldDogStatus = request.Dog!.Status;
         request.Dog!.Status = DogStatus.Reserved;
+        AddDogStatusHistoryIfChanged(
+            request.Dog.Id,
+            oldDogStatus,
+            request.Dog.Status,
+            changedByUserId,
+            "Status changed to reserved after adoption request acceptance.");
 
         var otherPendingRequests = await context.AdoptionRequests
             .Where(r => r.Id != request.Id && r.DogId == request.DogId && r.Status == AdoptionRequestStatus.Pending)
@@ -266,6 +273,24 @@ public class AdoptionRequestService(ApplicationDbContext context, IEmailService 
         {
             throw new InvalidOperationException("Hours alone per day must be between 0 and 24.");
         }
+    }
+
+    private void AddDogStatusHistoryIfChanged(int dogId, DogStatus oldStatus, DogStatus newStatus, string? changedByUserId, string notes)
+    {
+        if (oldStatus == newStatus)
+        {
+            return;
+        }
+
+        context.DogStatusHistories.Add(new DogStatusHistory
+        {
+            DogId = dogId,
+            OldStatus = oldStatus,
+            NewStatus = newStatus,
+            ChangedAt = DateTime.UtcNow,
+            ChangedByUserId = changedByUserId,
+            Notes = notes
+        });
     }
 
     private async Task NotifyShelterAboutNewRequestAsync(Dog dog, PawConnect.Data.ApplicationUser? adopter, AdoptionRequestQuestionnaire questionnaire, DateTime createdAt)

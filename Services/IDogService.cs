@@ -32,11 +32,17 @@ public interface IDogService
 
     Task CreateDogAsync(Dog dog, int shelterId);
 
-    Task UpdateDogAsync(Dog dog, int shelterId);
+    Task UpdateDogAsync(Dog dog, int shelterId, string? changedByUserId = null);
 
     Task DeleteDogAsync(int dogId, int shelterId);
 
     Task<List<Dog>> GetAllDogsForAdminAsync();
 
     Task DeleteDogForAdminAsync(int dogId);
+
+    Task<List<DogStatusHistory>> GetStatusHistoryForDogAsync(int dogId);
+
+    Task<List<DogStatusHistory>> GetStatusHistoryForShelterDogAsync(int dogId, int shelterId);
+
+    Task AddStatusHistoryAsync(int dogId, DogStatus oldStatus, DogStatus newStatus, string? changedByUserId, string? notes = null);
 }

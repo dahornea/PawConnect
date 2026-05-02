@@ -100,12 +100,21 @@ else
                                 </MudAlert>
                             }
 
-                            <MudStack Row="true" Spacing="2" Class="mt-2">
-                                <MudButton Variant="@GetFavoriteVariant()" Color="@GetFavoriteColor()" StartIcon="@GetFavoriteIcon()" OnClick="ToggleFavoriteAsync">@GetFavoriteButtonText()</MudButton>
-                                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Send" Disabled="@_hasPendingRequest" OnClick="StartAdoptionRequestAsync">@GetAdoptionButtonText()</MudButton>
-                            </MudStack>
+                            @if (IsAdopted)
+                            {
+                                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+                                    This dog has already been adopted, so this profile is read-only.
+                                </MudAlert>
+                            }
+                            else
+                            {
+                                <MudStack Row="true" Spacing="2" Class="mt-2">
+                                    <MudButton Variant="@GetFavoriteVariant()" Color="@GetFavoriteColor()" StartIcon="@GetFavoriteIcon()" OnClick="ToggleFavoriteAsync">@GetFavoriteButtonText()</MudButton>
+                                    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Send" Disabled="@_hasPendingRequest" OnClick="StartAdoptionRequestAsync">@GetAdoptionButtonText()</MudButton>
+                                </MudStack>
+                            }
 
-                            @if (_showAdoptionForm)
+                            @if (_showAdoptionForm && !IsAdopted)
                             {
                                 <MudPaper Elevation="0" Class="pa-3 mt-2">
                                     <MudStack Spacing="2">
@@ -265,6 +274,8 @@ else
     private string? _reasonForAdoption;
     private int? _hoursAlonePerDay;
     private string? _additionalInformation;
+
+    private bool IsAdopted => _dog?.Status == DogStatus.Adopted;
 
     protected override async Task OnInitializedAsync()
     {

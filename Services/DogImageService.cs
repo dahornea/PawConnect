@@ -58,7 +58,7 @@ public class DogImageService(ApplicationDbContext context) : IDogImageService
 
     public async Task AddDogImageAsync(int dogId, int shelterId, DogImage image)
     {
-        await EnsureDogBelongsToShelterAsync(dogId, shelterId);
+        await EnsureDogCanBeManagedAsync(dogId, shelterId);
         ValidateDogImage(image);
 
         if (image.IsMainImage)
@@ -86,6 +86,8 @@ public class DogImageService(ApplicationDbContext context) : IDogImageService
             throw new InvalidOperationException("Image was not found for your shelter.");
         }
 
+        EnsureDogIsNotAdopted(image.Dog);
+
         await ClearMainImagesAsync(image.DogId);
         image.IsMainImage = true;
         await context.SaveChangesAsync();
@@ -102,16 +104,28 @@ public class DogImageService(ApplicationDbContext context) : IDogImageService
             throw new InvalidOperationException("Image was not found for your shelter.");
         }
 
+        EnsureDogIsNotAdopted(image.Dog);
+
         context.DogImages.Remove(image);
         await context.SaveChangesAsync();
     }
 
-    private async Task EnsureDogBelongsToShelterAsync(int dogId, int shelterId)
+    private async Task EnsureDogCanBeManagedAsync(int dogId, int shelterId)
     {
-        var dogExists = await context.Dogs.AnyAsync(d => d.Id == dogId && d.ShelterId == shelterId);
-        if (!dogExists)
+        var dog = await context.Dogs.FirstOrDefaultAsync(d => d.Id == dogId && d.ShelterId == shelterId);
+        if (dog is null)
         {
             throw new InvalidOperationException("Dog was not found for your shelter.");
+        }
+
+        EnsureDogIsNotAdopted(dog);
+    }
+
+    private static void EnsureDogIsNotAdopted(Dog dog)
+    {
+        if (dog.Status == DogStatus.Adopted)
+        {
+            throw new InvalidOperationException("Adopted dogs are read-only for shelter users.");
         }
     }
 
