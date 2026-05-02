@@ -116,6 +116,33 @@ public class AdoptionRequestService(ApplicationDbContext context, IEmailService 
             .ToListAsync();
     }
 
+    public async Task<AdoptionRequestSummary> GetAdoptionRequestSummaryForUserAsync(string adopterId)
+    {
+        var requests = await context.AdoptionRequests
+            .Where(r => r.AdopterId == adopterId)
+            .Select(r => r.Status)
+            .ToListAsync();
+
+        return new AdoptionRequestSummary(
+            requests.Count,
+            requests.Count(s => s == AdoptionRequestStatus.Pending),
+            requests.Count(s => s == AdoptionRequestStatus.Accepted));
+    }
+
+    public Task<List<AdoptionRequest>> GetRecentRequestsForAdopterAsync(string adopterId, int count)
+    {
+        return context.AdoptionRequests
+            .Include(r => r.Dog)
+            .ThenInclude(d => d!.Images)
+            .Include(r => r.Dog)
+            .ThenInclude(d => d!.Shelter)
+            .Where(r => r.AdopterId == adopterId)
+            .OrderByDescending(r => r.CreatedAt)
+            .Take(count)
+            .AsNoTracking()
+            .ToListAsync();
+    }
+
     public Task<List<AdoptionRequest>> GetRequestsForShelterAsync(int shelterId)
     {
         return context.AdoptionRequests

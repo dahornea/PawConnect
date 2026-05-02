@@ -61,6 +61,25 @@ public class FavoriteDogService(ApplicationDbContext context) : IFavoriteDogServ
             .ToListAsync();
     }
 
+    public Task<int> GetFavoriteCountForUserAsync(string adopterId)
+    {
+        return context.FavoriteDogs.CountAsync(f => f.AdopterId == adopterId);
+    }
+
+    public Task<List<FavoriteDog>> GetRecentFavoritesForUserAsync(string adopterId, int count)
+    {
+        return context.FavoriteDogs
+            .Include(f => f.Dog)
+            .ThenInclude(d => d!.Images)
+            .Include(f => f.Dog)
+            .ThenInclude(d => d!.Shelter)
+            .Where(f => f.AdopterId == adopterId)
+            .OrderByDescending(f => f.CreatedAt)
+            .Take(count)
+            .AsNoTracking()
+            .ToListAsync();
+    }
+
     public async Task<HashSet<int>> GetFavoriteDogIdsForUserAsync(string adopterId)
     {
         var dogIds = await context.FavoriteDogs
