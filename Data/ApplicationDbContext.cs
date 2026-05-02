@@ -29,6 +29,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
     public DbSet<DogStatusHistory> DogStatusHistories => Set<DogStatusHistory>();
 
+    public DbSet<RecentlyViewedDog> RecentlyViewedDogs => Set<RecentlyViewedDog>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -135,6 +137,26 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
         builder.Entity<FavoriteDog>()
             .Property(f => f.CreatedAt)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<RecentlyViewedDog>()
+            .HasIndex(v => new { v.AdopterId, v.DogId })
+            .IsUnique();
+
+        builder.Entity<RecentlyViewedDog>()
+            .HasOne(v => v.Adopter)
+            .WithMany(u => u.RecentlyViewedDogs)
+            .HasForeignKey(v => v.AdopterId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<RecentlyViewedDog>()
+            .HasOne(v => v.Dog)
+            .WithMany(d => d.RecentlyViewedDogs)
+            .HasForeignKey(v => v.DogId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<RecentlyViewedDog>()
+            .Property(v => v.ViewedAt)
             .HasDefaultValueSql("GETUTCDATE()");
 
         builder.Entity<ResourceStock>()

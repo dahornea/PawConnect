@@ -7,6 +7,8 @@
 @inject IAdopterProfileService AdopterProfileService
 @inject IFavoriteDogService FavoriteDogService
 @inject IAdoptionRequestService AdoptionRequestService
+@inject IRecentlyViewedDogService RecentlyViewedDogService
+@inject ISnackbar Snackbar
 
 <PageTitle>Adopter Dashboard</PageTitle>
 
@@ -163,6 +165,54 @@
                     </MudPaper>
                 </MudItem>
             </MudGrid>
+
+            <MudPaper Elevation="0" Class="pa-4">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-3">
+                    <MudText Typo="Typo.h5">Recently Viewed Dogs</MudText>
+                    <MudSpacer />
+                    @if (_recentlyViewedDogs.Count > 0)
+                    {
+                        <MudButton Variant="Variant.Text" Color="Color.Default" StartIcon="@Icons.Material.Filled.Clear" Disabled="_isClearingRecentlyViewed" OnClick="ClearRecentlyViewedAsync">Clear Recently Viewed</MudButton>
+                    }
+                </MudStack>
+
+                @if (_recentlyViewedDogs.Count == 0)
+                {
+                    <MudAlert Severity="Severity.Info">Dogs you view will appear here so you can return to them quickly.</MudAlert>
+                }
+                else
+                {
+                    <MudGrid Spacing="2">
+                        @foreach (var recentView in _recentlyViewedDogs)
+                        {
+                            @if (recentView.Dog is not null)
+                            {
+                                <MudItem xs="12" sm="6" md="4">
+                                    <MudCard>
+                                        <MudCardMedia Image="@GetDogImageUrl(recentView.Dog)" Height="160" />
+                                        <MudCardContent>
+                                            <MudStack Spacing="1">
+                                                <MudStack Row="true" AlignItems="AlignItems.Start">
+                                                    <div>
+                                                        <MudText Typo="Typo.subtitle1">@recentView.Dog.Name</MudText>
+                                                        <MudText Typo="Typo.body2" Color="Color.Secondary">@recentView.Dog.Breed | @recentView.Dog.Location</MudText>
+                                                    </div>
+                                                    <MudSpacer />
+                                                    <MudChip T="string" Color="@GetDogStatusColor(recentView.Dog.Status)" Size="Size.Small">@recentView.Dog.Status</MudChip>
+                                                </MudStack>
+                                                <MudText Typo="Typo.caption" Color="Color.Secondary">Viewed @recentView.ViewedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudText>
+                                            </MudStack>
+                                        </MudCardContent>
+                                        <MudCardActions>
+                                            <MudButton Href="@($"/dogs/{recentView.Dog.Id}")" Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Visibility">View Details</MudButton>
+                                        </MudCardActions>
+                                    </MudCard>
+                                </MudItem>
+                            }
+                        }
+                    </MudGrid>
+                }
+            </MudPaper>
         }
     </MudStack>
 </MudContainer>
@@ -172,9 +222,12 @@
     private AdoptionRequestSummary _requestSummary = new(0, 0, 0);
     private List<AdoptionRequest> _recentRequests = [];
     private List<FavoriteDog> _recentFavorites = [];
+    private List<RecentlyViewedDog> _recentlyViewedDogs = [];
     private bool _isLoading = true;
+    private bool _isClearingRecentlyViewed;
     private string? _error;
     private string? _userEmail;
+    private string? _currentUserId;
     private int _favoriteCount;
 
     private string DisplayName => !string.IsNullOrWhiteSpace(_profile?.FullName)
@@ -193,12 +246,14 @@
                 return;
             }
 
+            _currentUserId = user.Id;
             _userEmail = user.Email;
             _profile = await AdopterProfileService.GetProfileForUserAsync(user.Id);
             _favoriteCount = await FavoriteDogService.GetFavoriteCountForUserAsync(user.Id);
             _recentFavorites = await FavoriteDogService.GetRecentFavoritesForUserAsync(user.Id, 3);
             _requestSummary = await AdoptionRequestService.GetAdoptionRequestSummaryForUserAsync(user.Id);
             _recentRequests = await AdoptionRequestService.GetRecentRequestsForAdopterAsync(user.Id, 5);
+            _recentlyViewedDogs = await RecentlyViewedDogService.GetRecentlyViewedDogsAsync(user.Id, 6);
         }
         catch
         {
@@ -220,6 +275,44 @@
             AdoptionRequestStatus.Cancelled => Color.Default,
             _ => Color.Default
         };
+    }
+
+    private static Color GetDogStatusColor(DogStatus status)
+    {
+        return status switch
+        {
+            DogStatus.Available => Color.Success,
+            DogStatus.Reserved => Color.Warning,
+            DogStatus.Adopted => Color.Default,
+            DogStatus.InTreatment => Color.Info,
+            _ => Color.Default
+        };
+    }
+
+    private async Task ClearRecentlyViewedAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_currentUserId))
+        {
+            Snackbar.Add("Current adopter account could not be found.", Severity.Error);
+            return;
+        }
+
+        _isClearingRecentlyViewed = true;
+
+        try
+        {
+            await RecentlyViewedDogService.ClearRecentlyViewedAsync(_currentUserId);
+            _recentlyViewedDogs = [];
+            Snackbar.Add("Recently viewed dogs cleared.", Severity.Success);
+        }
+        catch
+        {
+            Snackbar.Add("Recently viewed dogs could not be cleared right now.", Severity.Error);
+        }
+        finally
+        {
+            _isClearingRecentlyViewed = false;
+        }
     }
 
     private static string GetDogImageUrl(Dog dog)
