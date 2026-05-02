@@ -20,6 +20,10 @@ public interface IAdoptionRequestService
 
     Task<List<AdoptionRequest>> GetRequestsForAdopterAsync(string adopterId);
 
+    Task<AdoptionRequestSummary> GetAdoptionRequestSummaryForUserAsync(string adopterId);
+
+    Task<List<AdoptionRequest>> GetRecentRequestsForAdopterAsync(string adopterId, int count);
+
     Task<List<AdoptionRequest>> GetRequestsForShelterAsync(int shelterId);
 
     Task<bool> HasPendingRequestAsync(string adopterId, int dogId);
@@ -30,3 +34,5 @@ public interface IAdoptionRequestService
 
     Task CancelRequestAsync(int requestId, string adopterId);
 }
+
+public sealed record AdoptionRequestSummary(int Total, int Pending, int Accepted);

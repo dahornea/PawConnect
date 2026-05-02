@@ -16,6 +16,10 @@ public interface IFavoriteDogService
 
     Task<List<FavoriteDog>> GetFavoritesForUserAsync(string userId);
 
+    Task<int> GetFavoriteCountForUserAsync(string adopterId);
+
+    Task<List<FavoriteDog>> GetRecentFavoritesForUserAsync(string adopterId, int count);
+
     Task<HashSet<int>> GetFavoriteDogIdsForUserAsync(string adopterId);
 
     Task<bool> IsFavoriteAsync(string adopterId, int dogId);

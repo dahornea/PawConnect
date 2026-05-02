@@ -1,20 +1,231 @@
 @page "/adopter/dashboard"
+@using Microsoft.AspNetCore.Identity
+@using PawConnect.Data
 @attribute [Authorize(Roles = "Adopter")]
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject UserManager<ApplicationUser> UserManager
+@inject IAdopterProfileService AdopterProfileService
+@inject IFavoriteDogService FavoriteDogService
+@inject IAdoptionRequestService AdoptionRequestService
 
 <PageTitle>Adopter Dashboard</PageTitle>
 
-<MudStack Spacing="3">
-    <MudText Typo="Typo.h4">Adopter Dashboard</MudText>
-    <MudGrid>
-        <MudItem xs="12" md="4">
-            <MudCard><MudCardContent><MudText Typo="Typo.h6">Favorite Dogs</MudText><MudText Typo="Typo.h4">0</MudText></MudCardContent></MudCard>
-        </MudItem>
-        <MudItem xs="12" md="4">
-            <MudCard><MudCardContent><MudText Typo="Typo.h6">Pending Requests</MudText><MudText Typo="Typo.h4">0</MudText></MudCardContent></MudCard>
-        </MudItem>
-        <MudItem xs="12" md="4">
-            <MudCard><MudCardContent><MudText Typo="Typo.h6">Approved Requests</MudText><MudText Typo="Typo.h4">0</MudText></MudCardContent></MudCard>
-        </MudItem>
-    </MudGrid>
-    <MudAlert Severity="Severity.Info">Dashboard numbers are placeholders until adoption request features are implemented.</MudAlert>
-</MudStack>
+<MudContainer MaxWidth="MaxWidth.False" Class="px-0">
+    <MudStack Spacing="3">
+        @if (_isLoading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="py-8">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Loading dashboard...</MudText>
+            </MudStack>
+        }
+        else if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <MudAlert Severity="Severity.Error">@_error</MudAlert>
+        }
+        else
+        {
+            <MudPaper Elevation="0" Class="pa-4">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+                    <MudAvatar Size="Size.Large">
+                        @if (string.IsNullOrWhiteSpace(_profile?.ProfileImageUrl))
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.Person" />
+                        }
+                        else
+                        {
+                            <MudImage Src="@_profile.ProfileImageUrl" Alt="@DisplayName" />
+                        }
+                    </MudAvatar>
+                    <div>
+                        <MudText Typo="Typo.h4">Welcome, @DisplayName</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Track your saved dogs and adoption requests in one place.</MudText>
+                    </div>
+                </MudStack>
+            </MudPaper>
+
+            <MudGrid>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudCard>
+                        <MudCardContent>
+                            <MudText Typo="Typo.h6">Favorite Dogs</MudText>
+                            <MudText Typo="Typo.h4">@_favoriteCount</MudText>
+                        </MudCardContent>
+                    </MudCard>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudCard>
+                        <MudCardContent>
+                            <MudText Typo="Typo.h6">Requests</MudText>
+                            <MudText Typo="Typo.h4">@_requestSummary.Total</MudText>
+                        </MudCardContent>
+                    </MudCard>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudCard>
+                        <MudCardContent>
+                            <MudText Typo="Typo.h6">Pending</MudText>
+                            <MudText Typo="Typo.h4">@_requestSummary.Pending</MudText>
+                        </MudCardContent>
+                    </MudCard>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudCard>
+                        <MudCardContent>
+                            <MudText Typo="Typo.h6">Accepted</MudText>
+                            <MudText Typo="Typo.h4">@_requestSummary.Accepted</MudText>
+                        </MudCardContent>
+                    </MudCard>
+                </MudItem>
+            </MudGrid>
+
+            <MudPaper Elevation="0" Class="pa-4">
+                <MudText Typo="Typo.h5" Class="mb-3">Quick Actions</MudText>
+                <MudGrid>
+                    <MudItem xs="12" sm="6" md="3">
+                        <MudButton Href="/dogs" Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" StartIcon="@Icons.Material.Filled.Search">Browse Dogs</MudButton>
+                    </MudItem>
+                    <MudItem xs="12" sm="6" md="3">
+                        <MudButton Href="/favorites" Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" StartIcon="@Icons.Material.Filled.Favorite">View Favorites</MudButton>
+                    </MudItem>
+                    <MudItem xs="12" sm="6" md="3">
+                        <MudButton Href="/my-adoption-requests" Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" StartIcon="@Icons.Material.Filled.Assignment">My Requests</MudButton>
+                    </MudItem>
+                    <MudItem xs="12" sm="6" md="3">
+                        <MudButton Href="/adopter/profile" Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" StartIcon="@Icons.Material.Filled.AccountCircle">Edit Profile</MudButton>
+                    </MudItem>
+                </MudGrid>
+            </MudPaper>
+
+            <MudGrid Spacing="3">
+                <MudItem xs="12" md="7">
+                    <MudPaper Elevation="0" Class="pa-4 h-100">
+                        <MudText Typo="Typo.h5" Class="mb-3">Recent Adoption Requests</MudText>
+                        @if (_recentRequests.Count == 0)
+                        {
+                            <MudAlert Severity="Severity.Info">You have not submitted any adoption requests yet.</MudAlert>
+                        }
+                        else
+                        {
+                            <MudTable Items="_recentRequests" Dense="true" Hover="true">
+                                <HeaderContent>
+                                    <MudTh>Dog</MudTh>
+                                    <MudTh>Shelter</MudTh>
+                                    <MudTh>Status</MudTh>
+                                    <MudTh>Created</MudTh>
+                                </HeaderContent>
+                                <RowTemplate>
+                                    <MudTd DataLabel="Dog">@context.Dog?.Name</MudTd>
+                                    <MudTd DataLabel="Shelter">@(context.Dog?.Shelter?.Name ?? "-")</MudTd>
+                                    <MudTd DataLabel="Status">
+                                        <MudChip T="string" Color="@GetRequestStatusColor(context.Status)" Size="Size.Small">@context.Status</MudChip>
+                                    </MudTd>
+                                    <MudTd DataLabel="Created">@context.CreatedAt.ToLocalTime().ToString("dd MMM yyyy")</MudTd>
+                                </RowTemplate>
+                            </MudTable>
+                        }
+                    </MudPaper>
+                </MudItem>
+
+                <MudItem xs="12" md="5">
+                    <MudPaper Elevation="0" Class="pa-4 h-100">
+                        <MudText Typo="Typo.h5" Class="mb-3">Favorite Dogs</MudText>
+                        @if (_recentFavorites.Count == 0)
+                        {
+                            <MudAlert Severity="Severity.Info">You have not saved any favorite dogs yet.</MudAlert>
+                        }
+                        else
+                        {
+                            <MudStack Spacing="2">
+                                @foreach (var favorite in _recentFavorites)
+                                {
+                                    @if (favorite.Dog is not null)
+                                    {
+                                        <MudCard>
+                                            <MudCardContent>
+                                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                                    <MudAvatar Size="Size.Large">
+                                                        <MudImage Src="@GetDogImageUrl(favorite.Dog)" Alt="@favorite.Dog.Name" />
+                                                    </MudAvatar>
+                                                    <div>
+                                                        <MudText Typo="Typo.subtitle1">@favorite.Dog.Name</MudText>
+                                                        <MudText Typo="Typo.body2" Color="Color.Secondary">@favorite.Dog.Breed | @favorite.Dog.Location</MudText>
+                                                    </div>
+                                                    <MudSpacer />
+                                                    <MudButton Href="@($"/dogs/{favorite.Dog.Id}")" Variant="Variant.Text" Color="Color.Primary">View Details</MudButton>
+                                                </MudStack>
+                                            </MudCardContent>
+                                        </MudCard>
+                                    }
+                                }
+                            </MudStack>
+                        }
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        }
+    </MudStack>
+</MudContainer>
+
+@code {
+    private AdopterProfile? _profile;
+    private AdoptionRequestSummary _requestSummary = new(0, 0, 0);
+    private List<AdoptionRequest> _recentRequests = [];
+    private List<FavoriteDog> _recentFavorites = [];
+    private bool _isLoading = true;
+    private string? _error;
+    private string? _userEmail;
+    private int _favoriteCount;
+
+    private string DisplayName => !string.IsNullOrWhiteSpace(_profile?.FullName)
+        ? _profile.FullName
+        : _userEmail ?? "Adopter";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var user = await UserManager.GetUserAsync(authState.User);
+            if (user is null)
+            {
+                _error = "Current adopter account could not be found.";
+                return;
+            }
+
+            _userEmail = user.Email;
+            _profile = await AdopterProfileService.GetProfileForUserAsync(user.Id);
+            _favoriteCount = await FavoriteDogService.GetFavoriteCountForUserAsync(user.Id);
+            _recentFavorites = await FavoriteDogService.GetRecentFavoritesForUserAsync(user.Id, 3);
+            _requestSummary = await AdoptionRequestService.GetAdoptionRequestSummaryForUserAsync(user.Id);
+            _recentRequests = await AdoptionRequestService.GetRecentRequestsForAdopterAsync(user.Id, 5);
+        }
+        catch
+        {
+            _error = "Adopter dashboard could not be loaded right now.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private static Color GetRequestStatusColor(AdoptionRequestStatus status)
+    {
+        return status switch
+        {
+            AdoptionRequestStatus.Pending => Color.Warning,
+            AdoptionRequestStatus.Accepted => Color.Success,
+            AdoptionRequestStatus.Rejected => Color.Error,
+            AdoptionRequestStatus.Cancelled => Color.Default,
+            _ => Color.Default
+        };
+    }
+
+    private static string GetDogImageUrl(Dog dog)
+    {
+        return dog.Images.FirstOrDefault(i => i.IsMainImage)?.ImageUrl
+            ?? dog.Images.FirstOrDefault()?.ImageUrl
+            ?? "https://placehold.co/100x100?text=Dog";
+    }
+}
