@@ -1,30 +1,102 @@
 @page "/admin/adoption-requests"
+@using PawConnect.Data
 @attribute [Authorize(Roles = "Admin")]
+@inject IAdoptionRequestService AdoptionRequestService
 
 <PageTitle>Admin Adoption Requests</PageTitle>
 
-<MudStack Spacing="3">
-    <MudText Typo="Typo.h4">Adoption Requests</MudText>
-    <MudAlert Severity="Severity.Info">Adoption request moderation will be implemented after the core workflow is added.</MudAlert>
-    <MudTable Items="_requests" Dense="true" Hover="true">
-        <HeaderContent>
-            <MudTh>Dog</MudTh>
-            <MudTh>Adopter</MudTh>
-            <MudTh>Status</MudTh>
-        </HeaderContent>
-        <RowTemplate>
-            <MudTd DataLabel="Dog">@context.DogName</MudTd>
-            <MudTd DataLabel="Adopter">@context.AdopterEmail</MudTd>
-            <MudTd DataLabel="Status"><MudChip T="string" Color="Color.Warning" Size="Size.Small">@context.Status</MudChip></MudTd>
-        </RowTemplate>
-        <NoRecordsContent>
-            <MudText Class="pa-4">No adoption requests found.</MudText>
-        </NoRecordsContent>
-    </MudTable>
-</MudStack>
+<MudContainer MaxWidth="MaxWidth.False" Class="px-0">
+    <MudStack Spacing="3">
+        <div>
+            <MudText Typo="Typo.h4">Adoption Requests</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">View adoption request activity across all shelters.</MudText>
+        </div>
+
+        @if (_isLoading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="py-8">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Loading adoption requests...</MudText>
+            </MudStack>
+        }
+        else if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <MudAlert Severity="Severity.Error">@_error</MudAlert>
+        }
+        else if (_requests.Count == 0)
+        {
+            <MudAlert Severity="Severity.Info">No adoption requests found.</MudAlert>
+        }
+        else
+        {
+            <MudTable Items="_requests" Dense="true" Hover="true">
+                <HeaderContent>
+                    <MudTh>Dog</MudTh>
+                    <MudTh>Shelter</MudTh>
+                    <MudTh>Adopter</MudTh>
+                    <MudTh>Status</MudTh>
+                    <MudTh>Message</MudTh>
+                    <MudTh>Created</MudTh>
+                    <MudTh>Updated</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Dog">@context.Dog?.Name</MudTd>
+                    <MudTd DataLabel="Shelter">@(context.Dog?.Shelter?.Name ?? "-")</MudTd>
+                    <MudTd DataLabel="Adopter">@GetAdopterName(context.Adopter)</MudTd>
+                    <MudTd DataLabel="Status">
+                        <MudChip T="string" Color="@GetStatusColor(context.Status)" Size="Size.Small">@context.Status</MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Message">@(string.IsNullOrWhiteSpace(context.Message) ? "-" : context.Message)</MudTd>
+                    <MudTd DataLabel="Created">@context.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
+                    <MudTd DataLabel="Updated">@context.UpdatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
+                </RowTemplate>
+            </MudTable>
+        }
+    </MudStack>
+</MudContainer>
 
 @code {
-    private readonly List<RequestRow> _requests = [];
+    private List<AdoptionRequest> _requests = [];
+    private bool _isLoading = true;
+    private string? _error;
 
-    private sealed record RequestRow(string DogName, string AdopterEmail, string Status);
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _requests = await AdoptionRequestService.GetAllAsync();
+        }
+        catch
+        {
+            _error = "Adoption request data could not be loaded right now.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private static string GetAdopterName(ApplicationUser? adopter)
+    {
+        if (adopter is null)
+        {
+            return "Unknown adopter";
+        }
+
+        return string.IsNullOrWhiteSpace(adopter.FullName)
+            ? adopter.Email ?? adopter.UserName ?? "Unknown adopter"
+            : $"{adopter.FullName} ({adopter.Email})";
+    }
+
+    private static Color GetStatusColor(AdoptionRequestStatus status)
+    {
+        return status switch
+        {
+            AdoptionRequestStatus.Pending => Color.Warning,
+            AdoptionRequestStatus.Accepted => Color.Success,
+            AdoptionRequestStatus.Rejected => Color.Error,
+            AdoptionRequestStatus.Cancelled => Color.Default,
+            _ => Color.Default
+        };
+    }
 }

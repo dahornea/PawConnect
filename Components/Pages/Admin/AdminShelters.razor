@@ -4,30 +4,51 @@
 
 <PageTitle>Shelters</PageTitle>
 
-<MudStack Spacing="3">
-    <MudText Typo="Typo.h4">Shelters</MudText>
-    @if (!string.IsNullOrWhiteSpace(_error))
-    {
-        <MudAlert Severity="Severity.Error">@_error</MudAlert>
-    }
-    <MudTable Items="_shelters" Dense="true" Hover="true" Loading="_isLoading">
-        <HeaderContent>
-            <MudTh>Name</MudTh>
-            <MudTh>Email</MudTh>
-            <MudTh>Dogs</MudTh>
-            <MudTh>Resources</MudTh>
-        </HeaderContent>
-        <RowTemplate>
-            <MudTd DataLabel="Name">@context.Name</MudTd>
-            <MudTd DataLabel="Email">@context.Email</MudTd>
-            <MudTd DataLabel="Dogs">@context.Dogs.Count</MudTd>
-            <MudTd DataLabel="Resources">@context.ResourceStocks.Count</MudTd>
-        </RowTemplate>
-        <NoRecordsContent>
-            <MudText Class="pa-4">No shelters found.</MudText>
-        </NoRecordsContent>
-    </MudTable>
-</MudStack>
+<MudContainer MaxWidth="MaxWidth.False" Class="px-0">
+    <MudStack Spacing="3">
+        <div>
+            <MudText Typo="Typo.h4">Shelters</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">View registered shelter profiles and their dog counts.</MudText>
+        </div>
+
+        @if (_isLoading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="py-8">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Loading shelters...</MudText>
+            </MudStack>
+        }
+        else if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <MudAlert Severity="Severity.Error">@_error</MudAlert>
+        }
+        else if (_shelters.Count == 0)
+        {
+            <MudAlert Severity="Severity.Info">No shelters found.</MudAlert>
+        }
+        else
+        {
+            <MudTable Items="_shelters" Dense="true" Hover="true">
+                <HeaderContent>
+                    <MudTh>Name</MudTh>
+                    <MudTh>City</MudTh>
+                    <MudTh>Address</MudTh>
+                    <MudTh>Email</MudTh>
+                    <MudTh>Phone</MudTh>
+                    <MudTh>Dogs</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Name">@context.Name</MudTd>
+                    <MudTd DataLabel="City">@context.City</MudTd>
+                    <MudTd DataLabel="Address">@context.Address</MudTd>
+                    <MudTd DataLabel="Email">@context.Email</MudTd>
+                    <MudTd DataLabel="Phone">@(string.IsNullOrWhiteSpace(context.PhoneNumber) ? "-" : context.PhoneNumber)</MudTd>
+                    <MudTd DataLabel="Dogs">@context.Dogs.Count</MudTd>
+                </RowTemplate>
+            </MudTable>
+        }
+    </MudStack>
+</MudContainer>
 
 @code {
     private List<Shelter> _shelters = [];

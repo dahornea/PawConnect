@@ -1,44 +1,94 @@
 @page "/admin/dogs"
 @attribute [Authorize(Roles = "Admin")]
 @inject IDogService DogService
+@inject ISnackbar Snackbar
 
 <PageTitle>Admin Dogs</PageTitle>
 
-<MudStack Spacing="3">
-    <MudText Typo="Typo.h4">Dogs</MudText>
-    @if (!string.IsNullOrWhiteSpace(_error))
-    {
-        <MudAlert Severity="Severity.Error">@_error</MudAlert>
-    }
-    <MudTable Items="_dogs" Dense="true" Hover="true" Loading="_isLoading">
-        <HeaderContent>
-            <MudTh>Name</MudTh>
-            <MudTh>Breed</MudTh>
-            <MudTh>Shelter</MudTh>
-            <MudTh>Status</MudTh>
-        </HeaderContent>
-        <RowTemplate>
-            <MudTd DataLabel="Name">@context.Name</MudTd>
-            <MudTd DataLabel="Breed">@context.Breed</MudTd>
-            <MudTd DataLabel="Shelter">@context.Shelter?.Name</MudTd>
-            <MudTd DataLabel="Status"><MudChip T="string" Color="Color.Primary" Size="Size.Small">@context.Status</MudChip></MudTd>
-        </RowTemplate>
-        <NoRecordsContent>
-            <MudText Class="pa-4">No dogs found.</MudText>
-        </NoRecordsContent>
-    </MudTable>
-</MudStack>
+<MudContainer MaxWidth="MaxWidth.False" Class="px-0">
+    <MudStack Spacing="3">
+        <div>
+            <MudText Typo="Typo.h4">Dogs</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">View dogs from all shelters and safely remove unused records.</MudText>
+        </div>
+
+        @if (_isLoading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="py-8">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Loading dogs...</MudText>
+            </MudStack>
+        }
+        else if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <MudAlert Severity="Severity.Error">@_error</MudAlert>
+        }
+        else if (_dogs.Count == 0)
+        {
+            <MudAlert Severity="Severity.Info">No dogs found.</MudAlert>
+        }
+        else
+        {
+            <MudTable Items="_dogs" Dense="true" Hover="true">
+                <HeaderContent>
+                    <MudTh>Dog</MudTh>
+                    <MudTh>Breed</MudTh>
+                    <MudTh>Age</MudTh>
+                    <MudTh>Size</MudTh>
+                    <MudTh>Location</MudTh>
+                    <MudTh>Shelter</MudTh>
+                    <MudTh>Status</MudTh>
+                    <MudTh></MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Dog">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudAvatar Size="Size.Large">
+                                <MudImage Src="@GetImageUrl(context)" Alt="@context.Name" />
+                            </MudAvatar>
+                            <MudText Typo="Typo.body2">@context.Name</MudText>
+                        </MudStack>
+                    </MudTd>
+                    <MudTd DataLabel="Breed">@context.Breed</MudTd>
+                    <MudTd DataLabel="Age">@context.Age</MudTd>
+                    <MudTd DataLabel="Size">@context.Size</MudTd>
+                    <MudTd DataLabel="Location">@context.Location</MudTd>
+                    <MudTd DataLabel="Shelter">@(context.Shelter?.Name ?? "-")</MudTd>
+                    <MudTd DataLabel="Status">
+                        <MudChip T="string" Color="@GetStatusColor(context.Status)" Size="Size.Small">@context.Status</MudChip>
+                    </MudTd>
+                    <MudTd>
+                        <MudStack Row="true" Spacing="1">
+                            <MudButton Href="@($"/dogs/{context.Id}")" Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Visibility">View</MudButton>
+                            @if (_deleteConfirmDogId == context.Id)
+                            {
+                                <MudButton Variant="Variant.Text" Color="Color.Error" StartIcon="@Icons.Material.Filled.DeleteForever" Disabled="_isDeleting" OnClick="@(() => DeleteDogAsync(context))">Confirm</MudButton>
+                                <MudButton Variant="Variant.Text" Color="Color.Default" Disabled="_isDeleting" OnClick="CancelDelete">Cancel</MudButton>
+                            }
+                            else
+                            {
+                                <MudButton Variant="Variant.Text" Color="Color.Error" StartIcon="@Icons.Material.Filled.Delete" Disabled="_isDeleting" OnClick="@(() => AskDeleteConfirmation(context))">Delete</MudButton>
+                            }
+                        </MudStack>
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        }
+    </MudStack>
+</MudContainer>
 
 @code {
     private List<Dog> _dogs = [];
     private bool _isLoading = true;
+    private bool _isDeleting;
     private string? _error;
+    private int? _deleteConfirmDogId;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            _dogs = await DogService.GetAllDogsAsync();
+            _dogs = await DogService.GetAllDogsForAdminAsync();
         }
         catch
         {
@@ -48,5 +98,60 @@
         {
             _isLoading = false;
         }
+    }
+
+    private void AskDeleteConfirmation(Dog dog)
+    {
+        _deleteConfirmDogId = dog.Id;
+        Snackbar.Add($"Click Confirm to delete {dog.Name}. Dogs with favorites or adoption requests cannot be deleted.", Severity.Info);
+    }
+
+    private void CancelDelete()
+    {
+        _deleteConfirmDogId = null;
+    }
+
+    private async Task DeleteDogAsync(Dog dog)
+    {
+        _isDeleting = true;
+
+        try
+        {
+            await DogService.DeleteDogForAdminAsync(dog.Id);
+            _dogs.Remove(dog);
+            _deleteConfirmDogId = null;
+            Snackbar.Add($"{dog.Name} was deleted.", Severity.Success);
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch
+        {
+            Snackbar.Add("Dog could not be deleted right now.", Severity.Error);
+        }
+        finally
+        {
+            _isDeleting = false;
+        }
+    }
+
+    private static string GetImageUrl(Dog dog)
+    {
+        return dog.Images.FirstOrDefault(i => i.IsMainImage)?.ImageUrl
+            ?? dog.Images.FirstOrDefault()?.ImageUrl
+            ?? "https://placehold.co/100x100?text=Dog";
+    }
+
+    private static Color GetStatusColor(DogStatus status)
+    {
+        return status switch
+        {
+            DogStatus.Available => Color.Success,
+            DogStatus.Reserved => Color.Warning,
+            DogStatus.Adopted => Color.Default,
+            DogStatus.InTreatment => Color.Info,
+            _ => Color.Default
+        };
     }
 }

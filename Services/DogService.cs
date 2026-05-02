@@ -206,6 +206,38 @@ public class DogService(ApplicationDbContext context) : IDogService
         await context.SaveChangesAsync();
     }
 
+    public Task<List<Dog>> GetAllDogsForAdminAsync()
+    {
+        return context.Dogs
+            .Include(d => d.Shelter)
+            .Include(d => d.Images)
+            .Include(d => d.PreferredFoodType)
+            .OrderBy(d => d.Name)
+            .AsNoTracking()
+            .ToListAsync();
+    }
+
+    public async Task DeleteDogForAdminAsync(int dogId)
+    {
+        var dog = await context.Dogs
+            .Include(d => d.AdoptionRequests)
+            .Include(d => d.FavoriteDogs)
+            .FirstOrDefaultAsync(d => d.Id == dogId);
+
+        if (dog is null)
+        {
+            throw new InvalidOperationException("Dog was not found.");
+        }
+
+        if (dog.AdoptionRequests.Count > 0 || dog.FavoriteDogs.Count > 0)
+        {
+            throw new InvalidOperationException("This dog cannot be deleted because it already has adoption requests or favorites.");
+        }
+
+        context.Dogs.Remove(dog);
+        await context.SaveChangesAsync();
+    }
+
     private static void ValidateDog(Dog dog)
     {
         if (string.IsNullOrWhiteSpace(dog.Name))

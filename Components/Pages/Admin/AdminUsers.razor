@@ -1,31 +1,90 @@
 @page "/admin/users"
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
+@using PawConnect.Data
 @attribute [Authorize(Roles = "Admin")]
+@inject UserManager<ApplicationUser> UserManager
 
 <PageTitle>Users</PageTitle>
 
-<MudStack Spacing="3">
-    <MudText Typo="Typo.h4">Users</MudText>
-    <MudTable Items="_users" Dense="true" Hover="true">
-        <HeaderContent>
-            <MudTh>Email</MudTh>
-            <MudTh>Role</MudTh>
-            <MudTh>Status</MudTh>
-        </HeaderContent>
-        <RowTemplate>
-            <MudTd DataLabel="Email">@context.Email</MudTd>
-            <MudTd DataLabel="Role"><MudChip T="string" Color="Color.Primary" Size="Size.Small">@context.Role</MudChip></MudTd>
-            <MudTd DataLabel="Status">Seed user</MudTd>
-        </RowTemplate>
-    </MudTable>
-</MudStack>
+<MudContainer MaxWidth="MaxWidth.False" Class="px-0">
+    <MudStack Spacing="3">
+        <div>
+            <MudText Typo="Typo.h4">Users</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">View registered users and their assigned roles.</MudText>
+        </div>
+
+        @if (_isLoading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="py-8">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Loading users...</MudText>
+            </MudStack>
+        }
+        else if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <MudAlert Severity="Severity.Error">@_error</MudAlert>
+        }
+        else if (_users.Count == 0)
+        {
+            <MudAlert Severity="Severity.Info">No users found.</MudAlert>
+        }
+        else
+        {
+            <MudTable Items="_users" Dense="true" Hover="true">
+                <HeaderContent>
+                    <MudTh>Email</MudTh>
+                    <MudTh>User Name</MudTh>
+                    <MudTh>Phone</MudTh>
+                    <MudTh>Roles</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Email">@context.Email</MudTd>
+                    <MudTd DataLabel="User Name">@(string.IsNullOrWhiteSpace(context.UserName) ? "-" : context.UserName)</MudTd>
+                    <MudTd DataLabel="Phone">@(string.IsNullOrWhiteSpace(context.PhoneNumber) ? "-" : context.PhoneNumber)</MudTd>
+                    <MudTd DataLabel="Roles">
+                        <MudStack Row="true" Spacing="1">
+                            @foreach (var role in context.Roles)
+                            {
+                                <MudChip T="string" Color="Color.Primary" Size="Size.Small">@role</MudChip>
+                            }
+                        </MudStack>
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        }
+    </MudStack>
+</MudContainer>
 
 @code {
-    private readonly List<UserRow> _users =
-    [
-        new("adopter@pawconnect.test", "Adopter"),
-        new("shelter@pawconnect.test", "Shelter"),
-        new("admin@pawconnect.test", "Admin")
-    ];
+    private List<UserRow> _users = [];
+    private bool _isLoading = true;
+    private string? _error;
 
-    private sealed record UserRow(string Email, string Role);
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var users = await UserManager.Users.OrderBy(u => u.Email).ToListAsync();
+            foreach (var user in users)
+            {
+                var roles = await UserManager.GetRolesAsync(user);
+                _users.Add(new UserRow(
+                    user.Email,
+                    user.UserName,
+                    user.PhoneNumber,
+                    roles.Count == 0 ? ["No role"] : roles.ToList()));
+            }
+        }
+        catch
+        {
+            _error = "User data could not be loaded right now.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private sealed record UserRow(string? Email, string? UserName, string? PhoneNumber, List<string> Roles);
 }
