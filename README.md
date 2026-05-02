@@ -29,6 +29,7 @@ PawConnect is a beginner-friendly ASP.NET Core Blazor Server skeleton for a stra
 - SMTP email notification service using configuration-based settings
 - Adopter profile page for household/contact information used during adoption request review
 - Dog status history tracking for shelter/admin review
+- Internal shelter notes for adoption requests, visible only to shelter users and admins
 
 ## Planned Features
 
@@ -122,10 +123,10 @@ Apply migrations to the `PawConnect` database:
 dotnet tool run dotnet-ef database update
 ```
 
-The latest dog status history migration is:
+The latest internal notes migration is:
 
 ```text
-20260502214920_AddDogStatusHistory
+20260502220517_AddShelterInternalNotes
 ```
 
 If `dotnet ef database update` cannot connect from your terminal, check that SQL Server/LocalDB is running and that the `DefaultConnection` server name matches the `PawConnect` database you created in SSMS.

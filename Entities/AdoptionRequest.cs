@@ -30,6 +30,9 @@ public class AdoptionRequest
     [StringLength(1000)]
     public string? AdditionalInformation { get; set; }
 
+    [StringLength(2000)]
+    public string? ShelterInternalNotes { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

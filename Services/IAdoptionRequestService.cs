@@ -33,6 +33,8 @@ public interface IAdoptionRequestService
     Task RejectRequestAsync(int requestId, int shelterId);
 
     Task CancelRequestAsync(int requestId, string adopterId);
+
+    Task UpdateShelterInternalNotesAsync(int requestId, int shelterId, string? notes);
 }
 
 public sealed record AdoptionRequestSummary(int Total, int Pending, int Accepted);
