@@ -1,48 +1,191 @@
 @page "/shelter/dogs/edit/{Id:int}"
+@using Microsoft.AspNetCore.Identity
+@using PawConnect.Data
 @attribute [Authorize(Roles = "Shelter")]
+@inject IDogService DogService
+@inject IFoodTypeService FoodTypeService
+@inject IShelterService ShelterService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject UserManager<ApplicationUser> UserManager
+@inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
 
 <PageTitle>Edit Dog</PageTitle>
 
-<MudStack Spacing="3">
-    <MudText Typo="Typo.h4">Edit Dog</MudText>
-    <MudAlert Severity="Severity.Info">Editing dog #@Id is a placeholder screen.</MudAlert>
+<MudContainer MaxWidth="MaxWidth.Medium" Class="px-0">
+    <MudStack Spacing="3">
+        <div>
+            <MudText Typo="Typo.h4">Edit Dog</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Update a dog profile from your shelter.</MudText>
+        </div>
 
-    <MudCard>
-        <MudCardContent>
-            <MudForm>
-                <MudGrid>
-                    <MudItem xs="12" md="6"><MudTextField Label="Name" @bind-Value="_name" /></MudItem>
-                    <MudItem xs="12" md="6"><MudTextField Label="Breed" @bind-Value="_breed" /></MudItem>
-                    <MudItem xs="12" md="4">
-                        <MudSelect T="DogStatus" Label="Status" Value="DogStatus.Available">
-                            <MudSelectItem Value="DogStatus.Available">Available</MudSelectItem>
-                            <MudSelectItem Value="DogStatus.Reserved">Reserved</MudSelectItem>
-                            <MudSelectItem Value="DogStatus.Adopted">Adopted</MudSelectItem>
-                            <MudSelectItem Value="DogStatus.InTreatment">In Treatment</MudSelectItem>
-                        </MudSelect>
-                    </MudItem>
-                    <MudItem xs="12"><MudTextField Label="Description" Lines="4" @bind-Value="_description" /></MudItem>
-                </MudGrid>
-            </MudForm>
-        </MudCardContent>
-        <MudCardActions>
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save" OnClick="SavePlaceholder">Save Changes</MudButton>
-            <MudButton Href="/shelter/dogs" Variant="Variant.Text">Back</MudButton>
-        </MudCardActions>
-    </MudCard>
-</MudStack>
+        @if (_isLoading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="py-8">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Loading dog...</MudText>
+            </MudStack>
+        }
+        else if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <MudAlert Severity="Severity.Error">@_error</MudAlert>
+            <MudButton Href="/shelter/dogs" Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.ArrowBack">Back to Dogs</MudButton>
+        }
+        else if (_model is not null)
+        {
+            <MudCard>
+                <MudCardContent>
+                    <MudForm @ref="_form">
+                        <MudGrid>
+                            <MudItem xs="12" md="6">
+                                <MudTextField Label="Name" @bind-Value="_model.Name" Required="true" RequiredError="Name is required." Variant="Variant.Outlined" />
+                            </MudItem>
+                            <MudItem xs="12" md="6">
+                                <MudTextField Label="Breed" @bind-Value="_model.Breed" Required="true" RequiredError="Breed is required." Variant="Variant.Outlined" />
+                            </MudItem>
+                            <MudItem xs="12" md="4">
+                                <MudNumericField T="int" Label="Age" @bind-Value="_model.Age" Min="0" Max="30" Variant="Variant.Outlined" />
+                            </MudItem>
+                            <MudItem xs="12" md="4">
+                                <MudSelect T="DogSize" Label="Size" @bind-Value="_model.Size" Required="true" Variant="Variant.Outlined">
+                                    @foreach (var size in Enum.GetValues<DogSize>())
+                                    {
+                                        <MudSelectItem Value="@size">@size</MudSelectItem>
+                                    }
+                                </MudSelect>
+                            </MudItem>
+                            <MudItem xs="12" md="4">
+                                <MudSelect T="DogStatus" Label="Status" @bind-Value="_model.Status" Required="true" Variant="Variant.Outlined">
+                                    @foreach (var status in Enum.GetValues<DogStatus>())
+                                    {
+                                        <MudSelectItem Value="@status">@status</MudSelectItem>
+                                    }
+                                </MudSelect>
+                            </MudItem>
+                            <MudItem xs="12">
+                                <MudTextField Label="Location" @bind-Value="_model.Location" Required="true" RequiredError="Location is required." Variant="Variant.Outlined" />
+                            </MudItem>
+                            <MudItem xs="12" md="6">
+                                <MudSelect T="int?" Label="Preferred Food Type" @bind-Value="_model.PreferredFoodTypeId" Clearable="true" Variant="Variant.Outlined">
+                                    @foreach (var foodType in _foodTypes)
+                                    {
+                                        <MudSelectItem T="int?" Value="@((int?)foodType.Id)">@foodType.Name</MudSelectItem>
+                                    }
+                                </MudSelect>
+                            </MudItem>
+                            <MudItem xs="12" md="6">
+                                <MudNumericField T="int?" Label="Daily Food Amount (grams)" @bind-Value="_model.DailyFoodAmountGrams" Min="1" Max="10000" Variant="Variant.Outlined" />
+                            </MudItem>
+                            <MudItem xs="12">
+                                <MudTextField Label="Description" @bind-Value="_model.Description" Lines="4" Variant="Variant.Outlined" />
+                            </MudItem>
+                            <MudItem xs="12">
+                                <MudTextField Label="Behavior Description" @bind-Value="_model.BehaviorDescription" Lines="3" Variant="Variant.Outlined" />
+                            </MudItem>
+                            <MudItem xs="12">
+                                <MudTextField Label="Medical Status" @bind-Value="_model.MedicalStatus" Lines="3" Variant="Variant.Outlined" />
+                            </MudItem>
+                        </MudGrid>
+                    </MudForm>
+                </MudCardContent>
+                <MudCardActions>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save" Disabled="_isSaving" OnClick="SaveAsync">Save Changes</MudButton>
+                    <MudButton Href="/shelter/dogs" Variant="Variant.Text" Disabled="_isSaving">Back</MudButton>
+                </MudCardActions>
+            </MudCard>
+        }
+    </MudStack>
+</MudContainer>
 
 @code {
     [Parameter]
     public int Id { get; set; }
 
-    private string _name = "Sample Dog";
-    private string _breed = "Mixed Breed";
-    private string _description = "Placeholder description";
+    private Dog? _model;
+    private List<FoodType> _foodTypes = [];
+    private MudForm? _form;
+    private bool _isLoading = true;
+    private bool _isSaving;
+    private string? _error;
+    private int? _shelterId;
 
-    private void SavePlaceholder()
+    protected override async Task OnInitializedAsync()
     {
-        Snackbar.Add("Changes saved as a placeholder.", Severity.Success);
+        try
+        {
+            _shelterId = await GetCurrentShelterIdAsync();
+            if (_shelterId is null)
+            {
+                _error = "No shelter profile is linked to this account.";
+                return;
+            }
+
+            _foodTypes = await FoodTypeService.GetAllAsync();
+            _model = await DogService.GetDogForShelterAsync(Id, _shelterId.Value);
+            if (_model is null)
+            {
+                _error = "Dog was not found for your shelter.";
+            }
+        }
+        catch
+        {
+            _error = "The dog could not be loaded right now.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_model is null || _shelterId is null)
+        {
+            Snackbar.Add("Current dog or shelter profile could not be found.", Severity.Error);
+            return;
+        }
+
+        if (_form is not null)
+        {
+            await _form.ValidateAsync();
+            if (!_form.IsValid)
+            {
+                return;
+            }
+        }
+
+        _isSaving = true;
+
+        try
+        {
+            await DogService.UpdateDogAsync(_model, _shelterId.Value);
+            Snackbar.Add("Dog updated successfully.", Severity.Success);
+            NavigationManager.NavigateTo("/shelter/dogs");
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch
+        {
+            Snackbar.Add("Dog could not be updated right now.", Severity.Error);
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private async Task<int?> GetCurrentShelterIdAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = await UserManager.GetUserAsync(authState.User);
+        if (user is null)
+        {
+            return null;
+        }
+
+        var shelter = await ShelterService.GetShelterForUserAsync(user.Id);
+        return shelter?.Id;
     }
 }
