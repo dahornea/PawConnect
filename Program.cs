@@ -55,6 +55,7 @@ builder.Services.AddScoped<IMedicalRecordService, MedicalRecordService>();
 builder.Services.AddScoped<IDogImageService, DogImageService>();
 builder.Services.AddScoped<IResourceCategoryService, ResourceCategoryService>();
 builder.Services.AddScoped<IFoodTypeService, FoodTypeService>();
+builder.Services.AddScoped<IAdopterProfileService, AdopterProfileService>();
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 

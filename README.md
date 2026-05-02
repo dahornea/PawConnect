@@ -20,13 +20,14 @@ PawConnect is a beginner-friendly ASP.NET Core Blazor Server skeleton for a stra
 
 - Identity user model with role support
 - SQL Server DbContext and EF migrations
-- Domain entities for shelters, dogs, dog images, medical records, adoption requests, favorite dogs, and resource stock
+- Domain entities for shelters, dogs, dog images, medical records, adoption requests, favorite dogs, adopter profiles, and resource stock
 - Seed roles, test users, and demo domain data at startup after the database schema exists
 - Demo data includes one shelter, five dogs, dog images, medical records, resource categories, food types, and resource stock
 - MudBlazor layout with role-based sidebar navigation
 - Placeholder pages for public, adopter, shelter, and admin workflows
 - Simple service and repository layer
 - SMTP email notification service using configuration-based settings
+- Adopter profile page for household/contact information used during adoption request review
 
 ## Planned Features
 
@@ -120,10 +121,10 @@ Apply migrations to the `PawConnect` database:
 dotnet tool run dotnet-ef database update
 ```
 
-The latest domain/resource migration is:
+The latest profile migration is:
 
 ```text
-20260502160735_AddResourceCategoriesAndFoodTypes
+20260502211319_AddAdopterProfiles
 ```
 
 ## Test Users

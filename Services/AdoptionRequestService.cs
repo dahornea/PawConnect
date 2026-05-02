@@ -14,6 +14,7 @@ public class AdoptionRequestService(ApplicationDbContext context, IEmailService 
             .Include(r => r.Dog)
             .ThenInclude(d => d!.Shelter)
             .Include(r => r.Adopter)
+            .ThenInclude(a => a!.AdopterProfile)
             .AsNoTracking()
             .ToListAsync();
     }
@@ -26,6 +27,7 @@ public class AdoptionRequestService(ApplicationDbContext context, IEmailService 
             .Include(r => r.Dog)
             .ThenInclude(d => d!.Shelter)
             .Include(r => r.Adopter)
+            .ThenInclude(a => a!.AdopterProfile)
             .AsNoTracking()
             .FirstOrDefaultAsync(r => r.Id == id);
     }
@@ -106,6 +108,8 @@ public class AdoptionRequestService(ApplicationDbContext context, IEmailService 
             .ThenInclude(d => d!.Images)
             .Include(r => r.Dog)
             .ThenInclude(d => d!.Shelter)
+            .Include(r => r.Adopter)
+            .ThenInclude(a => a!.AdopterProfile)
             .Where(r => r.AdopterId == adopterId)
             .OrderByDescending(r => r.CreatedAt)
             .AsNoTracking()
@@ -118,6 +122,7 @@ public class AdoptionRequestService(ApplicationDbContext context, IEmailService 
             .Include(r => r.Dog)
             .ThenInclude(d => d!.Images)
             .Include(r => r.Adopter)
+            .ThenInclude(a => a!.AdopterProfile)
             .Where(r => r.Dog != null && r.Dog.ShelterId == shelterId)
             .OrderByDescending(r => r.CreatedAt)
             .AsNoTracking()
