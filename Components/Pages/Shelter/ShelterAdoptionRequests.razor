@@ -39,6 +39,7 @@
                     <MudTh>Dog</MudTh>
                     <MudTh>Adopter</MudTh>
                     <MudTh>Questionnaire</MudTh>
+                    <MudTh>Internal Notes</MudTh>
                     <MudTh>Status</MudTh>
                     <MudTh>Created</MudTh>
                     <MudTh>Updated</MudTh>
@@ -103,6 +104,37 @@
                             }
                         </MudStack>
                     </MudTd>
+                    <MudTd DataLabel="Internal Notes">
+                        <MudStack Spacing="1">
+                            <MudChip T="string" Color="Color.Info" Size="Size.Small" Variant="Variant.Outlined">Private</MudChip>
+                            @if (_editingNotesRequestId == context.Id)
+                            {
+                                <MudTextField Label="Internal shelter notes"
+                                              @bind-Value="_internalNotesModel"
+                                              Lines="4"
+                                              Counter="2000"
+                                              MaxLength="2000"
+                                              Immediate="true"
+                                              Variant="Variant.Outlined" />
+                                <MudStack Row="true" Spacing="1">
+                                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Disabled="@_isSavingNotes" OnClick="@(() => SaveInternalNotesAsync(context))">Save</MudButton>
+                                    <MudButton Variant="Variant.Text" Color="Color.Default" Size="Size.Small" Disabled="@_isSavingNotes" OnClick="CancelInternalNotesEdit">Cancel</MudButton>
+                                </MudStack>
+                            }
+                            else
+                            {
+                                @if (string.IsNullOrWhiteSpace(context.ShelterInternalNotes))
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">No private notes yet.</MudText>
+                                }
+                                else
+                                {
+                                    <MudText Typo="Typo.caption">@context.ShelterInternalNotes</MudText>
+                                }
+                                <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Filled.EditNote" Disabled="@_isSavingNotes" OnClick="@(() => StartInternalNotesEdit(context))">Edit Notes</MudButton>
+                            }
+                        </MudStack>
+                    </MudTd>
                     <MudTd DataLabel="Status">
                         <MudChip T="string" Color="@GetStatusColor(context.Status)" Size="Size.Small">@context.Status</MudChip>
                     </MudTd>
@@ -127,9 +159,12 @@
     private List<AdoptionRequest> _requests = [];
     private bool _isLoading = true;
     private bool _isUpdating;
+    private bool _isSavingNotes;
     private string? _error;
     private int? _shelterId;
     private string? _currentUserId;
+    private int? _editingNotesRequestId;
+    private string? _internalNotesModel;
 
     protected override async Task OnInitializedAsync()
     {
@@ -239,6 +274,50 @@
         finally
         {
             _isUpdating = false;
+        }
+    }
+
+    private void StartInternalNotesEdit(AdoptionRequest request)
+    {
+        _editingNotesRequestId = request.Id;
+        _internalNotesModel = request.ShelterInternalNotes;
+    }
+
+    private void CancelInternalNotesEdit()
+    {
+        _editingNotesRequestId = null;
+        _internalNotesModel = null;
+    }
+
+    private async Task SaveInternalNotesAsync(AdoptionRequest request)
+    {
+        if (_shelterId is null)
+        {
+            Snackbar.Add("Current shelter profile could not be found.", Severity.Error);
+            return;
+        }
+
+        _isSavingNotes = true;
+
+        try
+        {
+            await AdoptionRequestService.UpdateShelterInternalNotesAsync(request.Id, _shelterId.Value, _internalNotesModel);
+            request.ShelterInternalNotes = string.IsNullOrWhiteSpace(_internalNotesModel) ? null : _internalNotesModel.Trim();
+            request.UpdatedAt = DateTime.UtcNow;
+            CancelInternalNotesEdit();
+            Snackbar.Add("Internal shelter notes saved.", Severity.Success);
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch
+        {
+            Snackbar.Add("Internal notes could not be saved right now.", Severity.Error);
+        }
+        finally
+        {
+            _isSavingNotes = false;
         }
     }
 

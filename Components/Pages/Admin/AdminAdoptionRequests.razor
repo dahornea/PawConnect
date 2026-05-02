@@ -36,6 +36,7 @@
                     <MudTh>Adopter</MudTh>
                     <MudTh>Status</MudTh>
                     <MudTh>Questionnaire</MudTh>
+                    <MudTh>Internal Notes</MudTh>
                     <MudTh>Profile</MudTh>
                     <MudTh>Created</MudTh>
                     <MudTh>Updated</MudTh>
@@ -54,6 +55,19 @@
                             @if (!string.IsNullOrWhiteSpace(context.AdditionalInformation))
                             {
                                 <MudText Typo="Typo.caption" Color="Color.Secondary">@context.AdditionalInformation</MudText>
+                            }
+                        </MudStack>
+                    </MudTd>
+                    <MudTd DataLabel="Internal Notes">
+                        <MudStack Spacing="1">
+                            <MudChip T="string" Color="Color.Info" Size="Size.Small" Variant="Variant.Outlined">Private</MudChip>
+                            @if (string.IsNullOrWhiteSpace(context.ShelterInternalNotes))
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">No internal notes</MudText>
+                            }
+                            else
+                            {
+                                <MudText Typo="Typo.caption">@context.ShelterInternalNotes</MudText>
                             }
                         </MudStack>
                     </MudTd>

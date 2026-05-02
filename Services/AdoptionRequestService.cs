@@ -246,6 +246,25 @@ public class AdoptionRequestService(ApplicationDbContext context, IEmailService 
         await context.SaveChangesAsync();
     }
 
+    public async Task UpdateShelterInternalNotesAsync(int requestId, int shelterId, string? notes)
+    {
+        if (!string.IsNullOrWhiteSpace(notes) && notes.Length > 2000)
+        {
+            throw new InvalidOperationException("Internal notes must be 2000 characters or fewer.");
+        }
+
+        var request = await context.AdoptionRequests
+            .Include(r => r.Dog)
+            .FirstOrDefaultAsync(r => r.Id == requestId);
+
+        EnsureShelterCanManageRequest(request, shelterId);
+
+        request!.ShelterInternalNotes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
+        request.UpdatedAt = DateTime.UtcNow;
+
+        await context.SaveChangesAsync();
+    }
+
     private static void EnsureShelterCanManageRequest(AdoptionRequest? request, int shelterId)
     {
         if (request?.Dog is null || request.Dog.ShelterId != shelterId)
