@@ -3,6 +3,7 @@
 @using PawConnect.Data
 @inject IDogService DogService
 @inject IFavoriteDogService FavoriteDogService
+@inject IAdoptionRequestService AdoptionRequestService
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject UserManager<ApplicationUser> UserManager
 @inject NavigationManager NavigationManager
@@ -100,8 +101,22 @@ else
 
                             <MudStack Row="true" Spacing="2" Class="mt-2">
                                 <MudButton Variant="@GetFavoriteVariant()" Color="@GetFavoriteColor()" StartIcon="@GetFavoriteIcon()" OnClick="ToggleFavoriteAsync">@GetFavoriteButtonText()</MudButton>
-                                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Send" OnClick="ShowAdoptionPlaceholder">Submit Adoption Request</MudButton>
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Send" Disabled="@_hasPendingRequest" OnClick="StartAdoptionRequestAsync">@GetAdoptionButtonText()</MudButton>
                             </MudStack>
+
+                            @if (_showAdoptionForm)
+                            {
+                                <MudPaper Elevation="0" Class="pa-3 mt-2">
+                                    <MudStack Spacing="2">
+                                        <MudText Typo="Typo.h6">Adoption Request</MudText>
+                                        <MudTextField Label="Message" @bind-Value="_adoptionMessage" Lines="4" Variant="Variant.Outlined" />
+                                        <MudStack Row="true" Spacing="2">
+                                            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Send" Disabled="@_isSubmittingRequest" OnClick="SubmitAdoptionRequestAsync">Submit</MudButton>
+                                            <MudButton Variant="Variant.Text" Color="Color.Default" Disabled="@_isSubmittingRequest" OnClick="CancelAdoptionForm">Cancel</MudButton>
+                                        </MudStack>
+                                    </MudStack>
+                                </MudPaper>
+                            }
                         </MudStack>
                     </MudPaper>
                 </MudItem>
@@ -203,6 +218,10 @@ else
     private string? _currentUserId;
     private bool _currentUserIsAdopter;
     private bool _isFavorite;
+    private bool _hasPendingRequest;
+    private bool _showAdoptionForm;
+    private bool _isSubmittingRequest;
+    private string? _adoptionMessage;
 
     protected override async Task OnInitializedAsync()
     {
@@ -213,6 +232,7 @@ else
             if (_dog is not null && _currentUserIsAdopter && !string.IsNullOrWhiteSpace(_currentUserId))
             {
                 _isFavorite = await FavoriteDogService.IsFavoriteAsync(_currentUserId, _dog.Id);
+                _hasPendingRequest = await AdoptionRequestService.HasPendingRequestAsync(_currentUserId, _dog.Id);
             }
         }
         catch
@@ -305,9 +325,78 @@ else
         }
     }
 
-    private void ShowAdoptionPlaceholder()
+    private async Task StartAdoptionRequestAsync()
     {
-        Snackbar.Add("Adoption request logic will be implemented in a later step.", Severity.Success);
+        if (_dog is null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_currentUserId))
+        {
+            Snackbar.Add("Please log in with an adopter account to submit an adoption request.", Severity.Info);
+            NavigationManager.NavigateTo($"Account/Login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}");
+            return;
+        }
+
+        if (!_currentUserIsAdopter)
+        {
+            Snackbar.Add("Only adopter accounts can submit adoption requests.", Severity.Warning);
+            return;
+        }
+
+        if (_dog.Status is DogStatus.Adopted or DogStatus.InTreatment)
+        {
+            Snackbar.Add("Adoption requests can only be submitted for available or reserved dogs.", Severity.Warning);
+            return;
+        }
+
+        _hasPendingRequest = await AdoptionRequestService.HasPendingRequestAsync(_currentUserId, _dog.Id);
+        if (_hasPendingRequest)
+        {
+            Snackbar.Add("You already have a pending request for this dog.", Severity.Info);
+            return;
+        }
+
+        _showAdoptionForm = true;
+    }
+
+    private async Task SubmitAdoptionRequestAsync()
+    {
+        if (_dog is null || string.IsNullOrWhiteSpace(_currentUserId))
+        {
+            Snackbar.Add("Current adopter account could not be found.", Severity.Error);
+            return;
+        }
+
+        _isSubmittingRequest = true;
+
+        try
+        {
+            await AdoptionRequestService.CreateRequestAsync(_currentUserId, _dog.Id, _adoptionMessage);
+            _hasPendingRequest = true;
+            _showAdoptionForm = false;
+            _adoptionMessage = null;
+            Snackbar.Add("Adoption request submitted.", Severity.Success);
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch
+        {
+            Snackbar.Add("Adoption request could not be submitted right now.", Severity.Error);
+        }
+        finally
+        {
+            _isSubmittingRequest = false;
+        }
+    }
+
+    private void CancelAdoptionForm()
+    {
+        _showAdoptionForm = false;
+        _adoptionMessage = null;
     }
 
     private string GetFavoriteIcon()
@@ -328,5 +417,10 @@ else
     private string GetFavoriteButtonText()
     {
         return _isFavorite ? "Remove from Favorites" : "Add to Favorites";
+    }
+
+    private string GetAdoptionButtonText()
+    {
+        return _hasPendingRequest ? "Request Pending" : "Submit Adoption Request";
     }
 }
