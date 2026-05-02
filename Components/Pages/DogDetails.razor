@@ -5,6 +5,7 @@
 @inject IFavoriteDogService FavoriteDogService
 @inject IAdoptionRequestService AdoptionRequestService
 @inject IAdopterProfileService AdopterProfileService
+@inject IRecentlyViewedDogService RecentlyViewedDogService
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject UserManager<ApplicationUser> UserManager
 @inject NavigationManager NavigationManager
@@ -285,6 +286,7 @@ else
             _dog = await DogService.GetDogDetailsAsync(Id);
             if (_dog is not null && _currentUserIsAdopter && !string.IsNullOrWhiteSpace(_currentUserId))
             {
+                await RecentlyViewedDogService.TrackViewAsync(_currentUserId, _dog.Id);
                 _isFavorite = await FavoriteDogService.IsFavoriteAsync(_currentUserId, _dog.Id);
                 _hasPendingRequest = await AdoptionRequestService.HasPendingRequestAsync(_currentUserId, _dog.Id);
                 _adopterProfile = await AdopterProfileService.GetProfileForUserAsync(_currentUserId);

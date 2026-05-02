@@ -9,6 +9,8 @@ public class ApplicationUser : IdentityUser
 
     public ICollection<FavoriteDog> FavoriteDogs { get; set; } = new List<FavoriteDog>();
 
+    public ICollection<RecentlyViewedDog> RecentlyViewedDogs { get; set; } = new List<RecentlyViewedDog>();
+
     public ICollection<AdoptionRequest> AdoptionRequests { get; set; } = new List<AdoptionRequest>();
 
     public ICollection<DogStatusHistory> DogStatusHistories { get; set; } = new List<DogStatusHistory>();

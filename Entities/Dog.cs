@@ -50,5 +50,7 @@ public class Dog
 
     public ICollection<FavoriteDog> FavoriteDogs { get; set; } = new List<FavoriteDog>();
 
+    public ICollection<RecentlyViewedDog> RecentlyViewedDogs { get; set; } = new List<RecentlyViewedDog>();
+
     public ICollection<DogStatusHistory> StatusHistories { get; set; } = new List<DogStatusHistory>();
 }
