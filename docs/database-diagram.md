@@ -29,7 +29,7 @@ erDiagram
         string PhoneNumber
         string Email
         string Description
-        string OwnerUserId FK
+        string ApplicationUserId FK
     }
 
     DOGS {
@@ -38,16 +38,17 @@ erDiagram
         string Breed
         int Age
         int Size
+        string Location
         int Status
         string Description
-        datetime CreatedAt
+        string BehaviorDescription
+        string MedicalStatus
         int ShelterId FK
     }
 
     DOG_IMAGES {
         int Id PK
         string ImageUrl
-        string Caption
         bool IsMainImage
         int DogId FK
     }
@@ -55,9 +56,9 @@ erDiagram
     MEDICAL_RECORDS {
         int Id PK
         datetime RecordDate
-        string Title
+        string VaccineName
+        string TreatmentDescription
         string Notes
-        string VeterinarianName
         int DogId FK
     }
 
@@ -65,16 +66,17 @@ erDiagram
         int Id PK
         int Status
         string Message
-        datetime RequestedAt
+        datetime CreatedAt
+        datetime UpdatedAt
         int DogId FK
-        string AdopterUserId FK
+        string AdopterId FK
     }
 
     FAVORITE_DOGS {
         int Id PK
         datetime CreatedAt
         int DogId FK
-        string UserId FK
+        string AdopterId FK
     }
 
     RESOURCE_STOCKS {
@@ -82,7 +84,8 @@ erDiagram
         string Name
         int Quantity
         string Unit
-        int MinimumQuantity
+        int LowStockThreshold
+        datetime LastUpdatedAt
         int ShelterId FK
     }
 

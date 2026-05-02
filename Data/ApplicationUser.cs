@@ -11,6 +11,6 @@ public class ApplicationUser : IdentityUser
 
     public ICollection<AdoptionRequest> AdoptionRequests { get; set; } = new List<AdoptionRequest>();
 
-    public ICollection<Shelter> Shelters { get; set; } = new List<Shelter>();
+    public Shelter? Shelter { get; set; }
 }
 

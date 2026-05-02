@@ -67,7 +67,7 @@
 
     private static string GetImageUrl(Dog dog)
     {
-        return dog.DogImages.FirstOrDefault(i => i.IsMainImage)?.ImageUrl ?? "https://placehold.co/800x500?text=Dog";
+        return dog.Images.FirstOrDefault(i => i.IsMainImage)?.ImageUrl ?? "https://placehold.co/800x500?text=Dog";
     }
 
     private static Color GetStatusColor(DogStatus status)

@@ -7,14 +7,14 @@ public class FavoriteDog
 {
     public int Id { get; set; }
 
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
     public int DogId { get; set; }
 
     public Dog? Dog { get; set; }
 
     [Required]
-    public string UserId { get; set; } = string.Empty;
+    public string AdopterId { get; set; } = string.Empty;
 
-    public ApplicationUser? User { get; set; }
+    public ApplicationUser? Adopter { get; set; }
+
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
