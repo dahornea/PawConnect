@@ -12,7 +12,10 @@
 
 @if (_isLoading)
 {
-    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+    <MudStack AlignItems="AlignItems.Center" Class="py-8">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+        <MudText Typo="Typo.body2" Color="Color.Secondary">Loading dog details...</MudText>
+    </MudStack>
 }
 else if (!string.IsNullOrWhiteSpace(_error))
 {
@@ -222,12 +225,14 @@ else
         }
     }
 
-    private static string GetImageUrl(Dog dog)
+    private static string GetMainImageUrl(Dog dog)
     {
-        return dog.Images.FirstOrDefault(i => i.IsMainImage)?.ImageUrl ?? "https://placehold.co/800x500?text=Dog";
+        return dog.Images.FirstOrDefault(i => i.IsMainImage)?.ImageUrl
+            ?? dog.Images.FirstOrDefault()?.ImageUrl
+            ?? "https://placehold.co/800x500?text=Dog";
     }
 
-    private void ShowPlaceholder()
+    private static Color GetStatusColor(DogStatus status)
     {
         return status switch
         {

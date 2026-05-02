@@ -10,41 +10,17 @@
 
 <PageTitle>Dogs</PageTitle>
 
-<MudStack Spacing="3">
-    <div class="page-header">
-        <MudText Typo="Typo.h4">Dogs</MudText>
-        <MudText Typo="Typo.body2" Color="Color.Secondary">Browse dogs currently registered in the shelter system.</MudText>
-    </div>
+<MudContainer MaxWidth="MaxWidth.False" Class="px-0">
+    <MudStack Spacing="3">
+        <div class="page-header">
+            <MudText Typo="Typo.h4">Dogs</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Browse dogs currently available or reserved in the shelter system.</MudText>
+        </div>
 
-    @if (_isLoading)
-    {
-        <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
-    }
-    else if (!string.IsNullOrWhiteSpace(_error))
-    {
-        <MudAlert Severity="Severity.Error">@_error</MudAlert>
-    }
-    else if (_dogs.Count == 0)
-    {
-        <MudAlert Severity="Severity.Info">No dogs are available yet.</MudAlert>
-    }
-    else
-    {
-        <MudGrid>
-            @foreach (var dog in _dogs)
-            {
-                <MudItem xs="12" sm="6" md="4">
-                    <MudCard>
-                        <MudCardMedia Image="@GetImageUrl(dog)" Class="dog-image" />
-                        <MudCardContent>
-                            <MudText Typo="Typo.h6">@dog.Name</MudText>
-                            <MudText Typo="Typo.body2">@dog.Breed, @dog.Age years old</MudText>
-                            <MudChip T="string" Color="@GetStatusColor(dog.Status)" Size="Size.Small" Class="mt-2">@dog.Status</MudChip>
-                        </MudCardContent>
-                        <MudCardActions>
-                            <MudButton Href="@($"/dogs/{dog.Id}")" Variant="Variant.Text" Color="Color.Primary">Details</MudButton>
-                        </MudCardActions>
-                    </MudCard>
+        <MudPaper Elevation="0" Class="pa-4">
+            <MudGrid Spacing="2">
+                <MudItem xs="12" md="4">
+                    <MudTextField Label="Search by name" @bind-Value="_searchTerm" Variant="Variant.Outlined" Margin="Margin.Dense" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
                 </MudItem>
                 <MudItem xs="12" sm="6" md="2">
                     <MudSelect T="string" Label="Breed" @bind-Value="_selectedBreed" Variant="Variant.Outlined" Margin="Margin.Dense">
@@ -144,6 +120,8 @@
 
 @code {
     private List<Dog> _dogs = [];
+    private List<string> _breeds = [];
+    private List<string> _locations = [];
     private bool _isLoading = true;
     private string? _error;
     private string? _searchTerm;
@@ -216,7 +194,14 @@
 
     private static string GetImageUrl(Dog dog)
     {
-        return dog.Images.FirstOrDefault(i => i.IsMainImage)?.ImageUrl ?? "https://placehold.co/800x500?text=Dog";
+        return dog.Images.FirstOrDefault(i => i.IsMainImage)?.ImageUrl
+            ?? dog.Images.FirstOrDefault()?.ImageUrl
+            ?? "https://placehold.co/800x500?text=Dog";
+    }
+
+    private static string GetShortDescription(string description)
+    {
+        return description.Length <= 120 ? description : $"{description[..117]}...";
     }
 
     private static Color GetStatusColor(DogStatus status)

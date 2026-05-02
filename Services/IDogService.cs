@@ -16,6 +16,10 @@ public interface IDogService
 
     Task<List<Dog>> GetAvailableDogsAsync();
 
+    Task<List<Dog>> SearchDogsAsync(string? searchTerm, string? breed, int? maxAge, DogSize? size, string? location, DogStatus? status);
+
+    Task<Dog?> GetDogDetailsAsync(int id);
+
     Task<List<Dog>> GetAllDogsAsync();
 
     Task<Dog?> GetDogByIdAsync(int id);
