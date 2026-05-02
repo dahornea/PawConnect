@@ -35,4 +35,8 @@ public interface IDogService
     Task UpdateDogAsync(Dog dog, int shelterId);
 
     Task DeleteDogAsync(int dogId, int shelterId);
+
+    Task<List<Dog>> GetAllDogsForAdminAsync();
+
+    Task DeleteDogForAdminAsync(int dogId);
 }

@@ -61,4 +61,60 @@ public class ShelterService(ApplicationDbContext context) : IShelterService
             .AsNoTracking()
             .FirstOrDefaultAsync(s => s.ApplicationUserId == userId);
     }
+
+    public async Task UpdateShelterProfileAsync(Shelter shelter)
+    {
+        ValidateShelterProfile(shelter);
+
+        var existingShelter = await context.Shelters.FirstOrDefaultAsync(s => s.Id == shelter.Id);
+        if (existingShelter is null)
+        {
+            throw new InvalidOperationException("Shelter was not found.");
+        }
+
+        var duplicateEmailExists = !string.IsNullOrWhiteSpace(shelter.Email) &&
+            await context.Shelters.AnyAsync(s => s.Id != shelter.Id && s.Email == shelter.Email);
+
+        if (duplicateEmailExists)
+        {
+            throw new InvalidOperationException("Another shelter already uses this email address.");
+        }
+
+        existingShelter.Name = shelter.Name.Trim();
+        existingShelter.Description = string.IsNullOrWhiteSpace(shelter.Description) ? null : shelter.Description.Trim();
+        existingShelter.Address = shelter.Address.Trim();
+        existingShelter.City = shelter.City.Trim();
+        existingShelter.PhoneNumber = string.IsNullOrWhiteSpace(shelter.PhoneNumber) ? null : shelter.PhoneNumber.Trim();
+        existingShelter.Email = string.IsNullOrWhiteSpace(shelter.Email) ? null : shelter.Email.Trim();
+
+        await context.SaveChangesAsync();
+    }
+
+    private static void ValidateShelterProfile(Shelter shelter)
+    {
+        if (string.IsNullOrWhiteSpace(shelter.Name))
+        {
+            throw new InvalidOperationException("Shelter name is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(shelter.Address))
+        {
+            throw new InvalidOperationException("Shelter address is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(shelter.City))
+        {
+            throw new InvalidOperationException("Shelter city is required.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(shelter.Email) && !new System.ComponentModel.DataAnnotations.EmailAddressAttribute().IsValid(shelter.Email))
+        {
+            throw new InvalidOperationException("Shelter email must be a valid email address.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(shelter.PhoneNumber) && !new System.ComponentModel.DataAnnotations.PhoneAttribute().IsValid(shelter.PhoneNumber))
+        {
+            throw new InvalidOperationException("Shelter phone number must be valid.");
+        }
+    }
 }
