@@ -8,6 +8,11 @@ public class FoodTypeService(ApplicationDbContext context) : IFoodTypeService
 {
     public Task<List<FoodType>> GetAllAsync()
     {
+        return GetAllFoodTypesAsync();
+    }
+
+    public Task<List<FoodType>> GetAllFoodTypesAsync()
+    {
         return context.FoodTypes
             .AsNoTracking()
             .OrderBy(f => f.Name)

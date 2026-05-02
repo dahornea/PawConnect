@@ -6,6 +6,8 @@ public interface IResourceCategoryService
 {
     Task<List<ResourceCategory>> GetAllAsync();
 
+    Task<List<ResourceCategory>> GetAllResourceCategoriesAsync();
+
     Task<ResourceCategory?> GetByIdAsync(int id);
 
     Task CreateAsync(ResourceCategory resourceCategory);
