@@ -126,4 +126,115 @@ public class DogService(ApplicationDbContext context) : IDogService
         context.Dogs.Add(dog);
         await context.SaveChangesAsync();
     }
+
+    public Task<List<Dog>> GetDogsForShelterAsync(int shelterId)
+    {
+        return context.Dogs
+            .Include(d => d.Shelter)
+            .Include(d => d.Images)
+            .Include(d => d.PreferredFoodType)
+            .Where(d => d.ShelterId == shelterId)
+            .OrderBy(d => d.Name)
+            .AsNoTracking()
+            .ToListAsync();
+    }
+
+    public Task<Dog?> GetDogForShelterAsync(int dogId, int shelterId)
+    {
+        return context.Dogs
+            .Include(d => d.Shelter)
+            .Include(d => d.Images)
+            .Include(d => d.PreferredFoodType)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(d => d.Id == dogId && d.ShelterId == shelterId);
+    }
+
+    public async Task CreateDogAsync(Dog dog, int shelterId)
+    {
+        ValidateDog(dog);
+        dog.Id = 0;
+        dog.ShelterId = shelterId;
+        dog.Shelter = null;
+
+        context.Dogs.Add(dog);
+        await context.SaveChangesAsync();
+    }
+
+    public async Task UpdateDogAsync(Dog dog, int shelterId)
+    {
+        ValidateDog(dog);
+
+        var existingDog = await context.Dogs.FirstOrDefaultAsync(d => d.Id == dog.Id && d.ShelterId == shelterId);
+        if (existingDog is null)
+        {
+            throw new InvalidOperationException("Dog was not found for your shelter.");
+        }
+
+        existingDog.Name = dog.Name.Trim();
+        existingDog.Breed = dog.Breed.Trim();
+        existingDog.Age = dog.Age;
+        existingDog.Size = dog.Size;
+        existingDog.Location = dog.Location.Trim();
+        existingDog.Description = string.IsNullOrWhiteSpace(dog.Description) ? null : dog.Description.Trim();
+        existingDog.BehaviorDescription = string.IsNullOrWhiteSpace(dog.BehaviorDescription) ? null : dog.BehaviorDescription.Trim();
+        existingDog.MedicalStatus = string.IsNullOrWhiteSpace(dog.MedicalStatus) ? null : dog.MedicalStatus.Trim();
+        existingDog.Status = dog.Status;
+        existingDog.PreferredFoodTypeId = dog.PreferredFoodTypeId;
+        existingDog.DailyFoodAmountGrams = dog.DailyFoodAmountGrams;
+
+        await context.SaveChangesAsync();
+    }
+
+    public async Task DeleteDogAsync(int dogId, int shelterId)
+    {
+        var dog = await context.Dogs
+            .Include(d => d.AdoptionRequests)
+            .Include(d => d.FavoriteDogs)
+            .FirstOrDefaultAsync(d => d.Id == dogId && d.ShelterId == shelterId);
+
+        if (dog is null)
+        {
+            throw new InvalidOperationException("Dog was not found for your shelter.");
+        }
+
+        if (dog.AdoptionRequests.Count > 0 || dog.FavoriteDogs.Count > 0)
+        {
+            throw new InvalidOperationException("This dog cannot be deleted because it already has adoption requests or favorites. Change its status instead.");
+        }
+
+        context.Dogs.Remove(dog);
+        await context.SaveChangesAsync();
+    }
+
+    private static void ValidateDog(Dog dog)
+    {
+        if (string.IsNullOrWhiteSpace(dog.Name))
+        {
+            throw new InvalidOperationException("Dog name is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(dog.Breed))
+        {
+            throw new InvalidOperationException("Breed is required.");
+        }
+
+        if (dog.Age is < 0 or > 30)
+        {
+            throw new InvalidOperationException("Age must be between 0 and 30.");
+        }
+
+        if (string.IsNullOrWhiteSpace(dog.Location))
+        {
+            throw new InvalidOperationException("Location is required.");
+        }
+
+        if (dog.DailyFoodAmountGrams.HasValue && dog.DailyFoodAmountGrams.Value <= 0)
+        {
+            throw new InvalidOperationException("Daily food amount must be positive when provided.");
+        }
+
+        dog.Name = dog.Name.Trim();
+        dog.Breed = dog.Breed.Trim();
+        dog.Location = dog.Location.Trim();
+    }
 }
