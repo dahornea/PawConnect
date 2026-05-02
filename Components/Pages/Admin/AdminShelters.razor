@@ -1,6 +1,7 @@
 @page "/admin/shelters"
 @attribute [Authorize(Roles = "Admin")]
 @inject IShelterService ShelterService
+@inject ISnackbar Snackbar
 
 <PageTitle>Shelters</PageTitle>
 
@@ -36,6 +37,7 @@
                     <MudTh>Email</MudTh>
                     <MudTh>Phone</MudTh>
                     <MudTh>Dogs</MudTh>
+                    <MudTh></MudTh>
                 </HeaderContent>
                 <RowTemplate>
                     <MudTd DataLabel="Name">@context.Name</MudTd>
@@ -44,8 +46,46 @@
                     <MudTd DataLabel="Email">@context.Email</MudTd>
                     <MudTd DataLabel="Phone">@(string.IsNullOrWhiteSpace(context.PhoneNumber) ? "-" : context.PhoneNumber)</MudTd>
                     <MudTd DataLabel="Dogs">@context.Dogs.Count</MudTd>
+                    <MudTd>
+                        <MudButton Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Edit" OnClick="@(() => EditShelter(context))">Edit</MudButton>
+                    </MudTd>
                 </RowTemplate>
             </MudTable>
+
+            @if (_editShelter is not null)
+            {
+                <MudPaper Elevation="0" Class="pa-4 mt-3">
+                    <MudStack Spacing="2">
+                        <MudText Typo="Typo.h6">Edit Shelter</MudText>
+                        <MudForm @ref="_shelterForm">
+                            <MudGrid Spacing="2">
+                                <MudItem xs="12" md="6">
+                                    <MudTextField Label="Name" @bind-Value="_editShelter.Name" Required="true" RequiredError="Shelter name is required." Variant="Variant.Outlined" />
+                                </MudItem>
+                                <MudItem xs="12" md="6">
+                                    <MudTextField Label="Email" @bind-Value="_editShelter.Email" Variant="Variant.Outlined" />
+                                </MudItem>
+                                <MudItem xs="12" md="6">
+                                    <MudTextField Label="City" @bind-Value="_editShelter.City" Required="true" RequiredError="City is required." Variant="Variant.Outlined" />
+                                </MudItem>
+                                <MudItem xs="12" md="6">
+                                    <MudTextField Label="Phone Number" @bind-Value="_editShelter.PhoneNumber" Variant="Variant.Outlined" />
+                                </MudItem>
+                                <MudItem xs="12">
+                                    <MudTextField Label="Address" @bind-Value="_editShelter.Address" Required="true" RequiredError="Address is required." Variant="Variant.Outlined" />
+                                </MudItem>
+                                <MudItem xs="12">
+                                    <MudTextField Label="Description" @bind-Value="_editShelter.Description" Lines="3" Variant="Variant.Outlined" />
+                                </MudItem>
+                            </MudGrid>
+                        </MudForm>
+                        <MudStack Row="true" Spacing="2">
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save" Disabled="_isSaving" OnClick="SaveShelterAsync">Save</MudButton>
+                            <MudButton Variant="Variant.Text" Color="Color.Default" Disabled="_isSaving" OnClick="CancelEdit">Cancel</MudButton>
+                        </MudStack>
+                    </MudStack>
+                </MudPaper>
+            }
         }
     </MudStack>
 </MudContainer>
@@ -53,9 +93,17 @@
 @code {
     private List<Shelter> _shelters = [];
     private bool _isLoading = true;
+    private bool _isSaving;
     private string? _error;
+    private Shelter? _editShelter;
+    private MudForm? _shelterForm;
 
     protected override async Task OnInitializedAsync()
+    {
+        await LoadSheltersAsync();
+    }
+
+    private async Task LoadSheltersAsync()
     {
         try
         {
@@ -68,6 +116,64 @@
         finally
         {
             _isLoading = false;
+        }
+    }
+
+    private void EditShelter(Shelter shelter)
+    {
+        _editShelter = new Shelter
+        {
+            Id = shelter.Id,
+            Name = shelter.Name,
+            Description = shelter.Description,
+            Address = shelter.Address,
+            City = shelter.City,
+            PhoneNumber = shelter.PhoneNumber,
+            Email = shelter.Email
+        };
+    }
+
+    private void CancelEdit()
+    {
+        _editShelter = null;
+    }
+
+    private async Task SaveShelterAsync()
+    {
+        if (_editShelter is null)
+        {
+            return;
+        }
+
+        if (_shelterForm is not null)
+        {
+            await _shelterForm.ValidateAsync();
+            if (!_shelterForm.IsValid)
+            {
+                return;
+            }
+        }
+
+        _isSaving = true;
+
+        try
+        {
+            await ShelterService.UpdateShelterProfileAsync(_editShelter);
+            Snackbar.Add("Shelter profile updated.", Severity.Success);
+            _editShelter = null;
+            await LoadSheltersAsync();
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch
+        {
+            Snackbar.Add("Shelter profile could not be updated right now.", Severity.Error);
+        }
+        finally
+        {
+            _isSaving = false;
         }
     }
 }

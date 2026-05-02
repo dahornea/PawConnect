@@ -17,4 +17,6 @@ public interface IShelterService
     Task<List<Shelter>> GetAllSheltersAsync();
 
     Task<Shelter?> GetShelterForUserAsync(string userId);
+
+    Task UpdateShelterProfileAsync(Shelter shelter);
 }
