@@ -15,4 +15,16 @@ public interface IResourceStockService
     Task DeleteAsync(int id);
 
     Task<List<ResourceStock>> GetForShelterAsync(int shelterId);
+
+    Task<List<ResourceStock>> GetResourcesForShelterAsync(int shelterId);
+
+    Task<List<ResourceStock>> GetLowStockResourcesForShelterAsync(int shelterId);
+
+    Task<ResourceStock?> GetResourceForShelterAsync(int resourceId, int shelterId);
+
+    Task CreateResourceAsync(ResourceStock resource, int shelterId);
+
+    Task UpdateResourceAsync(ResourceStock resource, int shelterId);
+
+    Task DeleteResourceAsync(int resourceId, int shelterId);
 }

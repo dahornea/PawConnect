@@ -8,6 +8,11 @@ public class ResourceCategoryService(ApplicationDbContext context) : IResourceCa
 {
     public Task<List<ResourceCategory>> GetAllAsync()
     {
+        return GetAllResourceCategoriesAsync();
+    }
+
+    public Task<List<ResourceCategory>> GetAllResourceCategoriesAsync()
+    {
         return context.ResourceCategories
             .AsNoTracking()
             .OrderBy(c => c.Name)

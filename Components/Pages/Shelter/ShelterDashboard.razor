@@ -1,15 +1,155 @@
 @page "/shelter/dashboard"
+@using Microsoft.AspNetCore.Identity
+@using PawConnect.Data
 @attribute [Authorize(Roles = "Shelter")]
+@inject IDogService DogService
+@inject IAdoptionRequestService AdoptionRequestService
+@inject IResourceStockService ResourceStockService
+@inject IShelterService ShelterService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject UserManager<ApplicationUser> UserManager
 
 <PageTitle>Shelter Dashboard</PageTitle>
 
-<MudStack Spacing="3">
-    <MudText Typo="Typo.h4">Shelter Dashboard</MudText>
-    <MudGrid>
-        <MudItem xs="12" md="3"><MudCard><MudCardContent><MudText Typo="Typo.h6">Dogs</MudText><MudText Typo="Typo.h4">3</MudText></MudCardContent></MudCard></MudItem>
-        <MudItem xs="12" md="3"><MudCard><MudCardContent><MudText Typo="Typo.h6">Available</MudText><MudText Typo="Typo.h4">1</MudText></MudCardContent></MudCard></MudItem>
-        <MudItem xs="12" md="3"><MudCard><MudCardContent><MudText Typo="Typo.h6">Requests</MudText><MudText Typo="Typo.h4">0</MudText></MudCardContent></MudCard></MudItem>
-        <MudItem xs="12" md="3"><MudCard><MudCardContent><MudText Typo="Typo.h6">Resources</MudText><MudText Typo="Typo.h4">3</MudText></MudCardContent></MudCard></MudItem>
-    </MudGrid>
-    <MudAlert Severity="Severity.Info">These cards are placeholders connected to the initial project skeleton.</MudAlert>
-</MudStack>
+<MudContainer MaxWidth="MaxWidth.False" Class="px-0">
+    <MudStack Spacing="3">
+        <div>
+            <MudText Typo="Typo.h4">Shelter Dashboard</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Overview of your dogs, adoption requests, and resource stock.</MudText>
+        </div>
+
+        @if (_isLoading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="py-8">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Loading dashboard...</MudText>
+            </MudStack>
+        }
+        else if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <MudAlert Severity="Severity.Error">@_error</MudAlert>
+        }
+        else
+        {
+            <MudGrid>
+                <MudItem xs="12" md="3">
+                    <MudCard>
+                        <MudCardContent>
+                            <MudText Typo="Typo.h6">Dogs</MudText>
+                            <MudText Typo="Typo.h4">@_dogCount</MudText>
+                        </MudCardContent>
+                    </MudCard>
+                </MudItem>
+                <MudItem xs="12" md="3">
+                    <MudCard>
+                        <MudCardContent>
+                            <MudText Typo="Typo.h6">Available</MudText>
+                            <MudText Typo="Typo.h4">@_availableDogCount</MudText>
+                        </MudCardContent>
+                    </MudCard>
+                </MudItem>
+                <MudItem xs="12" md="3">
+                    <MudCard>
+                        <MudCardContent>
+                            <MudText Typo="Typo.h6">Pending Requests</MudText>
+                            <MudText Typo="Typo.h4">@_pendingRequestCount</MudText>
+                        </MudCardContent>
+                    </MudCard>
+                </MudItem>
+                <MudItem xs="12" md="3">
+                    <MudCard>
+                        <MudCardContent>
+                            <MudText Typo="Typo.h6">Low Stock</MudText>
+                            <MudText Typo="Typo.h4">@_lowStockResources.Count</MudText>
+                        </MudCardContent>
+                    </MudCard>
+                </MudItem>
+            </MudGrid>
+
+            <MudPaper Elevation="0" Class="pa-4">
+                <MudStack Spacing="2">
+                    <MudStack Row="true" AlignItems="AlignItems.Center">
+                        <MudText Typo="Typo.h5">Low-Stock Resources</MudText>
+                        <MudSpacer />
+                        <MudButton Href="/shelter/resources" Variant="Variant.Text" Color="Color.Primary" EndIcon="@Icons.Material.Filled.ArrowForward">Manage Resources</MudButton>
+                    </MudStack>
+
+                    @if (_lowStockResources.Count == 0)
+                    {
+                        <MudAlert Severity="Severity.Success">All resource stock items are above their low-stock thresholds.</MudAlert>
+                    }
+                    else
+                    {
+                        <MudGrid Spacing="2">
+                            @foreach (var resource in _lowStockResources)
+                            {
+                                <MudItem xs="12" md="6" lg="4">
+                                    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">
+                                        <MudStack Spacing="1">
+                                            <MudText Typo="Typo.subtitle1">@resource.Name</MudText>
+                                            <MudText Typo="Typo.body2">@resource.ResourceCategory?.Name</MudText>
+                                            <MudText Typo="Typo.body2">
+                                                Current: @resource.Quantity @resource.Unit | Threshold: @resource.LowStockThreshold @resource.Unit
+                                            </MudText>
+                                        </MudStack>
+                                    </MudAlert>
+                                </MudItem>
+                            }
+                        </MudGrid>
+                    }
+                </MudStack>
+            </MudPaper>
+        }
+    </MudStack>
+</MudContainer>
+
+@code {
+    private bool _isLoading = true;
+    private string? _error;
+    private int _dogCount;
+    private int _availableDogCount;
+    private int _pendingRequestCount;
+    private List<ResourceStock> _lowStockResources = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var shelterId = await GetCurrentShelterIdAsync();
+            if (shelterId is null)
+            {
+                _error = "No shelter profile is linked to this account.";
+                return;
+            }
+
+            var dogs = await DogService.GetDogsForShelterAsync(shelterId.Value);
+            var requests = await AdoptionRequestService.GetRequestsForShelterAsync(shelterId.Value);
+            _lowStockResources = await ResourceStockService.GetLowStockResourcesForShelterAsync(shelterId.Value);
+
+            _dogCount = dogs.Count;
+            _availableDogCount = dogs.Count(d => d.Status == DogStatus.Available);
+            _pendingRequestCount = requests.Count(r => r.Status == AdoptionRequestStatus.Pending);
+        }
+        catch
+        {
+            _error = "Dashboard data could not be loaded right now.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task<int?> GetCurrentShelterIdAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = await UserManager.GetUserAsync(authState.User);
+        if (user is null)
+        {
+            return null;
+        }
+
+        var shelter = await ShelterService.GetShelterForUserAsync(user.Id);
+        return shelter?.Id;
+    }
+}

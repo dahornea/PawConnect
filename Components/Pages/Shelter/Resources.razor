@@ -1,49 +1,167 @@
 @page "/shelter/resources"
+@using Microsoft.AspNetCore.Identity
+@using PawConnect.Data
 @attribute [Authorize(Roles = "Shelter")]
 @inject IResourceStockService ResourceStockService
+@inject IResourceCategoryService ResourceCategoryService
+@inject IFoodTypeService FoodTypeService
+@inject IShelterService ShelterService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject UserManager<ApplicationUser> UserManager
+@inject ISnackbar Snackbar
 
 <PageTitle>Resources</PageTitle>
 
-<MudStack Spacing="3">
-    <MudText Typo="Typo.h4">Resources</MudText>
-    <MudAlert Severity="Severity.Info">Resource stock CRUD will be implemented later. This table is prepared for categories and optional food type tracking.</MudAlert>
+<MudContainer MaxWidth="MaxWidth.False" Class="px-0">
+    <MudStack Spacing="3">
+        <div>
+            <MudText Typo="Typo.h4">Resources</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Manage shelter stock, categories, food types, and low-stock thresholds.</MudText>
+        </div>
 
-    @if (!string.IsNullOrWhiteSpace(_error))
-    {
-        <MudAlert Severity="Severity.Error">@_error</MudAlert>
-    }
+        @if (_isLoading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="py-8">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Loading resources...</MudText>
+            </MudStack>
+        }
+        else if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <MudAlert Severity="Severity.Error">@_error</MudAlert>
+        }
+        else
+        {
+            <MudPaper Elevation="0" Class="pa-4">
+                <MudStack Spacing="2">
+                    <MudText Typo="Typo.h6">@(_model.Id == 0 ? "Add Resource" : "Edit Resource")</MudText>
+                    <MudForm @ref="_form">
+                        <MudGrid Spacing="2">
+                            <MudItem xs="12" md="4">
+                                <MudTextField Label="Name" @bind-Value="_model.Name" Required="true" RequiredError="Name is required." Variant="Variant.Outlined" />
+                            </MudItem>
+                            <MudItem xs="12" md="4">
+                                <MudSelect T="int" Label="Category" Value="_model.ResourceCategoryId" ValueChanged="OnCategoryChanged" Required="true" Variant="Variant.Outlined">
+                                    @foreach (var category in _categories)
+                                    {
+                                        <MudSelectItem Value="@category.Id">@category.Name</MudSelectItem>
+                                    }
+                                </MudSelect>
+                            </MudItem>
+                            <MudItem xs="12" md="4">
+                                <MudSelect T="int?" Label="Food Type" @bind-Value="_model.FoodTypeId" Clearable="true" Disabled="@(!IsFoodCategorySelected)" Variant="Variant.Outlined">
+                                    @foreach (var foodType in _foodTypes)
+                                    {
+                                        <MudSelectItem T="int?" Value="@((int?)foodType.Id)">@foodType.Name</MudSelectItem>
+                                    }
+                                </MudSelect>
+                            </MudItem>
+                            <MudItem xs="12" md="3">
+                                <MudNumericField T="int" Label="Quantity" @bind-Value="_model.Quantity" Min="0" Variant="Variant.Outlined" />
+                            </MudItem>
+                            <MudItem xs="12" md="3">
+                                <MudTextField Label="Unit" @bind-Value="_model.Unit" Required="true" RequiredError="Unit is required." Variant="Variant.Outlined" />
+                            </MudItem>
+                            <MudItem xs="12" md="3">
+                                <MudNumericField T="int" Label="Low-Stock Threshold" @bind-Value="_model.LowStockThreshold" Min="0" Variant="Variant.Outlined" />
+                            </MudItem>
+                            <MudItem xs="12" md="3">
+                                <MudStack Row="true" Spacing="2" Class="mt-2">
+                                    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save" Disabled="_isSaving" OnClick="SaveAsync">@(_model.Id == 0 ? "Add" : "Save")</MudButton>
+                                    @if (_model.Id != 0)
+                                    {
+                                        <MudButton Variant="Variant.Text" Color="Color.Default" Disabled="_isSaving" OnClick="ResetForm">Cancel</MudButton>
+                                    }
+                                </MudStack>
+                            </MudItem>
+                        </MudGrid>
+                    </MudForm>
+                </MudStack>
+            </MudPaper>
 
-    <MudTable Items="_resources" Dense="true" Hover="true" Loading="_isLoading">
-        <HeaderContent>
-            <MudTh>Name</MudTh>
-            <MudTh>Category</MudTh>
-            <MudTh>Food Type</MudTh>
-            <MudTh>Quantity</MudTh>
-            <MudTh>Low Stock</MudTh>
-        </HeaderContent>
-        <RowTemplate>
-            <MudTd DataLabel="Name">@context.Name</MudTd>
-            <MudTd DataLabel="Category">@context.ResourceCategory?.Name</MudTd>
-            <MudTd DataLabel="Food Type">@(context.FoodType?.Name ?? "-")</MudTd>
-            <MudTd DataLabel="Quantity">@context.Quantity @context.Unit</MudTd>
-            <MudTd DataLabel="Low Stock">@context.LowStockThreshold @context.Unit</MudTd>
-        </RowTemplate>
-        <NoRecordsContent>
-            <MudText Class="pa-4">No resource stock items found.</MudText>
-        </NoRecordsContent>
-    </MudTable>
-</MudStack>
+            @if (_resources.Count == 0)
+            {
+                <MudAlert Severity="Severity.Info">No resource stock items have been added for your shelter yet.</MudAlert>
+            }
+            else
+            {
+                <MudTable Items="_resources" Dense="true" Hover="true">
+                    <HeaderContent>
+                        <MudTh>Name</MudTh>
+                        <MudTh>Category</MudTh>
+                        <MudTh>Food Type</MudTh>
+                        <MudTh>Quantity</MudTh>
+                        <MudTh>Low Stock</MudTh>
+                        <MudTh>Last Updated</MudTh>
+                        <MudTh></MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Name">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                <MudText Typo="Typo.body2">@context.Name</MudText>
+                                @if (IsLowStock(context))
+                                {
+                                    <MudChip T="string" Color="Color.Error" Size="Size.Small">Low Stock</MudChip>
+                                }
+                            </MudStack>
+                        </MudTd>
+                        <MudTd DataLabel="Category">@context.ResourceCategory?.Name</MudTd>
+                        <MudTd DataLabel="Food Type">@(context.FoodType?.Name ?? "-")</MudTd>
+                        <MudTd DataLabel="Quantity">
+                            <MudText Typo="Typo.body2" Color="@(IsLowStock(context) ? Color.Error : Color.Default)">@context.Quantity @context.Unit</MudText>
+                        </MudTd>
+                        <MudTd DataLabel="Low Stock">@context.LowStockThreshold @context.Unit</MudTd>
+                        <MudTd DataLabel="Last Updated">@context.LastUpdatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
+                        <MudTd>
+                            <MudStack Row="true" Spacing="1">
+                                <MudButton Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Edit" OnClick="@(() => EditResource(context))">Edit</MudButton>
+                                @if (_deleteConfirmResourceId == context.Id)
+                                {
+                                    <MudButton Variant="Variant.Text" Color="Color.Error" StartIcon="@Icons.Material.Filled.DeleteForever" Disabled="_isSaving" OnClick="@(() => DeleteAsync(context))">Confirm</MudButton>
+                                    <MudButton Variant="Variant.Text" Color="Color.Default" Disabled="_isSaving" OnClick="CancelDelete">Cancel</MudButton>
+                                }
+                                else
+                                {
+                                    <MudButton Variant="Variant.Text" Color="Color.Error" StartIcon="@Icons.Material.Filled.Delete" Disabled="_isSaving" OnClick="@(() => AskDeleteConfirmation(context))">Delete</MudButton>
+                                }
+                            </MudStack>
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            }
+        }
+    </MudStack>
+</MudContainer>
 
 @code {
     private List<ResourceStock> _resources = [];
+    private List<ResourceCategory> _categories = [];
+    private List<FoodType> _foodTypes = [];
+    private ResourceStock _model = new();
+    private MudForm? _form;
     private bool _isLoading = true;
+    private bool _isSaving;
     private string? _error;
+    private int? _shelterId;
+    private int? _deleteConfirmResourceId;
+
+    private bool IsFoodCategorySelected =>
+        _categories.FirstOrDefault(c => c.Id == _model.ResourceCategoryId)?.Name.Equals("Food", StringComparison.OrdinalIgnoreCase) == true;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            _resources = await ResourceStockService.GetAllAsync();
+            _shelterId = await GetCurrentShelterIdAsync();
+            if (_shelterId is null)
+            {
+                _error = "No shelter profile is linked to this account.";
+                return;
+            }
+
+            _categories = await ResourceCategoryService.GetAllResourceCategoriesAsync();
+            _foodTypes = await FoodTypeService.GetAllFoodTypesAsync();
+            await LoadResourcesAsync();
         }
         catch
         {
@@ -53,5 +171,156 @@
         {
             _isLoading = false;
         }
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_shelterId is null)
+        {
+            Snackbar.Add("Current shelter profile could not be found.", Severity.Error);
+            return;
+        }
+
+        if (_form is not null)
+        {
+            await _form.ValidateAsync();
+            if (!_form.IsValid)
+            {
+                return;
+            }
+        }
+
+        if (!IsFoodCategorySelected)
+        {
+            _model.FoodTypeId = null;
+        }
+
+        _isSaving = true;
+
+        try
+        {
+            if (_model.Id == 0)
+            {
+                await ResourceStockService.CreateResourceAsync(_model, _shelterId.Value);
+                Snackbar.Add("Resource stock item added.", Severity.Success);
+            }
+            else
+            {
+                await ResourceStockService.UpdateResourceAsync(_model, _shelterId.Value);
+                Snackbar.Add("Resource stock item updated.", Severity.Success);
+            }
+
+            ResetForm();
+            await LoadResourcesAsync();
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch
+        {
+            Snackbar.Add("Resource stock item could not be saved right now.", Severity.Error);
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private void EditResource(ResourceStock resource)
+    {
+        _model = new ResourceStock
+        {
+            Id = resource.Id,
+            Name = resource.Name,
+            ResourceCategoryId = resource.ResourceCategoryId,
+            FoodTypeId = resource.FoodTypeId,
+            Quantity = resource.Quantity,
+            Unit = resource.Unit,
+            LowStockThreshold = resource.LowStockThreshold
+        };
+    }
+
+    private void AskDeleteConfirmation(ResourceStock resource)
+    {
+        _deleteConfirmResourceId = resource.Id;
+        Snackbar.Add($"Click Confirm to delete {resource.Name}.", Severity.Info);
+    }
+
+    private void CancelDelete()
+    {
+        _deleteConfirmResourceId = null;
+    }
+
+    private async Task DeleteAsync(ResourceStock resource)
+    {
+        if (_shelterId is null)
+        {
+            Snackbar.Add("Current shelter profile could not be found.", Severity.Error);
+            return;
+        }
+
+        _isSaving = true;
+
+        try
+        {
+            await ResourceStockService.DeleteResourceAsync(resource.Id, _shelterId.Value);
+            _resources.Remove(resource);
+            _deleteConfirmResourceId = null;
+            Snackbar.Add("Resource stock item deleted.", Severity.Success);
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch
+        {
+            Snackbar.Add("Resource stock item could not be deleted right now.", Severity.Error);
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private void OnCategoryChanged(int categoryId)
+    {
+        _model.ResourceCategoryId = categoryId;
+        if (!IsFoodCategorySelected)
+        {
+            _model.FoodTypeId = null;
+        }
+    }
+
+    private void ResetForm()
+    {
+        _model = new ResourceStock();
+        _deleteConfirmResourceId = null;
+    }
+
+    private async Task LoadResourcesAsync()
+    {
+        if (_shelterId.HasValue)
+        {
+            _resources = await ResourceStockService.GetResourcesForShelterAsync(_shelterId.Value);
+        }
+    }
+
+    private async Task<int?> GetCurrentShelterIdAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = await UserManager.GetUserAsync(authState.User);
+        if (user is null)
+        {
+            return null;
+        }
+
+        var shelter = await ShelterService.GetShelterForUserAsync(user.Id);
+        return shelter?.Id;
+    }
+
+    private static bool IsLowStock(ResourceStock resource)
+    {
+        return resource.Quantity <= resource.LowStockThreshold;
     }
 }

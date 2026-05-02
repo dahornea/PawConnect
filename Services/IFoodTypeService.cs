@@ -6,6 +6,8 @@ public interface IFoodTypeService
 {
     Task<List<FoodType>> GetAllAsync();
 
+    Task<List<FoodType>> GetAllFoodTypesAsync();
+
     Task<FoodType?> GetByIdAsync(int id);
 
     Task CreateAsync(FoodType foodType);
