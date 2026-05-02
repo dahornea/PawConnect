@@ -145,7 +145,7 @@
                 }
             }
 
-            Snackbar.Add("Adoption request accepted.", Severity.Success);
+            Snackbar.Add("Adoption request accepted and adopter notification attempted.", Severity.Success);
         }
         catch (InvalidOperationException ex)
         {
@@ -176,7 +176,7 @@
             await AdoptionRequestService.RejectRequestAsync(request.Id, _shelterId.Value);
             request.Status = AdoptionRequestStatus.Rejected;
             request.UpdatedAt = DateTime.UtcNow;
-            Snackbar.Add("Adoption request rejected.", Severity.Success);
+            Snackbar.Add("Adoption request rejected and adopter notification attempted.", Severity.Success);
         }
         catch (InvalidOperationException ex)
         {

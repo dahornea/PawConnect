@@ -4,7 +4,7 @@ using PawConnect.Entities;
 
 namespace PawConnect.Services;
 
-public class AdoptionRequestService(ApplicationDbContext context) : IAdoptionRequestService
+public class AdoptionRequestService(ApplicationDbContext context, IEmailService emailService, ILogger<AdoptionRequestService> logger) : IAdoptionRequestService
 {
     public Task<List<AdoptionRequest>> GetAllAsync()
     {
@@ -62,7 +62,12 @@ public class AdoptionRequestService(ApplicationDbContext context) : IAdoptionReq
 
     public async Task CreateRequestAsync(string adopterId, int dogId, string? message)
     {
-        var dog = await context.Dogs.AsNoTracking().FirstOrDefaultAsync(d => d.Id == dogId);
+        var dog = await context.Dogs
+            .Include(d => d.Shelter)
+            .ThenInclude(s => s!.ApplicationUser)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(d => d.Id == dogId);
+
         if (dog is null)
         {
             throw new InvalidOperationException("Dog was not found.");
@@ -78,6 +83,7 @@ public class AdoptionRequestService(ApplicationDbContext context) : IAdoptionReq
             throw new InvalidOperationException("You already have a pending adoption request for this dog.");
         }
 
+        var adopter = await context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == adopterId);
         var now = DateTime.UtcNow;
         context.AdoptionRequests.Add(new AdoptionRequest
         {
@@ -90,6 +96,7 @@ public class AdoptionRequestService(ApplicationDbContext context) : IAdoptionReq
         });
 
         await context.SaveChangesAsync();
+        await NotifyShelterAboutNewRequestAsync(dog, adopter, message, now);
     }
 
     public Task<List<AdoptionRequest>> GetRequestsForAdopterAsync(string adopterId)
@@ -129,6 +136,8 @@ public class AdoptionRequestService(ApplicationDbContext context) : IAdoptionReq
     {
         var request = await context.AdoptionRequests
             .Include(r => r.Dog)
+            .ThenInclude(d => d!.Shelter)
+            .Include(r => r.Adopter)
             .FirstOrDefaultAsync(r => r.Id == requestId);
 
         EnsureShelterCanManageRequest(request, shelterId);
@@ -150,12 +159,15 @@ public class AdoptionRequestService(ApplicationDbContext context) : IAdoptionReq
         }
 
         await context.SaveChangesAsync();
+        await NotifyAdopterAboutRequestStatusAsync(request, AdoptionRequestStatus.Accepted);
     }
 
     public async Task RejectRequestAsync(int requestId, int shelterId)
     {
         var request = await context.AdoptionRequests
             .Include(r => r.Dog)
+            .ThenInclude(d => d!.Shelter)
+            .Include(r => r.Adopter)
             .FirstOrDefaultAsync(r => r.Id == requestId);
 
         EnsureShelterCanManageRequest(request, shelterId);
@@ -165,6 +177,7 @@ public class AdoptionRequestService(ApplicationDbContext context) : IAdoptionReq
         request.UpdatedAt = DateTime.UtcNow;
 
         await context.SaveChangesAsync();
+        await NotifyAdopterAboutRequestStatusAsync(request, AdoptionRequestStatus.Rejected);
     }
 
     public async Task CancelRequestAsync(int requestId, string adopterId)
@@ -196,6 +209,62 @@ public class AdoptionRequestService(ApplicationDbContext context) : IAdoptionReq
         if (request.Status != AdoptionRequestStatus.Pending)
         {
             throw new InvalidOperationException("Only pending adoption requests can be updated.");
+        }
+    }
+
+    private async Task NotifyShelterAboutNewRequestAsync(Dog dog, PawConnect.Data.ApplicationUser? adopter, string? message, DateTime createdAt)
+    {
+        try
+        {
+            var shelterEmail = dog.Shelter?.ApplicationUser?.Email ?? dog.Shelter?.Email;
+            var adopterName = string.IsNullOrWhiteSpace(adopter?.FullName)
+                ? adopter?.Email ?? "An adopter"
+                : $"{adopter.FullName} ({adopter.Email})";
+
+            var body = $"""
+                Hello,
+
+                A new adoption request was submitted for {dog.Name}.
+
+                Adopter: {adopterName}
+                Created: {createdAt.ToLocalTime():dd MMM yyyy HH:mm}
+                Message: {(string.IsNullOrWhiteSpace(message) ? "No message provided." : message.Trim())}
+
+                Please review the request in PawConnect.
+                """;
+
+            await emailService.SendEmailAsync(shelterEmail ?? string.Empty, $"New adoption request for {dog.Name}", body);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Shelter adoption request notification failed for dog {DogId}.", dog.Id);
+        }
+    }
+
+    private async Task NotifyAdopterAboutRequestStatusAsync(AdoptionRequest request, AdoptionRequestStatus status)
+    {
+        try
+        {
+            var adopterEmail = request.Adopter?.Email;
+            var dogName = request.Dog?.Name ?? "the selected dog";
+            var shelterName = request.Dog?.Shelter?.Name ?? "the shelter";
+
+            var body = $"""
+                Hello,
+
+                Your adoption request for {dogName} has been {status.ToString().ToLowerInvariant()}.
+
+                Shelter: {shelterName}
+                Status: {status}
+
+                Thank you for using PawConnect.
+                """;
+
+            await emailService.SendEmailAsync(adopterEmail ?? string.Empty, $"Adoption request {status}: {dogName}", body);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Adopter adoption request notification failed for request {RequestId}.", request.Id);
         }
     }
 }

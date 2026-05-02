@@ -26,7 +26,7 @@ PawConnect is a beginner-friendly ASP.NET Core Blazor Server skeleton for a stra
 - MudBlazor layout with role-based sidebar navigation
 - Placeholder pages for public, adopter, shelter, and admin workflows
 - Simple service and repository layer
-- Mock email service that logs messages instead of sending SMTP email
+- SMTP email notification service using configuration-based settings
 
 ## Planned Features
 
@@ -36,8 +36,49 @@ PawConnect is a beginner-friendly ASP.NET Core Blazor Server skeleton for a stra
 - Shelter resource stock management
 - Resource categories and food-type tracking for shelter inventory
 - Admin review screens
-- Real email notifications
 - Image upload support
+
+## Email Notifications
+
+PawConnect uses `IEmailService` with `SmtpEmailService` as the active implementation. The service sends plain text emails through SMTP using MailKit.
+
+Email notifications are triggered when:
+
+- An adopter submits a new adoption request, notifying the owning shelter.
+- A shelter accepts or rejects an adoption request, notifying the adopter.
+- A shelter creates or updates a resource stock item that is at or below its low-stock threshold, notifying the shelter.
+
+Email failures are logged and do not cancel the main database action. For example, an adoption request can still be submitted even if SMTP credentials are missing or invalid.
+
+SMTP settings are configured in `appsettings.json` under:
+
+```json
+"EmailSettings": {
+  "SmtpHost": "sandbox.smtp.mailtrap.io",
+  "SmtpPort": 2525,
+  "SmtpUser": "4d19669f0d9a6b",
+  "SmtpPassword": "the-full-password-from-mailtrap",
+  "SenderEmail": "no-reply@pawconnect.local",
+  "SenderName": "PawConnect",
+  "EnableSsl": true
+}
+```
+
+Do not commit real passwords or app passwords. For local development, put real values in `appsettings.Development.json`, .NET User Secrets, or environment variables.
+
+Example User Secrets setup:
+
+```bash
+dotnet user-secrets set "EmailSettings:SmtpHost" "sandbox.smtp.mailtrap.io"
+dotnet user-secrets set "EmailSettings:SmtpPort" "2525"
+dotnet user-secrets set "EmailSettings:SmtpUser" "4d19669f0d9a6b"
+dotnet user-secrets set "EmailSettings:SmtpPassword" "the-full-password-from-mailtrap"
+dotnet user-secrets set "EmailSettings:SenderEmail" "no-reply@pawconnect.local"
+dotnet user-secrets set "EmailSettings:SenderName" "PawConnect"
+dotnet user-secrets set "EmailSettings:EnableSsl" "true"
+```
+
+Mailtrap sandbox is useful for development because it captures test emails instead of delivering them to real inboxes. If you switch to Gmail SMTP later, Gmail requires an App Password.
 
 ## Database
 
@@ -96,7 +137,7 @@ PawConnect123!
 | Role | Email |
 | --- | --- |
 | Adopter | adopter@test.com |
-| Shelter | shelter@test.com |
+| Shelter | u8878233525@id.gle |
 | Admin | admin@test.com |
 
 Newly registered users are assigned the `Adopter` role by default.
