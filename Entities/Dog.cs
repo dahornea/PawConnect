@@ -31,6 +31,13 @@ public class Dog
 
     public DogStatus Status { get; set; } = DogStatus.Available;
 
+    public int? PreferredFoodTypeId { get; set; }
+
+    public FoodType? PreferredFoodType { get; set; }
+
+    [Range(0, 10000)]
+    public int? DailyFoodAmountGrams { get; set; }
+
     public int ShelterId { get; set; }
 
     public Shelter? Shelter { get; set; }

@@ -21,6 +21,10 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
     public DbSet<ResourceStock> ResourceStocks => Set<ResourceStock>();
 
+    public DbSet<ResourceCategory> ResourceCategories => Set<ResourceCategory>();
+
+    public DbSet<FoodType> FoodTypes => Set<FoodType>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -36,6 +40,13 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .HasOne(d => d.Shelter)
             .WithMany(s => s.Dogs)
             .HasForeignKey(d => d.ShelterId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Dog>()
+            .HasOne(d => d.PreferredFoodType)
+            .WithMany(f => f.Dogs)
+            .HasForeignKey(d => d.PreferredFoodTypeId)
+            .IsRequired(false)
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.Entity<DogImage>()
@@ -102,7 +113,40 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.Entity<ResourceStock>()
+            .HasOne(r => r.ResourceCategory)
+            .WithMany(c => c.ResourceStocks)
+            .HasForeignKey(r => r.ResourceCategoryId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<ResourceStock>()
+            .HasOne(r => r.FoodType)
+            .WithMany(f => f.ResourceStocks)
+            .HasForeignKey(r => r.FoodTypeId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<ResourceStock>()
             .Property(r => r.LastUpdatedAt)
             .HasDefaultValueSql("GETUTCDATE()");
+
+        SeedLookupData(builder);
+    }
+
+    private static void SeedLookupData(ModelBuilder builder)
+    {
+        builder.Entity<ResourceCategory>().HasData(
+            new ResourceCategory { Id = 1, Name = "Food", Description = "Food supplies for dogs." },
+            new ResourceCategory { Id = 2, Name = "Medicine", Description = "Medication and medical supplies." },
+            new ResourceCategory { Id = 3, Name = "Blankets", Description = "Blankets and bedding materials." },
+            new ResourceCategory { Id = 4, Name = "Cleaning Supplies", Description = "Cleaning and sanitation products." },
+            new ResourceCategory { Id = 5, Name = "Accessories", Description = "Leashes, collars, bowls, and similar items." },
+            new ResourceCategory { Id = 6, Name = "Other", Description = "General shelter resources." });
+
+        builder.Entity<FoodType>().HasData(
+            new FoodType { Id = 1, Name = "Adult dry food", Description = "Standard dry food for adult dogs." },
+            new FoodType { Id = 2, Name = "Puppy food", Description = "Food suitable for puppies." },
+            new FoodType { Id = 3, Name = "Senior food", Description = "Food suitable for older dogs." },
+            new FoodType { Id = 4, Name = "Wet food", Description = "Canned or wet dog food." },
+            new FoodType { Id = 5, Name = "Medical diet food", Description = "Special diet food recommended by a veterinarian." });
     }
 }

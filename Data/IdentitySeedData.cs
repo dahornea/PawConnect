@@ -14,6 +14,17 @@ public static class IdentitySeedData
     public const string AdopterUserId = "00000000-0000-0000-0000-000000000001";
     public const string ShelterUserId = "11111111-1111-1111-1111-111111111111";
     public const string AdminUserId = "22222222-2222-2222-2222-222222222222";
+    private const int FoodCategoryId = 1;
+    private const int MedicineCategoryId = 2;
+    private const int BlanketsCategoryId = 3;
+    private const int CleaningSuppliesCategoryId = 4;
+    private const int AccessoriesCategoryId = 5;
+    private const int OtherCategoryId = 6;
+    private const int AdultDryFoodTypeId = 1;
+    private const int PuppyFoodTypeId = 2;
+    private const int SeniorFoodTypeId = 3;
+    private const int WetFoodTypeId = 4;
+    private const int MedicalDietFoodTypeId = 5;
 
     private static readonly (string Id, string Email, string FullName, string Role)[] Users =
     [
@@ -71,13 +82,41 @@ public static class IdentitySeedData
             }
         }
 
+        await SeedLookupDataAsync(context);
         await SeedDomainDataAsync(context);
+    }
+
+    private static async Task SeedLookupDataAsync(ApplicationDbContext context)
+    {
+        if (!await context.ResourceCategories.AnyAsync())
+        {
+            context.ResourceCategories.AddRange(
+                new ResourceCategory { Id = FoodCategoryId, Name = "Food", Description = "Food supplies for dogs." },
+                new ResourceCategory { Id = MedicineCategoryId, Name = "Medicine", Description = "Medication and medical supplies." },
+                new ResourceCategory { Id = BlanketsCategoryId, Name = "Blankets", Description = "Blankets and bedding materials." },
+                new ResourceCategory { Id = CleaningSuppliesCategoryId, Name = "Cleaning Supplies", Description = "Cleaning and sanitation products." },
+                new ResourceCategory { Id = AccessoriesCategoryId, Name = "Accessories", Description = "Leashes, collars, bowls, and similar items." },
+                new ResourceCategory { Id = OtherCategoryId, Name = "Other", Description = "General shelter resources." });
+        }
+
+        if (!await context.FoodTypes.AnyAsync())
+        {
+            context.FoodTypes.AddRange(
+                new FoodType { Id = AdultDryFoodTypeId, Name = "Adult dry food", Description = "Standard dry food for adult dogs." },
+                new FoodType { Id = PuppyFoodTypeId, Name = "Puppy food", Description = "Food suitable for puppies." },
+                new FoodType { Id = SeniorFoodTypeId, Name = "Senior food", Description = "Food suitable for older dogs." },
+                new FoodType { Id = WetFoodTypeId, Name = "Wet food", Description = "Canned or wet dog food." },
+                new FoodType { Id = MedicalDietFoodTypeId, Name = "Medical diet food", Description = "Special diet food recommended by a veterinarian." });
+        }
+
+        await context.SaveChangesAsync();
     }
 
     private static async Task SeedDomainDataAsync(ApplicationDbContext context)
     {
         if (await context.Shelters.AnyAsync())
         {
+            await UpdateExistingDemoDataAsync(context);
             return;
         }
 
@@ -102,6 +141,8 @@ public static class IdentitySeedData
                 Size = DogSize.Medium,
                 Location = "Bucharest",
                 Status = DogStatus.Available,
+                PreferredFoodTypeId = AdultDryFoodTypeId,
+                DailyFoodAmountGrams = 350,
                 Description = "Friendly and playful dog looking for an active family.",
                 BehaviorDescription = "Energetic, social, and good on walks.",
                 MedicalStatus = "Vaccinated and dewormed.",
@@ -125,6 +166,8 @@ public static class IdentitySeedData
                 Size = DogSize.Large,
                 Location = "Bucharest",
                 Status = DogStatus.Reserved,
+                PreferredFoodTypeId = SeniorFoodTypeId,
+                DailyFoodAmountGrams = 420,
                 Description = "Calm, affectionate, and good with people.",
                 BehaviorDescription = "Gentle and patient.",
                 MedicalStatus = "Healthy.",
@@ -138,6 +181,8 @@ public static class IdentitySeedData
                 Size = DogSize.Small,
                 Location = "Ilfov",
                 Status = DogStatus.InTreatment,
+                PreferredFoodTypeId = MedicalDietFoodTypeId,
+                DailyFoodAmountGrams = 180,
                 Description = "Young dog currently receiving basic medical care.",
                 BehaviorDescription = "Curious but shy around new people.",
                 MedicalStatus = "Under treatment for a minor skin condition.",
@@ -160,6 +205,8 @@ public static class IdentitySeedData
                 Size = DogSize.Large,
                 Location = "Brasov",
                 Status = DogStatus.Available,
+                PreferredFoodTypeId = AdultDryFoodTypeId,
+                DailyFoodAmountGrams = 500,
                 Description = "Loyal dog suitable for an experienced adopter.",
                 BehaviorDescription = "Protective, smart, and active.",
                 MedicalStatus = "Vaccinated.",
@@ -173,6 +220,8 @@ public static class IdentitySeedData
                 Size = DogSize.Medium,
                 Location = "Cluj-Napoca",
                 Status = DogStatus.Adopted,
+                PreferredFoodTypeId = WetFoodTypeId,
+                DailyFoodAmountGrams = 300,
                 Description = "Cheerful dog used as an adopted example in demo data.",
                 BehaviorDescription = "Playful and food motivated.",
                 MedicalStatus = "Healthy.",
@@ -182,12 +231,83 @@ public static class IdentitySeedData
 
         shelter.ResourceStocks =
         [
-            new ResourceStock { Name = "Dry Food", Quantity = 50, Unit = "kg", LowStockThreshold = 15 },
-            new ResourceStock { Name = "Blankets", Quantity = 20, Unit = "pcs", LowStockThreshold = 5 },
-            new ResourceStock { Name = "Medicine Kits", Quantity = 2, Unit = "pcs", LowStockThreshold = 3 }
+            new ResourceStock { Name = "Adult Dry Food Bags", Quantity = 50, Unit = "kg", LowStockThreshold = 15, ResourceCategoryId = FoodCategoryId, FoodTypeId = AdultDryFoodTypeId },
+            new ResourceStock { Name = "Medicine Kits", Quantity = 2, Unit = "pcs", LowStockThreshold = 3, ResourceCategoryId = MedicineCategoryId },
+            new ResourceStock { Name = "Blankets", Quantity = 20, Unit = "pcs", LowStockThreshold = 5, ResourceCategoryId = BlanketsCategoryId },
+            new ResourceStock { Name = "Disinfectant", Quantity = 8, Unit = "liters", LowStockThreshold = 4, ResourceCategoryId = CleaningSuppliesCategoryId }
         ];
 
         context.Shelters.Add(shelter);
+        await context.SaveChangesAsync();
+    }
+
+    private static async Task UpdateExistingDemoDataAsync(ApplicationDbContext context)
+    {
+        var stocks = await context.ResourceStocks.ToListAsync();
+        foreach (var stock in stocks)
+        {
+            if (stock.ResourceCategoryId != 0)
+            {
+                continue;
+            }
+
+            if (stock.Name.Contains("food", StringComparison.OrdinalIgnoreCase))
+            {
+                stock.Name = "Adult Dry Food Bags";
+                stock.ResourceCategoryId = FoodCategoryId;
+                stock.FoodTypeId = AdultDryFoodTypeId;
+            }
+            else if (stock.Name.Contains("medicine", StringComparison.OrdinalIgnoreCase))
+            {
+                stock.ResourceCategoryId = MedicineCategoryId;
+            }
+            else if (stock.Name.Contains("blanket", StringComparison.OrdinalIgnoreCase))
+            {
+                stock.ResourceCategoryId = BlanketsCategoryId;
+            }
+            else
+            {
+                stock.ResourceCategoryId = OtherCategoryId;
+            }
+        }
+
+        var shelter = await context.Shelters.FirstOrDefaultAsync();
+        if (shelter is not null && !await context.ResourceStocks.AnyAsync(r => r.ResourceCategoryId == CleaningSuppliesCategoryId))
+        {
+            context.ResourceStocks.Add(new ResourceStock
+            {
+                ShelterId = shelter.Id,
+                Name = "Disinfectant",
+                Quantity = 8,
+                Unit = "liters",
+                LowStockThreshold = 4,
+                ResourceCategoryId = CleaningSuppliesCategoryId
+            });
+        }
+
+        var dogs = await context.Dogs.ToListAsync();
+        foreach (var dog in dogs)
+        {
+            if (dog.PreferredFoodTypeId is not null)
+            {
+                continue;
+            }
+
+            dog.PreferredFoodTypeId = dog.Age switch
+            {
+                <= 1 => PuppyFoodTypeId,
+                >= 5 => SeniorFoodTypeId,
+                _ => AdultDryFoodTypeId
+            };
+            dog.DailyFoodAmountGrams = dog.Size switch
+            {
+                DogSize.Small => 180,
+                DogSize.Medium => 320,
+                DogSize.Large => 480,
+                _ => 300
+            };
+        }
+
         await context.SaveChangesAsync();
     }
 }

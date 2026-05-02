@@ -10,6 +10,8 @@ public class ResourceStockService(ApplicationDbContext context) : IResourceStock
     {
         return context.ResourceStocks
             .Include(r => r.Shelter)
+            .Include(r => r.ResourceCategory)
+            .Include(r => r.FoodType)
             .AsNoTracking()
             .ToListAsync();
     }
@@ -18,6 +20,8 @@ public class ResourceStockService(ApplicationDbContext context) : IResourceStock
     {
         return context.ResourceStocks
             .Include(r => r.Shelter)
+            .Include(r => r.ResourceCategory)
+            .Include(r => r.FoodType)
             .AsNoTracking()
             .FirstOrDefaultAsync(r => r.Id == id);
     }
@@ -50,6 +54,8 @@ public class ResourceStockService(ApplicationDbContext context) : IResourceStock
     public Task<List<ResourceStock>> GetForShelterAsync(int shelterId)
     {
         return context.ResourceStocks
+            .Include(r => r.ResourceCategory)
+            .Include(r => r.FoodType)
             .Where(r => r.ShelterId == shelterId)
             .AsNoTracking()
             .ToListAsync();
