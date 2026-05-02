@@ -4,6 +4,7 @@
 @inject IDogService DogService
 @inject IFavoriteDogService FavoriteDogService
 @inject IAdoptionRequestService AdoptionRequestService
+@inject IAdopterProfileService AdopterProfileService
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject UserManager<ApplicationUser> UserManager
 @inject NavigationManager NavigationManager
@@ -109,7 +110,45 @@ else
                                 <MudPaper Elevation="0" Class="pa-3 mt-2">
                                     <MudStack Spacing="2">
                                         <MudText Typo="Typo.h6">Adoption Request</MudText>
-                                        <MudTextField Label="Message" @bind-Value="_adoptionMessage" Lines="4" Variant="Variant.Outlined" />
+
+                                        @if (_adopterProfile is null)
+                                        {
+                                            <MudAlert Severity="Severity.Info">
+                                                You can complete your adopter profile to help shelters evaluate your request.
+                                                <MudButton Href="/adopter/profile" Variant="Variant.Text" Color="Color.Primary" Class="ml-2">Edit Profile</MudButton>
+                                            </MudAlert>
+                                        }
+                                        else
+                                        {
+                                            <MudCard>
+                                                <MudCardContent>
+                                                    <MudText Typo="Typo.subtitle1">Your Profile Summary</MudText>
+                                                    <MudDivider Class="my-2" />
+                                                    <MudGrid>
+                                                        <MudItem xs="12" sm="6"><MudText Typo="Typo.body2">Name: @_adopterProfile.FullName</MudText></MudItem>
+                                                        <MudItem xs="12" sm="6"><MudText Typo="Typo.body2">City: @_adopterProfile.City</MudText></MudItem>
+                                                        <MudItem xs="12" sm="6"><MudText Typo="Typo.body2">Phone: @(string.IsNullOrWhiteSpace(_adopterProfile.PhoneNumber) ? "-" : _adopterProfile.PhoneNumber)</MudText></MudItem>
+                                                        <MudItem xs="12" sm="6"><MudText Typo="Typo.body2">Housing: @_adopterProfile.HousingType</MudText></MudItem>
+                                                        <MudItem xs="12" sm="6"><MudText Typo="Typo.body2">Has yard: @FormatYesNo(_adopterProfile.HasYard)</MudText></MudItem>
+                                                        <MudItem xs="12" sm="6"><MudText Typo="Typo.body2">Other pets: @FormatYesNo(_adopterProfile.HasOtherPets)</MudText></MudItem>
+                                                        <MudItem xs="12" sm="6"><MudText Typo="Typo.body2">Children: @FormatYesNo(_adopterProfile.HasChildren)</MudText></MudItem>
+                                                        @if (!string.IsNullOrWhiteSpace(_adopterProfile.ExperienceWithDogs))
+                                                        {
+                                                            <MudItem xs="12"><MudText Typo="Typo.body2">Experience: @_adopterProfile.ExperienceWithDogs</MudText></MudItem>
+                                                        }
+                                                    </MudGrid>
+                                                </MudCardContent>
+                                            </MudCard>
+                                        }
+
+                                        <MudForm @ref="_adoptionForm">
+                                            <MudStack Spacing="2">
+                                                <MudTextField Label="Reason for adoption" @bind-Value="_reasonForAdoption" Required="true" RequiredError="Reason for adoption is required." Lines="4" Variant="Variant.Outlined" />
+                                                <MudNumericField T="int?" Label="Hours per day the dog would be alone" @bind-Value="_hoursAlonePerDay" Min="0" Max="24" Variant="Variant.Outlined" />
+                                                <MudTextField Label="Additional information" @bind-Value="_additionalInformation" Lines="3" Variant="Variant.Outlined" />
+                                            </MudStack>
+                                        </MudForm>
+
                                         <MudStack Row="true" Spacing="2">
                                             <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Send" Disabled="@_isSubmittingRequest" OnClick="SubmitAdoptionRequestAsync">Submit</MudButton>
                                             <MudButton Variant="Variant.Text" Color="Color.Default" Disabled="@_isSubmittingRequest" OnClick="CancelAdoptionForm">Cancel</MudButton>
@@ -221,7 +260,11 @@ else
     private bool _hasPendingRequest;
     private bool _showAdoptionForm;
     private bool _isSubmittingRequest;
-    private string? _adoptionMessage;
+    private AdopterProfile? _adopterProfile;
+    private MudForm? _adoptionForm;
+    private string? _reasonForAdoption;
+    private int? _hoursAlonePerDay;
+    private string? _additionalInformation;
 
     protected override async Task OnInitializedAsync()
     {
@@ -233,6 +276,7 @@ else
             {
                 _isFavorite = await FavoriteDogService.IsFavoriteAsync(_currentUserId, _dog.Id);
                 _hasPendingRequest = await AdoptionRequestService.HasPendingRequestAsync(_currentUserId, _dog.Id);
+                _adopterProfile = await AdopterProfileService.GetProfileForUserAsync(_currentUserId);
             }
         }
         catch
@@ -373,10 +417,24 @@ else
 
         try
         {
-            await AdoptionRequestService.CreateRequestAsync(_currentUserId, _dog.Id, _adoptionMessage);
+            if (_adoptionForm is not null)
+            {
+                await _adoptionForm.ValidateAsync();
+                if (!_adoptionForm.IsValid)
+                {
+                    return;
+                }
+            }
+
+            var questionnaire = new AdoptionRequestQuestionnaire(
+                _reasonForAdoption ?? string.Empty,
+                _hoursAlonePerDay,
+                _additionalInformation);
+
+            await AdoptionRequestService.CreateRequestAsync(_currentUserId, _dog.Id, questionnaire);
             _hasPendingRequest = true;
             _showAdoptionForm = false;
-            _adoptionMessage = null;
+            ResetAdoptionForm();
             Snackbar.Add("Adoption request submitted and shelter notification attempted.", Severity.Success);
         }
         catch (InvalidOperationException ex)
@@ -396,7 +454,14 @@ else
     private void CancelAdoptionForm()
     {
         _showAdoptionForm = false;
-        _adoptionMessage = null;
+        ResetAdoptionForm();
+    }
+
+    private void ResetAdoptionForm()
+    {
+        _reasonForAdoption = null;
+        _hoursAlonePerDay = null;
+        _additionalInformation = null;
     }
 
     private string GetFavoriteIcon()
@@ -422,5 +487,10 @@ else
     private string GetAdoptionButtonText()
     {
         return _hasPendingRequest ? "Request Pending" : "Submit Adoption Request";
+    }
+
+    private static string FormatYesNo(bool value)
+    {
+        return value ? "Yes" : "No";
     }
 }

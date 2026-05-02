@@ -62,8 +62,10 @@ public class AdoptionRequestService(ApplicationDbContext context, IEmailService 
         return GetRequestsForAdopterAsync(userId);
     }
 
-    public async Task CreateRequestAsync(string adopterId, int dogId, string? message)
+    public async Task CreateRequestAsync(string adopterId, int dogId, AdoptionRequestQuestionnaire questionnaire)
     {
+        ValidateQuestionnaire(questionnaire);
+
         var dog = await context.Dogs
             .Include(d => d.Shelter)
             .ThenInclude(s => s!.ApplicationUser)
@@ -85,20 +87,27 @@ public class AdoptionRequestService(ApplicationDbContext context, IEmailService 
             throw new InvalidOperationException("You already have a pending adoption request for this dog.");
         }
 
-        var adopter = await context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == adopterId);
+        var adopter = await context.Users
+            .Include(u => u.AdopterProfile)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == adopterId);
+
         var now = DateTime.UtcNow;
         context.AdoptionRequests.Add(new AdoptionRequest
         {
             AdopterId = adopterId,
             DogId = dogId,
-            Message = string.IsNullOrWhiteSpace(message) ? null : message.Trim(),
+            Message = string.IsNullOrWhiteSpace(questionnaire.AdditionalInformation) ? null : questionnaire.AdditionalInformation.Trim(),
+            ReasonForAdoption = questionnaire.ReasonForAdoption.Trim(),
+            HoursAlonePerDay = questionnaire.HoursAlonePerDay,
+            AdditionalInformation = string.IsNullOrWhiteSpace(questionnaire.AdditionalInformation) ? null : questionnaire.AdditionalInformation.Trim(),
             Status = AdoptionRequestStatus.Pending,
             CreatedAt = now,
             UpdatedAt = now
         });
 
         await context.SaveChangesAsync();
-        await NotifyShelterAboutNewRequestAsync(dog, adopter, message, now);
+        await NotifyShelterAboutNewRequestAsync(dog, adopter, questionnaire, now);
     }
 
     public Task<List<AdoptionRequest>> GetRequestsForAdopterAsync(string adopterId)
@@ -136,6 +145,8 @@ public class AdoptionRequestService(ApplicationDbContext context, IEmailService 
             .ThenInclude(d => d!.Images)
             .Include(r => r.Dog)
             .ThenInclude(d => d!.Shelter)
+            .Include(r => r.Adopter)
+            .ThenInclude(a => a!.AdopterProfile)
             .Where(r => r.AdopterId == adopterId)
             .OrderByDescending(r => r.CreatedAt)
             .Take(count)
@@ -244,7 +255,20 @@ public class AdoptionRequestService(ApplicationDbContext context, IEmailService 
         }
     }
 
-    private async Task NotifyShelterAboutNewRequestAsync(Dog dog, PawConnect.Data.ApplicationUser? adopter, string? message, DateTime createdAt)
+    private static void ValidateQuestionnaire(AdoptionRequestQuestionnaire questionnaire)
+    {
+        if (string.IsNullOrWhiteSpace(questionnaire.ReasonForAdoption))
+        {
+            throw new InvalidOperationException("Reason for adoption is required.");
+        }
+
+        if (questionnaire.HoursAlonePerDay is < 0 or > 24)
+        {
+            throw new InvalidOperationException("Hours alone per day must be between 0 and 24.");
+        }
+    }
+
+    private async Task NotifyShelterAboutNewRequestAsync(Dog dog, PawConnect.Data.ApplicationUser? adopter, AdoptionRequestQuestionnaire questionnaire, DateTime createdAt)
     {
         try
         {
@@ -260,7 +284,15 @@ public class AdoptionRequestService(ApplicationDbContext context, IEmailService 
 
                 Adopter: {adopterName}
                 Created: {createdAt.ToLocalTime():dd MMM yyyy HH:mm}
-                Message: {(string.IsNullOrWhiteSpace(message) ? "No message provided." : message.Trim())}
+
+                Reason for adoption:
+                {questionnaire.ReasonForAdoption.Trim()}
+
+                Hours alone per day: {(questionnaire.HoursAlonePerDay.HasValue ? questionnaire.HoursAlonePerDay.Value.ToString() : "Not provided")}
+                Additional information: {(string.IsNullOrWhiteSpace(questionnaire.AdditionalInformation) ? "Not provided." : questionnaire.AdditionalInformation.Trim())}
+
+                Adopter profile summary:
+                {BuildAdopterProfileSummary(adopter?.AdopterProfile)}
 
                 Please review the request in PawConnect.
                 """;
@@ -271,6 +303,28 @@ public class AdoptionRequestService(ApplicationDbContext context, IEmailService 
         {
             logger.LogWarning(ex, "Shelter adoption request notification failed for dog {DogId}.", dog.Id);
         }
+    }
+
+    private static string BuildAdopterProfileSummary(AdopterProfile? profile)
+    {
+        if (profile is null)
+        {
+            return "No adopter profile completed yet.";
+        }
+
+        return $"""
+            City: {profile.City}
+            Housing: {profile.HousingType}
+            Has yard: {FormatYesNo(profile.HasYard)}
+            Has other pets: {FormatYesNo(profile.HasOtherPets)}
+            Has children: {FormatYesNo(profile.HasChildren)}
+            Experience with dogs: {(string.IsNullOrWhiteSpace(profile.ExperienceWithDogs) ? "Not provided." : profile.ExperienceWithDogs)}
+            """;
+    }
+
+    private static string FormatYesNo(bool value)
+    {
+        return value ? "Yes" : "No";
     }
 
     private async Task NotifyAdopterAboutRequestStatusAsync(AdoptionRequest request, AdoptionRequestStatus status)

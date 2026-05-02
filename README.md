@@ -121,10 +121,10 @@ Apply migrations to the `PawConnect` database:
 dotnet tool run dotnet-ef database update
 ```
 
-The latest profile migration is:
+The latest adoption request migration is:
 
 ```text
-20260502211319_AddAdopterProfiles
+20260502213807_AddAdoptionRequestQuestionnaire
 ```
 
 ## Test Users

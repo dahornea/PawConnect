@@ -38,7 +38,7 @@
                 <HeaderContent>
                     <MudTh>Dog</MudTh>
                     <MudTh>Adopter</MudTh>
-                    <MudTh>Message</MudTh>
+                    <MudTh>Questionnaire</MudTh>
                     <MudTh>Status</MudTh>
                     <MudTh>Created</MudTh>
                     <MudTh>Updated</MudTh>
@@ -93,7 +93,16 @@
                             }
                         </MudStack>
                     </MudTd>
-                    <MudTd DataLabel="Message">@(string.IsNullOrWhiteSpace(context.Message) ? "-" : context.Message)</MudTd>
+                    <MudTd DataLabel="Questionnaire">
+                        <MudStack Spacing="1">
+                            <MudText Typo="Typo.body2">@context.ReasonForAdoption</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Hours alone: @(context.HoursAlonePerDay.HasValue ? context.HoursAlonePerDay.Value : "-")</MudText>
+                            @if (!string.IsNullOrWhiteSpace(context.AdditionalInformation))
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">@context.AdditionalInformation</MudText>
+                            }
+                        </MudStack>
+                    </MudTd>
                     <MudTd DataLabel="Status">
                         <MudChip T="string" Color="@GetStatusColor(context.Status)" Size="Size.Small">@context.Status</MudChip>
                     </MudTd>
