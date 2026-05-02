@@ -10,7 +10,11 @@
         </MudText>
         <MudStack Row="true" Spacing="2" Class="mt-4">
             <MudButton Href="/dogs" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Pets">View Dogs</MudButton>
-            <MudButton Href="/Account/Login" Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Login">Login</MudButton>
+            <AuthorizeView>
+                <NotAuthorized>
+                    <MudButton Href="/Account/Login" Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Login">Login</MudButton>
+                </NotAuthorized>
+            </AuthorizeView>
         </MudStack>
     </MudPaper>
 

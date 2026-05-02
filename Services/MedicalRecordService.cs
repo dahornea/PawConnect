@@ -45,4 +45,79 @@ public class MedicalRecordService(ApplicationDbContext context) : IMedicalRecord
         context.MedicalRecords.Remove(medicalRecord);
         await context.SaveChangesAsync();
     }
+
+    public Task<List<MedicalRecord>> GetMedicalRecordsForDogAsync(int dogId)
+    {
+        return context.MedicalRecords
+            .Where(m => m.DogId == dogId)
+            .OrderByDescending(m => m.RecordDate)
+            .AsNoTracking()
+            .ToListAsync();
+    }
+
+    public async Task AddMedicalRecordAsync(int dogId, int shelterId, MedicalRecord record)
+    {
+        await EnsureDogBelongsToShelterAsync(dogId, shelterId);
+        ValidateMedicalRecord(record);
+
+        record.Id = 0;
+        record.DogId = dogId;
+        record.Dog = null;
+
+        context.MedicalRecords.Add(record);
+        await context.SaveChangesAsync();
+    }
+
+    public async Task UpdateMedicalRecordAsync(int shelterId, MedicalRecord record)
+    {
+        ValidateMedicalRecord(record);
+
+        var existingRecord = await context.MedicalRecords
+            .Include(m => m.Dog)
+            .FirstOrDefaultAsync(m => m.Id == record.Id);
+
+        if (existingRecord?.Dog is null || existingRecord.Dog.ShelterId != shelterId)
+        {
+            throw new InvalidOperationException("Medical record was not found for your shelter.");
+        }
+
+        existingRecord.VaccineName = string.IsNullOrWhiteSpace(record.VaccineName) ? null : record.VaccineName.Trim();
+        existingRecord.TreatmentDescription = string.IsNullOrWhiteSpace(record.TreatmentDescription) ? null : record.TreatmentDescription.Trim();
+        existingRecord.RecordDate = record.RecordDate;
+        existingRecord.Notes = string.IsNullOrWhiteSpace(record.Notes) ? null : record.Notes.Trim();
+
+        await context.SaveChangesAsync();
+    }
+
+    public async Task DeleteMedicalRecordAsync(int recordId, int shelterId)
+    {
+        var record = await context.MedicalRecords
+            .Include(m => m.Dog)
+            .FirstOrDefaultAsync(m => m.Id == recordId);
+
+        if (record?.Dog is null || record.Dog.ShelterId != shelterId)
+        {
+            throw new InvalidOperationException("Medical record was not found for your shelter.");
+        }
+
+        context.MedicalRecords.Remove(record);
+        await context.SaveChangesAsync();
+    }
+
+    private async Task EnsureDogBelongsToShelterAsync(int dogId, int shelterId)
+    {
+        var dogExists = await context.Dogs.AnyAsync(d => d.Id == dogId && d.ShelterId == shelterId);
+        if (!dogExists)
+        {
+            throw new InvalidOperationException("Dog was not found for your shelter.");
+        }
+    }
+
+    private static void ValidateMedicalRecord(MedicalRecord record)
+    {
+        if (record.RecordDate == default)
+        {
+            throw new InvalidOperationException("Record date is required.");
+        }
+    }
 }
