@@ -1,32 +1,57 @@
 @page "/shelter/resources"
 @attribute [Authorize(Roles = "Shelter")]
+@inject IResourceStockService ResourceStockService
 
 <PageTitle>Resources</PageTitle>
 
 <MudStack Spacing="3">
     <MudText Typo="Typo.h4">Resources</MudText>
-    <MudAlert Severity="Severity.Info">Resource stock CRUD will be implemented later. Seed data includes dry food, blankets, and medicine kits.</MudAlert>
-    <MudTable Items="_resources" Dense="true" Hover="true">
+    <MudAlert Severity="Severity.Info">Resource stock CRUD will be implemented later. This table is prepared for categories and optional food type tracking.</MudAlert>
+
+    @if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <MudAlert Severity="Severity.Error">@_error</MudAlert>
+    }
+
+    <MudTable Items="_resources" Dense="true" Hover="true" Loading="_isLoading">
         <HeaderContent>
             <MudTh>Name</MudTh>
+            <MudTh>Category</MudTh>
+            <MudTh>Food Type</MudTh>
             <MudTh>Quantity</MudTh>
             <MudTh>Low Stock</MudTh>
         </HeaderContent>
         <RowTemplate>
             <MudTd DataLabel="Name">@context.Name</MudTd>
+            <MudTd DataLabel="Category">@context.ResourceCategory?.Name</MudTd>
+            <MudTd DataLabel="Food Type">@(context.FoodType?.Name ?? "-")</MudTd>
             <MudTd DataLabel="Quantity">@context.Quantity @context.Unit</MudTd>
             <MudTd DataLabel="Low Stock">@context.LowStockThreshold @context.Unit</MudTd>
         </RowTemplate>
+        <NoRecordsContent>
+            <MudText Class="pa-4">No resource stock items found.</MudText>
+        </NoRecordsContent>
     </MudTable>
 </MudStack>
 
 @code {
-    private readonly List<ResourceRow> _resources =
-    [
-        new("Dry Food", 50, "kg", 15),
-        new("Blankets", 20, "pcs", 5),
-        new("Medicine Kits", 8, "pcs", 3)
-    ];
+    private List<ResourceStock> _resources = [];
+    private bool _isLoading = true;
+    private string? _error;
 
-    private sealed record ResourceRow(string Name, int Quantity, string Unit, int LowStockThreshold);
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _resources = await ResourceStockService.GetAllAsync();
+        }
+        catch
+        {
+            _error = "Resource stock data could not be loaded. Check migrations and database connection.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
 }

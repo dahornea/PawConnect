@@ -53,6 +53,8 @@ builder.Services.AddScoped<IShelterService, ShelterService>();
 builder.Services.AddScoped<IResourceStockService, ResourceStockService>();
 builder.Services.AddScoped<IMedicalRecordService, MedicalRecordService>();
 builder.Services.AddScoped<IDogImageService, DogImageService>();
+builder.Services.AddScoped<IResourceCategoryService, ResourceCategoryService>();
+builder.Services.AddScoped<IFoodTypeService, FoodTypeService>();
 builder.Services.AddScoped<IEmailService, MockEmailService>();
 
 var app = builder.Build();

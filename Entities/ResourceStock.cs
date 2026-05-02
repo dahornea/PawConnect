@@ -23,4 +23,12 @@ public class ResourceStock
     public int ShelterId { get; set; }
 
     public Shelter? Shelter { get; set; }
+
+    public int ResourceCategoryId { get; set; }
+
+    public ResourceCategory? ResourceCategory { get; set; }
+
+    public int? FoodTypeId { get; set; }
+
+    public FoodType? FoodType { get; set; }
 }

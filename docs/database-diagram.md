@@ -43,6 +43,8 @@ erDiagram
         string Description
         string BehaviorDescription
         string MedicalStatus
+        int PreferredFoodTypeId FK
+        int DailyFoodAmountGrams
         int ShelterId FK
     }
 
@@ -87,6 +89,20 @@ erDiagram
         int LowStockThreshold
         datetime LastUpdatedAt
         int ShelterId FK
+        int ResourceCategoryId FK
+        int FoodTypeId FK
+    }
+
+    RESOURCE_CATEGORIES {
+        int Id PK
+        string Name
+        string Description
+    }
+
+    FOOD_TYPES {
+        int Id PK
+        string Name
+        string Description
     }
 
     ASP_NET_USERS ||--o{ ASP_NET_USER_ROLES : has
@@ -95,6 +111,9 @@ erDiagram
     ASP_NET_USERS ||--o{ SHELTERS : owns
     SHELTERS ||--o{ DOGS : manages
     SHELTERS ||--o{ RESOURCE_STOCKS : stores
+    RESOURCE_CATEGORIES ||--o{ RESOURCE_STOCKS : groups
+    FOOD_TYPES ||--o{ RESOURCE_STOCKS : describes_food
+    FOOD_TYPES ||--o{ DOGS : preferred_by
 
     DOGS ||--o{ DOG_IMAGES : has
     DOGS ||--o{ MEDICAL_RECORDS : has
@@ -110,10 +129,13 @@ erDiagram
 - One user can have many roles through `AspNetUserRoles`.
 - One shelter can manage many dogs.
 - One shelter can store many resource stock records.
+- One resource category can group many resource stock records.
+- One food type can be used by many food stock records.
+- One food type can be selected as the preferred food type for many dogs.
 - One dog can have many images.
 - One dog can have many medical records.
 - One dog can receive many adoption requests.
 - One adopter user can submit many adoption requests.
 - Favorite dogs are stored through `FavoriteDogs`, which connects users and dogs.
-- `FavoriteDogs` has a unique rule for `UserId + DogId`, so a user cannot favorite the same dog twice.
+- `FavoriteDogs` has a unique rule for `AdopterId + DogId`, so a user cannot favorite the same dog twice.
 
