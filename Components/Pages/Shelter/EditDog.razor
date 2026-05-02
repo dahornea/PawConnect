@@ -4,6 +4,8 @@
 @attribute [Authorize(Roles = "Shelter")]
 @inject IDogService DogService
 @inject IFoodTypeService FoodTypeService
+@inject IDogImageService DogImageService
+@inject IMedicalRecordService MedicalRecordService
 @inject IShelterService ShelterService
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject UserManager<ApplicationUser> UserManager
@@ -93,6 +95,122 @@
                     <MudButton Href="/shelter/dogs" Variant="Variant.Text" Disabled="_isSaving">Back</MudButton>
                 </MudCardActions>
             </MudCard>
+
+            <MudPaper Elevation="0" Class="pa-4">
+                <MudStack Spacing="3">
+                    <div>
+                        <MudText Typo="Typo.h5">Dog Images</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Add image URLs and choose one main image for listings.</MudText>
+                    </div>
+
+                    <MudForm @ref="_imageForm">
+                        <MudGrid Spacing="2">
+                            <MudItem xs="12" md="8">
+                                <MudTextField Label="Image URL" @bind-Value="_newImage.ImageUrl" Required="true" RequiredError="Image URL is required." Variant="Variant.Outlined" />
+                            </MudItem>
+                            <MudItem xs="12" md="2">
+                                <MudCheckBox T="bool" Label="Main image" @bind-Value="_newImage.IsMainImage" Color="Color.Primary" />
+                            </MudItem>
+                            <MudItem xs="12" md="2">
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.AddPhotoAlternate" Disabled="_isImageSaving" OnClick="AddImageAsync">Add Image</MudButton>
+                            </MudItem>
+                        </MudGrid>
+                    </MudForm>
+
+                    @if (_images.Count == 0)
+                    {
+                        <MudAlert Severity="Severity.Info">No images have been added for this dog yet.</MudAlert>
+                    }
+                    else
+                    {
+                        <MudGrid Spacing="2">
+                            @foreach (var image in _images)
+                            {
+                                <MudItem xs="12" sm="6" md="4">
+                                    <MudCard>
+                                        <MudCardMedia Image="@image.ImageUrl" Height="160" />
+                                        <MudCardContent>
+                                            @if (image.IsMainImage)
+                                            {
+                                                <MudChip T="string" Color="Color.Success" Size="Size.Small">Main Image</MudChip>
+                                            }
+                                            else
+                                            {
+                                                <MudText Typo="Typo.caption" Color="Color.Secondary">Gallery image</MudText>
+                                            }
+                                        </MudCardContent>
+                                        <MudCardActions>
+                                            <MudButton Variant="Variant.Text" Color="Color.Primary" Disabled="@image.IsMainImage" OnClick="@(() => SetMainImageAsync(image))">Set Main</MudButton>
+                                            <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="@(() => DeleteImageAsync(image))">Delete</MudButton>
+                                        </MudCardActions>
+                                    </MudCard>
+                                </MudItem>
+                            }
+                        </MudGrid>
+                    }
+                </MudStack>
+            </MudPaper>
+
+            <MudPaper Elevation="0" Class="pa-4">
+                <MudStack Spacing="3">
+                    <div>
+                        <MudText Typo="Typo.h5">Medical Records</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Keep simple vaccine, treatment, and note history for this dog.</MudText>
+                    </div>
+
+                    <MudForm @ref="_medicalForm">
+                        <MudGrid Spacing="2">
+                            <MudItem xs="12" md="6">
+                                <MudTextField Label="Vaccine Name" @bind-Value="_medicalRecordModel.VaccineName" Variant="Variant.Outlined" />
+                            </MudItem>
+                            <MudItem xs="12" md="6">
+                                <MudDatePicker Label="Record Date" @bind-Date="_medicalRecordDate" Required="true" RequiredError="Record date is required." Variant="Variant.Outlined" />
+                            </MudItem>
+                            <MudItem xs="12">
+                                <MudTextField Label="Treatment Description" @bind-Value="_medicalRecordModel.TreatmentDescription" Lines="3" Variant="Variant.Outlined" />
+                            </MudItem>
+                            <MudItem xs="12">
+                                <MudTextField Label="Notes" @bind-Value="_medicalRecordModel.Notes" Lines="3" Variant="Variant.Outlined" />
+                            </MudItem>
+                        </MudGrid>
+                    </MudForm>
+
+                    <MudStack Row="true" Spacing="2">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.MedicalServices" Disabled="_isMedicalSaving" OnClick="SaveMedicalRecordAsync">@(_medicalRecordModel.Id == 0 ? "Add Medical Record" : "Save Medical Record")</MudButton>
+                        @if (_medicalRecordModel.Id != 0)
+                        {
+                            <MudButton Variant="Variant.Text" Color="Color.Default" Disabled="_isMedicalSaving" OnClick="ResetMedicalForm">Cancel Edit</MudButton>
+                        }
+                    </MudStack>
+
+                    @if (_medicalRecords.Count == 0)
+                    {
+                        <MudAlert Severity="Severity.Info">No medical records have been added for this dog yet.</MudAlert>
+                    }
+                    else
+                    {
+                        <MudTable Items="_medicalRecords" Dense="true" Hover="true">
+                            <HeaderContent>
+                                <MudTh>Date</MudTh>
+                                <MudTh>Vaccine</MudTh>
+                                <MudTh>Treatment</MudTh>
+                                <MudTh>Notes</MudTh>
+                                <MudTh></MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Date">@context.RecordDate.ToString("dd MMM yyyy")</MudTd>
+                                <MudTd DataLabel="Vaccine">@(string.IsNullOrWhiteSpace(context.VaccineName) ? "-" : context.VaccineName)</MudTd>
+                                <MudTd DataLabel="Treatment">@(string.IsNullOrWhiteSpace(context.TreatmentDescription) ? "-" : context.TreatmentDescription)</MudTd>
+                                <MudTd DataLabel="Notes">@(string.IsNullOrWhiteSpace(context.Notes) ? "-" : context.Notes)</MudTd>
+                                <MudTd>
+                                    <MudButton Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Edit" OnClick="@(() => EditMedicalRecord(context))">Edit</MudButton>
+                                    <MudButton Variant="Variant.Text" Color="Color.Error" StartIcon="@Icons.Material.Filled.Delete" OnClick="@(() => DeleteMedicalRecordAsync(context))">Delete</MudButton>
+                                </MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    }
+                </MudStack>
+            </MudPaper>
         }
     </MudStack>
 </MudContainer>
@@ -103,9 +221,18 @@
 
     private Dog? _model;
     private List<FoodType> _foodTypes = [];
+    private List<DogImage> _images = [];
+    private List<MedicalRecord> _medicalRecords = [];
+    private DogImage _newImage = new();
+    private MedicalRecord _medicalRecordModel = new() { RecordDate = DateTime.Today };
+    private DateTime? _medicalRecordDate = DateTime.Today;
     private MudForm? _form;
+    private MudForm? _imageForm;
+    private MudForm? _medicalForm;
     private bool _isLoading = true;
     private bool _isSaving;
+    private bool _isImageSaving;
+    private bool _isMedicalSaving;
     private string? _error;
     private int? _shelterId;
 
@@ -125,7 +252,10 @@
             if (_model is null)
             {
                 _error = "Dog was not found for your shelter.";
+                return;
             }
+
+            await LoadImagesAndMedicalRecordsAsync();
         }
         catch
         {
@@ -187,5 +317,197 @@
 
         var shelter = await ShelterService.GetShelterForUserAsync(user.Id);
         return shelter?.Id;
+    }
+
+    private async Task LoadImagesAndMedicalRecordsAsync()
+    {
+        _images = await DogImageService.GetImagesForDogAsync(Id);
+        _medicalRecords = await MedicalRecordService.GetMedicalRecordsForDogAsync(Id);
+    }
+
+    private async Task AddImageAsync()
+    {
+        if (_shelterId is null)
+        {
+            Snackbar.Add("Current shelter profile could not be found.", Severity.Error);
+            return;
+        }
+
+        if (_imageForm is not null)
+        {
+            await _imageForm.ValidateAsync();
+            if (!_imageForm.IsValid)
+            {
+                return;
+            }
+        }
+
+        _isImageSaving = true;
+
+        try
+        {
+            await DogImageService.AddDogImageAsync(Id, _shelterId.Value, _newImage);
+            _newImage = new DogImage();
+            await LoadImagesAndMedicalRecordsAsync();
+            Snackbar.Add("Image added successfully.", Severity.Success);
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch
+        {
+            Snackbar.Add("Image could not be added right now.", Severity.Error);
+        }
+        finally
+        {
+            _isImageSaving = false;
+        }
+    }
+
+    private async Task SetMainImageAsync(DogImage image)
+    {
+        if (_shelterId is null)
+        {
+            Snackbar.Add("Current shelter profile could not be found.", Severity.Error);
+            return;
+        }
+
+        try
+        {
+            await DogImageService.SetMainImageAsync(image.Id, _shelterId.Value);
+            foreach (var dogImage in _images)
+            {
+                dogImage.IsMainImage = dogImage.Id == image.Id;
+            }
+
+            Snackbar.Add("Main image updated.", Severity.Success);
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch
+        {
+            Snackbar.Add("Main image could not be updated right now.", Severity.Error);
+        }
+    }
+
+    private async Task DeleteImageAsync(DogImage image)
+    {
+        if (_shelterId is null)
+        {
+            Snackbar.Add("Current shelter profile could not be found.", Severity.Error);
+            return;
+        }
+
+        try
+        {
+            await DogImageService.DeleteDogImageAsync(image.Id, _shelterId.Value);
+            _images.Remove(image);
+            Snackbar.Add("Image deleted.", Severity.Success);
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch
+        {
+            Snackbar.Add("Image could not be deleted right now.", Severity.Error);
+        }
+    }
+
+    private async Task SaveMedicalRecordAsync()
+    {
+        if (_shelterId is null)
+        {
+            Snackbar.Add("Current shelter profile could not be found.", Severity.Error);
+            return;
+        }
+
+        if (_medicalForm is not null)
+        {
+            await _medicalForm.ValidateAsync();
+            if (!_medicalForm.IsValid || !_medicalRecordDate.HasValue)
+            {
+                return;
+            }
+        }
+
+        _isMedicalSaving = true;
+        _medicalRecordModel.RecordDate = _medicalRecordDate!.Value;
+
+        try
+        {
+            if (_medicalRecordModel.Id == 0)
+            {
+                await MedicalRecordService.AddMedicalRecordAsync(Id, _shelterId.Value, _medicalRecordModel);
+                Snackbar.Add("Medical record added.", Severity.Success);
+            }
+            else
+            {
+                await MedicalRecordService.UpdateMedicalRecordAsync(_shelterId.Value, _medicalRecordModel);
+                Snackbar.Add("Medical record updated.", Severity.Success);
+            }
+
+            ResetMedicalForm();
+            await LoadImagesAndMedicalRecordsAsync();
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch
+        {
+            Snackbar.Add("Medical record could not be saved right now.", Severity.Error);
+        }
+        finally
+        {
+            _isMedicalSaving = false;
+        }
+    }
+
+    private void EditMedicalRecord(MedicalRecord record)
+    {
+        _medicalRecordModel = new MedicalRecord
+        {
+            Id = record.Id,
+            DogId = record.DogId,
+            VaccineName = record.VaccineName,
+            TreatmentDescription = record.TreatmentDescription,
+            RecordDate = record.RecordDate,
+            Notes = record.Notes
+        };
+        _medicalRecordDate = record.RecordDate;
+    }
+
+    private async Task DeleteMedicalRecordAsync(MedicalRecord record)
+    {
+        if (_shelterId is null)
+        {
+            Snackbar.Add("Current shelter profile could not be found.", Severity.Error);
+            return;
+        }
+
+        try
+        {
+            await MedicalRecordService.DeleteMedicalRecordAsync(record.Id, _shelterId.Value);
+            _medicalRecords.Remove(record);
+            Snackbar.Add("Medical record deleted.", Severity.Success);
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch
+        {
+            Snackbar.Add("Medical record could not be deleted right now.", Severity.Error);
+        }
+    }
+
+    private void ResetMedicalForm()
+    {
+        _medicalRecordModel = new MedicalRecord { RecordDate = DateTime.Today };
+        _medicalRecordDate = DateTime.Today;
     }
 }

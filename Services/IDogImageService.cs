@@ -13,4 +13,12 @@ public interface IDogImageService
     Task UpdateAsync(DogImage dogImage);
 
     Task DeleteAsync(int id);
+
+    Task<List<DogImage>> GetImagesForDogAsync(int dogId);
+
+    Task AddDogImageAsync(int dogId, int shelterId, DogImage image);
+
+    Task SetMainImageAsync(int imageId, int shelterId);
+
+    Task DeleteDogImageAsync(int imageId, int shelterId);
 }
