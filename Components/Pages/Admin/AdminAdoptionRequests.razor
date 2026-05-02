@@ -35,7 +35,8 @@
                     <MudTh>Shelter</MudTh>
                     <MudTh>Adopter</MudTh>
                     <MudTh>Status</MudTh>
-                    <MudTh>Message</MudTh>
+                    <MudTh>Questionnaire</MudTh>
+                    <MudTh>Profile</MudTh>
                     <MudTh>Created</MudTh>
                     <MudTh>Updated</MudTh>
                 </HeaderContent>
@@ -46,7 +47,34 @@
                     <MudTd DataLabel="Status">
                         <MudChip T="string" Color="@GetStatusColor(context.Status)" Size="Size.Small">@context.Status</MudChip>
                     </MudTd>
-                    <MudTd DataLabel="Message">@(string.IsNullOrWhiteSpace(context.Message) ? "-" : context.Message)</MudTd>
+                    <MudTd DataLabel="Questionnaire">
+                        <MudStack Spacing="1">
+                            <MudText Typo="Typo.body2">@context.ReasonForAdoption</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Hours alone: @(context.HoursAlonePerDay.HasValue ? context.HoursAlonePerDay.Value : "-")</MudText>
+                            @if (!string.IsNullOrWhiteSpace(context.AdditionalInformation))
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">@context.AdditionalInformation</MudText>
+                            }
+                        </MudStack>
+                    </MudTd>
+                    <MudTd DataLabel="Profile">
+                        @if (context.Adopter?.AdopterProfile is null)
+                        {
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">No profile</MudText>
+                        }
+                        else
+                        {
+                            <MudStack Spacing="1">
+                                <MudText Typo="Typo.body2">@context.Adopter.AdopterProfile.FullName</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">@context.Adopter.AdopterProfile.City | @context.Adopter.AdopterProfile.HousingType</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    Yard: @FormatYesNo(context.Adopter.AdopterProfile.HasYard) |
+                                    Pets: @FormatYesNo(context.Adopter.AdopterProfile.HasOtherPets) |
+                                    Children: @FormatYesNo(context.Adopter.AdopterProfile.HasChildren)
+                                </MudText>
+                            </MudStack>
+                        }
+                    </MudTd>
                     <MudTd DataLabel="Created">@context.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
                     <MudTd DataLabel="Updated">@context.UpdatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
                 </RowTemplate>
@@ -98,5 +126,10 @@
             AdoptionRequestStatus.Cancelled => Color.Default,
             _ => Color.Default
         };
+    }
+
+    private static string FormatYesNo(bool value)
+    {
+        return value ? "Yes" : "No";
     }
 }

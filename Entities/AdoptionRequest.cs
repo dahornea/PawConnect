@@ -21,6 +21,15 @@ public class AdoptionRequest
     [StringLength(1000)]
     public string? Message { get; set; }
 
+    [Required, StringLength(1000)]
+    public string ReasonForAdoption { get; set; } = string.Empty;
+
+    [Range(0, 24)]
+    public int? HoursAlonePerDay { get; set; }
+
+    [StringLength(1000)]
+    public string? AdditionalInformation { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

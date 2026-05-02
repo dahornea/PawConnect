@@ -16,7 +16,7 @@ public interface IAdoptionRequestService
 
     Task<List<AdoptionRequest>> GetForAdopterAsync(string userId);
 
-    Task CreateRequestAsync(string adopterId, int dogId, string? message);
+    Task CreateRequestAsync(string adopterId, int dogId, AdoptionRequestQuestionnaire questionnaire);
 
     Task<List<AdoptionRequest>> GetRequestsForAdopterAsync(string adopterId);
 
@@ -36,3 +36,8 @@ public interface IAdoptionRequestService
 }
 
 public sealed record AdoptionRequestSummary(int Total, int Pending, int Accepted);
+
+public sealed record AdoptionRequestQuestionnaire(
+    string ReasonForAdoption,
+    int? HoursAlonePerDay,
+    string? AdditionalInformation);
