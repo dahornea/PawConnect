@@ -1,5 +1,5 @@
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using PawConnect.Entities;
 
@@ -26,9 +26,9 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         base.OnModelCreating(builder);
 
         builder.Entity<Shelter>()
-            .HasOne(s => s.OwnerUser)
-            .WithMany(u => u.Shelters)
-            .HasForeignKey(s => s.OwnerUserId)
+            .HasOne(s => s.ApplicationUser)
+            .WithOne(u => u.Shelter)
+            .HasForeignKey<Shelter>(s => s.ApplicationUserId)
             .IsRequired(false)
             .OnDelete(DeleteBehavior.Restrict);
 
@@ -40,7 +40,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
         builder.Entity<DogImage>()
             .HasOne(i => i.Dog)
-            .WithMany(d => d.DogImages)
+            .WithMany(d => d.Images)
             .HasForeignKey(i => i.DogId)
             .OnDelete(DeleteBehavior.Cascade);
 
@@ -57,19 +57,32 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.Entity<AdoptionRequest>()
-            .HasOne(a => a.AdopterUser)
+            .HasOne(a => a.Adopter)
             .WithMany(u => u.AdoptionRequests)
-            .HasForeignKey(a => a.AdopterUserId)
+            .HasForeignKey(a => a.AdopterId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        builder.Entity<AdoptionRequest>()
+            .HasIndex(a => new { a.AdopterId, a.DogId })
+            .HasFilter("[Status] = 0")
+            .IsUnique();
+
+        builder.Entity<AdoptionRequest>()
+            .Property(a => a.CreatedAt)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<AdoptionRequest>()
+            .Property(a => a.UpdatedAt)
+            .HasDefaultValueSql("GETUTCDATE()");
+
         builder.Entity<FavoriteDog>()
-            .HasIndex(f => new { f.UserId, f.DogId })
+            .HasIndex(f => new { f.AdopterId, f.DogId })
             .IsUnique();
 
         builder.Entity<FavoriteDog>()
-            .HasOne(f => f.User)
+            .HasOne(f => f.Adopter)
             .WithMany(u => u.FavoriteDogs)
-            .HasForeignKey(f => f.UserId)
+            .HasForeignKey(f => f.AdopterId)
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.Entity<FavoriteDog>()
@@ -78,75 +91,18 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .HasForeignKey(f => f.DogId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        builder.Entity<FavoriteDog>()
+            .Property(f => f.CreatedAt)
+            .HasDefaultValueSql("GETUTCDATE()");
+
         builder.Entity<ResourceStock>()
             .HasOne(r => r.Shelter)
             .WithMany(s => s.ResourceStocks)
             .HasForeignKey(r => r.ShelterId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        SeedDomainData(builder);
-    }
-
-    private static void SeedDomainData(ModelBuilder builder)
-    {
-        var createdAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-
-        builder.Entity<Shelter>().HasData(new Shelter
-        {
-            Id = 1,
-            Name = "PawConnect Demo Shelter",
-            Address = "123 Shelter Street, Bucharest",
-            PhoneNumber = "+40 700 000 001",
-            Email = "shelter@pawconnect.test",
-            Description = "A sample shelter used for development and demonstrations."
-        });
-
-        builder.Entity<Dog>().HasData(
-            new Dog
-            {
-                Id = 1,
-                Name = "Max",
-                Breed = "Mixed Breed",
-                Age = 3,
-                Size = DogSize.Medium,
-                Status = DogStatus.Available,
-                Description = "Friendly and playful dog looking for an active family.",
-                ShelterId = 1,
-                CreatedAt = createdAt
-            },
-            new Dog
-            {
-                Id = 2,
-                Name = "Bella",
-                Breed = "Labrador Mix",
-                Age = 5,
-                Size = DogSize.Large,
-                Status = DogStatus.Reserved,
-                Description = "Calm, affectionate, and good with people.",
-                ShelterId = 1,
-                CreatedAt = createdAt
-            },
-            new Dog
-            {
-                Id = 3,
-                Name = "Luna",
-                Breed = "Terrier Mix",
-                Age = 1,
-                Size = DogSize.Small,
-                Status = DogStatus.InTreatment,
-                Description = "Young dog currently receiving basic medical care.",
-                ShelterId = 1,
-                CreatedAt = createdAt
-            });
-
-        builder.Entity<DogImage>().HasData(
-            new DogImage { Id = 1, DogId = 1, ImageUrl = "https://placehold.co/800x500?text=Max", Caption = "Max main photo", IsMainImage = true },
-            new DogImage { Id = 2, DogId = 2, ImageUrl = "https://placehold.co/800x500?text=Bella", Caption = "Bella main photo", IsMainImage = true },
-            new DogImage { Id = 3, DogId = 3, ImageUrl = "https://placehold.co/800x500?text=Luna", Caption = "Luna main photo", IsMainImage = true });
-
-        builder.Entity<ResourceStock>().HasData(
-            new ResourceStock { Id = 1, ShelterId = 1, Name = "Dry Food", Quantity = 50, Unit = "kg", MinimumQuantity = 15 },
-            new ResourceStock { Id = 2, ShelterId = 1, Name = "Blankets", Quantity = 20, Unit = "pcs", MinimumQuantity = 5 },
-            new ResourceStock { Id = 3, ShelterId = 1, Name = "Medicine Kits", Quantity = 8, Unit = "pcs", MinimumQuantity = 3 });
+        builder.Entity<ResourceStock>()
+            .Property(r => r.LastUpdatedAt)
+            .HasDefaultValueSql("GETUTCDATE()");
     }
 }

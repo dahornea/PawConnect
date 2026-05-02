@@ -51,6 +51,8 @@ builder.Services.AddScoped<IAdoptionRequestService, AdoptionRequestService>();
 builder.Services.AddScoped<IFavoriteDogService, FavoriteDogService>();
 builder.Services.AddScoped<IShelterService, ShelterService>();
 builder.Services.AddScoped<IResourceStockService, ResourceStockService>();
+builder.Services.AddScoped<IMedicalRecordService, MedicalRecordService>();
+builder.Services.AddScoped<IDogImageService, DogImageService>();
 builder.Services.AddScoped<IEmailService, MockEmailService>();
 
 var app = builder.Build();

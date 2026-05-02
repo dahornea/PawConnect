@@ -16,7 +16,9 @@ public class ResourceStock
     public string Unit { get; set; } = string.Empty;
 
     [Range(0, 100000)]
-    public int MinimumQuantity { get; set; }
+    public int LowStockThreshold { get; set; }
+
+    public DateTime LastUpdatedAt { get; set; } = DateTime.UtcNow;
 
     public int ShelterId { get; set; }
 
