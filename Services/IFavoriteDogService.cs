@@ -15,4 +15,12 @@ public interface IFavoriteDogService
     Task DeleteAsync(int id);
 
     Task<List<FavoriteDog>> GetFavoritesForUserAsync(string userId);
+
+    Task<HashSet<int>> GetFavoriteDogIdsForUserAsync(string adopterId);
+
+    Task<bool> IsFavoriteAsync(string adopterId, int dogId);
+
+    Task AddFavoriteAsync(string adopterId, int dogId);
+
+    Task RemoveFavoriteAsync(string adopterId, int dogId);
 }

@@ -1,5 +1,11 @@
 @page "/dogs/{Id:int}"
+@using Microsoft.AspNetCore.Identity
+@using PawConnect.Data
 @inject IDogService DogService
+@inject IFavoriteDogService FavoriteDogService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject UserManager<ApplicationUser> UserManager
+@inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
 
 <PageTitle>Dog Details</PageTitle>
@@ -18,26 +24,170 @@ else if (_dog is null)
 }
 else
 {
-    <MudGrid>
-        <MudItem xs="12" md="5">
-            <MudCard>
-                <MudCardMedia Image="@GetImageUrl(_dog)" Height="320" />
-            </MudCard>
-        </MudItem>
-        <MudItem xs="12" md="7">
-            <MudStack Spacing="3">
-                <MudText Typo="Typo.h4">@_dog.Name</MudText>
-                <MudText Typo="Typo.subtitle1">@_dog.Breed, @_dog.Age years old, @_dog.Size</MudText>
-                <MudChip T="string" Color="Color.Primary">@_dog.Status</MudChip>
-                <MudText Typo="Typo.body1">@_dog.Description</MudText>
-                <MudAlert Severity="Severity.Info">Adoption request logic will be implemented in a later feature step.</MudAlert>
-                <MudStack Row="true" Spacing="2">
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Send" OnClick="ShowPlaceholder">Request Adoption</MudButton>
-                    <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Favorite" OnClick="ShowPlaceholder">Add Favorite</MudButton>
-                </MudStack>
-            </MudStack>
-        </MudItem>
-    </MudGrid>
+    <MudContainer MaxWidth="MaxWidth.False" Class="px-0">
+        <MudStack Spacing="3">
+            <MudButton Href="/dogs" Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.ArrowBack">Back to Dogs</MudButton>
+
+            <MudGrid Spacing="3">
+                <MudItem xs="12" md="5">
+                    <MudCard>
+                        <MudCardMedia Image="@GetMainImageUrl(_dog)" Height="340" />
+                    </MudCard>
+
+                    @if (_dog.Images.Count > 1)
+                    {
+                        <MudGrid Spacing="2" Class="mt-2">
+                            @foreach (var image in _dog.Images)
+                            {
+                                <MudItem xs="6" sm="4">
+                                    <MudCard>
+                                        <MudCardMedia Image="@image.ImageUrl" Height="100" />
+                                    </MudCard>
+                                </MudItem>
+                            }
+                        </MudGrid>
+                    }
+                </MudItem>
+
+                <MudItem xs="12" md="7">
+                    <MudPaper Elevation="0" Class="pa-4">
+                        <MudStack Spacing="2">
+                            <MudStack Row="true" AlignItems="AlignItems.Start">
+                                <div>
+                                    <MudText Typo="Typo.h4">@_dog.Name</MudText>
+                                    <MudText Typo="Typo.subtitle1">@_dog.Breed, @_dog.Age years old</MudText>
+                                </div>
+                                <MudSpacer />
+                                <MudChip T="string" Color="@GetStatusColor(_dog.Status)">@_dog.Status</MudChip>
+                            </MudStack>
+
+                            <MudDivider />
+
+                            <MudGrid>
+                                <MudItem xs="12" sm="6">
+                                    <MudText Typo="Typo.body2" Color="Color.Secondary">Size</MudText>
+                                    <MudText Typo="Typo.body1">@_dog.Size</MudText>
+                                </MudItem>
+                                <MudItem xs="12" sm="6">
+                                    <MudText Typo="Typo.body2" Color="Color.Secondary">Location</MudText>
+                                    <MudText Typo="Typo.body1">@_dog.Location</MudText>
+                                </MudItem>
+                            </MudGrid>
+
+                            @if (!string.IsNullOrWhiteSpace(_dog.Description))
+                            {
+                                <MudText Typo="Typo.body1">@_dog.Description</MudText>
+                            }
+
+                            @if (!string.IsNullOrWhiteSpace(_dog.BehaviorDescription))
+                            {
+                                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+                                    <MudText Typo="Typo.subtitle2">Behavior</MudText>
+                                    <MudText Typo="Typo.body2">@_dog.BehaviorDescription</MudText>
+                                </MudAlert>
+                            }
+
+                            @if (!string.IsNullOrWhiteSpace(_dog.MedicalStatus))
+                            {
+                                <MudAlert Severity="Severity.Success" Variant="Variant.Outlined">
+                                    <MudText Typo="Typo.subtitle2">Medical Status</MudText>
+                                    <MudText Typo="Typo.body2">@_dog.MedicalStatus</MudText>
+                                </MudAlert>
+                            }
+
+                            <MudStack Row="true" Spacing="2" Class="mt-2">
+                                <MudButton Variant="@GetFavoriteVariant()" Color="@GetFavoriteColor()" StartIcon="@GetFavoriteIcon()" OnClick="ToggleFavoriteAsync">@GetFavoriteButtonText()</MudButton>
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Send" OnClick="ShowAdoptionPlaceholder">Submit Adoption Request</MudButton>
+                            </MudStack>
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+
+            <MudGrid Spacing="3">
+                <MudItem xs="12" md="4">
+                    <MudPaper Elevation="0" Class="pa-4 h-100">
+                        <MudText Typo="Typo.h6">Shelter</MudText>
+                        <MudDivider Class="my-2" />
+                        @if (_dog.Shelter is null)
+                        {
+                            <MudText Typo="Typo.body2">No shelter information is available.</MudText>
+                        }
+                        else
+                        {
+                            <MudStack Spacing="1">
+                                <MudText Typo="Typo.subtitle1">@_dog.Shelter.Name</MudText>
+                                <MudText Typo="Typo.body2">@_dog.Shelter.Address, @_dog.Shelter.City</MudText>
+                                @if (!string.IsNullOrWhiteSpace(_dog.Shelter.PhoneNumber))
+                                {
+                                    <MudText Typo="Typo.body2">Phone: @_dog.Shelter.PhoneNumber</MudText>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(_dog.Shelter.Email))
+                                {
+                                    <MudText Typo="Typo.body2">Email: @_dog.Shelter.Email</MudText>
+                                }
+                            </MudStack>
+                        }
+                    </MudPaper>
+                </MudItem>
+
+                <MudItem xs="12" md="4">
+                    <MudPaper Elevation="0" Class="pa-4 h-100">
+                        <MudText Typo="Typo.h6">Food</MudText>
+                        <MudDivider Class="my-2" />
+                        @if (_dog.PreferredFoodType is null && _dog.DailyFoodAmountGrams is null)
+                        {
+                            <MudText Typo="Typo.body2">No food preference has been recorded.</MudText>
+                        }
+                        else
+                        {
+                            <MudStack Spacing="1">
+                                <MudText Typo="Typo.body2">Preferred food: @_dog.PreferredFoodType?.Name</MudText>
+                                @if (_dog.DailyFoodAmountGrams.HasValue)
+                                {
+                                    <MudText Typo="Typo.body2">Daily amount: @_dog.DailyFoodAmountGrams.Value grams</MudText>
+                                }
+                            </MudStack>
+                        }
+                    </MudPaper>
+                </MudItem>
+
+                <MudItem xs="12" md="4">
+                    <MudPaper Elevation="0" Class="pa-4 h-100">
+                        <MudText Typo="Typo.h6">Medical Records</MudText>
+                        <MudDivider Class="my-2" />
+                        @if (_dog.MedicalRecords.Count == 0)
+                        {
+                            <MudText Typo="Typo.body2">No medical records are available.</MudText>
+                        }
+                        else
+                        {
+                            <MudStack Spacing="2">
+                                @foreach (var record in _dog.MedicalRecords.OrderByDescending(r => r.RecordDate))
+                                {
+                                    <MudPaper Elevation="0" Class="pa-2">
+                                        <MudText Typo="Typo.subtitle2">@record.RecordDate.ToString("dd MMM yyyy")</MudText>
+                                        @if (!string.IsNullOrWhiteSpace(record.VaccineName))
+                                        {
+                                            <MudText Typo="Typo.body2">Vaccine: @record.VaccineName</MudText>
+                                        }
+                                        @if (!string.IsNullOrWhiteSpace(record.TreatmentDescription))
+                                        {
+                                            <MudText Typo="Typo.body2">Treatment: @record.TreatmentDescription</MudText>
+                                        }
+                                        @if (!string.IsNullOrWhiteSpace(record.Notes))
+                                        {
+                                            <MudText Typo="Typo.body2" Color="Color.Secondary">@record.Notes</MudText>
+                                        }
+                                    </MudPaper>
+                                }
+                            </MudStack>
+                        }
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        </MudStack>
+    </MudContainer>
 }
 
 @code {
@@ -47,12 +197,20 @@ else
     private Dog? _dog;
     private bool _isLoading = true;
     private string? _error;
+    private string? _currentUserId;
+    private bool _currentUserIsAdopter;
+    private bool _isFavorite;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            _dog = await DogService.GetDogByIdAsync(Id);
+            await LoadCurrentUserAsync();
+            _dog = await DogService.GetDogDetailsAsync(Id);
+            if (_dog is not null && _currentUserIsAdopter && !string.IsNullOrWhiteSpace(_currentUserId))
+            {
+                _isFavorite = await FavoriteDogService.IsFavoriteAsync(_currentUserId, _dog.Id);
+            }
         }
         catch
         {
@@ -71,6 +229,99 @@ else
 
     private void ShowPlaceholder()
     {
-        Snackbar.Add("This action is a placeholder for future implementation.", Severity.Success);
+        return status switch
+        {
+            DogStatus.Available => Color.Success,
+            DogStatus.Reserved => Color.Warning,
+            DogStatus.Adopted => Color.Default,
+            DogStatus.InTreatment => Color.Info,
+            _ => Color.Default
+        };
+    }
+
+    private async Task LoadCurrentUserAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var principal = authState.User;
+
+        _currentUserIsAdopter = principal.Identity?.IsAuthenticated == true && principal.IsInRole("Adopter");
+        if (!_currentUserIsAdopter)
+        {
+            _currentUserId = null;
+            return;
+        }
+
+        var user = await UserManager.GetUserAsync(principal);
+        _currentUserId = user?.Id;
+    }
+
+    private async Task ToggleFavoriteAsync()
+    {
+        if (_dog is null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_currentUserId))
+        {
+            Snackbar.Add("Please log in with an adopter account to save favorite dogs.", Severity.Info);
+            NavigationManager.NavigateTo($"Account/Login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}");
+            return;
+        }
+
+        if (!_currentUserIsAdopter)
+        {
+            Snackbar.Add("Only adopter accounts can save favorite dogs.", Severity.Warning);
+            return;
+        }
+
+        try
+        {
+            if (_isFavorite)
+            {
+                await FavoriteDogService.RemoveFavoriteAsync(_currentUserId, _dog.Id);
+                _isFavorite = false;
+                Snackbar.Add($"{_dog.Name} was removed from favorites.", Severity.Success);
+            }
+            else
+            {
+                await FavoriteDogService.AddFavoriteAsync(_currentUserId, _dog.Id);
+                _isFavorite = true;
+                Snackbar.Add($"{_dog.Name} was added to favorites.", Severity.Success);
+            }
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch
+        {
+            Snackbar.Add("Favorite could not be updated right now.", Severity.Error);
+        }
+    }
+
+    private void ShowAdoptionPlaceholder()
+    {
+        Snackbar.Add("Adoption request logic will be implemented in a later step.", Severity.Success);
+    }
+
+    private string GetFavoriteIcon()
+    {
+        return _isFavorite ? Icons.Material.Filled.Favorite : Icons.Material.Outlined.FavoriteBorder;
+    }
+
+    private Color GetFavoriteColor()
+    {
+        return _isFavorite ? Color.Secondary : Color.Default;
+    }
+
+    private Variant GetFavoriteVariant()
+    {
+        return _isFavorite ? Variant.Filled : Variant.Outlined;
+    }
+
+    private string GetFavoriteButtonText()
+    {
+        return _isFavorite ? "Remove from Favorites" : "Add to Favorites";
     }
 }

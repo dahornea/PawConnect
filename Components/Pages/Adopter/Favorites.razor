@@ -1,10 +1,143 @@
 @page "/favorites"
+@using Microsoft.AspNetCore.Identity
+@using PawConnect.Data
 @attribute [Authorize(Roles = "Adopter")]
+@inject IFavoriteDogService FavoriteDogService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject UserManager<ApplicationUser> UserManager
+@inject ISnackbar Snackbar
 
 <PageTitle>Favorite Dogs</PageTitle>
 
-<MudStack Spacing="3">
-    <MudText Typo="Typo.h4">Favorite Dogs</MudText>
-    <MudAlert Severity="Severity.Info">No favorite dogs have been added yet.</MudAlert>
-    <MudButton Href="/dogs" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Search">Browse Dogs</MudButton>
-</MudStack>
+<MudContainer MaxWidth="MaxWidth.False" Class="px-0">
+    <MudStack Spacing="3">
+        <div class="page-header">
+            <MudText Typo="Typo.h4">Favorite Dogs</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Dogs saved to your adopter profile.</MudText>
+        </div>
+
+        @if (_isLoading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="py-8">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Loading favorites...</MudText>
+            </MudStack>
+        }
+        else if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <MudAlert Severity="Severity.Error">@_error</MudAlert>
+        }
+        else if (_favorites.Count == 0)
+        {
+            <MudAlert Severity="Severity.Info">No favorite dogs have been added yet.</MudAlert>
+            <MudButton Href="/dogs" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Search">Browse Dogs</MudButton>
+        }
+        else
+        {
+            <MudGrid Spacing="3">
+                @foreach (var favorite in _favorites)
+                {
+                    var dog = favorite.Dog;
+                    if (dog is null)
+                    {
+                        continue;
+                    }
+
+                    <MudItem xs="12" sm="6" md="4">
+                        <MudCard Class="h-100">
+                            <MudCardMedia Image="@GetImageUrl(dog)" Class="dog-image" />
+                            <MudCardContent>
+                                <MudStack Spacing="1">
+                                    <MudStack Row="true" AlignItems="AlignItems.Start">
+                                        <MudText Typo="Typo.h6">@dog.Name</MudText>
+                                        <MudSpacer />
+                                        <MudChip T="string" Color="@GetStatusColor(dog.Status)" Size="Size.Small">@dog.Status</MudChip>
+                                    </MudStack>
+                                    <MudText Typo="Typo.body2">@dog.Breed, @dog.Age years old</MudText>
+                                    <MudText Typo="Typo.body2" Color="Color.Secondary">@dog.Size dog in @dog.Location</MudText>
+                                </MudStack>
+                            </MudCardContent>
+                            <MudCardActions>
+                                <MudButton Href="@($"/dogs/{dog.Id}")" Variant="Variant.Text" Color="Color.Primary" EndIcon="@Icons.Material.Filled.ArrowForward">View Details</MudButton>
+                                <MudSpacer />
+                                <MudButton Variant="Variant.Text" Color="Color.Error" StartIcon="@Icons.Material.Filled.Favorite" OnClick="@(() => RemoveFavoriteAsync(dog))">Remove</MudButton>
+                            </MudCardActions>
+                        </MudCard>
+                    </MudItem>
+                }
+            </MudGrid>
+        }
+    </MudStack>
+</MudContainer>
+
+@code {
+    private List<FavoriteDog> _favorites = [];
+    private bool _isLoading = true;
+    private string? _error;
+    private string? _currentUserId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var user = await UserManager.GetUserAsync(authState.User);
+            _currentUserId = user?.Id;
+
+            if (string.IsNullOrWhiteSpace(_currentUserId))
+            {
+                _error = "Current adopter account could not be found.";
+                return;
+            }
+
+            _favorites = await FavoriteDogService.GetFavoritesForUserAsync(_currentUserId);
+        }
+        catch
+        {
+            _error = "Favorite dogs could not be loaded right now.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task RemoveFavoriteAsync(Dog dog)
+    {
+        if (string.IsNullOrWhiteSpace(_currentUserId))
+        {
+            Snackbar.Add("Current adopter account could not be found.", Severity.Error);
+            return;
+        }
+
+        try
+        {
+            await FavoriteDogService.RemoveFavoriteAsync(_currentUserId, dog.Id);
+            _favorites.RemoveAll(f => f.DogId == dog.Id);
+            Snackbar.Add($"{dog.Name} was removed from favorites.", Severity.Success);
+        }
+        catch
+        {
+            Snackbar.Add("Favorite could not be removed right now.", Severity.Error);
+        }
+    }
+
+    private static string GetImageUrl(Dog dog)
+    {
+        return dog.Images.FirstOrDefault(i => i.IsMainImage)?.ImageUrl
+            ?? dog.Images.FirstOrDefault()?.ImageUrl
+            ?? "https://placehold.co/800x500?text=Dog";
+    }
+
+    private static Color GetStatusColor(DogStatus status)
+    {
+        return status switch
+        {
+            DogStatus.Available => Color.Success,
+            DogStatus.Reserved => Color.Warning,
+            DogStatus.Adopted => Color.Default,
+            DogStatus.InTreatment => Color.Info,
+            _ => Color.Default
+        };
+    }
+}
