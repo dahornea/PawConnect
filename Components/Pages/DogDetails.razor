@@ -1,0 +1,76 @@
+@page "/dogs/{Id:int}"
+@inject IDogService DogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Dog Details</PageTitle>
+
+@if (_isLoading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+}
+else if (!string.IsNullOrWhiteSpace(_error))
+{
+    <MudAlert Severity="Severity.Error">@_error</MudAlert>
+}
+else if (_dog is null)
+{
+    <MudAlert Severity="Severity.Warning">The selected dog was not found.</MudAlert>
+}
+else
+{
+    <MudGrid>
+        <MudItem xs="12" md="5">
+            <MudCard>
+                <MudCardMedia Image="@GetImageUrl(_dog)" Height="320" />
+            </MudCard>
+        </MudItem>
+        <MudItem xs="12" md="7">
+            <MudStack Spacing="3">
+                <MudText Typo="Typo.h4">@_dog.Name</MudText>
+                <MudText Typo="Typo.subtitle1">@_dog.Breed, @_dog.Age years old, @_dog.Size</MudText>
+                <MudChip T="string" Color="Color.Primary">@_dog.Status</MudChip>
+                <MudText Typo="Typo.body1">@_dog.Description</MudText>
+                <MudAlert Severity="Severity.Info">Adoption request logic will be implemented in a later feature step.</MudAlert>
+                <MudStack Row="true" Spacing="2">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Send" OnClick="ShowPlaceholder">Request Adoption</MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Favorite" OnClick="ShowPlaceholder">Add Favorite</MudButton>
+                </MudStack>
+            </MudStack>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private Dog? _dog;
+    private bool _isLoading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _dog = await DogService.GetDogByIdAsync(Id);
+        }
+        catch
+        {
+            _error = "Dog details could not be loaded. Check the database setup.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private static string GetImageUrl(Dog dog)
+    {
+        return dog.DogImages.FirstOrDefault(i => i.IsMainImage)?.ImageUrl ?? "https://placehold.co/800x500?text=Dog";
+    }
+
+    private void ShowPlaceholder()
+    {
+        Snackbar.Add("This action is a placeholder for future implementation.", Severity.Success);
+    }
+}

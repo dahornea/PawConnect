@@ -1,0 +1,53 @@
+@page "/shelter/dogs/create"
+@attribute [Authorize(Roles = "Shelter")]
+@inject ISnackbar Snackbar
+
+<PageTitle>Create Dog</PageTitle>
+
+<MudStack Spacing="3">
+    <MudText Typo="Typo.h4">Create Dog</MudText>
+    <MudAlert Severity="Severity.Info">This form is a UI placeholder. Saving to the database can be added in the next implementation step.</MudAlert>
+
+    <MudCard>
+        <MudCardContent>
+            <MudForm>
+                <MudGrid>
+                    <MudItem xs="12" md="6"><MudTextField Label="Name" @bind-Value="_model.Name" Required="true" /></MudItem>
+                    <MudItem xs="12" md="6"><MudTextField Label="Breed" @bind-Value="_model.Breed" Required="true" /></MudItem>
+                    <MudItem xs="12" md="4"><MudNumericField T="int" Label="Age" @bind-Value="_model.Age" Min="0" Max="30" /></MudItem>
+                    <MudItem xs="12" md="4">
+                        <MudSelect T="DogSize" Label="Size" @bind-Value="_model.Size">
+                            <MudSelectItem Value="DogSize.Small">Small</MudSelectItem>
+                            <MudSelectItem Value="DogSize.Medium">Medium</MudSelectItem>
+                            <MudSelectItem Value="DogSize.Large">Large</MudSelectItem>
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12" md="4">
+                        <MudSelect T="DogStatus" Label="Status" @bind-Value="_model.Status">
+                            <MudSelectItem Value="DogStatus.Available">Available</MudSelectItem>
+                            <MudSelectItem Value="DogStatus.Reserved">Reserved</MudSelectItem>
+                            <MudSelectItem Value="DogStatus.Adopted">Adopted</MudSelectItem>
+                            <MudSelectItem Value="DogStatus.InTreatment">In Treatment</MudSelectItem>
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12"><MudTextField Label="Image URL" @bind-Value="_imageUrl" /></MudItem>
+                    <MudItem xs="12"><MudTextField Label="Description" @bind-Value="_model.Description" Lines="4" /></MudItem>
+                </MudGrid>
+            </MudForm>
+        </MudCardContent>
+        <MudCardActions>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save" OnClick="SavePlaceholder">Save</MudButton>
+            <MudButton Href="/shelter/dogs" Variant="Variant.Text">Cancel</MudButton>
+        </MudCardActions>
+    </MudCard>
+</MudStack>
+
+@code {
+    private readonly Dog _model = new() { Size = DogSize.Medium, Status = DogStatus.Available };
+    private string? _imageUrl;
+
+    private void SavePlaceholder()
+    {
+        Snackbar.Add("Dog form validated as a placeholder.", Severity.Success);
+    }
+}

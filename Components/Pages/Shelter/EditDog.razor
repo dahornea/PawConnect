@@ -1,0 +1,48 @@
+@page "/shelter/dogs/edit/{Id:int}"
+@attribute [Authorize(Roles = "Shelter")]
+@inject ISnackbar Snackbar
+
+<PageTitle>Edit Dog</PageTitle>
+
+<MudStack Spacing="3">
+    <MudText Typo="Typo.h4">Edit Dog</MudText>
+    <MudAlert Severity="Severity.Info">Editing dog #@Id is a placeholder screen.</MudAlert>
+
+    <MudCard>
+        <MudCardContent>
+            <MudForm>
+                <MudGrid>
+                    <MudItem xs="12" md="6"><MudTextField Label="Name" @bind-Value="_name" /></MudItem>
+                    <MudItem xs="12" md="6"><MudTextField Label="Breed" @bind-Value="_breed" /></MudItem>
+                    <MudItem xs="12" md="4">
+                        <MudSelect T="DogStatus" Label="Status" Value="DogStatus.Available">
+                            <MudSelectItem Value="DogStatus.Available">Available</MudSelectItem>
+                            <MudSelectItem Value="DogStatus.Reserved">Reserved</MudSelectItem>
+                            <MudSelectItem Value="DogStatus.Adopted">Adopted</MudSelectItem>
+                            <MudSelectItem Value="DogStatus.InTreatment">In Treatment</MudSelectItem>
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12"><MudTextField Label="Description" Lines="4" @bind-Value="_description" /></MudItem>
+                </MudGrid>
+            </MudForm>
+        </MudCardContent>
+        <MudCardActions>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save" OnClick="SavePlaceholder">Save Changes</MudButton>
+            <MudButton Href="/shelter/dogs" Variant="Variant.Text">Back</MudButton>
+        </MudCardActions>
+    </MudCard>
+</MudStack>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private string _name = "Sample Dog";
+    private string _breed = "Mixed Breed";
+    private string _description = "Placeholder description";
+
+    private void SavePlaceholder()
+    {
+        Snackbar.Add("Changes saved as a placeholder.", Severity.Success);
+    }
+}

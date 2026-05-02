@@ -1,0 +1,46 @@
+@page "/"
+
+<PageTitle>PawConnect: A Web Platform for Stray Dog Adoption and Shelter Management</PageTitle>
+
+<MudStack Spacing="4">
+    <MudPaper Class="pa-6" Elevation="0">
+        <MudText Typo="Typo.h4" GutterBottom="true">PawConnect: A Web Platform for Stray Dog Adoption and Shelter Management</MudText>
+        <MudText Typo="Typo.body1" Color="Color.Secondary">
+            A simple Blazor Server starter project for adopters, shelters, and administrators.
+        </MudText>
+        <MudStack Row="true" Spacing="2" Class="mt-4">
+            <MudButton Href="/dogs" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Pets">View Dogs</MudButton>
+            <MudButton Href="/Account/Login" Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Login">Login</MudButton>
+        </MudStack>
+    </MudPaper>
+
+    <MudGrid>
+        <MudItem xs="12" md="4">
+            <MudCard>
+                <MudCardContent>
+                    <MudIcon Icon="@Icons.Material.Filled.Favorite" Color="Color.Secondary" Size="Size.Large" />
+                    <MudText Typo="Typo.h6">Adopters</MudText>
+                    <MudText Typo="Typo.body2">Browse dogs, save favorites, and track adoption requests.</MudText>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+        <MudItem xs="12" md="4">
+            <MudCard>
+                <MudCardContent>
+                    <MudIcon Icon="@Icons.Material.Filled.Business" Color="Color.Primary" Size="Size.Large" />
+                    <MudText Typo="Typo.h6">Shelters</MudText>
+                    <MudText Typo="Typo.body2">Manage dogs, requests, medical notes, and resource stock.</MudText>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+        <MudItem xs="12" md="4">
+            <MudCard>
+                <MudCardContent>
+                    <MudIcon Icon="@Icons.Material.Filled.AdminPanelSettings" Color="Color.Info" Size="Size.Large" />
+                    <MudText Typo="Typo.h6">Admins</MudText>
+                    <MudText Typo="Typo.body2">Review users, shelters, dogs, and adoption activity.</MudText>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
+</MudStack>
