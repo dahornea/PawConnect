@@ -3,57 +3,134 @@
 
 <PageTitle>Dogs</PageTitle>
 
-<MudStack Spacing="3">
-    <div class="page-header">
-        <MudText Typo="Typo.h4">Dogs</MudText>
-        <MudText Typo="Typo.body2" Color="Color.Secondary">Browse dogs currently registered in the shelter system.</MudText>
-    </div>
+<MudContainer MaxWidth="MaxWidth.False" Class="px-0">
+    <MudStack Spacing="3">
+        <div class="page-header">
+            <MudText Typo="Typo.h4">Dogs</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Browse dogs currently available or reserved in the shelter system.</MudText>
+        </div>
 
-    @if (_isLoading)
-    {
-        <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
-    }
-    else if (!string.IsNullOrWhiteSpace(_error))
-    {
-        <MudAlert Severity="Severity.Error">@_error</MudAlert>
-    }
-    else if (_dogs.Count == 0)
-    {
-        <MudAlert Severity="Severity.Info">No dogs are available yet.</MudAlert>
-    }
-    else
-    {
-        <MudGrid>
-            @foreach (var dog in _dogs)
-            {
-                <MudItem xs="12" sm="6" md="4">
-                    <MudCard>
-                        <MudCardMedia Image="@GetImageUrl(dog)" Class="dog-image" />
-                        <MudCardContent>
-                            <MudText Typo="Typo.h6">@dog.Name</MudText>
-                            <MudText Typo="Typo.body2">@dog.Breed, @dog.Age years old</MudText>
-                            <MudChip T="string" Color="@GetStatusColor(dog.Status)" Size="Size.Small" Class="mt-2">@dog.Status</MudChip>
-                        </MudCardContent>
-                        <MudCardActions>
-                            <MudButton Href="@($"/dogs/{dog.Id}")" Variant="Variant.Text" Color="Color.Primary">Details</MudButton>
-                        </MudCardActions>
-                    </MudCard>
+        <MudPaper Elevation="0" Class="pa-4">
+            <MudGrid Spacing="2">
+                <MudItem xs="12" md="4">
+                    <MudTextField Label="Search by name" @bind-Value="_searchTerm" Variant="Variant.Outlined" Margin="Margin.Dense" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
                 </MudItem>
-            }
-        </MudGrid>
-    }
-</MudStack>
+                <MudItem xs="12" sm="6" md="2">
+                    <MudSelect T="string" Label="Breed" @bind-Value="_selectedBreed" Variant="Variant.Outlined" Margin="Margin.Dense">
+                        <MudSelectItem Value="@string.Empty">All breeds</MudSelectItem>
+                        @foreach (var breed in _breeds)
+                        {
+                            <MudSelectItem Value="@breed">@breed</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="2">
+                    <MudNumericField T="int?" Label="Max age" @bind-Value="_maxAge" Variant="Variant.Outlined" Margin="Margin.Dense" Min="0" Max="30" />
+                </MudItem>
+                <MudItem xs="12" sm="6" md="2">
+                    <MudSelect T="string" Label="Size" @bind-Value="_selectedSize" Variant="Variant.Outlined" Margin="Margin.Dense">
+                        <MudSelectItem Value="@string.Empty">All sizes</MudSelectItem>
+                        @foreach (var size in Enum.GetValues<DogSize>())
+                        {
+                            <MudSelectItem Value="@size.ToString()">@size</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="2">
+                    <MudSelect T="string" Label="Location" @bind-Value="_selectedLocation" Variant="Variant.Outlined" Margin="Margin.Dense">
+                        <MudSelectItem Value="@string.Empty">All locations</MudSelectItem>
+                        @foreach (var location in _locations)
+                        {
+                            <MudSelectItem Value="@location">@location</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="2">
+                    <MudSelect T="string" Label="Status" @bind-Value="_selectedStatus" Variant="Variant.Outlined" Margin="Margin.Dense">
+                        <MudSelectItem Value="@string.Empty">Available or reserved</MudSelectItem>
+                        <MudSelectItem Value="@DogStatus.Available.ToString()">Available</MudSelectItem>
+                        <MudSelectItem Value="@DogStatus.Reserved.ToString()">Reserved</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" md="10">
+                    <MudStack Row="true" Spacing="2" Class="mt-1">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.FilterAlt" OnClick="ApplyFiltersAsync">Apply Filters</MudButton>
+                        <MudButton Variant="Variant.Text" Color="Color.Default" StartIcon="@Icons.Material.Filled.Clear" OnClick="ClearFiltersAsync">Clear</MudButton>
+                    </MudStack>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+
+        @if (_isLoading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="py-8">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Loading dogs...</MudText>
+            </MudStack>
+        }
+        else if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <MudAlert Severity="Severity.Error">@_error</MudAlert>
+        }
+        else if (_dogs.Count == 0)
+        {
+            <MudAlert Severity="Severity.Info">No dogs matched your filters.</MudAlert>
+        }
+        else
+        {
+            <MudGrid Spacing="3">
+                @foreach (var dog in _dogs)
+                {
+                    <MudItem xs="12" sm="6" md="4">
+                        <MudCard Class="h-100">
+                            <MudCardMedia Image="@GetImageUrl(dog)" Class="dog-image" />
+                            <MudCardContent>
+                                <MudStack Spacing="1">
+                                    <MudStack Row="true" AlignItems="AlignItems.Start">
+                                        <MudText Typo="Typo.h6">@dog.Name</MudText>
+                                        <MudSpacer />
+                                        <MudChip T="string" Color="@GetStatusColor(dog.Status)" Size="Size.Small">@dog.Status</MudChip>
+                                    </MudStack>
+                                    <MudText Typo="Typo.body2">@dog.Breed, @dog.Age years old</MudText>
+                                    <MudText Typo="Typo.body2" Color="Color.Secondary">@dog.Size dog in @dog.Location</MudText>
+                                    @if (!string.IsNullOrWhiteSpace(dog.Description))
+                                    {
+                                        <MudText Typo="Typo.body2">@GetShortDescription(dog.Description)</MudText>
+                                    }
+                                </MudStack>
+                            </MudCardContent>
+                            <MudCardActions>
+                                <MudButton Href="@($"/dogs/{dog.Id}")" Variant="Variant.Text" Color="Color.Primary" EndIcon="@Icons.Material.Filled.ArrowForward">View Details</MudButton>
+                            </MudCardActions>
+                        </MudCard>
+                    </MudItem>
+                }
+            </MudGrid>
+        }
+    </MudStack>
+</MudContainer>
 
 @code {
     private List<Dog> _dogs = [];
+    private List<string> _breeds = [];
+    private List<string> _locations = [];
     private bool _isLoading = true;
     private string? _error;
+    private string? _searchTerm;
+    private string _selectedBreed = string.Empty;
+    private int? _maxAge;
+    private string _selectedSize = string.Empty;
+    private string _selectedLocation = string.Empty;
+    private string _selectedStatus = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            _dogs = await DogService.GetAvailableDogsAsync();
+            var availableDogs = await DogService.GetAvailableDogsAsync();
+            _dogs = availableDogs;
+            _breeds = availableDogs.Select(d => d.Breed).Distinct().OrderBy(b => b).ToList();
+            _locations = availableDogs.Select(d => d.Location).Distinct().OrderBy(l => l).ToList();
         }
         catch
         {
@@ -65,9 +142,52 @@
         }
     }
 
+    private async Task ApplyFiltersAsync()
+    {
+        _isLoading = true;
+        _error = null;
+
+        try
+        {
+            _dogs = await DogService.SearchDogsAsync(
+                _searchTerm,
+                EmptyToNull(_selectedBreed),
+                _maxAge,
+                ParseEnum<DogSize>(_selectedSize),
+                EmptyToNull(_selectedLocation),
+                ParseEnum<DogStatus>(_selectedStatus));
+        }
+        catch
+        {
+            _error = "Dogs could not be filtered right now.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task ClearFiltersAsync()
+    {
+        _searchTerm = null;
+        _selectedBreed = string.Empty;
+        _maxAge = null;
+        _selectedSize = string.Empty;
+        _selectedLocation = string.Empty;
+        _selectedStatus = string.Empty;
+        await ApplyFiltersAsync();
+    }
+
     private static string GetImageUrl(Dog dog)
     {
-        return dog.Images.FirstOrDefault(i => i.IsMainImage)?.ImageUrl ?? "https://placehold.co/800x500?text=Dog";
+        return dog.Images.FirstOrDefault(i => i.IsMainImage)?.ImageUrl
+            ?? dog.Images.FirstOrDefault()?.ImageUrl
+            ?? "https://placehold.co/800x500?text=Dog";
+    }
+
+    private static string GetShortDescription(string description)
+    {
+        return description.Length <= 120 ? description : $"{description[..117]}...";
     }
 
     private static Color GetStatusColor(DogStatus status)
@@ -80,5 +200,15 @@
             DogStatus.InTreatment => Color.Info,
             _ => Color.Default
         };
+    }
+
+    private static string? EmptyToNull(string value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? null : value;
+    }
+
+    private static TEnum? ParseEnum<TEnum>(string value) where TEnum : struct
+    {
+        return Enum.TryParse<TEnum>(value, out var result) ? result : null;
     }
 }

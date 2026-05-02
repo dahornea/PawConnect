@@ -6,7 +6,10 @@
 
 @if (_isLoading)
 {
-    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+    <MudStack AlignItems="AlignItems.Center" Class="py-8">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+        <MudText Typo="Typo.body2" Color="Color.Secondary">Loading dog details...</MudText>
+    </MudStack>
 }
 else if (!string.IsNullOrWhiteSpace(_error))
 {
@@ -18,26 +21,170 @@ else if (_dog is null)
 }
 else
 {
-    <MudGrid>
-        <MudItem xs="12" md="5">
-            <MudCard>
-                <MudCardMedia Image="@GetImageUrl(_dog)" Height="320" />
-            </MudCard>
-        </MudItem>
-        <MudItem xs="12" md="7">
-            <MudStack Spacing="3">
-                <MudText Typo="Typo.h4">@_dog.Name</MudText>
-                <MudText Typo="Typo.subtitle1">@_dog.Breed, @_dog.Age years old, @_dog.Size</MudText>
-                <MudChip T="string" Color="Color.Primary">@_dog.Status</MudChip>
-                <MudText Typo="Typo.body1">@_dog.Description</MudText>
-                <MudAlert Severity="Severity.Info">Adoption request logic will be implemented in a later feature step.</MudAlert>
-                <MudStack Row="true" Spacing="2">
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Send" OnClick="ShowPlaceholder">Request Adoption</MudButton>
-                    <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Favorite" OnClick="ShowPlaceholder">Add Favorite</MudButton>
-                </MudStack>
-            </MudStack>
-        </MudItem>
-    </MudGrid>
+    <MudContainer MaxWidth="MaxWidth.False" Class="px-0">
+        <MudStack Spacing="3">
+            <MudButton Href="/dogs" Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.ArrowBack">Back to Dogs</MudButton>
+
+            <MudGrid Spacing="3">
+                <MudItem xs="12" md="5">
+                    <MudCard>
+                        <MudCardMedia Image="@GetMainImageUrl(_dog)" Height="340" />
+                    </MudCard>
+
+                    @if (_dog.Images.Count > 1)
+                    {
+                        <MudGrid Spacing="2" Class="mt-2">
+                            @foreach (var image in _dog.Images)
+                            {
+                                <MudItem xs="6" sm="4">
+                                    <MudCard>
+                                        <MudCardMedia Image="@image.ImageUrl" Height="100" />
+                                    </MudCard>
+                                </MudItem>
+                            }
+                        </MudGrid>
+                    }
+                </MudItem>
+
+                <MudItem xs="12" md="7">
+                    <MudPaper Elevation="0" Class="pa-4">
+                        <MudStack Spacing="2">
+                            <MudStack Row="true" AlignItems="AlignItems.Start">
+                                <div>
+                                    <MudText Typo="Typo.h4">@_dog.Name</MudText>
+                                    <MudText Typo="Typo.subtitle1">@_dog.Breed, @_dog.Age years old</MudText>
+                                </div>
+                                <MudSpacer />
+                                <MudChip T="string" Color="@GetStatusColor(_dog.Status)">@_dog.Status</MudChip>
+                            </MudStack>
+
+                            <MudDivider />
+
+                            <MudGrid>
+                                <MudItem xs="12" sm="6">
+                                    <MudText Typo="Typo.body2" Color="Color.Secondary">Size</MudText>
+                                    <MudText Typo="Typo.body1">@_dog.Size</MudText>
+                                </MudItem>
+                                <MudItem xs="12" sm="6">
+                                    <MudText Typo="Typo.body2" Color="Color.Secondary">Location</MudText>
+                                    <MudText Typo="Typo.body1">@_dog.Location</MudText>
+                                </MudItem>
+                            </MudGrid>
+
+                            @if (!string.IsNullOrWhiteSpace(_dog.Description))
+                            {
+                                <MudText Typo="Typo.body1">@_dog.Description</MudText>
+                            }
+
+                            @if (!string.IsNullOrWhiteSpace(_dog.BehaviorDescription))
+                            {
+                                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+                                    <MudText Typo="Typo.subtitle2">Behavior</MudText>
+                                    <MudText Typo="Typo.body2">@_dog.BehaviorDescription</MudText>
+                                </MudAlert>
+                            }
+
+                            @if (!string.IsNullOrWhiteSpace(_dog.MedicalStatus))
+                            {
+                                <MudAlert Severity="Severity.Success" Variant="Variant.Outlined">
+                                    <MudText Typo="Typo.subtitle2">Medical Status</MudText>
+                                    <MudText Typo="Typo.body2">@_dog.MedicalStatus</MudText>
+                                </MudAlert>
+                            }
+
+                            <MudStack Row="true" Spacing="2" Class="mt-2">
+                                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Favorite" OnClick="ShowFavoritePlaceholder">Add to Favorites</MudButton>
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Send" OnClick="ShowAdoptionPlaceholder">Submit Adoption Request</MudButton>
+                            </MudStack>
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+
+            <MudGrid Spacing="3">
+                <MudItem xs="12" md="4">
+                    <MudPaper Elevation="0" Class="pa-4 h-100">
+                        <MudText Typo="Typo.h6">Shelter</MudText>
+                        <MudDivider Class="my-2" />
+                        @if (_dog.Shelter is null)
+                        {
+                            <MudText Typo="Typo.body2">No shelter information is available.</MudText>
+                        }
+                        else
+                        {
+                            <MudStack Spacing="1">
+                                <MudText Typo="Typo.subtitle1">@_dog.Shelter.Name</MudText>
+                                <MudText Typo="Typo.body2">@_dog.Shelter.Address, @_dog.Shelter.City</MudText>
+                                @if (!string.IsNullOrWhiteSpace(_dog.Shelter.PhoneNumber))
+                                {
+                                    <MudText Typo="Typo.body2">Phone: @_dog.Shelter.PhoneNumber</MudText>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(_dog.Shelter.Email))
+                                {
+                                    <MudText Typo="Typo.body2">Email: @_dog.Shelter.Email</MudText>
+                                }
+                            </MudStack>
+                        }
+                    </MudPaper>
+                </MudItem>
+
+                <MudItem xs="12" md="4">
+                    <MudPaper Elevation="0" Class="pa-4 h-100">
+                        <MudText Typo="Typo.h6">Food</MudText>
+                        <MudDivider Class="my-2" />
+                        @if (_dog.PreferredFoodType is null && _dog.DailyFoodAmountGrams is null)
+                        {
+                            <MudText Typo="Typo.body2">No food preference has been recorded.</MudText>
+                        }
+                        else
+                        {
+                            <MudStack Spacing="1">
+                                <MudText Typo="Typo.body2">Preferred food: @_dog.PreferredFoodType?.Name</MudText>
+                                @if (_dog.DailyFoodAmountGrams.HasValue)
+                                {
+                                    <MudText Typo="Typo.body2">Daily amount: @_dog.DailyFoodAmountGrams.Value grams</MudText>
+                                }
+                            </MudStack>
+                        }
+                    </MudPaper>
+                </MudItem>
+
+                <MudItem xs="12" md="4">
+                    <MudPaper Elevation="0" Class="pa-4 h-100">
+                        <MudText Typo="Typo.h6">Medical Records</MudText>
+                        <MudDivider Class="my-2" />
+                        @if (_dog.MedicalRecords.Count == 0)
+                        {
+                            <MudText Typo="Typo.body2">No medical records are available.</MudText>
+                        }
+                        else
+                        {
+                            <MudStack Spacing="2">
+                                @foreach (var record in _dog.MedicalRecords.OrderByDescending(r => r.RecordDate))
+                                {
+                                    <MudPaper Elevation="0" Class="pa-2">
+                                        <MudText Typo="Typo.subtitle2">@record.RecordDate.ToString("dd MMM yyyy")</MudText>
+                                        @if (!string.IsNullOrWhiteSpace(record.VaccineName))
+                                        {
+                                            <MudText Typo="Typo.body2">Vaccine: @record.VaccineName</MudText>
+                                        }
+                                        @if (!string.IsNullOrWhiteSpace(record.TreatmentDescription))
+                                        {
+                                            <MudText Typo="Typo.body2">Treatment: @record.TreatmentDescription</MudText>
+                                        }
+                                        @if (!string.IsNullOrWhiteSpace(record.Notes))
+                                        {
+                                            <MudText Typo="Typo.body2" Color="Color.Secondary">@record.Notes</MudText>
+                                        }
+                                    </MudPaper>
+                                }
+                            </MudStack>
+                        }
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        </MudStack>
+    </MudContainer>
 }
 
 @code {
@@ -52,7 +199,7 @@ else
     {
         try
         {
-            _dog = await DogService.GetDogByIdAsync(Id);
+            _dog = await DogService.GetDogDetailsAsync(Id);
         }
         catch
         {
@@ -64,13 +211,32 @@ else
         }
     }
 
-    private static string GetImageUrl(Dog dog)
+    private static string GetMainImageUrl(Dog dog)
     {
-        return dog.Images.FirstOrDefault(i => i.IsMainImage)?.ImageUrl ?? "https://placehold.co/800x500?text=Dog";
+        return dog.Images.FirstOrDefault(i => i.IsMainImage)?.ImageUrl
+            ?? dog.Images.FirstOrDefault()?.ImageUrl
+            ?? "https://placehold.co/800x500?text=Dog";
     }
 
-    private void ShowPlaceholder()
+    private static Color GetStatusColor(DogStatus status)
     {
-        Snackbar.Add("This action is a placeholder for future implementation.", Severity.Success);
+        return status switch
+        {
+            DogStatus.Available => Color.Success,
+            DogStatus.Reserved => Color.Warning,
+            DogStatus.Adopted => Color.Default,
+            DogStatus.InTreatment => Color.Info,
+            _ => Color.Default
+        };
+    }
+
+    private void ShowFavoritePlaceholder()
+    {
+        Snackbar.Add("Favorite logic will be implemented in a later step.", Severity.Success);
+    }
+
+    private void ShowAdoptionPlaceholder()
+    {
+        Snackbar.Add("Adoption request logic will be implemented in a later step.", Severity.Success);
     }
 }

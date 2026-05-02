@@ -44,7 +44,54 @@ public class DogService(ApplicationDbContext context) : IDogService
         return context.Dogs
             .Include(d => d.Shelter)
             .Include(d => d.Images)
-            .Where(d => d.Status == DogStatus.Available || d.Status == DogStatus.Reserved || d.Status == DogStatus.InTreatment)
+            .Include(d => d.PreferredFoodType)
+            .Where(d => d.Status == DogStatus.Available || d.Status == DogStatus.Reserved)
+            .OrderBy(d => d.Name)
+            .AsNoTracking()
+            .ToListAsync();
+    }
+
+    public Task<List<Dog>> SearchDogsAsync(string? searchTerm, string? breed, int? maxAge, DogSize? size, string? location, DogStatus? status)
+    {
+        var query = context.Dogs
+            .Include(d => d.Shelter)
+            .Include(d => d.Images)
+            .Include(d => d.PreferredFoodType)
+            .Where(d => d.Status == DogStatus.Available || d.Status == DogStatus.Reserved)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            query = query.Where(d => d.Name.Contains(searchTerm));
+        }
+
+        if (!string.IsNullOrWhiteSpace(breed))
+        {
+            query = query.Where(d => d.Breed == breed);
+        }
+
+        if (maxAge.HasValue)
+        {
+            query = query.Where(d => d.Age <= maxAge.Value);
+        }
+
+        if (size.HasValue)
+        {
+            query = query.Where(d => d.Size == size.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(location))
+        {
+            query = query.Where(d => d.Location == location);
+        }
+
+        if (status.HasValue)
+        {
+            query = query.Where(d => d.Status == status.Value);
+        }
+
+        return query
+            .OrderBy(d => d.Name)
             .AsNoTracking()
             .ToListAsync();
     }
@@ -60,10 +107,16 @@ public class DogService(ApplicationDbContext context) : IDogService
 
     public Task<Dog?> GetDogByIdAsync(int id)
     {
+        return GetDogDetailsAsync(id);
+    }
+
+    public Task<Dog?> GetDogDetailsAsync(int id)
+    {
         return context.Dogs
             .Include(d => d.Shelter)
             .Include(d => d.Images)
             .Include(d => d.MedicalRecords)
+            .Include(d => d.PreferredFoodType)
             .AsNoTracking()
             .FirstOrDefaultAsync(d => d.Id == id);
     }
