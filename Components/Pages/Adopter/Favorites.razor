@@ -1,0 +1,10 @@
+@page "/favorites"
+@attribute [Authorize(Roles = "Adopter")]
+
+<PageTitle>Favorite Dogs</PageTitle>
+
+<MudStack Spacing="3">
+    <MudText Typo="Typo.h4">Favorite Dogs</MudText>
+    <MudAlert Severity="Severity.Info">No favorite dogs have been added yet.</MudAlert>
+    <MudButton Href="/dogs" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Search">Browse Dogs</MudButton>
+</MudStack>

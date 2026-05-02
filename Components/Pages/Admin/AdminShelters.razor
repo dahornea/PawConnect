@@ -1,0 +1,52 @@
+@page "/admin/shelters"
+@attribute [Authorize(Roles = "Admin")]
+@inject IShelterService ShelterService
+
+<PageTitle>Shelters</PageTitle>
+
+<MudStack Spacing="3">
+    <MudText Typo="Typo.h4">Shelters</MudText>
+    @if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <MudAlert Severity="Severity.Error">@_error</MudAlert>
+    }
+    <MudTable Items="_shelters" Dense="true" Hover="true" Loading="_isLoading">
+        <HeaderContent>
+            <MudTh>Name</MudTh>
+            <MudTh>Email</MudTh>
+            <MudTh>Dogs</MudTh>
+            <MudTh>Resources</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Name">@context.Name</MudTd>
+            <MudTd DataLabel="Email">@context.Email</MudTd>
+            <MudTd DataLabel="Dogs">@context.Dogs.Count</MudTd>
+            <MudTd DataLabel="Resources">@context.ResourceStocks.Count</MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText Class="pa-4">No shelters found.</MudText>
+        </NoRecordsContent>
+    </MudTable>
+</MudStack>
+
+@code {
+    private List<Shelter> _shelters = [];
+    private bool _isLoading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _shelters = await ShelterService.GetAllSheltersAsync();
+        }
+        catch
+        {
+            _error = "Shelter data could not be loaded. Check migrations and database connection.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+}

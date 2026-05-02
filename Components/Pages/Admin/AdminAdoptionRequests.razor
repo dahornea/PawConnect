@@ -1,0 +1,30 @@
+@page "/admin/adoption-requests"
+@attribute [Authorize(Roles = "Admin")]
+
+<PageTitle>Admin Adoption Requests</PageTitle>
+
+<MudStack Spacing="3">
+    <MudText Typo="Typo.h4">Adoption Requests</MudText>
+    <MudAlert Severity="Severity.Info">Adoption request moderation will be implemented after the core workflow is added.</MudAlert>
+    <MudTable Items="_requests" Dense="true" Hover="true">
+        <HeaderContent>
+            <MudTh>Dog</MudTh>
+            <MudTh>Adopter</MudTh>
+            <MudTh>Status</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Dog">@context.DogName</MudTd>
+            <MudTd DataLabel="Adopter">@context.AdopterEmail</MudTd>
+            <MudTd DataLabel="Status"><MudChip T="string" Color="Color.Warning" Size="Size.Small">@context.Status</MudChip></MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText Class="pa-4">No adoption requests found.</MudText>
+        </NoRecordsContent>
+    </MudTable>
+</MudStack>
+
+@code {
+    private readonly List<RequestRow> _requests = [];
+
+    private sealed record RequestRow(string DogName, string AdopterEmail, string Status);
+}

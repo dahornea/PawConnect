@@ -1,0 +1,29 @@
+@page "/my-adoption-requests"
+@attribute [Authorize(Roles = "Adopter")]
+
+<PageTitle>My Adoption Requests</PageTitle>
+
+<MudStack Spacing="3">
+    <MudText Typo="Typo.h4">My Adoption Requests</MudText>
+    <MudTable Items="_requests" Dense="true" Hover="true">
+        <HeaderContent>
+            <MudTh>Dog</MudTh>
+            <MudTh>Status</MudTh>
+            <MudTh>Requested</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Dog">@context.DogName</MudTd>
+            <MudTd DataLabel="Status"><MudChip T="string" Color="Color.Warning" Size="Size.Small">@context.Status</MudChip></MudTd>
+            <MudTd DataLabel="Requested">@context.RequestedAt</MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText Class="pa-4">You have no adoption requests yet.</MudText>
+        </NoRecordsContent>
+    </MudTable>
+</MudStack>
+
+@code {
+    private readonly List<RequestRow> _requests = [];
+
+    private sealed record RequestRow(string DogName, string Status, string RequestedAt);
+}

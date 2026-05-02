@@ -1,0 +1,20 @@
+@page "/adopter/dashboard"
+@attribute [Authorize(Roles = "Adopter")]
+
+<PageTitle>Adopter Dashboard</PageTitle>
+
+<MudStack Spacing="3">
+    <MudText Typo="Typo.h4">Adopter Dashboard</MudText>
+    <MudGrid>
+        <MudItem xs="12" md="4">
+            <MudCard><MudCardContent><MudText Typo="Typo.h6">Favorite Dogs</MudText><MudText Typo="Typo.h4">0</MudText></MudCardContent></MudCard>
+        </MudItem>
+        <MudItem xs="12" md="4">
+            <MudCard><MudCardContent><MudText Typo="Typo.h6">Pending Requests</MudText><MudText Typo="Typo.h4">0</MudText></MudCardContent></MudCard>
+        </MudItem>
+        <MudItem xs="12" md="4">
+            <MudCard><MudCardContent><MudText Typo="Typo.h6">Approved Requests</MudText><MudText Typo="Typo.h4">0</MudText></MudCardContent></MudCard>
+        </MudItem>
+    </MudGrid>
+    <MudAlert Severity="Severity.Info">Dashboard numbers are placeholders until adoption request features are implemented.</MudAlert>
+</MudStack>

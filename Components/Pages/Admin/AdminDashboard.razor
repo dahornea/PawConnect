@@ -1,0 +1,15 @@
+@page "/admin/dashboard"
+@attribute [Authorize(Roles = "Admin")]
+
+<PageTitle>Admin Dashboard</PageTitle>
+
+<MudStack Spacing="3">
+    <MudText Typo="Typo.h4">Admin Dashboard</MudText>
+    <MudGrid>
+        <MudItem xs="12" md="3"><MudCard><MudCardContent><MudText Typo="Typo.h6">Users</MudText><MudText Typo="Typo.h4">3</MudText></MudCardContent></MudCard></MudItem>
+        <MudItem xs="12" md="3"><MudCard><MudCardContent><MudText Typo="Typo.h6">Shelters</MudText><MudText Typo="Typo.h4">1</MudText></MudCardContent></MudCard></MudItem>
+        <MudItem xs="12" md="3"><MudCard><MudCardContent><MudText Typo="Typo.h6">Dogs</MudText><MudText Typo="Typo.h4">3</MudText></MudCardContent></MudCard></MudItem>
+        <MudItem xs="12" md="3"><MudCard><MudCardContent><MudText Typo="Typo.h6">Requests</MudText><MudText Typo="Typo.h4">0</MudText></MudCardContent></MudCard></MudItem>
+    </MudGrid>
+    <MudAlert Severity="Severity.Info">Administrative metrics are simple placeholders for the project skeleton.</MudAlert>
+</MudStack>

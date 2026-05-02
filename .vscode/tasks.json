@@ -1,0 +1,62 @@
+{
+  "version": "2.0.0",
+  "inputs": [
+    {
+      "id": "migrationName",
+      "type": "promptString",
+      "description": "Migration name",
+      "default": "NewMigration"
+    }
+  ],
+  "tasks": [
+    {
+      "label": "EF Core: Restore dotnet-ef Tool",
+      "type": "shell",
+      "command": "dotnet tool restore",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "EF Core: Add Migration",
+      "type": "shell",
+      "command": "dotnet tool run dotnet-ef migrations add ${input:migrationName}",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": "$msCompile",
+      "dependsOn": "EF Core: Restore dotnet-ef Tool"
+    },
+    {
+      "label": "EF Core: Update Database",
+      "type": "shell",
+      "command": "dotnet tool run dotnet-ef database update",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": "$msCompile",
+      "dependsOn": "EF Core: Restore dotnet-ef Tool"
+    },
+    {
+      "label": "EF Core: Remove Last Migration",
+      "type": "shell",
+      "command": "dotnet tool run dotnet-ef migrations remove",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": "$msCompile",
+      "dependsOn": "EF Core: Restore dotnet-ef Tool"
+    },
+    {
+      "label": "EF Core: List Migrations",
+      "type": "shell",
+      "command": "dotnet tool run dotnet-ef migrations list",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "dependsOn": "EF Core: Restore dotnet-ef Tool"
+    }
+  ]
+}

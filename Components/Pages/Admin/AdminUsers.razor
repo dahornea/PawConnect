@@ -1,0 +1,31 @@
+@page "/admin/users"
+@attribute [Authorize(Roles = "Admin")]
+
+<PageTitle>Users</PageTitle>
+
+<MudStack Spacing="3">
+    <MudText Typo="Typo.h4">Users</MudText>
+    <MudTable Items="_users" Dense="true" Hover="true">
+        <HeaderContent>
+            <MudTh>Email</MudTh>
+            <MudTh>Role</MudTh>
+            <MudTh>Status</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Email">@context.Email</MudTd>
+            <MudTd DataLabel="Role"><MudChip T="string" Color="Color.Primary" Size="Size.Small">@context.Role</MudChip></MudTd>
+            <MudTd DataLabel="Status">Seed user</MudTd>
+        </RowTemplate>
+    </MudTable>
+</MudStack>
+
+@code {
+    private readonly List<UserRow> _users =
+    [
+        new("adopter@pawconnect.test", "Adopter"),
+        new("shelter@pawconnect.test", "Shelter"),
+        new("admin@pawconnect.test", "Admin")
+    ];
+
+    private sealed record UserRow(string Email, string Role);
+}

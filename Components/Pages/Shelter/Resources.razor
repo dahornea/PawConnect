@@ -1,0 +1,32 @@
+@page "/shelter/resources"
+@attribute [Authorize(Roles = "Shelter")]
+
+<PageTitle>Resources</PageTitle>
+
+<MudStack Spacing="3">
+    <MudText Typo="Typo.h4">Resources</MudText>
+    <MudAlert Severity="Severity.Info">Resource stock CRUD will be implemented later. Seed data includes dry food, blankets, and medicine kits.</MudAlert>
+    <MudTable Items="_resources" Dense="true" Hover="true">
+        <HeaderContent>
+            <MudTh>Name</MudTh>
+            <MudTh>Quantity</MudTh>
+            <MudTh>Minimum</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Name">@context.Name</MudTd>
+            <MudTd DataLabel="Quantity">@context.Quantity @context.Unit</MudTd>
+            <MudTd DataLabel="Minimum">@context.MinimumQuantity @context.Unit</MudTd>
+        </RowTemplate>
+    </MudTable>
+</MudStack>
+
+@code {
+    private readonly List<ResourceRow> _resources =
+    [
+        new("Dry Food", 50, "kg", 15),
+        new("Blankets", 20, "pcs", 5),
+        new("Medicine Kits", 8, "pcs", 3)
+    ];
+
+    private sealed record ResourceRow(string Name, int Quantity, string Unit, int MinimumQuantity);
+}

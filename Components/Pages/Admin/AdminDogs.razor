@@ -1,0 +1,52 @@
+@page "/admin/dogs"
+@attribute [Authorize(Roles = "Admin")]
+@inject IDogService DogService
+
+<PageTitle>Admin Dogs</PageTitle>
+
+<MudStack Spacing="3">
+    <MudText Typo="Typo.h4">Dogs</MudText>
+    @if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <MudAlert Severity="Severity.Error">@_error</MudAlert>
+    }
+    <MudTable Items="_dogs" Dense="true" Hover="true" Loading="_isLoading">
+        <HeaderContent>
+            <MudTh>Name</MudTh>
+            <MudTh>Breed</MudTh>
+            <MudTh>Shelter</MudTh>
+            <MudTh>Status</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Name">@context.Name</MudTd>
+            <MudTd DataLabel="Breed">@context.Breed</MudTd>
+            <MudTd DataLabel="Shelter">@context.Shelter?.Name</MudTd>
+            <MudTd DataLabel="Status"><MudChip T="string" Color="Color.Primary" Size="Size.Small">@context.Status</MudChip></MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText Class="pa-4">No dogs found.</MudText>
+        </NoRecordsContent>
+    </MudTable>
+</MudStack>
+
+@code {
+    private List<Dog> _dogs = [];
+    private bool _isLoading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _dogs = await DogService.GetAllDogsAsync();
+        }
+        catch
+        {
+            _error = "Dog data could not be loaded. Check migrations and database connection.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+}
