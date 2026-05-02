@@ -57,7 +57,7 @@ public class MedicalRecordService(ApplicationDbContext context) : IMedicalRecord
 
     public async Task AddMedicalRecordAsync(int dogId, int shelterId, MedicalRecord record)
     {
-        await EnsureDogBelongsToShelterAsync(dogId, shelterId);
+        await EnsureDogCanBeManagedAsync(dogId, shelterId);
         ValidateMedicalRecord(record);
 
         record.Id = 0;
@@ -81,6 +81,8 @@ public class MedicalRecordService(ApplicationDbContext context) : IMedicalRecord
             throw new InvalidOperationException("Medical record was not found for your shelter.");
         }
 
+        EnsureDogIsNotAdopted(existingRecord.Dog);
+
         existingRecord.VaccineName = string.IsNullOrWhiteSpace(record.VaccineName) ? null : record.VaccineName.Trim();
         existingRecord.TreatmentDescription = string.IsNullOrWhiteSpace(record.TreatmentDescription) ? null : record.TreatmentDescription.Trim();
         existingRecord.RecordDate = record.RecordDate;
@@ -100,16 +102,28 @@ public class MedicalRecordService(ApplicationDbContext context) : IMedicalRecord
             throw new InvalidOperationException("Medical record was not found for your shelter.");
         }
 
+        EnsureDogIsNotAdopted(record.Dog);
+
         context.MedicalRecords.Remove(record);
         await context.SaveChangesAsync();
     }
 
-    private async Task EnsureDogBelongsToShelterAsync(int dogId, int shelterId)
+    private async Task EnsureDogCanBeManagedAsync(int dogId, int shelterId)
     {
-        var dogExists = await context.Dogs.AnyAsync(d => d.Id == dogId && d.ShelterId == shelterId);
-        if (!dogExists)
+        var dog = await context.Dogs.FirstOrDefaultAsync(d => d.Id == dogId && d.ShelterId == shelterId);
+        if (dog is null)
         {
             throw new InvalidOperationException("Dog was not found for your shelter.");
+        }
+
+        EnsureDogIsNotAdopted(dog);
+    }
+
+    private static void EnsureDogIsNotAdopted(Dog dog)
+    {
+        if (dog.Status == DogStatus.Adopted)
+        {
+            throw new InvalidOperationException("Adopted dogs are read-only for shelter users.");
         }
     }
 

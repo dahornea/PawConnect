@@ -160,7 +160,7 @@ public class DogService(ApplicationDbContext context) : IDogService
         await context.SaveChangesAsync();
     }
 
-    public async Task UpdateDogAsync(Dog dog, int shelterId)
+    public async Task UpdateDogAsync(Dog dog, int shelterId, string? changedByUserId = null)
     {
         ValidateDog(dog);
 
@@ -168,6 +168,12 @@ public class DogService(ApplicationDbContext context) : IDogService
         if (existingDog is null)
         {
             throw new InvalidOperationException("Dog was not found for your shelter.");
+        }
+
+        var oldStatus = existingDog.Status;
+        if (oldStatus == DogStatus.Adopted)
+        {
+            throw new InvalidOperationException("Adopted dogs are read-only for shelter users. Contact an admin if this was a mistake.");
         }
 
         existingDog.Name = dog.Name.Trim();
@@ -181,6 +187,8 @@ public class DogService(ApplicationDbContext context) : IDogService
         existingDog.Status = dog.Status;
         existingDog.PreferredFoodTypeId = dog.PreferredFoodTypeId;
         existingDog.DailyFoodAmountGrams = dog.DailyFoodAmountGrams;
+
+        AddStatusHistoryIfChanged(existingDog.Id, oldStatus, existingDog.Status, changedByUserId, "Status updated by shelter.");
 
         await context.SaveChangesAsync();
     }
@@ -236,6 +244,51 @@ public class DogService(ApplicationDbContext context) : IDogService
 
         context.Dogs.Remove(dog);
         await context.SaveChangesAsync();
+    }
+
+    public Task<List<DogStatusHistory>> GetStatusHistoryForDogAsync(int dogId)
+    {
+        return context.DogStatusHistories
+            .Include(h => h.ChangedByUser)
+            .Where(h => h.DogId == dogId)
+            .OrderByDescending(h => h.ChangedAt)
+            .AsNoTracking()
+            .ToListAsync();
+    }
+
+    public async Task<List<DogStatusHistory>> GetStatusHistoryForShelterDogAsync(int dogId, int shelterId)
+    {
+        var dogExistsForShelter = await context.Dogs.AnyAsync(d => d.Id == dogId && d.ShelterId == shelterId);
+        if (!dogExistsForShelter)
+        {
+            throw new InvalidOperationException("Dog was not found for your shelter.");
+        }
+
+        return await GetStatusHistoryForDogAsync(dogId);
+    }
+
+    public async Task AddStatusHistoryAsync(int dogId, DogStatus oldStatus, DogStatus newStatus, string? changedByUserId, string? notes = null)
+    {
+        AddStatusHistoryIfChanged(dogId, oldStatus, newStatus, changedByUserId, notes);
+        await context.SaveChangesAsync();
+    }
+
+    private void AddStatusHistoryIfChanged(int dogId, DogStatus oldStatus, DogStatus newStatus, string? changedByUserId, string? notes = null)
+    {
+        if (oldStatus == newStatus)
+        {
+            return;
+        }
+
+        context.DogStatusHistories.Add(new DogStatusHistory
+        {
+            DogId = dogId,
+            OldStatus = oldStatus,
+            NewStatus = newStatus,
+            ChangedAt = DateTime.UtcNow,
+            ChangedByUserId = changedByUserId,
+            Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim()
+        });
     }
 
     private static void ValidateDog(Dog dog)

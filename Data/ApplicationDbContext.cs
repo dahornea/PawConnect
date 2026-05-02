@@ -27,6 +27,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
     public DbSet<AdopterProfile> AdopterProfiles => Set<AdopterProfile>();
 
+    public DbSet<DogStatusHistory> DogStatusHistories => Set<DogStatusHistory>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -72,6 +74,23 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .WithMany(d => d.MedicalRecords)
             .HasForeignKey(m => m.DogId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<DogStatusHistory>()
+            .HasOne(h => h.Dog)
+            .WithMany(d => d.StatusHistories)
+            .HasForeignKey(h => h.DogId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<DogStatusHistory>()
+            .HasOne(h => h.ChangedByUser)
+            .WithMany(u => u.DogStatusHistories)
+            .HasForeignKey(h => h.ChangedByUserId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.Entity<DogStatusHistory>()
+            .Property(h => h.ChangedAt)
+            .HasDefaultValueSql("GETUTCDATE()");
 
         builder.Entity<AdoptionRequest>()
             .HasOne(a => a.Dog)

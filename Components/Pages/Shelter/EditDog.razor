@@ -35,21 +35,28 @@
         }
         else if (_model is not null)
         {
+            @if (IsReadOnly)
+            {
+                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+                    This dog is marked as adopted, so its shelter profile is read-only. Contact an admin if the adopted status was set by mistake.
+                </MudAlert>
+            }
+
             <MudCard>
                 <MudCardContent>
                     <MudForm @ref="_form">
                         <MudGrid>
                             <MudItem xs="12" md="6">
-                                <MudTextField Label="Name" @bind-Value="_model.Name" Required="true" RequiredError="Name is required." Variant="Variant.Outlined" />
+                                <MudTextField Label="Name" @bind-Value="_model.Name" Required="true" RequiredError="Name is required." Variant="Variant.Outlined" Disabled="@IsReadOnly" />
                             </MudItem>
                             <MudItem xs="12" md="6">
-                                <MudTextField Label="Breed" @bind-Value="_model.Breed" Required="true" RequiredError="Breed is required." Variant="Variant.Outlined" />
+                                <MudTextField Label="Breed" @bind-Value="_model.Breed" Required="true" RequiredError="Breed is required." Variant="Variant.Outlined" Disabled="@IsReadOnly" />
                             </MudItem>
                             <MudItem xs="12" md="4">
-                                <MudNumericField T="int" Label="Age" @bind-Value="_model.Age" Min="0" Max="30" Variant="Variant.Outlined" />
+                                <MudNumericField T="int" Label="Age" @bind-Value="_model.Age" Min="0" Max="30" Variant="Variant.Outlined" Disabled="@IsReadOnly" />
                             </MudItem>
                             <MudItem xs="12" md="4">
-                                <MudSelect T="DogSize" Label="Size" @bind-Value="_model.Size" Required="true" Variant="Variant.Outlined">
+                                <MudSelect T="DogSize" Label="Size" @bind-Value="_model.Size" Required="true" Variant="Variant.Outlined" Disabled="@IsReadOnly">
                                     @foreach (var size in Enum.GetValues<DogSize>())
                                     {
                                         <MudSelectItem Value="@size">@size</MudSelectItem>
@@ -57,7 +64,7 @@
                                 </MudSelect>
                             </MudItem>
                             <MudItem xs="12" md="4">
-                                <MudSelect T="DogStatus" Label="Status" @bind-Value="_model.Status" Required="true" Variant="Variant.Outlined">
+                                <MudSelect T="DogStatus" Label="Status" @bind-Value="_model.Status" Required="true" Variant="Variant.Outlined" Disabled="@IsReadOnly">
                                     @foreach (var status in Enum.GetValues<DogStatus>())
                                     {
                                         <MudSelectItem Value="@status">@status</MudSelectItem>
@@ -65,10 +72,10 @@
                                 </MudSelect>
                             </MudItem>
                             <MudItem xs="12">
-                                <MudTextField Label="Location" @bind-Value="_model.Location" Required="true" RequiredError="Location is required." Variant="Variant.Outlined" />
+                                <MudTextField Label="Location" @bind-Value="_model.Location" Required="true" RequiredError="Location is required." Variant="Variant.Outlined" Disabled="@IsReadOnly" />
                             </MudItem>
                             <MudItem xs="12" md="6">
-                                <MudSelect T="int?" Label="Preferred Food Type" @bind-Value="_model.PreferredFoodTypeId" Clearable="true" Variant="Variant.Outlined">
+                                <MudSelect T="int?" Label="Preferred Food Type" @bind-Value="_model.PreferredFoodTypeId" Clearable="true" Variant="Variant.Outlined" Disabled="@IsReadOnly">
                                     @foreach (var foodType in _foodTypes)
                                     {
                                         <MudSelectItem T="int?" Value="@((int?)foodType.Id)">@foodType.Name</MudSelectItem>
@@ -76,25 +83,69 @@
                                 </MudSelect>
                             </MudItem>
                             <MudItem xs="12" md="6">
-                                <MudNumericField T="int?" Label="Daily Food Amount (grams)" @bind-Value="_model.DailyFoodAmountGrams" Min="1" Max="10000" Variant="Variant.Outlined" />
+                                <MudNumericField T="int?" Label="Daily Food Amount (grams)" @bind-Value="_model.DailyFoodAmountGrams" Min="1" Max="10000" Variant="Variant.Outlined" Disabled="@IsReadOnly" />
                             </MudItem>
                             <MudItem xs="12">
-                                <MudTextField Label="Description" @bind-Value="_model.Description" Lines="4" Variant="Variant.Outlined" />
+                                <MudTextField Label="Description" @bind-Value="_model.Description" Lines="4" Variant="Variant.Outlined" Disabled="@IsReadOnly" />
                             </MudItem>
                             <MudItem xs="12">
-                                <MudTextField Label="Behavior Description" @bind-Value="_model.BehaviorDescription" Lines="3" Variant="Variant.Outlined" />
+                                <MudTextField Label="Behavior Description" @bind-Value="_model.BehaviorDescription" Lines="3" Variant="Variant.Outlined" Disabled="@IsReadOnly" />
                             </MudItem>
                             <MudItem xs="12">
-                                <MudTextField Label="Medical Status" @bind-Value="_model.MedicalStatus" Lines="3" Variant="Variant.Outlined" />
+                                <MudTextField Label="Medical Status" @bind-Value="_model.MedicalStatus" Lines="3" Variant="Variant.Outlined" Disabled="@IsReadOnly" />
                             </MudItem>
                         </MudGrid>
                     </MudForm>
                 </MudCardContent>
                 <MudCardActions>
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save" Disabled="_isSaving" OnClick="SaveAsync">Save Changes</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save" Disabled="@(_isSaving || IsReadOnly)" OnClick="SaveAsync">Save Changes</MudButton>
                     <MudButton Href="/shelter/dogs" Variant="Variant.Text" Disabled="_isSaving">Back</MudButton>
                 </MudCardActions>
             </MudCard>
+
+            <MudPaper Elevation="0" Class="pa-4">
+                <MudStack Spacing="3">
+                    <div>
+                        <MudText Typo="Typo.h5">Status History</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Track when this dog moved between adoption statuses.</MudText>
+                    </div>
+
+                    @if (_statusHistory.Count == 0)
+                    {
+                        @if (string.IsNullOrWhiteSpace(_statusHistoryError))
+                        {
+                            <MudAlert Severity="Severity.Info">No status changes have been recorded for this dog yet.</MudAlert>
+                        }
+                        else
+                        {
+                            <MudAlert Severity="Severity.Warning">@_statusHistoryError</MudAlert>
+                        }
+                    }
+                    else
+                    {
+                        <MudTable Items="_statusHistory" Dense="true" Hover="true">
+                            <HeaderContent>
+                                <MudTh>From</MudTh>
+                                <MudTh>To</MudTh>
+                                <MudTh>Changed</MudTh>
+                                <MudTh>Changed By</MudTh>
+                                <MudTh>Notes</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="From">
+                                    <MudChip T="string" Color="@GetDogStatusColor(context.OldStatus)" Size="Size.Small">@context.OldStatus</MudChip>
+                                </MudTd>
+                                <MudTd DataLabel="To">
+                                    <MudChip T="string" Color="@GetDogStatusColor(context.NewStatus)" Size="Size.Small">@context.NewStatus</MudChip>
+                                </MudTd>
+                                <MudTd DataLabel="Changed">@context.ChangedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
+                                <MudTd DataLabel="Changed By">@(context.ChangedByUser?.Email ?? "-")</MudTd>
+                                <MudTd DataLabel="Notes">@(string.IsNullOrWhiteSpace(context.Notes) ? "-" : context.Notes)</MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    }
+                </MudStack>
+            </MudPaper>
 
             <MudPaper Elevation="0" Class="pa-4">
                 <MudStack Spacing="3">
@@ -106,13 +157,13 @@
                     <MudForm @ref="_imageForm">
                         <MudGrid Spacing="2">
                             <MudItem xs="12" md="8">
-                                <MudTextField Label="Image URL" @bind-Value="_newImage.ImageUrl" Required="true" RequiredError="Image URL is required." Variant="Variant.Outlined" />
+                                <MudTextField Label="Image URL" @bind-Value="_newImage.ImageUrl" Required="true" RequiredError="Image URL is required." Variant="Variant.Outlined" Disabled="@IsReadOnly" />
                             </MudItem>
                             <MudItem xs="12" md="2">
-                                <MudCheckBox T="bool" Label="Main image" @bind-Value="_newImage.IsMainImage" Color="Color.Primary" />
+                                <MudCheckBox T="bool" Label="Main image" @bind-Value="_newImage.IsMainImage" Color="Color.Primary" Disabled="@IsReadOnly" />
                             </MudItem>
                             <MudItem xs="12" md="2">
-                                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.AddPhotoAlternate" Disabled="_isImageSaving" OnClick="AddImageAsync">Add Image</MudButton>
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.AddPhotoAlternate" Disabled="@(_isImageSaving || IsReadOnly)" OnClick="AddImageAsync">Add Image</MudButton>
                             </MudItem>
                         </MudGrid>
                     </MudForm>
@@ -140,8 +191,8 @@
                                             }
                                         </MudCardContent>
                                         <MudCardActions>
-                                            <MudButton Variant="Variant.Text" Color="Color.Primary" Disabled="@image.IsMainImage" OnClick="@(() => SetMainImageAsync(image))">Set Main</MudButton>
-                                            <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="@(() => DeleteImageAsync(image))">Delete</MudButton>
+                                            <MudButton Variant="Variant.Text" Color="Color.Primary" Disabled="@(image.IsMainImage || IsReadOnly)" OnClick="@(() => SetMainImageAsync(image))">Set Main</MudButton>
+                                            <MudButton Variant="Variant.Text" Color="Color.Error" Disabled="@IsReadOnly" OnClick="@(() => DeleteImageAsync(image))">Delete</MudButton>
                                         </MudCardActions>
                                     </MudCard>
                                 </MudItem>
@@ -161,25 +212,25 @@
                     <MudForm @ref="_medicalForm">
                         <MudGrid Spacing="2">
                             <MudItem xs="12" md="6">
-                                <MudTextField Label="Vaccine Name" @bind-Value="_medicalRecordModel.VaccineName" Variant="Variant.Outlined" />
+                                <MudTextField Label="Vaccine Name" @bind-Value="_medicalRecordModel.VaccineName" Variant="Variant.Outlined" Disabled="@IsReadOnly" />
                             </MudItem>
                             <MudItem xs="12" md="6">
-                                <MudDatePicker Label="Record Date" @bind-Date="_medicalRecordDate" Required="true" RequiredError="Record date is required." Variant="Variant.Outlined" />
+                                <MudDatePicker Label="Record Date" @bind-Date="_medicalRecordDate" Required="true" RequiredError="Record date is required." Variant="Variant.Outlined" Disabled="@IsReadOnly" />
                             </MudItem>
                             <MudItem xs="12">
-                                <MudTextField Label="Treatment Description" @bind-Value="_medicalRecordModel.TreatmentDescription" Lines="3" Variant="Variant.Outlined" />
+                                <MudTextField Label="Treatment Description" @bind-Value="_medicalRecordModel.TreatmentDescription" Lines="3" Variant="Variant.Outlined" Disabled="@IsReadOnly" />
                             </MudItem>
                             <MudItem xs="12">
-                                <MudTextField Label="Notes" @bind-Value="_medicalRecordModel.Notes" Lines="3" Variant="Variant.Outlined" />
+                                <MudTextField Label="Notes" @bind-Value="_medicalRecordModel.Notes" Lines="3" Variant="Variant.Outlined" Disabled="@IsReadOnly" />
                             </MudItem>
                         </MudGrid>
                     </MudForm>
 
                     <MudStack Row="true" Spacing="2">
-                        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.MedicalServices" Disabled="_isMedicalSaving" OnClick="SaveMedicalRecordAsync">@(_medicalRecordModel.Id == 0 ? "Add Medical Record" : "Save Medical Record")</MudButton>
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.MedicalServices" Disabled="@(_isMedicalSaving || IsReadOnly)" OnClick="SaveMedicalRecordAsync">@(_medicalRecordModel.Id == 0 ? "Add Medical Record" : "Save Medical Record")</MudButton>
                         @if (_medicalRecordModel.Id != 0)
                         {
-                            <MudButton Variant="Variant.Text" Color="Color.Default" Disabled="_isMedicalSaving" OnClick="ResetMedicalForm">Cancel Edit</MudButton>
+                            <MudButton Variant="Variant.Text" Color="Color.Default" Disabled="@(_isMedicalSaving || IsReadOnly)" OnClick="ResetMedicalForm">Cancel Edit</MudButton>
                         }
                     </MudStack>
 
@@ -203,8 +254,8 @@
                                 <MudTd DataLabel="Treatment">@(string.IsNullOrWhiteSpace(context.TreatmentDescription) ? "-" : context.TreatmentDescription)</MudTd>
                                 <MudTd DataLabel="Notes">@(string.IsNullOrWhiteSpace(context.Notes) ? "-" : context.Notes)</MudTd>
                                 <MudTd>
-                                    <MudButton Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Edit" OnClick="@(() => EditMedicalRecord(context))">Edit</MudButton>
-                                    <MudButton Variant="Variant.Text" Color="Color.Error" StartIcon="@Icons.Material.Filled.Delete" OnClick="@(() => DeleteMedicalRecordAsync(context))">Delete</MudButton>
+                                    <MudButton Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Edit" Disabled="@IsReadOnly" OnClick="@(() => EditMedicalRecord(context))">Edit</MudButton>
+                                    <MudButton Variant="Variant.Text" Color="Color.Error" StartIcon="@Icons.Material.Filled.Delete" Disabled="@IsReadOnly" OnClick="@(() => DeleteMedicalRecordAsync(context))">Delete</MudButton>
                                 </MudTd>
                             </RowTemplate>
                         </MudTable>
@@ -223,6 +274,7 @@
     private List<FoodType> _foodTypes = [];
     private List<DogImage> _images = [];
     private List<MedicalRecord> _medicalRecords = [];
+    private List<DogStatusHistory> _statusHistory = [];
     private DogImage _newImage = new();
     private MedicalRecord _medicalRecordModel = new() { RecordDate = DateTime.Today };
     private DateTime? _medicalRecordDate = DateTime.Today;
@@ -234,7 +286,11 @@
     private bool _isImageSaving;
     private bool _isMedicalSaving;
     private string? _error;
+    private string? _statusHistoryError;
     private int? _shelterId;
+    private string? _currentUserId;
+
+    private bool IsReadOnly => _model?.Status == DogStatus.Adopted;
 
     protected override async Task OnInitializedAsync()
     {
@@ -255,7 +311,7 @@
                 return;
             }
 
-            await LoadImagesAndMedicalRecordsAsync();
+            await LoadDogManagementDataAsync();
         }
         catch
         {
@@ -275,6 +331,12 @@
             return;
         }
 
+        if (IsReadOnly)
+        {
+            Snackbar.Add("Adopted dogs are read-only for shelter users.", Severity.Info);
+            return;
+        }
+
         if (_form is not null)
         {
             await _form.ValidateAsync();
@@ -288,7 +350,7 @@
 
         try
         {
-            await DogService.UpdateDogAsync(_model, _shelterId.Value);
+            await DogService.UpdateDogAsync(_model, _shelterId.Value, _currentUserId);
             Snackbar.Add("Dog updated successfully.", Severity.Success);
             NavigationManager.NavigateTo("/shelter/dogs");
         }
@@ -315,14 +377,28 @@
             return null;
         }
 
+        _currentUserId = user.Id;
         var shelter = await ShelterService.GetShelterForUserAsync(user.Id);
         return shelter?.Id;
     }
 
-    private async Task LoadImagesAndMedicalRecordsAsync()
+    private async Task LoadDogManagementDataAsync()
     {
         _images = await DogImageService.GetImagesForDogAsync(Id);
         _medicalRecords = await MedicalRecordService.GetMedicalRecordsForDogAsync(Id);
+        if (_shelterId is not null)
+        {
+            try
+            {
+                _statusHistory = await DogService.GetStatusHistoryForShelterDogAsync(Id, _shelterId.Value);
+                _statusHistoryError = null;
+            }
+            catch
+            {
+                _statusHistory = [];
+                _statusHistoryError = "Status history could not be loaded. If this is a new feature, apply the latest database migration.";
+            }
+        }
     }
 
     private async Task AddImageAsync()
@@ -348,7 +424,7 @@
         {
             await DogImageService.AddDogImageAsync(Id, _shelterId.Value, _newImage);
             _newImage = new DogImage();
-            await LoadImagesAndMedicalRecordsAsync();
+            await LoadDogManagementDataAsync();
             Snackbar.Add("Image added successfully.", Severity.Success);
         }
         catch (InvalidOperationException ex)
@@ -451,7 +527,7 @@
             }
 
             ResetMedicalForm();
-            await LoadImagesAndMedicalRecordsAsync();
+            await LoadDogManagementDataAsync();
         }
         catch (InvalidOperationException ex)
         {
@@ -509,5 +585,17 @@
     {
         _medicalRecordModel = new MedicalRecord { RecordDate = DateTime.Today };
         _medicalRecordDate = DateTime.Today;
+    }
+
+    private static Color GetDogStatusColor(DogStatus status)
+    {
+        return status switch
+        {
+            DogStatus.Available => Color.Success,
+            DogStatus.Reserved => Color.Warning,
+            DogStatus.Adopted => Color.Default,
+            DogStatus.InTreatment => Color.Info,
+            _ => Color.Default
+        };
     }
 }

@@ -129,6 +129,7 @@
     private bool _isUpdating;
     private string? _error;
     private int? _shelterId;
+    private string? _currentUserId;
 
     protected override async Task OnInitializedAsync()
     {
@@ -142,6 +143,7 @@
                 return;
             }
 
+            _currentUserId = user.Id;
             var shelter = await ShelterService.GetShelterForUserAsync(user.Id);
             if (shelter is null)
             {
@@ -174,7 +176,7 @@
 
         try
         {
-            await AdoptionRequestService.AcceptRequestAsync(request.Id, _shelterId.Value);
+            await AdoptionRequestService.AcceptRequestAsync(request.Id, _shelterId.Value, _currentUserId);
 
             var now = DateTime.UtcNow;
             request.Status = AdoptionRequestStatus.Accepted;

@@ -28,7 +28,7 @@ public interface IAdoptionRequestService
 
     Task<bool> HasPendingRequestAsync(string adopterId, int dogId);
 
-    Task AcceptRequestAsync(int requestId, int shelterId);
+    Task AcceptRequestAsync(int requestId, int shelterId, string? changedByUserId = null);
 
     Task RejectRequestAsync(int requestId, int shelterId);
 

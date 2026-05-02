@@ -49,4 +49,6 @@ public class Dog
     public ICollection<AdoptionRequest> AdoptionRequests { get; set; } = new List<AdoptionRequest>();
 
     public ICollection<FavoriteDog> FavoriteDogs { get; set; } = new List<FavoriteDog>();
+
+    public ICollection<DogStatusHistory> StatusHistories { get; set; } = new List<DogStatusHistory>();
 }
