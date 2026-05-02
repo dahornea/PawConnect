@@ -25,6 +25,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
     public DbSet<FoodType> FoodTypes => Set<FoodType>();
 
+    public DbSet<AdopterProfile> AdopterProfiles => Set<AdopterProfile>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -35,6 +37,16 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .HasForeignKey<Shelter>(s => s.ApplicationUserId)
             .IsRequired(false)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<AdopterProfile>()
+            .HasOne(p => p.ApplicationUser)
+            .WithOne(u => u.AdopterProfile)
+            .HasForeignKey<AdopterProfile>(p => p.ApplicationUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<AdopterProfile>()
+            .HasIndex(p => p.ApplicationUserId)
+            .IsUnique();
 
         builder.Entity<Dog>()
             .HasOne(d => d.Shelter)

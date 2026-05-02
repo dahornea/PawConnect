@@ -1,0 +1,179 @@
+@page "/adopter/profile"
+@using Microsoft.AspNetCore.Identity
+@using PawConnect.Data
+@attribute [Authorize(Roles = "Adopter")]
+@inject IAdopterProfileService AdopterProfileService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject UserManager<ApplicationUser> UserManager
+@inject ISnackbar Snackbar
+
+<PageTitle>Adopter Profile</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="px-0">
+    <MudStack Spacing="3">
+        <div>
+            <MudText Typo="Typo.h4">Adopter Profile</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Share basic home and contact details to help shelters review adoption requests.</MudText>
+        </div>
+
+        @if (_isLoading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="py-8">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Loading profile...</MudText>
+            </MudStack>
+        }
+        else if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <MudAlert Severity="Severity.Error">@_error</MudAlert>
+        }
+        else
+        {
+            <MudCard>
+                <MudCardContent>
+                    <MudStack Spacing="3">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+                            <MudAvatar Size="Size.Large">
+                                @if (string.IsNullOrWhiteSpace(_profile.ProfileImageUrl))
+                                {
+                                    <MudIcon Icon="@Icons.Material.Filled.Person" />
+                                }
+                                else
+                                {
+                                    <MudImage Src="@_profile.ProfileImageUrl" Alt="@_profile.FullName" />
+                                }
+                            </MudAvatar>
+                            <div>
+                                <MudText Typo="Typo.h6">@(_profile.FullName.Length == 0 ? "Your profile" : _profile.FullName)</MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">@(_profile.City.Length == 0 ? "City not set" : _profile.City)</MudText>
+                            </div>
+                        </MudStack>
+
+                        <MudForm @ref="_form">
+                            <MudGrid Spacing="2">
+                                <MudItem xs="12" md="6">
+                                    <MudTextField Label="Full Name" @bind-Value="_profile.FullName" Required="true" RequiredError="Full name is required." Variant="Variant.Outlined" />
+                                </MudItem>
+                                <MudItem xs="12" md="6">
+                                    <MudTextField Label="Profile Image URL" @bind-Value="_profile.ProfileImageUrl" Variant="Variant.Outlined" />
+                                </MudItem>
+                                <MudItem xs="12" md="6">
+                                    <MudTextField Label="City" @bind-Value="_profile.City" Required="true" RequiredError="City is required." Variant="Variant.Outlined" />
+                                </MudItem>
+                                <MudItem xs="12" md="6">
+                                    <MudTextField Label="Phone Number" @bind-Value="_profile.PhoneNumber" Variant="Variant.Outlined" />
+                                </MudItem>
+                                <MudItem xs="12">
+                                    <MudTextField Label="Address" @bind-Value="_profile.Address" Variant="Variant.Outlined" />
+                                </MudItem>
+                                <MudItem xs="12" md="6">
+                                    <MudSelect T="HousingType" Label="Housing Type" @bind-Value="_profile.HousingType" Variant="Variant.Outlined">
+                                        @foreach (var housingType in Enum.GetValues<HousingType>())
+                                        {
+                                            <MudSelectItem Value="@housingType">@housingType</MudSelectItem>
+                                        }
+                                    </MudSelect>
+                                </MudItem>
+                                <MudItem xs="12" md="6">
+                                    <MudStack Spacing="1">
+                                        <MudCheckBox T="bool" Label="Has yard" @bind-Value="_profile.HasYard" Color="Color.Primary" />
+                                        <MudCheckBox T="bool" Label="Has other pets" @bind-Value="_profile.HasOtherPets" Color="Color.Primary" />
+                                        <MudCheckBox T="bool" Label="Has children" @bind-Value="_profile.HasChildren" Color="Color.Primary" />
+                                    </MudStack>
+                                </MudItem>
+                                <MudItem xs="12">
+                                    <MudTextField Label="Experience With Dogs" @bind-Value="_profile.ExperienceWithDogs" Lines="3" Variant="Variant.Outlined" />
+                                </MudItem>
+                                <MudItem xs="12">
+                                    <MudTextField Label="Additional Notes" @bind-Value="_profile.AdditionalNotes" Lines="3" Variant="Variant.Outlined" />
+                                </MudItem>
+                            </MudGrid>
+                        </MudForm>
+                    </MudStack>
+                </MudCardContent>
+                <MudCardActions>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save" Disabled="_isSaving" OnClick="SaveAsync">Save Profile</MudButton>
+                </MudCardActions>
+            </MudCard>
+        }
+    </MudStack>
+</MudContainer>
+
+@code {
+    private AdopterProfile _profile = new();
+    private MudForm? _form;
+    private bool _isLoading = true;
+    private bool _isSaving;
+    private string? _error;
+    private string? _currentUserId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var user = await UserManager.GetUserAsync(authState.User);
+            _currentUserId = user?.Id;
+
+            if (string.IsNullOrWhiteSpace(_currentUserId))
+            {
+                _error = "Current adopter account could not be found.";
+                return;
+            }
+
+            _profile = await AdopterProfileService.GetProfileForUserAsync(_currentUserId)
+                ?? new AdopterProfile
+                {
+                    FullName = user?.FullName ?? string.Empty,
+                    City = string.Empty,
+                    HousingType = HousingType.Apartment
+                };
+        }
+        catch
+        {
+            _error = "Adopter profile could not be loaded right now.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_currentUserId))
+        {
+            Snackbar.Add("Current adopter account could not be found.", Severity.Error);
+            return;
+        }
+
+        if (_form is not null)
+        {
+            await _form.ValidateAsync();
+            if (!_form.IsValid)
+            {
+                return;
+            }
+        }
+
+        _isSaving = true;
+
+        try
+        {
+            await AdopterProfileService.CreateOrUpdateProfileAsync(_currentUserId, _profile);
+            Snackbar.Add("Adopter profile saved.", Severity.Success);
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch
+        {
+            Snackbar.Add("Adopter profile could not be saved right now.", Severity.Error);
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+}

@@ -83,7 +83,34 @@ public static class IdentitySeedData
         }
 
         await SeedLookupDataAsync(context);
+        await SeedAdopterProfileAsync(context);
         await SeedDomainDataAsync(context);
+    }
+
+    private static async Task SeedAdopterProfileAsync(ApplicationDbContext context)
+    {
+        if (await context.AdopterProfiles.AnyAsync(p => p.ApplicationUserId == AdopterUserId))
+        {
+            return;
+        }
+
+        context.AdopterProfiles.Add(new AdopterProfile
+        {
+            ApplicationUserId = AdopterUserId,
+            FullName = "Maria Popescu",
+            ProfileImageUrl = "https://placehold.co/300x300?text=Adopter",
+            Address = "45 Green Street",
+            City = "Bucharest",
+            PhoneNumber = "+40 721 123 456",
+            HousingType = HousingType.Apartment,
+            HasYard = false,
+            HasOtherPets = true,
+            HasChildren = false,
+            ExperienceWithDogs = "Grew up with family dogs and has experience caring for medium-sized dogs.",
+            AdditionalNotes = "Works from home several days per week and can provide daily walks."
+        });
+
+        await context.SaveChangesAsync();
     }
 
     private static async Task SeedLookupDataAsync(ApplicationDbContext context)

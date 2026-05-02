@@ -4,6 +4,7 @@
 @using PawConnect.Data
 @attribute [Authorize(Roles = "Admin")]
 @inject UserManager<ApplicationUser> UserManager
+@inject IAdopterProfileService AdopterProfileService
 @inject ISnackbar Snackbar
 
 <PageTitle>Users</PageTitle>
@@ -39,6 +40,7 @@
                     <MudTh>User Name</MudTh>
                     <MudTh>Phone</MudTh>
                     <MudTh>Roles</MudTh>
+                    <MudTh>Adopter Profile</MudTh>
                     <MudTh></MudTh>
                 </HeaderContent>
                 <RowTemplate>
@@ -53,6 +55,31 @@
                                 <MudChip T="string" Color="Color.Primary" Size="Size.Small">@role</MudChip>
                             }
                         </MudStack>
+                    </MudTd>
+                    <MudTd DataLabel="Adopter Profile">
+                        @if (context.HasAdopterProfile)
+                        {
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                <MudAvatar Size="Size.Medium">
+                                    @if (string.IsNullOrWhiteSpace(context.ProfileImageUrl))
+                                    {
+                                        <MudIcon Icon="@Icons.Material.Filled.Person" />
+                                    }
+                                    else
+                                    {
+                                        <MudImage Src="@context.ProfileImageUrl" Alt="@context.ProfileFullName" />
+                                    }
+                                </MudAvatar>
+                                <div>
+                                    <MudText Typo="Typo.body2">@context.ProfileFullName</MudText>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">@context.ProfileCity | @(string.IsNullOrWhiteSpace(context.ProfilePhoneNumber) ? "-" : context.ProfilePhoneNumber)</MudText>
+                                </div>
+                            </MudStack>
+                        }
+                        else
+                        {
+                            <MudChip T="string" Color="Color.Default" Size="Size.Small">No profile</MudChip>
+                        }
                     </MudTd>
                     <MudTd>
                         <MudButton Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Edit" OnClick="@(() => EditUser(context))">Edit</MudButton>
@@ -111,13 +138,19 @@
             foreach (var user in users)
             {
                 var roles = await UserManager.GetRolesAsync(user);
+                var adopterProfile = await AdopterProfileService.GetProfileForUserAsync(user.Id);
                 _users.Add(new UserRow(
                     user.Id,
                     user.Email,
                     user.FullName,
                     user.UserName,
                     user.PhoneNumber,
-                    roles.Count == 0 ? ["No role"] : roles.ToList()));
+                    roles.Count == 0 ? ["No role"] : roles.ToList(),
+                    adopterProfile is not null,
+                    adopterProfile?.ProfileImageUrl,
+                    adopterProfile?.FullName,
+                    adopterProfile?.City,
+                    adopterProfile?.PhoneNumber));
             }
         }
         catch
@@ -220,7 +253,18 @@
         }
     }
 
-    private sealed record UserRow(string Id, string? Email, string? FullName, string? UserName, string? PhoneNumber, List<string> Roles);
+    private sealed record UserRow(
+        string Id,
+        string? Email,
+        string? FullName,
+        string? UserName,
+        string? PhoneNumber,
+        List<string> Roles,
+        bool HasAdopterProfile,
+        string? ProfileImageUrl,
+        string? ProfileFullName,
+        string? ProfileCity,
+        string? ProfilePhoneNumber);
 
     private sealed class UserEditModel
     {

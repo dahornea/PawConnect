@@ -53,7 +53,46 @@
                             <MudText Typo="Typo.body2">@context.Dog?.Name</MudText>
                         </MudStack>
                     </MudTd>
-                    <MudTd DataLabel="Adopter">@GetAdopterName(context.Adopter)</MudTd>
+                    <MudTd DataLabel="Adopter">
+                        <MudStack Spacing="1">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                <MudAvatar Size="Size.Medium">
+                                    @if (string.IsNullOrWhiteSpace(context.Adopter?.AdopterProfile?.ProfileImageUrl))
+                                    {
+                                        <MudIcon Icon="@Icons.Material.Filled.Person" />
+                                    }
+                                    else
+                                    {
+                                        <MudImage Src="@context.Adopter.AdopterProfile.ProfileImageUrl" Alt="@context.Adopter.AdopterProfile.FullName" />
+                                    }
+                                </MudAvatar>
+                                <MudText Typo="Typo.body2">@GetAdopterName(context.Adopter)</MudText>
+                            </MudStack>
+
+                            @if (context.Adopter?.AdopterProfile is null)
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">No adopter profile completed yet.</MudText>
+                            }
+                            else
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    @context.Adopter.AdopterProfile.City | @context.Adopter.AdopterProfile.HousingType
+                                </MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    Phone: @(string.IsNullOrWhiteSpace(context.Adopter.AdopterProfile.PhoneNumber) ? "-" : context.Adopter.AdopterProfile.PhoneNumber)
+                                </MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    Yard: @FormatYesNo(context.Adopter.AdopterProfile.HasYard) |
+                                    Pets: @FormatYesNo(context.Adopter.AdopterProfile.HasOtherPets) |
+                                    Children: @FormatYesNo(context.Adopter.AdopterProfile.HasChildren)
+                                </MudText>
+                                @if (!string.IsNullOrWhiteSpace(context.Adopter.AdopterProfile.ExperienceWithDogs))
+                                {
+                                    <MudText Typo="Typo.caption">@context.Adopter.AdopterProfile.ExperienceWithDogs</MudText>
+                                }
+                            }
+                        </MudStack>
+                    </MudTd>
                     <MudTd DataLabel="Message">@(string.IsNullOrWhiteSpace(context.Message) ? "-" : context.Message)</MudTd>
                     <MudTd DataLabel="Status">
                         <MudChip T="string" Color="@GetStatusColor(context.Status)" Size="Size.Small">@context.Status</MudChip>
@@ -221,5 +260,10 @@
             AdoptionRequestStatus.Cancelled => Color.Default,
             _ => Color.Default
         };
+    }
+
+    private static string FormatYesNo(bool value)
+    {
+        return value ? "Yes" : "No";
     }
 }
