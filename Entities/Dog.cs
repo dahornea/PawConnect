@@ -31,6 +31,11 @@ public class Dog
 
     public DogStatus Status { get; set; } = DogStatus.Available;
 
+    [StringLength(2000)]
+    public string? SuccessStoryText { get; set; }
+
+    public DateTime? AdoptedAt { get; set; }
+
     public int? PreferredFoodTypeId { get; set; }
 
     public FoodType? PreferredFoodType { get; set; }

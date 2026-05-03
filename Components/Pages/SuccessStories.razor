@@ -1,0 +1,103 @@
+@page "/success-stories"
+@inject IDogService DogService
+
+<PageTitle>Success Stories</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.False" Class="px-0">
+    <MudStack Spacing="3">
+        <div>
+            <MudText Typo="Typo.h4">Adoption Success Stories</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Celebrate dogs who found loving homes through PawConnect.</MudText>
+        </div>
+
+        @if (_isLoading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="py-8">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Loading success stories...</MudText>
+            </MudStack>
+        }
+        else if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <MudAlert Severity="Severity.Error">@_error</MudAlert>
+        }
+        else if (_adoptedDogs.Count == 0)
+        {
+            <MudAlert Severity="Severity.Info">No adoption success stories have been added yet.</MudAlert>
+        }
+        else
+        {
+            <MudGrid Spacing="3">
+                @foreach (var dog in _adoptedDogs)
+                {
+                    <MudItem xs="12" sm="6" md="4">
+                        <MudCard Class="h-100">
+                            <MudCardMedia Image="@GetDogImageUrl(dog)" Height="220" />
+                            <MudCardContent>
+                                <MudStack Spacing="2">
+                                    <MudStack Row="true" AlignItems="AlignItems.Start">
+                                        <div>
+                                            <MudText Typo="Typo.h6">@dog.Name</MudText>
+                                            <MudText Typo="Typo.body2" Color="Color.Secondary">@dog.Breed</MudText>
+                                        </div>
+                                        <MudSpacer />
+                                        <MudChip T="string" Color="Color.Default" Size="Size.Small">Adopted</MudChip>
+                                    </MudStack>
+
+                                    <MudDivider />
+
+                                    <MudText Typo="Typo.body2">Shelter: @(dog.Shelter?.Name ?? "-")</MudText>
+
+                                    @if (dog.AdoptedAt.HasValue)
+                                    {
+                                        <MudText Typo="Typo.body2" Color="Color.Secondary">Adopted: @dog.AdoptedAt.Value.ToLocalTime().ToString("dd MMM yyyy")</MudText>
+                                    }
+
+                                    @if (!string.IsNullOrWhiteSpace(dog.Description))
+                                    {
+                                        <MudText Typo="Typo.body2">@dog.Description</MudText>
+                                    }
+
+                                    <MudAlert Severity="Severity.Success" Variant="Variant.Outlined">
+                                        @(string.IsNullOrWhiteSpace(dog.SuccessStoryText)
+                                            ? "This dog has found a loving home through PawConnect."
+                                            : dog.SuccessStoryText)
+                                    </MudAlert>
+                                </MudStack>
+                            </MudCardContent>
+                        </MudCard>
+                    </MudItem>
+                }
+            </MudGrid>
+        }
+    </MudStack>
+</MudContainer>
+
+@code {
+    private List<Dog> _adoptedDogs = [];
+    private bool _isLoading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _adoptedDogs = await DogService.GetAdoptedDogsAsync();
+        }
+        catch
+        {
+            _error = "Success stories could not be loaded right now.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private static string GetDogImageUrl(Dog dog)
+    {
+        return dog.Images.FirstOrDefault(i => i.IsMainImage)?.ImageUrl
+            ?? dog.Images.FirstOrDefault()?.ImageUrl
+            ?? "https://placehold.co/800x500?text=Dog";
+    }
+}
