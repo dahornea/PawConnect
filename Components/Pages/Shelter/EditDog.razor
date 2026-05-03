@@ -38,7 +38,7 @@
             @if (IsReadOnly)
             {
                 <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
-                    This dog is marked as adopted, so its shelter profile is read-only. Contact an admin if the adopted status was set by mistake.
+                    This dog is marked as adopted, so its main shelter profile is read-only. You can still update the public adoption success story below.
                 </MudAlert>
             }
 
@@ -102,6 +102,40 @@
                     <MudButton Href="/shelter/dogs" Variant="Variant.Text" Disabled="_isSaving">Back</MudButton>
                 </MudCardActions>
             </MudCard>
+
+            <MudPaper Elevation="0" Class="pa-4">
+                <MudStack Spacing="3">
+                    <div>
+                        <MudText Typo="Typo.h5">Adoption Success Story</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Optional public story details shown on the Success Stories page when this dog is adopted.</MudText>
+                    </div>
+
+                    @if (_model.Status != DogStatus.Adopted)
+                    {
+                        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">Success stories are only shown publicly after the dog status is Adopted.</MudAlert>
+                    }
+
+                    <MudGrid Spacing="2">
+                        <MudItem xs="12" md="4">
+                            <MudDatePicker Label="Adopted Date" @bind-Date="_adoptedAt" Variant="Variant.Outlined" />
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudTextField Label="Success Story Text"
+                                          @bind-Value="_successStoryText"
+                                          Lines="4"
+                                          Counter="2000"
+                                          MaxLength="2000"
+                                          Immediate="true"
+                                          Variant="Variant.Outlined" />
+                        </MudItem>
+                    </MudGrid>
+
+                    <MudStack Row="true" Spacing="2">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.EmojiEvents" Disabled="@_isSuccessStorySaving" OnClick="SaveSuccessStoryAsync">Save Success Story</MudButton>
+                        <MudButton Href="/success-stories" Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Visibility">View Success Stories</MudButton>
+                    </MudStack>
+                </MudStack>
+            </MudPaper>
 
             <MudPaper Elevation="0" Class="pa-4">
                 <MudStack Spacing="3">
@@ -285,8 +319,11 @@
     private bool _isSaving;
     private bool _isImageSaving;
     private bool _isMedicalSaving;
+    private bool _isSuccessStorySaving;
     private string? _error;
     private string? _statusHistoryError;
+    private string? _successStoryText;
+    private DateTime? _adoptedAt;
     private int? _shelterId;
     private string? _currentUserId;
 
@@ -311,6 +348,8 @@
                 return;
             }
 
+            _successStoryText = _model.SuccessStoryText;
+            _adoptedAt = _model.AdoptedAt;
             await LoadDogManagementDataAsync();
         }
         catch
@@ -365,6 +404,37 @@
         finally
         {
             _isSaving = false;
+        }
+    }
+
+    private async Task SaveSuccessStoryAsync()
+    {
+        if (_model is null || _shelterId is null)
+        {
+            Snackbar.Add("Current dog or shelter profile could not be found.", Severity.Error);
+            return;
+        }
+
+        _isSuccessStorySaving = true;
+
+        try
+        {
+            await DogService.UpdateSuccessStoryAsync(_model.Id, _shelterId.Value, _successStoryText, _adoptedAt);
+            _model.SuccessStoryText = string.IsNullOrWhiteSpace(_successStoryText) ? null : _successStoryText.Trim();
+            _model.AdoptedAt = _adoptedAt;
+            Snackbar.Add("Adoption success story saved.", Severity.Success);
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch
+        {
+            Snackbar.Add("Adoption success story could not be saved right now.", Severity.Error);
+        }
+        finally
+        {
+            _isSuccessStorySaving = false;
         }
     }
 

@@ -38,6 +38,7 @@
                     <MudTh>Location</MudTh>
                     <MudTh>Shelter</MudTh>
                     <MudTh>Status</MudTh>
+                    <MudTh>Success Story</MudTh>
                     <MudTh></MudTh>
                 </HeaderContent>
                 <RowTemplate>
@@ -56,6 +57,19 @@
                     <MudTd DataLabel="Shelter">@(context.Shelter?.Name ?? "-")</MudTd>
                     <MudTd DataLabel="Status">
                         <MudChip T="string" Color="@GetStatusColor(context.Status)" Size="Size.Small">@context.Status</MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Success Story">
+                        @if (context.Status == DogStatus.Adopted)
+                        {
+                            <MudStack Spacing="1">
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Adopted: @(context.AdoptedAt.HasValue ? context.AdoptedAt.Value.ToLocalTime().ToString("dd MMM yyyy") : "-")</MudText>
+                                <MudText Typo="Typo.caption">@(string.IsNullOrWhiteSpace(context.SuccessStoryText) ? "No story text yet." : context.SuccessStoryText)</MudText>
+                            </MudStack>
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">-</MudText>
+                        }
                     </MudTd>
                     <MudTd>
                         <MudStack Row="true" Spacing="1">

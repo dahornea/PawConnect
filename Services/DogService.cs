@@ -51,6 +51,18 @@ public class DogService(ApplicationDbContext context) : IDogService
             .ToListAsync();
     }
 
+    public Task<List<Dog>> GetAdoptedDogsAsync()
+    {
+        return context.Dogs
+            .Include(d => d.Shelter)
+            .Include(d => d.Images)
+            .Where(d => d.Status == DogStatus.Adopted)
+            .OrderByDescending(d => d.AdoptedAt)
+            .ThenBy(d => d.Name)
+            .AsNoTracking()
+            .ToListAsync();
+    }
+
     public Task<List<Dog>> SearchDogsAsync(string? searchTerm, string? breed, int? maxAge, DogSize? size, string? location, DogStatus? status)
     {
         var query = context.Dogs
@@ -124,6 +136,25 @@ public class DogService(ApplicationDbContext context) : IDogService
     public async Task CreateDogAsync(Dog dog)
     {
         context.Dogs.Add(dog);
+        await context.SaveChangesAsync();
+    }
+
+    public async Task UpdateSuccessStoryAsync(int dogId, int shelterId, string? successStoryText, DateTime? adoptedAt)
+    {
+        if (!string.IsNullOrWhiteSpace(successStoryText) && successStoryText.Length > 2000)
+        {
+            throw new InvalidOperationException("Success story text must be 2000 characters or fewer.");
+        }
+
+        var dog = await context.Dogs.FirstOrDefaultAsync(d => d.Id == dogId && d.ShelterId == shelterId);
+        if (dog is null)
+        {
+            throw new InvalidOperationException("Dog was not found for your shelter.");
+        }
+
+        dog.SuccessStoryText = string.IsNullOrWhiteSpace(successStoryText) ? null : successStoryText.Trim();
+        dog.AdoptedAt = adoptedAt;
+
         await context.SaveChangesAsync();
     }
 

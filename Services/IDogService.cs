@@ -16,6 +16,8 @@ public interface IDogService
 
     Task<List<Dog>> GetAvailableDogsAsync();
 
+    Task<List<Dog>> GetAdoptedDogsAsync();
+
     Task<List<Dog>> SearchDogsAsync(string? searchTerm, string? breed, int? maxAge, DogSize? size, string? location, DogStatus? status);
 
     Task<Dog?> GetDogDetailsAsync(int id);
@@ -33,6 +35,8 @@ public interface IDogService
     Task CreateDogAsync(Dog dog, int shelterId);
 
     Task UpdateDogAsync(Dog dog, int shelterId, string? changedByUserId = null);
+
+    Task UpdateSuccessStoryAsync(int dogId, int shelterId, string? successStoryText, DateTime? adoptedAt);
 
     Task DeleteDogAsync(int dogId, int shelterId);
 
