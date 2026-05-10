@@ -1,0 +1,49 @@
+.dogs-page ::deep .filter-panel {
+    border-left: 5px solid #2f6f5e;
+    background: linear-gradient(180deg, #ffffff, #f8fbf7);
+}
+
+.dogs-page ::deep .dog-card {
+    height: 100%;
+    border-radius: 10px;
+    border: 1px solid rgba(47, 111, 94, 0.1);
+    box-shadow: 0 8px 24px rgba(31, 47, 42, 0.06);
+    transition: transform 140ms ease, box-shadow 140ms ease;
+}
+
+.dogs-page ::deep .dog-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 14px 32px rgba(31, 47, 42, 0.1);
+}
+
+.dogs-page ::deep .dog-image {
+    height: 210px;
+    object-fit: cover;
+}
+
+.dogs-page .dog-image-placeholder {
+    display: flex;
+    min-height: 210px;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 8px;
+    color: #2f6f5e;
+    background:
+        linear-gradient(135deg, rgba(47, 111, 94, 0.1), rgba(217, 119, 6, 0.08)),
+        #f4f7f2;
+    border-bottom: 1px solid rgba(47, 111, 94, 0.1);
+}
+
+.dogs-page .dog-image-placeholder .mud-icon-root {
+    font-size: 2rem;
+}
+
+.dogs-page ::deep .mud-card-content {
+    padding: 18px;
+}
+
+.dogs-page ::deep .mud-card-actions {
+    border-top: 1px solid rgba(47, 111, 94, 0.08);
+    background: rgba(244, 247, 242, 0.5);
+}

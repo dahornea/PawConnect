@@ -29,12 +29,18 @@
         }
         else if (_requests.Count == 0)
         {
-            <MudAlert Severity="Severity.Info">You have not submitted any adoption requests yet.</MudAlert>
-            <MudButton Href="/dogs" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Search">Browse Dogs</MudButton>
+            <MudPaper Elevation="0" Class="empty-state pa-5">
+                <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.Assignment" Color="Color.Secondary" Size="Size.Large" />
+                    <MudText Typo="Typo.h6">No adoption requests yet</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">When you submit a request, you can track its status here.</MudText>
+                    <MudButton Href="/dogs" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Search">Browse Dogs</MudButton>
+                </MudStack>
+            </MudPaper>
         }
         else
         {
-            <MudTable Items="_requests" Dense="true" Hover="true">
+            <MudTable Items="_requests" Dense="true" Hover="true" Class="table-shell">
                 <HeaderContent>
                     <MudTh>Dog</MudTh>
                     <MudTh>Shelter</MudTh>
@@ -46,9 +52,19 @@
                 </HeaderContent>
                 <RowTemplate>
                     <MudTd DataLabel="Dog">
+                        @{
+                            var imageUrl = GetImageUrl(context.Dog);
+                        }
                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                             <MudAvatar Size="Size.Large">
-                                <MudImage Src="@GetImageUrl(context.Dog)" Alt="@context.Dog?.Name" />
+                                @if (imageUrl is null)
+                                {
+                                    <MudIcon Icon="@Icons.Material.Filled.Pets" />
+                                }
+                                else
+                                {
+                                    <MudImage Src="@imageUrl" Alt="@context.Dog?.Name" />
+                                }
                             </MudAvatar>
                             <MudText Typo="Typo.body2">@context.Dog?.Name</MudText>
                         </MudStack>
@@ -136,11 +152,26 @@
         }
     }
 
-    private static string GetImageUrl(Dog? dog)
+    private static string? GetImageUrl(Dog? dog)
     {
-        return dog?.Images.FirstOrDefault(i => i.IsMainImage)?.ImageUrl
-            ?? dog?.Images.FirstOrDefault()?.ImageUrl
-            ?? "https://placehold.co/100x100?text=Dog";
+        return dog?.Images
+            .Where(i => IsValidImageUrl(i.ImageUrl))
+            .OrderByDescending(i => i.IsMainImage)
+            .ThenBy(i => i.Id)
+            .Select(i => i.ImageUrl)
+            .FirstOrDefault();
+    }
+
+    private static bool IsValidImageUrl(string? imageUrl)
+    {
+        if (string.IsNullOrWhiteSpace(imageUrl) ||
+            imageUrl.Contains("placehold.co", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return Uri.TryCreate(imageUrl, UriKind.Absolute, out var uri) &&
+            (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
     }
 
     private static Color GetStatusColor(AdoptionRequestStatus status)

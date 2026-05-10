@@ -25,11 +25,17 @@
         }
         else if (_dogs.Count == 0)
         {
-            <MudAlert Severity="Severity.Info">No dogs found.</MudAlert>
+            <MudPaper Elevation="0" Class="empty-state pa-5">
+                <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.Pets" Color="Color.Secondary" Size="Size.Large" />
+                    <MudText Typo="Typo.h6">No dogs found</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Dog profiles from all shelters will appear here.</MudText>
+                </MudStack>
+            </MudPaper>
         }
         else
         {
-            <MudTable Items="_dogs" Dense="true" Hover="true">
+            <MudTable Items="_dogs" Dense="true" Hover="true" Class="table-shell">
                 <HeaderContent>
                     <MudTh>Dog</MudTh>
                     <MudTh>Breed</MudTh>
@@ -43,9 +49,19 @@
                 </HeaderContent>
                 <RowTemplate>
                     <MudTd DataLabel="Dog">
+                        @{
+                            var imageUrl = GetImageUrl(context);
+                        }
                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                             <MudAvatar Size="Size.Large">
-                                <MudImage Src="@GetImageUrl(context)" Alt="@context.Name" />
+                                @if (imageUrl is null)
+                                {
+                                    <MudIcon Icon="@Icons.Material.Filled.Pets" />
+                                }
+                                else
+                                {
+                                    <MudImage Src="@imageUrl" Alt="@context.Name" />
+                                }
                             </MudAvatar>
                             <MudText Typo="Typo.body2">@context.Name</MudText>
                         </MudStack>
@@ -91,7 +107,7 @@
 
             @if (_selectedHistoryDog is not null)
             {
-                <MudPaper Elevation="0" Class="pa-4">
+                <MudPaper Elevation="0" Class="section-surface history-panel pa-4">
                     <MudStack Spacing="3">
                         <div>
                             <MudText Typo="Typo.h5">Status History: @_selectedHistoryDog.Name</MudText>
@@ -115,7 +131,7 @@
                         }
                         else
                         {
-                            <MudTable Items="_statusHistory" Dense="true" Hover="true">
+                            <MudTable Items="_statusHistory" Dense="true" Hover="true" Class="table-shell">
                                 <HeaderContent>
                                     <MudTh>From</MudTh>
                                     <MudTh>To</MudTh>
@@ -227,11 +243,26 @@
         }
     }
 
-    private static string GetImageUrl(Dog dog)
+    private static string? GetImageUrl(Dog dog)
     {
-        return dog.Images.FirstOrDefault(i => i.IsMainImage)?.ImageUrl
-            ?? dog.Images.FirstOrDefault()?.ImageUrl
-            ?? "https://placehold.co/100x100?text=Dog";
+        return dog.Images
+            .Where(i => IsValidImageUrl(i.ImageUrl))
+            .OrderByDescending(i => i.IsMainImage)
+            .ThenBy(i => i.Id)
+            .Select(i => i.ImageUrl)
+            .FirstOrDefault();
+    }
+
+    private static bool IsValidImageUrl(string? imageUrl)
+    {
+        if (string.IsNullOrWhiteSpace(imageUrl) ||
+            imageUrl.Contains("placehold.co", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return Uri.TryCreate(imageUrl, UriKind.Absolute, out var uri) &&
+            (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
     }
 
     private static Color GetStatusColor(DogStatus status)

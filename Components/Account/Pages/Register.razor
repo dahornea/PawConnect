@@ -17,41 +17,58 @@
 
 <PageTitle>Register</PageTitle>
 
-<h1>Register</h1>
+<div class="auth-page">
+    <MudCard Class="auth-card">
+        <MudCardContent>
+            <MudStack Spacing="3">
+                <div class="auth-brand">
+                    <span class="auth-brand-icon"><MudIcon Icon="@Icons.Material.Filled.Pets" /></span>
+                    <div>
+                        <MudText Typo="Typo.h4">Create your PawConnect account</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Register as an adopter and start saving dogs or submitting adoption requests.</MudText>
+                    </div>
+                </div>
 
-<div class="row">
-    <div class="col-lg-6">
-        <StatusMessage Message="@Message" />
-        <EditForm Model="Input" method="post" OnValidSubmit="RegisterUser" FormName="register">
-            <DataAnnotationsValidator />
-            <h2>Create a new account.</h2>
-            <hr />
-            <ValidationSummary class="text-danger" role="alert" />
-            <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.Email" id="Input.Email" class="form-control" autocomplete="username" aria-required="true" placeholder="name@example.com" />
-                <label for="Input.Email">Email</label>
-                <ValidationMessage For="() => Input.Email" class="text-danger" />
-            </div>
-            <div class="form-floating mb-3">
-                <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="form-control" autocomplete="new-password" aria-required="true" placeholder="password" />
-                <label for="Input.Password">Password</label>
-                <ValidationMessage For="() => Input.Password" class="text-danger" />
-            </div>
-            <div class="form-floating mb-3">
-                <InputText type="password" @bind-Value="Input.ConfirmPassword" id="Input.ConfirmPassword" class="form-control" autocomplete="new-password" aria-required="true" placeholder="password" />
-                <label for="Input.ConfirmPassword">Confirm Password</label>
-                <ValidationMessage For="() => Input.ConfirmPassword" class="text-danger" />
-            </div>
-            <button type="submit" class="w-100 btn btn-lg btn-primary">Register</button>
-        </EditForm>
-    </div>
-    <div class="col-lg-4 col-lg-offset-2">
-        <section>
-            <h3>Use another service to register.</h3>
-            <hr />
-            <ExternalLoginPicker />
-        </section>
-    </div>
+                @if (!string.IsNullOrWhiteSpace(Message))
+                {
+                    <MudAlert Severity="Severity.Error">@Message.Replace("Error: ", string.Empty)</MudAlert>
+                }
+
+                <EditForm Model="Input" method="post" OnValidSubmit="RegisterUser" FormName="register">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary class="auth-validation-summary" role="alert" />
+
+                    <MudStack Spacing="2">
+                        <div class="auth-field">
+                            <label for="Input.Email">Email</label>
+                            <InputText @bind-Value="Input.Email" id="Input.Email" class="auth-input" autocomplete="username" aria-required="true" placeholder="name@example.com" />
+                            <ValidationMessage For="() => Input.Email" class="auth-validation-message" />
+                        </div>
+
+                        <div class="auth-field">
+                            <label for="Input.Password">Password</label>
+                            <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="auth-input" autocomplete="new-password" aria-required="true" placeholder="Create a password" />
+                            <ValidationMessage For="() => Input.Password" class="auth-validation-message" />
+                        </div>
+
+                        <div class="auth-field">
+                            <label for="Input.ConfirmPassword">Confirm password</label>
+                            <InputText type="password" @bind-Value="Input.ConfirmPassword" id="Input.ConfirmPassword" class="auth-input" autocomplete="new-password" aria-required="true" placeholder="Repeat your password" />
+                            <ValidationMessage For="() => Input.ConfirmPassword" class="auth-validation-message" />
+                        </div>
+
+                        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">New public registrations are assigned the Adopter role.</MudAlert>
+                        <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large" FullWidth="true" StartIcon="@Icons.Material.Filled.PersonAdd">Register</MudButton>
+                    </MudStack>
+                </EditForm>
+
+                <MudDivider />
+                <MudStack Class="auth-links">
+                    <MudLink Href="/Account/Login">Already have an account? Log in</MudLink>
+                </MudStack>
+            </MudStack>
+        </MudCardContent>
+    </MudCard>
 </div>
 
 @code {

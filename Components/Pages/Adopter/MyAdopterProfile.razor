@@ -29,11 +29,11 @@
         }
         else
         {
-            <MudCard>
+            <MudCard Class="profile-card">
                 <MudCardContent>
                     <MudStack Spacing="3">
-                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
-                            <MudAvatar Size="Size.Large">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Class="profile-summary pa-3">
+                            <MudAvatar Size="Size.Large" Class="profile-avatar">
                                 @if (string.IsNullOrWhiteSpace(_profile.ProfileImageUrl))
                                 {
                                     <MudIcon Icon="@Icons.Material.Filled.Person" />

@@ -30,109 +30,63 @@
         }
         else if (_requests.Count == 0)
         {
-            <MudAlert Severity="Severity.Info">There are no adoption requests for your shelter yet.</MudAlert>
+            <MudPaper Elevation="0" Class="empty-state pa-5">
+                <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.MarkEmailUnread" Color="Color.Secondary" Size="Size.Large" />
+                    <MudText Typo="Typo.h6">No adoption requests yet</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">New requests for your shelter dogs will appear here.</MudText>
+                </MudStack>
+            </MudPaper>
         }
         else
         {
-            <MudTable Items="_requests" Dense="true" Hover="true">
+            <MudTable Items="_requests" Dense="true" Hover="true" Class="table-shell">
                 <HeaderContent>
                     <MudTh>Dog</MudTh>
                     <MudTh>Adopter</MudTh>
-                    <MudTh>Questionnaire</MudTh>
-                    <MudTh>Internal Notes</MudTh>
                     <MudTh>Status</MudTh>
                     <MudTh>Created</MudTh>
                     <MudTh>Updated</MudTh>
-                    <MudTh></MudTh>
+                    <MudTh>Actions</MudTh>
                 </HeaderContent>
                 <RowTemplate>
                     <MudTd DataLabel="Dog">
+                        @{
+                            var dogImageUrl = GetImageUrl(context.Dog);
+                        }
                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                             <MudAvatar Size="Size.Large">
-                                <MudImage Src="@GetImageUrl(context.Dog)" Alt="@context.Dog?.Name" />
-                            </MudAvatar>
-                            <MudText Typo="Typo.body2">@context.Dog?.Name</MudText>
-                        </MudStack>
-                    </MudTd>
-                    <MudTd DataLabel="Adopter">
-                        <MudStack Spacing="1">
-                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                                <MudAvatar Size="Size.Medium">
-                                    @if (string.IsNullOrWhiteSpace(context.Adopter?.AdopterProfile?.ProfileImageUrl))
-                                    {
-                                        <MudIcon Icon="@Icons.Material.Filled.Person" />
-                                    }
-                                    else
-                                    {
-                                        <MudImage Src="@context.Adopter.AdopterProfile.ProfileImageUrl" Alt="@context.Adopter.AdopterProfile.FullName" />
-                                    }
-                                </MudAvatar>
-                                <MudText Typo="Typo.body2">@GetAdopterName(context.Adopter)</MudText>
-                            </MudStack>
-
-                            @if (context.Adopter?.AdopterProfile is null)
-                            {
-                                <MudText Typo="Typo.caption" Color="Color.Secondary">No adopter profile completed yet.</MudText>
-                            }
-                            else
-                            {
-                                <MudText Typo="Typo.caption" Color="Color.Secondary">
-                                    @context.Adopter.AdopterProfile.City | @context.Adopter.AdopterProfile.HousingType
-                                </MudText>
-                                <MudText Typo="Typo.caption" Color="Color.Secondary">
-                                    Phone: @(string.IsNullOrWhiteSpace(context.Adopter.AdopterProfile.PhoneNumber) ? "-" : context.Adopter.AdopterProfile.PhoneNumber)
-                                </MudText>
-                                <MudText Typo="Typo.caption" Color="Color.Secondary">
-                                    Yard: @FormatYesNo(context.Adopter.AdopterProfile.HasYard) |
-                                    Pets: @FormatYesNo(context.Adopter.AdopterProfile.HasOtherPets) |
-                                    Children: @FormatYesNo(context.Adopter.AdopterProfile.HasChildren)
-                                </MudText>
-                                @if (!string.IsNullOrWhiteSpace(context.Adopter.AdopterProfile.ExperienceWithDogs))
+                                @if (dogImageUrl is null)
                                 {
-                                    <MudText Typo="Typo.caption">@context.Adopter.AdopterProfile.ExperienceWithDogs</MudText>
-                                }
-                            }
-                        </MudStack>
-                    </MudTd>
-                    <MudTd DataLabel="Questionnaire">
-                        <MudStack Spacing="1">
-                            <MudText Typo="Typo.body2">@context.ReasonForAdoption</MudText>
-                            <MudText Typo="Typo.caption" Color="Color.Secondary">Hours alone: @(context.HoursAlonePerDay.HasValue ? context.HoursAlonePerDay.Value : "-")</MudText>
-                            @if (!string.IsNullOrWhiteSpace(context.AdditionalInformation))
-                            {
-                                <MudText Typo="Typo.caption" Color="Color.Secondary">@context.AdditionalInformation</MudText>
-                            }
-                        </MudStack>
-                    </MudTd>
-                    <MudTd DataLabel="Internal Notes">
-                        <MudStack Spacing="1">
-                            <MudChip T="string" Color="Color.Info" Size="Size.Small" Variant="Variant.Outlined">Private</MudChip>
-                            @if (_editingNotesRequestId == context.Id)
-                            {
-                                <MudTextField Label="Internal shelter notes"
-                                              @bind-Value="_internalNotesModel"
-                                              Lines="4"
-                                              Counter="2000"
-                                              MaxLength="2000"
-                                              Immediate="true"
-                                              Variant="Variant.Outlined" />
-                                <MudStack Row="true" Spacing="1">
-                                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Disabled="@_isSavingNotes" OnClick="@(() => SaveInternalNotesAsync(context))">Save</MudButton>
-                                    <MudButton Variant="Variant.Text" Color="Color.Default" Size="Size.Small" Disabled="@_isSavingNotes" OnClick="CancelInternalNotesEdit">Cancel</MudButton>
-                                </MudStack>
-                            }
-                            else
-                            {
-                                @if (string.IsNullOrWhiteSpace(context.ShelterInternalNotes))
-                                {
-                                    <MudText Typo="Typo.caption" Color="Color.Secondary">No private notes yet.</MudText>
+                                    <MudIcon Icon="@Icons.Material.Filled.Pets" />
                                 }
                                 else
                                 {
-                                    <MudText Typo="Typo.caption">@context.ShelterInternalNotes</MudText>
+                                    <MudImage Src="@dogImageUrl" Alt="@context.Dog?.Name" />
                                 }
-                                <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Filled.EditNote" Disabled="@_isSavingNotes" OnClick="@(() => StartInternalNotesEdit(context))">Edit Notes</MudButton>
-                            }
+                            </MudAvatar>
+                            <div>
+                                <MudText Typo="Typo.body2">@context.Dog?.Name</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">@context.Dog?.Breed</MudText>
+                            </div>
+                        </MudStack>
+                    </MudTd>
+                    <MudTd DataLabel="Adopter">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudAvatar Size="Size.Medium">
+                                @if (string.IsNullOrWhiteSpace(context.Adopter?.AdopterProfile?.ProfileImageUrl))
+                                {
+                                    <MudIcon Icon="@Icons.Material.Filled.Person" />
+                                }
+                                else
+                                {
+                                    <MudImage Src="@context.Adopter.AdopterProfile.ProfileImageUrl" Alt="@context.Adopter.AdopterProfile.FullName" />
+                                }
+                            </MudAvatar>
+                            <div>
+                                <MudText Typo="Typo.body2">@GetAdopterName(context.Adopter)</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">@(context.Adopter?.AdopterProfile?.City ?? "No profile city")</MudText>
+                            </div>
                         </MudStack>
                     </MudTd>
                     <MudTd DataLabel="Status">
@@ -140,17 +94,181 @@
                     </MudTd>
                     <MudTd DataLabel="Created">@context.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
                     <MudTd DataLabel="Updated">@context.UpdatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
-                    <MudTd>
-                        @if (context.Status == AdoptionRequestStatus.Pending)
-                        {
-                            <MudStack Row="true" Spacing="1">
+                    <MudTd DataLabel="Actions">
+                        <MudStack Row="true" Spacing="1">
+                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Visibility" OnClick="@(() => SelectRequestForDetails(context))">View Details</MudButton>
+                            @if (context.Status == AdoptionRequestStatus.Pending)
+                            {
                                 <MudButton Variant="Variant.Text" Color="Color.Success" StartIcon="@Icons.Material.Filled.CheckCircle" Disabled="@_isUpdating" OnClick="@(() => AcceptRequestAsync(context))">Accept</MudButton>
                                 <MudButton Variant="Variant.Text" Color="Color.Error" StartIcon="@Icons.Material.Filled.Cancel" Disabled="@_isUpdating" OnClick="@(() => RejectRequestAsync(context))">Reject</MudButton>
-                            </MudStack>
-                        }
+                            }
+                        </MudStack>
                     </MudTd>
                 </RowTemplate>
             </MudTable>
+
+            @if (_selectedRequest is not null)
+            {
+                var selectedDogImageUrl = GetImageUrl(_selectedRequest.Dog);
+                var profile = _selectedRequest.Adopter?.AdopterProfile;
+
+                <MudPaper Elevation="0" Class="section-surface request-details-panel pa-4">
+                    <MudStack Spacing="3">
+                        <MudStack Row="true" AlignItems="AlignItems.Center">
+                            <div>
+                                <MudText Typo="Typo.h5">Request Details</MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">Private shelter review information for this adoption request.</MudText>
+                            </div>
+                            <MudSpacer />
+                            <MudIconButton Icon="@Icons.Material.Filled.Close" Color="Color.Default" OnClick="CloseRequestDetails" aria-label="Close details" />
+                        </MudStack>
+
+                        <MudGrid Spacing="3">
+                            <MudItem xs="12" md="4">
+                                <MudCard Class="details-card h-100">
+                                    <MudCardContent>
+                                        <MudStack Spacing="2">
+                                            <MudText Typo="Typo.h6">Dog</MudText>
+                                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                                <MudAvatar Size="Size.Large">
+                                                    @if (selectedDogImageUrl is null)
+                                                    {
+                                                        <MudIcon Icon="@Icons.Material.Filled.Pets" />
+                                                    }
+                                                    else
+                                                    {
+                                                        <MudImage Src="@selectedDogImageUrl" Alt="@_selectedRequest.Dog?.Name" />
+                                                    }
+                                                </MudAvatar>
+                                                <div>
+                                                    <MudText Typo="Typo.subtitle1">@(_selectedRequest.Dog?.Name ?? "Unknown dog")</MudText>
+                                                    <MudText Typo="Typo.body2" Color="Color.Secondary">@(_selectedRequest.Dog?.Breed ?? "-")</MudText>
+                                                </div>
+                                            </MudStack>
+                                            <MudDivider />
+                                            <MudText Typo="Typo.body2">Age: @(_selectedRequest.Dog?.Age.ToString() ?? "-")</MudText>
+                                            <MudText Typo="Typo.body2">Size: @(_selectedRequest.Dog?.Size.ToString() ?? "-")</MudText>
+                                            <MudText Typo="Typo.body2">Location: @(_selectedRequest.Dog?.Location ?? "-")</MudText>
+                                            @if (_selectedRequest.Dog is not null)
+                                            {
+                                                <MudChip T="string" Color="@GetDogStatusColor(_selectedRequest.Dog.Status)" Size="Size.Small">@_selectedRequest.Dog.Status</MudChip>
+                                            }
+                                        </MudStack>
+                                    </MudCardContent>
+                                </MudCard>
+                            </MudItem>
+
+                            <MudItem xs="12" md="4">
+                                <MudCard Class="details-card h-100">
+                                    <MudCardContent>
+                                        <MudStack Spacing="2">
+                                            <MudText Typo="Typo.h6">Adopter Profile</MudText>
+                                            @if (profile is null)
+                                            {
+                                                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">No adopter profile completed yet.</MudAlert>
+                                            }
+                                            else
+                                            {
+                                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                                    <MudAvatar Size="Size.Large">
+                                                        @if (string.IsNullOrWhiteSpace(profile.ProfileImageUrl))
+                                                        {
+                                                            <MudIcon Icon="@Icons.Material.Filled.Person" />
+                                                        }
+                                                        else
+                                                        {
+                                                            <MudImage Src="@profile.ProfileImageUrl" Alt="@profile.FullName" />
+                                                        }
+                                                    </MudAvatar>
+                                                    <div>
+                                                        <MudText Typo="Typo.subtitle1">@profile.FullName</MudText>
+                                                        <MudText Typo="Typo.body2" Color="Color.Secondary">@profile.City</MudText>
+                                                    </div>
+                                                </MudStack>
+                                                <MudDivider />
+                                                <MudText Typo="Typo.body2">Phone: @(string.IsNullOrWhiteSpace(profile.PhoneNumber) ? "-" : profile.PhoneNumber)</MudText>
+                                                <MudText Typo="Typo.body2">Housing: @profile.HousingType</MudText>
+                                                <MudText Typo="Typo.body2">Has yard: @FormatYesNo(profile.HasYard)</MudText>
+                                                <MudText Typo="Typo.body2">Other pets: @FormatYesNo(profile.HasOtherPets)</MudText>
+                                                <MudText Typo="Typo.body2">Children: @FormatYesNo(profile.HasChildren)</MudText>
+                                                @if (!string.IsNullOrWhiteSpace(profile.ExperienceWithDogs))
+                                                {
+                                                    <MudText Typo="Typo.body2">Experience: @profile.ExperienceWithDogs</MudText>
+                                                }
+                                            }
+                                        </MudStack>
+                                    </MudCardContent>
+                                </MudCard>
+                            </MudItem>
+
+                            <MudItem xs="12" md="4">
+                                <MudCard Class="details-card h-100">
+                                    <MudCardContent>
+                                        <MudStack Spacing="2">
+                                            <MudText Typo="Typo.h6">Questionnaire</MudText>
+                                            <MudText Typo="Typo.subtitle2">Reason for adoption</MudText>
+                                            <MudText Typo="Typo.body2">@_selectedRequest.ReasonForAdoption</MudText>
+                                            <MudText Typo="Typo.body2">Hours alone per day: @(_selectedRequest.HoursAlonePerDay.HasValue ? _selectedRequest.HoursAlonePerDay.Value : "-")</MudText>
+                                            @if (!string.IsNullOrWhiteSpace(_selectedRequest.Message))
+                                            {
+                                                <MudText Typo="Typo.subtitle2">Original message</MudText>
+                                                <MudText Typo="Typo.body2">@_selectedRequest.Message</MudText>
+                                            }
+                                            @if (!string.IsNullOrWhiteSpace(_selectedRequest.AdditionalInformation))
+                                            {
+                                                <MudText Typo="Typo.subtitle2">Additional information</MudText>
+                                                <MudText Typo="Typo.body2">@_selectedRequest.AdditionalInformation</MudText>
+                                            }
+                                        </MudStack>
+                                    </MudCardContent>
+                                </MudCard>
+                            </MudItem>
+                        </MudGrid>
+
+                        <MudCard Class="details-card">
+                            <MudCardContent>
+                                <MudStack Spacing="2">
+                                    <MudStack Row="true" AlignItems="AlignItems.Center">
+                                        <div>
+                                            <MudText Typo="Typo.h6">Internal Shelter Notes</MudText>
+                                            <MudText Typo="Typo.body2" Color="Color.Secondary">Private notes visible only to shelter staff and admins.</MudText>
+                                        </div>
+                                        <MudSpacer />
+                                        <MudChip T="string" Color="Color.Info" Size="Size.Small" Variant="Variant.Outlined">Private</MudChip>
+                                    </MudStack>
+
+                                    @if (_editingNotesRequestId == _selectedRequest.Id)
+                                    {
+                                        <MudTextField Label="Internal shelter notes"
+                                                      @bind-Value="_internalNotesModel"
+                                                      Lines="5"
+                                                      Counter="2000"
+                                                      MaxLength="2000"
+                                                      Immediate="true"
+                                                      Variant="Variant.Outlined" />
+                                        <MudStack Row="true" Spacing="1">
+                                            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_isSavingNotes" OnClick="@(() => SaveInternalNotesAsync(_selectedRequest))">Save Notes</MudButton>
+                                            <MudButton Variant="Variant.Text" Color="Color.Default" Disabled="@_isSavingNotes" OnClick="CancelInternalNotesEdit">Cancel</MudButton>
+                                        </MudStack>
+                                    }
+                                    else
+                                    {
+                                        @if (string.IsNullOrWhiteSpace(_selectedRequest.ShelterInternalNotes))
+                                        {
+                                            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">No private notes have been added yet.</MudAlert>
+                                        }
+                                        else
+                                        {
+                                            <MudText Typo="Typo.body2">@_selectedRequest.ShelterInternalNotes</MudText>
+                                        }
+                                        <MudButton Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.EditNote" Disabled="@_isSavingNotes" OnClick="@(() => StartInternalNotesEdit(_selectedRequest))">Edit Notes</MudButton>
+                                    }
+                                </MudStack>
+                            </MudCardContent>
+                        </MudCard>
+                    </MudStack>
+                </MudPaper>
+            }
         }
     </MudStack>
 </MudContainer>
@@ -165,6 +283,7 @@
     private string? _currentUserId;
     private int? _editingNotesRequestId;
     private string? _internalNotesModel;
+    private AdoptionRequest? _selectedRequest;
 
     protected override async Task OnInitializedAsync()
     {
@@ -279,6 +398,7 @@
 
     private void StartInternalNotesEdit(AdoptionRequest request)
     {
+        _selectedRequest = request;
         _editingNotesRequestId = request.Id;
         _internalNotesModel = request.ShelterInternalNotes;
     }
@@ -304,6 +424,11 @@
             await AdoptionRequestService.UpdateShelterInternalNotesAsync(request.Id, _shelterId.Value, _internalNotesModel);
             request.ShelterInternalNotes = string.IsNullOrWhiteSpace(_internalNotesModel) ? null : _internalNotesModel.Trim();
             request.UpdatedAt = DateTime.UtcNow;
+            if (_selectedRequest?.Id == request.Id)
+            {
+                _selectedRequest.ShelterInternalNotes = request.ShelterInternalNotes;
+                _selectedRequest.UpdatedAt = request.UpdatedAt;
+            }
             CancelInternalNotesEdit();
             Snackbar.Add("Internal shelter notes saved.", Severity.Success);
         }
@@ -321,11 +446,38 @@
         }
     }
 
-    private static string GetImageUrl(Dog? dog)
+    private void SelectRequestForDetails(AdoptionRequest request)
     {
-        return dog?.Images.FirstOrDefault(i => i.IsMainImage)?.ImageUrl
-            ?? dog?.Images.FirstOrDefault()?.ImageUrl
-            ?? "https://placehold.co/100x100?text=Dog";
+        _selectedRequest = request;
+        CancelInternalNotesEdit();
+    }
+
+    private void CloseRequestDetails()
+    {
+        _selectedRequest = null;
+        CancelInternalNotesEdit();
+    }
+
+    private static string? GetImageUrl(Dog? dog)
+    {
+        return dog?.Images
+            .Where(i => IsValidImageUrl(i.ImageUrl))
+            .OrderByDescending(i => i.IsMainImage)
+            .ThenBy(i => i.Id)
+            .Select(i => i.ImageUrl)
+            .FirstOrDefault();
+    }
+
+    private static bool IsValidImageUrl(string? imageUrl)
+    {
+        if (string.IsNullOrWhiteSpace(imageUrl) ||
+            imageUrl.Contains("placehold.co", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return Uri.TryCreate(imageUrl, UriKind.Absolute, out var uri) &&
+            (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
     }
 
     private static string GetAdopterName(ApplicationUser? adopter)
@@ -348,6 +500,18 @@
             AdoptionRequestStatus.Accepted => Color.Success,
             AdoptionRequestStatus.Rejected => Color.Error,
             AdoptionRequestStatus.Cancelled => Color.Default,
+            _ => Color.Default
+        };
+    }
+
+    private static Color GetDogStatusColor(DogStatus status)
+    {
+        return status switch
+        {
+            DogStatus.Available => Color.Success,
+            DogStatus.Reserved => Color.Warning,
+            DogStatus.Adopted => Color.Default,
+            DogStatus.InTreatment => Color.Info,
             _ => Color.Default
         };
     }

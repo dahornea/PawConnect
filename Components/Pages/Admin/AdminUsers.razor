@@ -29,11 +29,17 @@
         }
         else if (_users.Count == 0)
         {
-            <MudAlert Severity="Severity.Info">No users found.</MudAlert>
+            <MudPaper Elevation="0" Class="empty-state pa-5">
+                <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.People" Color="Color.Secondary" Size="Size.Large" />
+                    <MudText Typo="Typo.h6">No users found</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Registered users will appear here.</MudText>
+                </MudStack>
+            </MudPaper>
         }
         else
         {
-            <MudTable Items="_users" Dense="true" Hover="true">
+            <MudTable Items="_users" Dense="true" Hover="true" Class="table-shell">
                 <HeaderContent>
                     <MudTh>Email</MudTh>
                     <MudTh>Full Name</MudTh>
@@ -89,7 +95,7 @@
 
             @if (_editUser is not null)
             {
-                <MudPaper Elevation="0" Class="pa-4 mt-3">
+                <MudPaper Elevation="0" Class="section-surface edit-panel pa-4 mt-3">
                     <MudStack Spacing="2">
                         <MudText Typo="Typo.h6">Edit User</MudText>
                         <MudForm @ref="_userForm">

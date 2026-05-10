@@ -32,7 +32,7 @@
         }
         else
         {
-            <MudPaper Elevation="0" Class="pa-4">
+            <MudPaper Elevation="0" Class="section-surface resource-form pa-4">
                 <MudStack Spacing="2">
                     <MudText Typo="Typo.h6">@(_model.Id == 0 ? "Add Resource" : "Edit Resource")</MudText>
                     <MudForm @ref="_form">
@@ -81,11 +81,17 @@
 
             @if (_resources.Count == 0)
             {
-                <MudAlert Severity="Severity.Info">No resource stock items have been added for your shelter yet.</MudAlert>
+                <MudPaper Elevation="0" Class="empty-state pa-5">
+                    <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                        <MudIcon Icon="@Icons.Material.Filled.Inventory" Color="Color.Secondary" Size="Size.Large" />
+                        <MudText Typo="Typo.h6">No resources added yet</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Add food, medicine, blankets, or cleaning supplies to start tracking stock.</MudText>
+                    </MudStack>
+                </MudPaper>
             }
             else
             {
-                <MudTable Items="_resources" Dense="true" Hover="true">
+                <MudTable Items="_resources" Dense="true" Hover="true" Class="table-shell">
                     <HeaderContent>
                         <MudTh>Name</MudTh>
                         <MudTh>Category</MudTh>

@@ -1,0 +1,35 @@
+::deep .favorite-card {
+    border: 1px solid rgba(47, 111, 94, 0.1);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 8px 24px rgba(31, 47, 42, 0.06);
+    transition: transform 140ms ease, box-shadow 140ms ease;
+}
+
+::deep .favorite-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 14px 32px rgba(31, 47, 42, 0.1);
+}
+
+::deep .dog-image {
+    height: 210px;
+    object-fit: cover;
+}
+
+.dog-image-placeholder {
+    display: flex;
+    min-height: 210px;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 8px;
+    color: #2f6f5e;
+    background:
+        linear-gradient(135deg, rgba(47, 111, 94, 0.1), rgba(217, 119, 6, 0.08)),
+        #f4f7f2;
+    border-bottom: 1px solid rgba(47, 111, 94, 0.1);
+}
+
+.dog-image-placeholder .mud-icon-root {
+    font-size: 2rem;
+}

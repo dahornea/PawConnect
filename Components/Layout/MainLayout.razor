@@ -6,32 +6,35 @@
 <MudSnackbarProvider />
 
 <MudLayout>
-    <MudAppBar Elevation="1" Color="Color.Primary">
+    <MudAppBar Elevation="0" Color="Color.Primary" Class="app-shell-bar">
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@ToggleDrawer" />
+        <span class="brand-mark ms-2">
+            <MudIcon Icon="@Icons.Material.Filled.Pets" Color="Color.Inherit" />
+        </span>
         <MudText Typo="Typo.h6" Class="ms-2">PawConnect</MudText>
         <MudSpacer />
         <AuthorizeView>
             <Authorized>
-                <MudText Typo="Typo.body2" Class="me-3">@context.User.Identity?.Name</MudText>
-                <form action="Account/Logout" method="post">
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Inherit" Class="me-2">@context.User.Identity?.Name</MudChip>
+                <form action="/Account/Logout" method="post">
                     <AntiforgeryToken />
                     <input type="hidden" name="ReturnUrl" value="" />
                     <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Text" Color="Color.Inherit" StartIcon="@Icons.Material.Filled.Logout">Logout</MudButton>
                 </form>
             </Authorized>
             <NotAuthorized>
-                <MudButton Href="Account/Login" Variant="Variant.Text" Color="Color.Inherit" StartIcon="@Icons.Material.Filled.Login">Login</MudButton>
-                <MudButton Href="Account/Register" Variant="Variant.Text" Color="Color.Inherit" StartIcon="@Icons.Material.Filled.PersonAdd">Register</MudButton>
+                <MudButton Href="/Account/Login" Variant="Variant.Text" Color="Color.Inherit" StartIcon="@Icons.Material.Filled.Login">Login</MudButton>
+                <MudButton Href="/Account/Register" Variant="Variant.Text" Color="Color.Inherit" StartIcon="@Icons.Material.Filled.PersonAdd">Register</MudButton>
             </NotAuthorized>
         </AuthorizeView>
     </MudAppBar>
 
-    <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="1" Variant="DrawerVariant.Responsive">
+    <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="0" Variant="DrawerVariant.Responsive" Class="drawer-shell">
         <NavMenu />
     </MudDrawer>
 
-    <MudMainContent>
-        <MudContainer MaxWidth="MaxWidth.Large" Class="py-6">
+    <MudMainContent Class="app-main">
+        <MudContainer MaxWidth="MaxWidth.Large" Class="app-content">
             @Body
         </MudContainer>
     </MudMainContent>
@@ -52,10 +55,18 @@
         {
             Primary = "#2F6F5E",
             Secondary = "#D97706",
+            Tertiary = "#6A8F7A",
+            Success = "#2E7D32",
+            Warning = "#D97706",
+            Error = "#B91C1C",
+            Info = "#256D85",
             AppbarBackground = "#2F6F5E",
-            Background = "#F6F7F3",
+            Background = "#F4F7F2",
             Surface = "#FFFFFF",
-            DrawerBackground = "#FFFFFF"
+            DrawerBackground = "#FFFFFF",
+            DrawerText = "#294139",
+            TextPrimary = "#1F2F2A",
+            TextSecondary = "#66756F"
         },
         LayoutProperties = new LayoutProperties
         {

@@ -1,10 +1,11 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using PawConnect.Data;
 using PawConnect.Entities;
 
 namespace PawConnect.Services;
 
-public class AdoptionRequestService(ApplicationDbContext context, IEmailService emailService, IPdfReportService pdfReportService, ILogger<AdoptionRequestService> logger) : IAdoptionRequestService
+public class AdoptionRequestService(ApplicationDbContext context, IEmailService emailService, IPdfReportService pdfReportService, ILogger<AdoptionRequestService> logger, UserManager<ApplicationUser> userManager) : IAdoptionRequestService
 {
     public Task<List<AdoptionRequest>> GetAllAsync()
     {
@@ -64,6 +65,7 @@ public class AdoptionRequestService(ApplicationDbContext context, IEmailService 
 
     public async Task CreateRequestAsync(string adopterId, int dogId, AdoptionRequestQuestionnaire questionnaire)
     {
+        await EnsureAdopterAsync(adopterId);
         ValidateQuestionnaire(questionnaire);
 
         var dog = await context.Dogs
@@ -292,6 +294,15 @@ public class AdoptionRequestService(ApplicationDbContext context, IEmailService 
         if (questionnaire.HoursAlonePerDay is < 0 or > 24)
         {
             throw new InvalidOperationException("Hours alone per day must be between 0 and 24.");
+        }
+    }
+
+    private async Task EnsureAdopterAsync(string adopterId)
+    {
+        var user = await userManager.FindByIdAsync(adopterId);
+        if (user is null || !await userManager.IsInRoleAsync(user, IdentitySeedData.AdopterRole))
+        {
+            throw new InvalidOperationException("Only adopter accounts can submit adoption requests.");
         }
     }
 

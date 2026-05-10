@@ -1,0 +1,24 @@
+::deep .table-shell {
+    border: 1px solid rgba(47, 111, 94, 0.1);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 8px 24px rgba(31, 47, 42, 0.05);
+}
+
+::deep .table-shell .mud-table-head {
+    background: rgba(47, 111, 94, 0.06);
+}
+
+::deep .request-details-panel {
+    border: 1px solid rgba(47, 111, 94, 0.12);
+    border-radius: 12px;
+    background: linear-gradient(180deg, #ffffff, #f8fbf7);
+    box-shadow: 0 10px 30px rgba(31, 47, 42, 0.06);
+}
+
+::deep .details-card {
+    height: 100%;
+    border: 1px solid rgba(47, 111, 94, 0.1);
+    border-radius: 10px;
+    box-shadow: 0 8px 22px rgba(31, 47, 42, 0.05);
+}

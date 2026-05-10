@@ -1,6 +1,7 @@
 html, body {
     font-family: Roboto, "Helvetica Neue", Arial, sans-serif;
-    background: #f6f7f3;
+    background: #f4f7f2;
+    color: #1f2f2a;
 }
 
 a {
@@ -33,13 +34,45 @@ h1:focus {
     content: "An error has occurred.";
 }
 
-.dog-image {
-    height: 180px;
-    object-fit: cover;
+.page-header {
+    margin-bottom: 20px;
 }
 
-.page-header {
-    margin-bottom: 24px;
+.section-surface {
+    border: 1px solid rgba(47, 111, 94, 0.1);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 10px 30px rgba(31, 47, 42, 0.06);
+}
+
+.metric-card {
+    background: linear-gradient(180deg, #ffffff, #fbfcfa);
+}
+
+.metric-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(47, 111, 94, 0.1);
+}
+
+.empty-state {
+    border: 1px dashed rgba(47, 111, 94, 0.24);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.68);
+}
+
+.quick-action-button {
+    min-height: 46px;
+}
+
+.compact-table-card {
+    border: 1px solid rgba(47, 111, 94, 0.1);
+    border-radius: 10px;
+    overflow: hidden;
 }
 
 #blazor-error-ui {

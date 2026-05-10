@@ -1,0 +1,62 @@
+.shelter-dashboard .shelter-hero {
+    border-radius: 12px;
+    border: 1px solid rgba(47, 111, 94, 0.12);
+    background: linear-gradient(135deg, #2f6f5e, #6a8f7a);
+    color: #ffffff;
+    box-shadow: 0 16px 42px rgba(31, 47, 42, 0.14);
+}
+
+.shelter-dashboard .dashboard-kicker {
+    color: #ffe4b5;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.hero-icon,
+.stat-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.hero-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.16);
+}
+
+.shelter-dashboard ::deep .stat-card {
+    height: 100%;
+    border: 1px solid rgba(47, 111, 94, 0.1);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(31, 47, 42, 0.06);
+}
+
+.stat-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    background: rgba(47, 111, 94, 0.1);
+    color: #2f6f5e;
+}
+
+.stat-icon.success {
+    background: rgba(46, 125, 50, 0.12);
+    color: #2e7d32;
+}
+
+.stat-icon.warning {
+    background: rgba(217, 119, 6, 0.13);
+    color: #d97706;
+}
+
+.stat-icon.danger {
+    background: rgba(185, 28, 28, 0.1);
+    color: #b91c1c;
+}
+
+.shelter-dashboard ::deep .resource-alert {
+    height: 100%;
+    background: rgba(255, 251, 235, 0.72);
+}

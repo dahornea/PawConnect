@@ -30,24 +30,41 @@ else if (_dog is null)
 }
 else
 {
+    <div class="dog-details-page">
     <MudContainer MaxWidth="MaxWidth.False" Class="px-0">
         <MudStack Spacing="3">
             <MudButton Href="/dogs" Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.ArrowBack">Back to Dogs</MudButton>
 
+            @{
+                var validImages = GetValidImages(_dog);
+                var mainImage = validImages.FirstOrDefault();
+                var galleryImages = validImages.Skip(1).ToList();
+            }
+
             <MudGrid Spacing="3">
                 <MudItem xs="12" md="5">
-                    <MudCard>
-                        <MudCardMedia Image="@GetMainImageUrl(_dog)" Height="340" />
+                    <MudCard Class="section-surface">
+                        @if (mainImage is null)
+                        {
+                            <div class="dog-detail-image dog-image-placeholder">
+                                <MudIcon Icon="@Icons.Material.Filled.Pets" Color="Color.Primary" />
+                                <MudText Typo="Typo.body2">No image available</MudText>
+                            </div>
+                        }
+                        else
+                        {
+                            <MudCardMedia Image="@mainImage.ImageUrl" Class="dog-detail-image" />
+                        }
                     </MudCard>
 
-                    @if (_dog.Images.Count > 1)
+                    @if (galleryImages.Count > 0)
                     {
                         <MudGrid Spacing="2" Class="mt-2">
-                            @foreach (var image in _dog.Images)
+                            @foreach (var image in galleryImages)
                             {
                                 <MudItem xs="6" sm="4">
-                                    <MudCard>
-                                        <MudCardMedia Image="@image.ImageUrl" Height="100" />
+                                    <MudCard Class="section-surface">
+                                        <MudCardMedia Image="@image.ImageUrl" Class="gallery-image" />
                                     </MudCard>
                                 </MudItem>
                             }
@@ -56,7 +73,7 @@ else
                 </MudItem>
 
                 <MudItem xs="12" md="7">
-                    <MudPaper Elevation="0" Class="pa-4">
+                    <MudPaper Elevation="0" Class="section-surface dog-summary pa-4">
                         <MudStack Spacing="2">
                             <MudStack Row="true" AlignItems="AlignItems.Start">
                                 <div>
@@ -107,17 +124,39 @@ else
                                     This dog has already been adopted, so this profile is read-only.
                                 </MudAlert>
                             }
-                            else
+                            else if (_currentUserIsAdopter)
                             {
                                 <MudStack Row="true" Spacing="2" Class="mt-2">
                                     <MudButton Variant="@GetFavoriteVariant()" Color="@GetFavoriteColor()" StartIcon="@GetFavoriteIcon()" OnClick="ToggleFavoriteAsync">@GetFavoriteButtonText()</MudButton>
                                     <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Send" Disabled="@_hasPendingRequest" OnClick="StartAdoptionRequestAsync">@GetAdoptionButtonText()</MudButton>
                                 </MudStack>
                             }
-
-                            @if (_showAdoptionForm && !IsAdopted)
+                            else if (!_currentUserIsAuthenticated)
                             {
-                                <MudPaper Elevation="0" Class="pa-3 mt-2">
+                                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+                                    Log in or register as an adopter to save this dog or submit an adoption request.
+                                    <MudButton Href="@LoginUrl" Variant="Variant.Text" Color="Color.Primary" Class="ml-2">Log in</MudButton>
+                                    <MudButton Href="/Account/Register" Variant="Variant.Text" Color="Color.Secondary">Register</MudButton>
+                                </MudAlert>
+                            }
+                            else if (_currentUserIsShelter)
+                            {
+                                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+                                    Shelter accounts can view public dog information here. Use the shelter dog management page for dogs owned by your shelter.
+                                    <MudButton Href="/shelter/dogs" Variant="Variant.Text" Color="Color.Primary" Class="ml-2">Manage Dogs</MudButton>
+                                </MudAlert>
+                            }
+                            else if (_currentUserIsAdmin)
+                            {
+                                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+                                    Admin accounts can view public dog information here and use admin moderation pages for internal actions.
+                                    <MudButton Href="/admin/dogs" Variant="Variant.Text" Color="Color.Primary" Class="ml-2">Admin Dogs</MudButton>
+                                </MudAlert>
+                            }
+
+                            @if (_showAdoptionForm && !IsAdopted && _currentUserIsAdopter)
+                            {
+                                <MudPaper Elevation="0" Class="request-panel pa-3 mt-2">
                                     <MudStack Spacing="2">
                                         <MudText Typo="Typo.h6">Adoption Request</MudText>
 
@@ -130,7 +169,7 @@ else
                                         }
                                         else
                                         {
-                                            <MudCard>
+                                            <MudCard Class="section-surface">
                                                 <MudCardContent>
                                                     <MudText Typo="Typo.subtitle1">Your Profile Summary</MudText>
                                                     <MudDivider Class="my-2" />
@@ -173,8 +212,11 @@ else
 
             <MudGrid Spacing="3">
                 <MudItem xs="12" md="4">
-                    <MudPaper Elevation="0" Class="pa-4 h-100">
-                        <MudText Typo="Typo.h6">Shelter</MudText>
+                    <MudPaper Elevation="0" Class="section-surface info-panel pa-4 h-100">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                            <MudIcon Icon="@Icons.Material.Filled.Business" Color="Color.Primary" />
+                            <MudText Typo="Typo.h6">Shelter</MudText>
+                        </MudStack>
                         <MudDivider Class="my-2" />
                         @if (_dog.Shelter is null)
                         {
@@ -199,8 +241,11 @@ else
                 </MudItem>
 
                 <MudItem xs="12" md="4">
-                    <MudPaper Elevation="0" Class="pa-4 h-100">
-                        <MudText Typo="Typo.h6">Food</MudText>
+                    <MudPaper Elevation="0" Class="section-surface info-panel pa-4 h-100">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                            <MudIcon Icon="@Icons.Material.Filled.Restaurant" Color="Color.Secondary" />
+                            <MudText Typo="Typo.h6">Food</MudText>
+                        </MudStack>
                         <MudDivider Class="my-2" />
                         @if (_dog.PreferredFoodType is null && _dog.DailyFoodAmountGrams is null)
                         {
@@ -220,8 +265,11 @@ else
                 </MudItem>
 
                 <MudItem xs="12" md="4">
-                    <MudPaper Elevation="0" Class="pa-4 h-100">
-                        <MudText Typo="Typo.h6">Medical Records</MudText>
+                    <MudPaper Elevation="0" Class="section-surface info-panel pa-4 h-100">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                            <MudIcon Icon="@Icons.Material.Filled.MedicalServices" Color="Color.Info" />
+                            <MudText Typo="Typo.h6">Medical Records</MudText>
+                        </MudStack>
                         <MudDivider Class="my-2" />
                         @if (_dog.MedicalRecords.Count == 0)
                         {
@@ -232,7 +280,7 @@ else
                             <MudStack Spacing="2">
                                 @foreach (var record in _dog.MedicalRecords.OrderByDescending(r => r.RecordDate))
                                 {
-                                    <MudPaper Elevation="0" Class="pa-2">
+                                    <MudPaper Elevation="0" Class="medical-record pa-2">
                                         <MudText Typo="Typo.subtitle2">@record.RecordDate.ToString("dd MMM yyyy")</MudText>
                                         @if (!string.IsNullOrWhiteSpace(record.VaccineName))
                                         {
@@ -255,6 +303,7 @@ else
             </MudGrid>
         </MudStack>
     </MudContainer>
+    </div>
 }
 
 @code {
@@ -265,7 +314,10 @@ else
     private bool _isLoading = true;
     private string? _error;
     private string? _currentUserId;
+    private bool _currentUserIsAuthenticated;
     private bool _currentUserIsAdopter;
+    private bool _currentUserIsShelter;
+    private bool _currentUserIsAdmin;
     private bool _isFavorite;
     private bool _hasPendingRequest;
     private bool _showAdoptionForm;
@@ -277,6 +329,7 @@ else
     private string? _additionalInformation;
 
     private bool IsAdopted => _dog?.Status == DogStatus.Adopted;
+    private string LoginUrl => $"/Account/Login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}";
 
     protected override async Task OnInitializedAsync()
     {
@@ -302,11 +355,25 @@ else
         }
     }
 
-    private static string GetMainImageUrl(Dog dog)
+    private static List<DogImage> GetValidImages(Dog dog)
     {
-        return dog.Images.FirstOrDefault(i => i.IsMainImage)?.ImageUrl
-            ?? dog.Images.FirstOrDefault()?.ImageUrl
-            ?? "https://placehold.co/800x500?text=Dog";
+        return dog.Images
+            .Where(i => IsValidImageUrl(i.ImageUrl))
+            .OrderByDescending(i => i.IsMainImage)
+            .ThenBy(i => i.Id)
+            .ToList();
+    }
+
+    private static bool IsValidImageUrl(string? imageUrl)
+    {
+        if (string.IsNullOrWhiteSpace(imageUrl) ||
+            imageUrl.Contains("placehold.co", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return Uri.TryCreate(imageUrl, UriKind.Absolute, out var uri) &&
+            (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
     }
 
     private static Color GetStatusColor(DogStatus status)
@@ -326,7 +393,10 @@ else
         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
         var principal = authState.User;
 
-        _currentUserIsAdopter = principal.Identity?.IsAuthenticated == true && principal.IsInRole("Adopter");
+        _currentUserIsAuthenticated = principal.Identity?.IsAuthenticated == true;
+        _currentUserIsAdopter = _currentUserIsAuthenticated && principal.IsInRole("Adopter");
+        _currentUserIsShelter = _currentUserIsAuthenticated && principal.IsInRole("Shelter");
+        _currentUserIsAdmin = _currentUserIsAuthenticated && principal.IsInRole("Admin");
         if (!_currentUserIsAdopter)
         {
             _currentUserId = null;
@@ -347,7 +417,7 @@ else
         if (string.IsNullOrWhiteSpace(_currentUserId))
         {
             Snackbar.Add("Please log in with an adopter account to save favorite dogs.", Severity.Info);
-            NavigationManager.NavigateTo($"Account/Login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}");
+            NavigationManager.NavigateTo($"/Account/Login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}");
             return;
         }
 
@@ -392,7 +462,7 @@ else
         if (string.IsNullOrWhiteSpace(_currentUserId))
         {
             Snackbar.Add("Please log in with an adopter account to submit an adoption request.", Severity.Info);
-            NavigationManager.NavigateTo($"Account/Login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}");
+            NavigationManager.NavigateTo($"/Account/Login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}");
             return;
         }
 

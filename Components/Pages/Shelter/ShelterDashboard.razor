@@ -11,12 +11,19 @@
 
 <PageTitle>Shelter Dashboard</PageTitle>
 
+<div class="shelter-dashboard">
 <MudContainer MaxWidth="MaxWidth.False" Class="px-0">
     <MudStack Spacing="3">
-        <div>
-            <MudText Typo="Typo.h4">Shelter Dashboard</MudText>
-            <MudText Typo="Typo.body2" Color="Color.Secondary">Overview of your dogs, adoption requests, and resource stock.</MudText>
-        </div>
+        <section class="shelter-hero pa-5">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+                <span class="hero-icon"><MudIcon Icon="@Icons.Material.Filled.Business" /></span>
+                <div>
+                    <MudText Typo="Typo.caption" Class="dashboard-kicker">Shelter operations</MudText>
+                    <MudText Typo="Typo.h4">Shelter Dashboard</MudText>
+                    <MudText Typo="Typo.body1">Monitor dogs, requests, and low-stock resources from one operational overview.</MudText>
+                </div>
+            </MudStack>
+        </section>
 
         @if (_isLoading)
         {
@@ -33,40 +40,75 @@
         {
             <MudGrid>
                 <MudItem xs="12" md="3">
-                    <MudCard>
+                    <MudCard Class="stat-card">
                         <MudCardContent>
-                            <MudText Typo="Typo.h6">Dogs</MudText>
-                            <MudText Typo="Typo.h4">@_dogCount</MudText>
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                <span class="stat-icon"><MudIcon Icon="@Icons.Material.Filled.Pets" /></span>
+                                <div>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Total dogs</MudText>
+                                    <MudText Typo="Typo.h4">@_dogCount</MudText>
+                                </div>
+                            </MudStack>
                         </MudCardContent>
                     </MudCard>
                 </MudItem>
                 <MudItem xs="12" md="3">
-                    <MudCard>
+                    <MudCard Class="stat-card">
                         <MudCardContent>
-                            <MudText Typo="Typo.h6">Available</MudText>
-                            <MudText Typo="Typo.h4">@_availableDogCount</MudText>
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                <span class="stat-icon success"><MudIcon Icon="@Icons.Material.Filled.CheckCircle" /></span>
+                                <div>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Available</MudText>
+                                    <MudText Typo="Typo.h4">@_availableDogCount</MudText>
+                                </div>
+                            </MudStack>
                         </MudCardContent>
                     </MudCard>
                 </MudItem>
                 <MudItem xs="12" md="3">
-                    <MudCard>
+                    <MudCard Class="stat-card">
                         <MudCardContent>
-                            <MudText Typo="Typo.h6">Pending Requests</MudText>
-                            <MudText Typo="Typo.h4">@_pendingRequestCount</MudText>
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                <span class="stat-icon warning"><MudIcon Icon="@Icons.Material.Filled.MarkEmailUnread" /></span>
+                                <div>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Pending requests</MudText>
+                                    <MudText Typo="Typo.h4">@_pendingRequestCount</MudText>
+                                </div>
+                            </MudStack>
                         </MudCardContent>
                     </MudCard>
                 </MudItem>
                 <MudItem xs="12" md="3">
-                    <MudCard>
+                    <MudCard Class="stat-card">
                         <MudCardContent>
-                            <MudText Typo="Typo.h6">Low Stock</MudText>
-                            <MudText Typo="Typo.h4">@_lowStockResources.Count</MudText>
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                <span class="stat-icon danger"><MudIcon Icon="@Icons.Material.Filled.Inventory2" /></span>
+                                <div>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Low stock</MudText>
+                                    <MudText Typo="Typo.h4">@_lowStockResources.Count</MudText>
+                                </div>
+                            </MudStack>
                         </MudCardContent>
                     </MudCard>
                 </MudItem>
             </MudGrid>
 
-            <MudPaper Elevation="0" Class="pa-4">
+            <MudPaper Elevation="0" Class="section-surface pa-4">
+                <MudText Typo="Typo.h5" Class="mb-3">Quick Actions</MudText>
+                <MudGrid>
+                    <MudItem xs="12" sm="4">
+                        <MudButton Href="/shelter/dogs" Class="quick-action-button" Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" StartIcon="@Icons.Material.Filled.Pets">Manage Dogs</MudButton>
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudButton Href="/shelter/adoption-requests" Class="quick-action-button" Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" StartIcon="@Icons.Material.Filled.MarkEmailRead">View Requests</MudButton>
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudButton Href="/shelter/resources" Class="quick-action-button" Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" StartIcon="@Icons.Material.Filled.Inventory">Manage Resources</MudButton>
+                    </MudItem>
+                </MudGrid>
+            </MudPaper>
+
+            <MudPaper Elevation="0" Class="section-surface pa-4">
                 <MudStack Spacing="2">
                     <MudStack Row="true" AlignItems="AlignItems.Center">
                         <MudText Typo="Typo.h5">Low-Stock Resources</MudText>
@@ -76,7 +118,10 @@
 
                     @if (_lowStockResources.Count == 0)
                     {
-                        <MudAlert Severity="Severity.Success">All resource stock items are above their low-stock thresholds.</MudAlert>
+                        <MudPaper Elevation="0" Class="empty-state pa-4">
+                            <MudText Typo="Typo.body1">All resource stock items are above their low-stock thresholds.</MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">Your shelter inventory looks healthy right now.</MudText>
+                        </MudPaper>
                     }
                     else
                     {
@@ -84,7 +129,7 @@
                             @foreach (var resource in _lowStockResources)
                             {
                                 <MudItem xs="12" md="6" lg="4">
-                                    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">
+                                    <MudAlert Class="resource-alert" Severity="Severity.Warning" Variant="Variant.Outlined">
                                         <MudStack Spacing="1">
                                             <MudText Typo="Typo.subtitle1">@resource.Name</MudText>
                                             <MudText Typo="Typo.body2">@resource.ResourceCategory?.Name</MudText>
@@ -102,6 +147,7 @@
         }
     </MudStack>
 </MudContainer>
+</div>
 
 @code {
     private bool _isLoading = true;

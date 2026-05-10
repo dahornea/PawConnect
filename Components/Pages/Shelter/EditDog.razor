@@ -42,7 +42,7 @@
                 </MudAlert>
             }
 
-            <MudCard>
+            <MudCard Class="form-card">
                 <MudCardContent>
                     <MudForm @ref="_form">
                         <MudGrid>
@@ -103,7 +103,7 @@
                 </MudCardActions>
             </MudCard>
 
-            <MudPaper Elevation="0" Class="pa-4">
+            <MudPaper Elevation="0" Class="section-surface management-section pa-4">
                 <MudStack Spacing="3">
                     <div>
                         <MudText Typo="Typo.h5">Adoption Success Story</MudText>
@@ -137,7 +137,7 @@
                 </MudStack>
             </MudPaper>
 
-            <MudPaper Elevation="0" Class="pa-4">
+            <MudPaper Elevation="0" Class="section-surface management-section pa-4">
                 <MudStack Spacing="3">
                     <div>
                         <MudText Typo="Typo.h5">Status History</MudText>
@@ -157,7 +157,7 @@
                     }
                     else
                     {
-                        <MudTable Items="_statusHistory" Dense="true" Hover="true">
+                        <MudTable Items="_statusHistory" Dense="true" Hover="true" Class="table-shell">
                             <HeaderContent>
                                 <MudTh>From</MudTh>
                                 <MudTh>To</MudTh>
@@ -181,7 +181,7 @@
                 </MudStack>
             </MudPaper>
 
-            <MudPaper Elevation="0" Class="pa-4">
+            <MudPaper Elevation="0" Class="section-surface management-section pa-4">
                 <MudStack Spacing="3">
                     <div>
                         <MudText Typo="Typo.h5">Dog Images</MudText>
@@ -212,7 +212,7 @@
                             @foreach (var image in _images)
                             {
                                 <MudItem xs="12" sm="6" md="4">
-                                    <MudCard>
+                                    <MudCard Class="image-card">
                                         <MudCardMedia Image="@image.ImageUrl" Height="160" />
                                         <MudCardContent>
                                             @if (image.IsMainImage)
@@ -236,7 +236,7 @@
                 </MudStack>
             </MudPaper>
 
-            <MudPaper Elevation="0" Class="pa-4">
+            <MudPaper Elevation="0" Class="section-surface management-section pa-4">
                 <MudStack Spacing="3">
                     <div>
                         <MudText Typo="Typo.h5">Medical Records</MudText>
@@ -274,7 +274,7 @@
                     }
                     else
                     {
-                        <MudTable Items="_medicalRecords" Dense="true" Hover="true">
+                        <MudTable Items="_medicalRecords" Dense="true" Hover="true" Class="table-shell">
                             <HeaderContent>
                                 <MudTh>Date</MudTh>
                                 <MudTh>Vaccine</MudTh>

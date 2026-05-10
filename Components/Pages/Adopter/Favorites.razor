@@ -29,8 +29,14 @@
         }
         else if (_favorites.Count == 0)
         {
-            <MudAlert Severity="Severity.Info">No favorite dogs have been added yet.</MudAlert>
-            <MudButton Href="/dogs" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Search">Browse Dogs</MudButton>
+            <MudPaper Elevation="0" Class="empty-state pa-5">
+                <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.FavoriteBorder" Color="Color.Secondary" Size="Size.Large" />
+                    <MudText Typo="Typo.h6">No favorite dogs yet</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Browse dogs and save the profiles you want to revisit.</MudText>
+                    <MudButton Href="/dogs" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Search">Browse Dogs</MudButton>
+                </MudStack>
+            </MudPaper>
         }
         else
         {
@@ -43,9 +49,21 @@
                         continue;
                     }
 
+                    var imageUrl = GetImageUrl(dog);
+
                     <MudItem xs="12" sm="6" md="4">
-                        <MudCard Class="h-100">
-                            <MudCardMedia Image="@GetImageUrl(dog)" Class="dog-image" />
+                        <MudCard Class="favorite-card h-100">
+                            @if (imageUrl is null)
+                            {
+                                <div class="dog-image dog-image-placeholder">
+                                    <MudIcon Icon="@Icons.Material.Filled.Pets" Color="Color.Primary" />
+                                    <MudText Typo="Typo.caption">No image available</MudText>
+                                </div>
+                            }
+                            else
+                            {
+                                <MudCardMedia Image="@imageUrl" Class="dog-image" />
+                            }
                             <MudCardContent>
                                 <MudStack Spacing="1">
                                     <MudStack Row="true" AlignItems="AlignItems.Start">
@@ -122,11 +140,26 @@
         }
     }
 
-    private static string GetImageUrl(Dog dog)
+    private static string? GetImageUrl(Dog dog)
     {
-        return dog.Images.FirstOrDefault(i => i.IsMainImage)?.ImageUrl
-            ?? dog.Images.FirstOrDefault()?.ImageUrl
-            ?? "https://placehold.co/800x500?text=Dog";
+        return dog.Images
+            .Where(i => IsValidImageUrl(i.ImageUrl))
+            .OrderByDescending(i => i.IsMainImage)
+            .ThenBy(i => i.Id)
+            .Select(i => i.ImageUrl)
+            .FirstOrDefault();
+    }
+
+    private static bool IsValidImageUrl(string? imageUrl)
+    {
+        if (string.IsNullOrWhiteSpace(imageUrl) ||
+            imageUrl.Contains("placehold.co", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return Uri.TryCreate(imageUrl, UriKind.Absolute, out var uri) &&
+            (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
     }
 
     private static Color GetStatusColor(DogStatus status)
