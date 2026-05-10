@@ -4,7 +4,7 @@ using PawConnect.Entities;
 
 namespace PawConnect.Services;
 
-public class ResourceStockService(ApplicationDbContext context, IEmailService emailService, ILogger<ResourceStockService> logger) : IResourceStockService
+public class ResourceStockService(ApplicationDbContext context, IEmailService emailService, IPdfReportService pdfReportService, ILogger<ResourceStockService> logger) : IResourceStockService
 {
     public Task<List<ResourceStock>> GetAllAsync()
     {
@@ -225,11 +225,37 @@ public class ResourceStockService(ApplicationDbContext context, IEmailService em
                 Please review your shelter resources in PawConnect.
                 """;
 
-            await emailService.SendEmailAsync(shelterEmail ?? string.Empty, $"Low stock warning: {resource.Name}", body);
+            var attachments = await TryCreatePdfAttachmentAsync(
+                "LowStockResourceReport.pdf",
+                () => pdfReportService.GenerateLowStockResourceReportAsync(resource.Id));
+
+            await emailService.SendEmailAsync(shelterEmail ?? string.Empty, $"Low stock warning: {resource.Name}", body, attachments);
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Low-stock email notification failed for resource {ResourceId}.", resourceId);
+        }
+    }
+
+    private async Task<List<EmailAttachment>> TryCreatePdfAttachmentAsync(string fileName, Func<Task<byte[]>> generatePdf)
+    {
+        try
+        {
+            var pdfBytes = await generatePdf();
+            return
+            [
+                new EmailAttachment
+                {
+                    FileName = fileName,
+                    ContentType = "application/pdf",
+                    Content = pdfBytes
+                }
+            ];
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "PDF attachment {FileName} could not be generated.", fileName);
+            return [];
         }
     }
 }

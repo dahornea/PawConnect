@@ -9,7 +9,7 @@ public class SmtpEmailService(IOptions<EmailSettings> options, ILogger<SmtpEmail
 {
     private readonly EmailSettings settings = options.Value;
 
-    public async Task SendEmailAsync(string to, string subject, string body)
+    public async Task SendEmailAsync(string to, string subject, string body, List<EmailAttachment>? attachments = null)
     {
         if (string.IsNullOrWhiteSpace(to))
         {
@@ -29,7 +29,24 @@ public class SmtpEmailService(IOptions<EmailSettings> options, ILogger<SmtpEmail
             message.From.Add(new MailboxAddress(settings.SenderName, settings.SenderEmail));
             message.To.Add(MailboxAddress.Parse(to));
             message.Subject = subject;
-            message.Body = new TextPart("plain") { Text = body };
+
+            if (attachments is null || attachments.Count == 0)
+            {
+                message.Body = new TextPart("plain") { Text = body };
+            }
+            else
+            {
+                var bodyBuilder = new BodyBuilder { TextBody = body };
+                foreach (var attachment in attachments.Where(a => a.Content.Length > 0))
+                {
+                    bodyBuilder.Attachments.Add(
+                        attachment.FileName,
+                        attachment.Content,
+                        ContentType.Parse(attachment.ContentType));
+                }
+
+                message.Body = bodyBuilder.ToMessageBody();
+            }
 
             using var client = new SmtpClient();
             var secureSocketOptions = settings.EnableSsl ? SecureSocketOptions.StartTls : SecureSocketOptions.None;
@@ -43,7 +60,7 @@ public class SmtpEmailService(IOptions<EmailSettings> options, ILogger<SmtpEmail
             await client.SendAsync(message);
             await client.DisconnectAsync(true);
 
-            logger.LogInformation("Email sent to {Recipient}. Subject: {Subject}", to, subject);
+            logger.LogInformation("Email sent to {Recipient}. Subject: {Subject}. Attachments: {AttachmentCount}", to, subject, attachments?.Count ?? 0);
         }
         catch (Exception ex)
         {

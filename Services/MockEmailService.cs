@@ -4,9 +4,9 @@ namespace PawConnect.Services;
 
 public class MockEmailService(ILogger<MockEmailService> logger) : IEmailService
 {
-    public Task SendEmailAsync(string to, string subject, string body)
+    public Task SendEmailAsync(string to, string subject, string body, List<EmailAttachment>? attachments = null)
     {
-        var message = $"Mock email to {to}: {subject} - {body}";
+        var message = $"Mock email to {to}: {subject} - {body} Attachments: {attachments?.Count ?? 0}";
         logger.LogInformation("{Message}", message);
         Debug.WriteLine(message);
         return Task.CompletedTask;

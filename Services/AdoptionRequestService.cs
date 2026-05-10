@@ -4,7 +4,7 @@ using PawConnect.Entities;
 
 namespace PawConnect.Services;
 
-public class AdoptionRequestService(ApplicationDbContext context, IEmailService emailService, ILogger<AdoptionRequestService> logger) : IAdoptionRequestService
+public class AdoptionRequestService(ApplicationDbContext context, IEmailService emailService, IPdfReportService pdfReportService, ILogger<AdoptionRequestService> logger) : IAdoptionRequestService
 {
     public Task<List<AdoptionRequest>> GetAllAsync()
     {
@@ -93,7 +93,7 @@ public class AdoptionRequestService(ApplicationDbContext context, IEmailService 
             .FirstOrDefaultAsync(u => u.Id == adopterId);
 
         var now = DateTime.UtcNow;
-        context.AdoptionRequests.Add(new AdoptionRequest
+        var adoptionRequest = new AdoptionRequest
         {
             AdopterId = adopterId,
             DogId = dogId,
@@ -104,10 +104,11 @@ public class AdoptionRequestService(ApplicationDbContext context, IEmailService 
             Status = AdoptionRequestStatus.Pending,
             CreatedAt = now,
             UpdatedAt = now
-        });
+        };
 
+        context.AdoptionRequests.Add(adoptionRequest);
         await context.SaveChangesAsync();
-        await NotifyShelterAboutNewRequestAsync(dog, adopter, questionnaire, now);
+        await NotifyShelterAboutNewRequestAsync(adoptionRequest.Id, dog, adopter, questionnaire, now);
     }
 
     public Task<List<AdoptionRequest>> GetRequestsForAdopterAsync(string adopterId)
@@ -312,7 +313,7 @@ public class AdoptionRequestService(ApplicationDbContext context, IEmailService 
         });
     }
 
-    private async Task NotifyShelterAboutNewRequestAsync(Dog dog, PawConnect.Data.ApplicationUser? adopter, AdoptionRequestQuestionnaire questionnaire, DateTime createdAt)
+    private async Task NotifyShelterAboutNewRequestAsync(int adoptionRequestId, Dog dog, PawConnect.Data.ApplicationUser? adopter, AdoptionRequestQuestionnaire questionnaire, DateTime createdAt)
     {
         try
         {
@@ -341,7 +342,11 @@ public class AdoptionRequestService(ApplicationDbContext context, IEmailService 
                 Please review the request in PawConnect.
                 """;
 
-            await emailService.SendEmailAsync(shelterEmail ?? string.Empty, $"New adoption request for {dog.Name}", body);
+            var attachments = await TryCreatePdfAttachmentAsync(
+                "AdoptionRequestReport.pdf",
+                () => pdfReportService.GenerateAdoptionRequestReportAsync(adoptionRequestId));
+
+            await emailService.SendEmailAsync(shelterEmail ?? string.Empty, $"New adoption request for {dog.Name}", body, attachments);
         }
         catch (Exception ex)
         {
@@ -390,11 +395,37 @@ public class AdoptionRequestService(ApplicationDbContext context, IEmailService 
                 Thank you for using PawConnect.
                 """;
 
-            await emailService.SendEmailAsync(adopterEmail ?? string.Empty, $"Adoption request {status}: {dogName}", body);
+            var attachments = await TryCreatePdfAttachmentAsync(
+                "AdoptionStatusReport.pdf",
+                () => pdfReportService.GenerateAdoptionStatusReportAsync(request.Id));
+
+            await emailService.SendEmailAsync(adopterEmail ?? string.Empty, $"Adoption request {status}: {dogName}", body, attachments);
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Adopter adoption request notification failed for request {RequestId}.", request.Id);
+        }
+    }
+
+    private async Task<List<EmailAttachment>> TryCreatePdfAttachmentAsync(string fileName, Func<Task<byte[]>> generatePdf)
+    {
+        try
+        {
+            var pdfBytes = await generatePdf();
+            return
+            [
+                new EmailAttachment
+                {
+                    FileName = fileName,
+                    ContentType = "application/pdf",
+                    Content = pdfBytes
+                }
+            ];
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "PDF attachment {FileName} could not be generated.", fileName);
+            return [];
         }
     }
 }
