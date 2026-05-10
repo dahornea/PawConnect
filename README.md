@@ -27,6 +27,7 @@ PawConnect is a beginner-friendly ASP.NET Core Blazor Server skeleton for a stra
 - Placeholder pages for public, adopter, shelter, and admin workflows
 - Simple service and repository layer
 - SMTP email notification service using configuration-based settings
+- PDF email report attachments for adoption and low-stock notifications
 - Adopter profile page for household/contact information used during adoption request review
 - Dog status history tracking for shelter/admin review
 - Internal shelter notes for adoption requests, visible only to shelter users and admins
@@ -53,7 +54,15 @@ Email notifications are triggered when:
 - A shelter accepts or rejects an adoption request, notifying the adopter.
 - A shelter creates or updates a resource stock item that is at or below its low-stock threshold, notifying the shelter.
 
-Email failures are logged and do not cancel the main database action. For example, an adoption request can still be submitted even if SMTP credentials are missing or invalid.
+Some notifications include PDF report attachments:
+
+- `AdoptionRequestReport.pdf` is attached when a new adoption request is sent to a shelter.
+- `AdoptionStatusReport.pdf` is attached when a request is accepted or rejected and the adopter is notified.
+- `LowStockResourceReport.pdf` is attached when a resource reaches low stock.
+
+The reports are generated without charts. They use a clean PawConnect-style text and table layout with section headings, spacing, and a generated-date footer.
+
+Email or PDF generation failures are logged and do not cancel the main database action. For example, an adoption request can still be submitted even if SMTP credentials are missing or invalid.
 
 SMTP settings are configured in `appsettings.json` under:
 
@@ -83,7 +92,7 @@ dotnet user-secrets set "EmailSettings:SenderName" "PawConnect"
 dotnet user-secrets set "EmailSettings:EnableSsl" "true"
 ```
 
-Mailtrap sandbox is useful for development because it captures test emails instead of delivering them to real inboxes. If you switch to Gmail SMTP later, Gmail requires an App Password.
+Mailtrap sandbox is useful for development because it captures test emails and lets you inspect PDF attachments without delivering them to real inboxes. If you switch to Gmail SMTP later, Gmail requires an App Password.
 
 ## Database
 
