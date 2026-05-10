@@ -63,7 +63,7 @@ public class DogService(ApplicationDbContext context) : IDogService
             .ToListAsync();
     }
 
-    public Task<List<Dog>> SearchDogsAsync(string? searchTerm, string? breed, int? maxAge, DogSize? size, string? location, DogStatus? status)
+    public Task<List<Dog>> SearchDogsAsync(string? searchTerm, string? breed, int? maxAge, DogSize? size, string? location, DogStatus? status, DogSortOption sortOption = DogSortOption.NameAsc)
     {
         var query = context.Dogs
             .Include(d => d.Shelter)
@@ -102,8 +102,7 @@ public class DogService(ApplicationDbContext context) : IDogService
             query = query.Where(d => d.Status == status.Value);
         }
 
-        return query
-            .OrderBy(d => d.Name)
+        return ApplyDogSorting(query, sortOption)
             .AsNoTracking()
             .ToListAsync();
     }
@@ -320,6 +319,21 @@ public class DogService(ApplicationDbContext context) : IDogService
             ChangedByUserId = changedByUserId,
             Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim()
         });
+    }
+
+    private static IQueryable<Dog> ApplyDogSorting(IQueryable<Dog> query, DogSortOption sortOption)
+    {
+        return sortOption switch
+        {
+            DogSortOption.NameDesc => query.OrderByDescending(d => d.Name),
+            DogSortOption.AgeAsc => query.OrderBy(d => d.Age).ThenBy(d => d.Name),
+            DogSortOption.AgeDesc => query.OrderByDescending(d => d.Age).ThenBy(d => d.Name),
+            DogSortOption.BreedAsc => query.OrderBy(d => d.Breed).ThenBy(d => d.Name),
+            DogSortOption.LocationAsc => query.OrderBy(d => d.Location).ThenBy(d => d.Name),
+            DogSortOption.Status => query.OrderBy(d => d.Status).ThenBy(d => d.Name),
+            DogSortOption.NewestFirst => query.OrderByDescending(d => d.Id),
+            _ => query.OrderBy(d => d.Name)
+        };
     }
 
     private static void ValidateDog(Dog dog)
