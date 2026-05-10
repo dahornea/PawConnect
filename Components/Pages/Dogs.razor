@@ -59,10 +59,24 @@
                         <MudSelectItem Value="@DogStatus.Reserved.ToString()">Reserved</MudSelectItem>
                     </MudSelect>
                 </MudItem>
-                <MudItem xs="12" md="10">
-                    <MudStack Row="true" Spacing="2" Class="mt-1">
+                <MudItem xs="12" sm="6" md="3">
+                    <MudSelect T="DogSortOption" Label="Sort by" @bind-Value="_sortOption" Variant="Variant.Outlined" Margin="Margin.Dense">
+                        <MudSelectItem Value="@DogSortOption.NameAsc">Name A-Z</MudSelectItem>
+                        <MudSelectItem Value="@DogSortOption.NameDesc">Name Z-A</MudSelectItem>
+                        <MudSelectItem Value="@DogSortOption.AgeAsc">Age ascending</MudSelectItem>
+                        <MudSelectItem Value="@DogSortOption.AgeDesc">Age descending</MudSelectItem>
+                        <MudSelectItem Value="@DogSortOption.BreedAsc">Breed A-Z</MudSelectItem>
+                        <MudSelectItem Value="@DogSortOption.LocationAsc">Location A-Z</MudSelectItem>
+                        <MudSelectItem Value="@DogSortOption.Status">Status</MudSelectItem>
+                        <MudSelectItem Value="@DogSortOption.NewestFirst">Newest first</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" md="9">
+                    <MudStack Row="true" Spacing="2" Class="mt-1" AlignItems="AlignItems.Center">
                         <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.FilterAlt" OnClick="ApplyFiltersAsync">Apply Filters</MudButton>
-                        <MudButton Variant="Variant.Text" Color="Color.Default" StartIcon="@Icons.Material.Filled.Clear" OnClick="ClearFiltersAsync">Clear</MudButton>
+                        <MudButton Variant="Variant.Text" Color="Color.Default" StartIcon="@Icons.Material.Filled.Clear" OnClick="ClearFiltersAsync">Reset Filters</MudButton>
+                        <MudSpacer />
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">@ResultCountText</MudText>
                     </MudStack>
                 </MudItem>
             </MudGrid>
@@ -130,9 +144,12 @@
     private string _selectedSize = string.Empty;
     private string _selectedLocation = string.Empty;
     private string _selectedStatus = string.Empty;
+    private DogSortOption _sortOption = DogSortOption.NameAsc;
     private string? _currentUserId;
     private bool _currentUserIsAdopter;
     private HashSet<int> _favoriteDogIds = [];
+
+    private string ResultCountText => _dogs.Count == 1 ? "Showing 1 dog" : $"Showing {_dogs.Count} dogs";
 
     protected override async Task OnInitializedAsync()
     {
@@ -168,7 +185,8 @@
                 _maxAge,
                 ParseEnum<DogSize>(_selectedSize),
                 EmptyToNull(_selectedLocation),
-                ParseEnum<DogStatus>(_selectedStatus));
+                ParsePublicStatus(_selectedStatus),
+                _sortOption);
             await LoadFavoriteStateAsync();
         }
         catch
@@ -189,6 +207,7 @@
         _selectedSize = string.Empty;
         _selectedLocation = string.Empty;
         _selectedStatus = string.Empty;
+        _sortOption = DogSortOption.NameAsc;
         await ApplyFiltersAsync();
     }
 
@@ -224,6 +243,12 @@
     private static TEnum? ParseEnum<TEnum>(string value) where TEnum : struct
     {
         return Enum.TryParse<TEnum>(value, out var result) ? result : null;
+    }
+
+    private static DogStatus? ParsePublicStatus(string value)
+    {
+        var status = ParseEnum<DogStatus>(value);
+        return status is DogStatus.Available or DogStatus.Reserved ? status : null;
     }
 
     private async Task LoadCurrentUserAsync()
