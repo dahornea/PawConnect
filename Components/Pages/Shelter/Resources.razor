@@ -71,7 +71,7 @@
                                     <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save" Disabled="_isSaving" OnClick="SaveAsync">@(_model.Id == 0 ? "Add" : "Save")</MudButton>
                                     @if (_model.Id != 0)
                                     {
-                                        <MudButton Variant="Variant.Text" Color="Color.Default" Disabled="_isSaving" OnClick="ResetForm">Cancel</MudButton>
+                                        <MudButton Variant="Variant.Text" Color="Color.Default" Disabled="_isSaving" OnClick="ResetFormAsync">Cancel</MudButton>
                                     }
                                 </MudStack>
                             </MudItem>
@@ -208,7 +208,7 @@
                 Snackbar.Add(IsLowStock(_model) ? "Resource updated. Low-stock report sent." : "Resource saved.", Severity.Success);
             }
 
-            ResetForm();
+            await ResetFormAsync();
             await LoadResourcesAsync();
         }
         catch (InvalidOperationException ex)
@@ -293,9 +293,13 @@
         }
     }
 
-    private void ResetForm()
+    private async Task ResetFormAsync()
     {
         _model = new ResourceStock();
+        if (_form is not null)
+        {
+            await _form.ResetValidationAsync();
+        }
     }
 
     private async Task LoadResourcesAsync()

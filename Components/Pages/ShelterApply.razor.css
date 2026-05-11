@@ -1,0 +1,52 @@
+.shelter-apply-header {
+    margin-top: 10px;
+}
+
+::deep .shelter-apply-form-grid {
+    align-items: flex-start;
+}
+
+::deep .shelter-apply-form-grid > .mud-grid-item {
+    align-self: flex-start;
+}
+
+.shelter-apply-location-card {
+    position: sticky;
+    top: 84px;
+}
+
+.shelter-apply-location-actions,
+.shelter-apply-suggestion-actions {
+    flex-wrap: wrap;
+}
+
+.shelter-apply-submit-section {
+    margin-top: -8px;
+    border-color: rgba(47, 111, 94, 0.16);
+}
+
+.shelter-apply-submit-buttons {
+    flex-shrink: 0;
+}
+
+@media (max-width: 900px) {
+    .shelter-apply-location-card {
+        position: static;
+    }
+}
+
+@media (max-width: 720px) {
+    .shelter-apply-submit-content,
+    .shelter-apply-submit-buttons,
+    .shelter-apply-location-actions,
+    .shelter-apply-suggestion-actions {
+        align-items: stretch !important;
+        flex-direction: column !important;
+    }
+
+    .shelter-apply-submit-buttons ::deep .mud-button-root,
+    .shelter-apply-location-actions ::deep .mud-button-root,
+    .shelter-apply-suggestion-actions ::deep .mud-button-root {
+        width: 100%;
+    }
+}

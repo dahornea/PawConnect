@@ -524,7 +524,7 @@ else
             await AdoptionRequestService.CreateRequestAsync(_currentUserId, _dog.Id, questionnaire);
             _hasPendingRequest = true;
             _showAdoptionForm = false;
-            ResetAdoptionForm();
+            await ResetAdoptionFormAsync();
             Snackbar.Add("Adoption request submitted successfully.", Severity.Success);
         }
         catch (InvalidOperationException ex)
@@ -541,17 +541,21 @@ else
         }
     }
 
-    private void CancelAdoptionForm()
+    private async Task CancelAdoptionForm()
     {
         _showAdoptionForm = false;
-        ResetAdoptionForm();
+        await ResetAdoptionFormAsync();
     }
 
-    private void ResetAdoptionForm()
+    private async Task ResetAdoptionFormAsync()
     {
         _reasonForAdoption = null;
         _hoursAlonePerDay = null;
         _additionalInformation = null;
+        if (_adoptionForm is not null)
+        {
+            await _adoptionForm.ResetValidationAsync();
+        }
     }
 
     private string GetFavoriteIcon()
