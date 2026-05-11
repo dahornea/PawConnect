@@ -1,0 +1,21 @@
+.shelter-hero {
+    border-radius: 18px;
+    color: #fff;
+    background: linear-gradient(135deg, #2f6f5e 0%, #17483d 100%);
+    box-shadow: 0 18px 42px rgba(23, 72, 61, 0.18);
+}
+
+.shelter-hero-icon {
+    width: 58px;
+    height: 58px;
+    border-radius: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    background: rgba(255, 255, 255, 0.14);
+}
+
+.shelter-dog-card {
+    height: 100%;
+}

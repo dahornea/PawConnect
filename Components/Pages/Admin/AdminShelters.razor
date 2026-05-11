@@ -42,6 +42,7 @@
                     <MudTh>Address</MudTh>
                     <MudTh>Email</MudTh>
                     <MudTh>Phone</MudTh>
+                    <MudTh>Map</MudTh>
                     <MudTh>Dogs</MudTh>
                     <MudTh></MudTh>
                 </HeaderContent>
@@ -51,6 +52,16 @@
                     <MudTd DataLabel="Address">@context.Address</MudTd>
                     <MudTd DataLabel="Email">@context.Email</MudTd>
                     <MudTd DataLabel="Phone">@(string.IsNullOrWhiteSpace(context.PhoneNumber) ? "-" : context.PhoneNumber)</MudTd>
+                    <MudTd DataLabel="Map">
+                        @if (context.Latitude.HasValue && context.Longitude.HasValue)
+                        {
+                            <MudChip T="string" Color="Color.Info" Variant="Variant.Outlined" Size="Size.Small">Coordinates</MudChip>
+                        }
+                        else
+                        {
+                            <MudChip T="string" Color="Color.Default" Variant="Variant.Outlined" Size="Size.Small">Missing</MudChip>
+                        }
+                    </MudTd>
                     <MudTd DataLabel="Dogs">@context.Dogs.Count</MudTd>
                     <MudTd>
                         <MudButton Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Edit" OnClick="@(() => EditShelter(context))">Edit</MudButton>
@@ -82,6 +93,12 @@
                                 </MudItem>
                                 <MudItem xs="12">
                                     <MudTextField Label="Description" @bind-Value="_editShelter.Description" Lines="3" Variant="Variant.Outlined" />
+                                </MudItem>
+                                <MudItem xs="12" md="6">
+                                    <MudNumericField T="double?" Label="Latitude" @bind-Value="_editShelter.Latitude" Min="-90" Max="90" Variant="Variant.Outlined" HelperText="Optional. Use -90 to 90." />
+                                </MudItem>
+                                <MudItem xs="12" md="6">
+                                    <MudNumericField T="double?" Label="Longitude" @bind-Value="_editShelter.Longitude" Min="-180" Max="180" Variant="Variant.Outlined" HelperText="Optional. Use -180 to 180." />
                                 </MudItem>
                             </MudGrid>
                         </MudForm>
@@ -135,7 +152,9 @@
             Address = shelter.Address,
             City = shelter.City,
             PhoneNumber = shelter.PhoneNumber,
-            Email = shelter.Email
+            Email = shelter.Email,
+            Latitude = shelter.Latitude,
+            Longitude = shelter.Longitude
         };
     }
 
