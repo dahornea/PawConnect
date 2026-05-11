@@ -46,7 +46,6 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
     .AddSignInManager()
     .AddDefaultTokenProviders();
 
-builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(EfRepository<>));
 builder.Services.AddScoped<IDogService, DogService>();
 builder.Services.AddScoped<IAdoptionRequestService, AdoptionRequestService>();
@@ -63,6 +62,7 @@ builder.Services.AddScoped<IPdfReportService, PdfReportService>();
 builder.Services.AddScoped<IShelterRegistrationRequestService, ShelterRegistrationRequestService>();
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
+builder.Services.AddScoped<IEmailSender<ApplicationUser>, PawConnectIdentityEmailSender>();
 builder.Services.AddHttpClient<IGeocodingService, NominatimGeocodingService>(client =>
 {
     client.BaseAddress = new Uri("https://nominatim.openstreetmap.org/");

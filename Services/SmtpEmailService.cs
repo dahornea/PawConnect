@@ -9,7 +9,7 @@ public class SmtpEmailService(IOptions<EmailSettings> options, ILogger<SmtpEmail
 {
     private readonly EmailSettings settings = options.Value;
 
-    public async Task SendEmailAsync(string to, string subject, string body, List<EmailAttachment>? attachments = null)
+    public async Task SendEmailAsync(string to, string subject, string body, List<EmailAttachment>? attachments = null, string? htmlBody = null)
     {
         if (string.IsNullOrWhiteSpace(to))
         {
@@ -30,14 +30,19 @@ public class SmtpEmailService(IOptions<EmailSettings> options, ILogger<SmtpEmail
             message.To.Add(MailboxAddress.Parse(to));
             message.Subject = subject;
 
-            if (attachments is null || attachments.Count == 0)
+            if ((attachments is null || attachments.Count == 0) && string.IsNullOrWhiteSpace(htmlBody))
             {
                 message.Body = new TextPart("plain") { Text = body };
             }
             else
             {
-                var bodyBuilder = new BodyBuilder { TextBody = body };
-                foreach (var attachment in attachments.Where(a => a.Content.Length > 0))
+                var bodyBuilder = new BodyBuilder
+                {
+                    TextBody = body,
+                    HtmlBody = string.IsNullOrWhiteSpace(htmlBody) ? null : htmlBody
+                };
+
+                foreach (var attachment in (attachments ?? []).Where(a => a.Content.Length > 0))
                 {
                     bodyBuilder.Attachments.Add(
                         attachment.FileName,
