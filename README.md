@@ -129,7 +129,9 @@ Run the service/domain test suite with:
 dotnet test
 ```
 
-The `PawConnect.Tests` project covers key business rules for dog management, dog image handling, adoption requests, favorites, shelter resources, and PDF report generation. These are service-level tests, not browser UI tests.
+The `PawConnect.Tests` project covers key business rules for dog management, dog image handling, adoption requests, favorites, shelter resources, and PDF report generation. It also includes service-flow integration tests for public dog visibility, favorite deletion behavior, adoption request status changes, dog image/age behavior, resource stock rules, and email/PDF notification triggers.
+
+Tests use isolated in-memory databases and fake email/PDF services. They do not require SQL Server, Mailtrap, a running web server, or browser UI automation.
 
 ## Migrations
 
