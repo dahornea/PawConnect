@@ -1,4 +1,5 @@
 @page "/shelters"
+@using PawConnect.Data
 @inject IShelterService ShelterService
 
 <PageTitle>Shelters</PageTitle>
@@ -9,6 +10,39 @@
             <MudText Typo="Typo.h4">Shelters</MudText>
             <MudText Typo="Typo.body2">Find PawConnect demo shelter locations and public contact details.</MudText>
         </div>
+
+        <AuthorizeView Context="shelterApplyContext">
+            <Authorized>
+                @if (!shelterApplyContext.User.IsInRole(IdentitySeedData.AdminRole) &&
+                                !shelterApplyContext.User.IsInRole(IdentitySeedData.ShelterRole))
+                {
+                    <MudPaper Elevation="0" Class="section-surface pa-4">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@Icons.Material.Filled.Business" Color="Color.Primary" />
+                            <div>
+                                <MudText Typo="Typo.subtitle1">Is your shelter missing from PawConnect?</MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">Submit a shelter application and our admin team will review it.</MudText>
+                            </div>
+                            <MudSpacer />
+                            <MudButton Href="/shelters/apply" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Send">Apply as a Shelter</MudButton>
+                        </MudStack>
+                    </MudPaper>
+                }
+            </Authorized>
+            <NotAuthorized>
+                <MudPaper Elevation="0" Class="section-surface pa-4">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudIcon Icon="@Icons.Material.Filled.Business" Color="Color.Primary" />
+                        <div>
+                            <MudText Typo="Typo.subtitle1">Is your shelter missing from PawConnect?</MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">Submit a shelter application and our admin team will review it.</MudText>
+                        </div>
+                        <MudSpacer />
+                        <MudButton Href="/shelters/apply" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Send">Apply as a Shelter</MudButton>
+                    </MudStack>
+                </MudPaper>
+            </NotAuthorized>
+        </AuthorizeView>
 
         @if (_isLoading)
         {

@@ -7,4 +7,6 @@ public interface IPdfReportService
     Task<byte[]> GenerateAdoptionStatusReportAsync(int adoptionRequestId);
 
     Task<byte[]> GenerateLowStockResourceReportAsync(int resourceStockId);
+
+    Task<byte[]> GenerateShelterRegistrationRequestReportAsync(int shelterRegistrationRequestId);
 }

@@ -34,16 +34,46 @@ PawConnect is a beginner-friendly ASP.NET Core Blazor Server skeleton for a stra
 - Recently viewed dogs for adopter dashboard quick access
 - Public adoption success stories for adopted dogs
 - Dog ages support years and months for puppy-friendly display
+- Approval-based shelter registration requests at `/shelters/apply`
+- Admin shelter application review at `/admin/shelter-requests`
+- Optional address-based coordinate lookup using OpenStreetMap Nominatim
 
 ## Planned Features
 
-- Dog CRUD for shelters
-- Adoption request workflow
-- Favorite dogs for adopters
-- Shelter resource stock management
-- Resource categories and food-type tracking for shelter inventory
-- Admin review screens
 - Image upload support
+
+## Shelter Registration Requests
+
+Public registration is for adopter accounts only. Shelter representatives do not create shelter accounts directly from the public Register page.
+
+The shelter application form is intended for public shelter representatives. Admin users review applications from `/admin/shelter-requests`, and existing Shelter users already have active shelter accounts, so Admin/Shelter users are not allowed to submit public shelter applications.
+
+Shelters apply through:
+
+```text
+/shelters/apply
+```
+
+The shelter application form stores a `ShelterRegistrationRequest` with `Pending` status. Applicants provide normal address/contact information:
+
+- Shelter name
+- Contact person
+- Email
+- Phone number
+- City
+- Street/address
+- Description
+- Optional website, opening hours, reason for joining, latitude, and longitude
+
+Administrators review requests at:
+
+```text
+/admin/shelter-requests
+```
+
+When an administrator accepts a request, PawConnect creates an `ApplicationUser`, assigns the `Shelter` role, and creates a linked `Shelter` profile. Rejected requests do not create a user or shelter profile. Admin-managed shelter editing remains available for already approved shelters.
+
+Submitting a shelter request attempts to notify admins by email and attach a PDF summary. Email/PDF failures are logged and do not delete or cancel the saved request.
 
 ## Email Notifications
 
@@ -97,9 +127,15 @@ Mailtrap sandbox is useful for development because it captures test emails and l
 
 ## Shelter Map Integration
 
-PawConnect uses OpenStreetMap with Leaflet for read-only shelter location maps. No Google Maps API key or paid map service is required.
+PawConnect uses OpenStreetMap with Leaflet for shelter location maps and editable coordinate previews in shelter forms. No Google Maps API key or paid map service is required.
 
 Shelter coordinates are stored directly on the `Shelter` entity as optional `Latitude` and `Longitude` values. Shelters without coordinates still work normally and show a friendly fallback message instead of a broken map.
+
+Shelter applications and admin shelter editing use address information as the primary input. Latitude/Longitude are optional derived fields. Users can click "Find coordinates" to perform a manual OpenStreetMap Nominatim lookup from address + city + Romania. The app does not geocode while typing, and applicants can still submit without coordinates if lookup fails.
+
+Coordinate forms also include an editable map. After address lookup, users can drag the marker or click the map to adjust the shelter location. Latitude and Longitude remain visible, optional, and manually editable. Public shelter details maps remain read-only.
+
+When the editable marker is moved, PawConnect can perform a manual reverse Nominatim lookup and show a suggested address. Suggested addresses do not overwrite the current address/city fields automatically; the user must choose "Use suggested address".
 
 The public shelter pages are:
 
@@ -113,6 +149,16 @@ After adding the map coordinate fields, apply migrations with:
 ```bash
 dotnet tool run dotnet-ef database update
 ```
+
+Nominatim integration notes:
+
+- Used only for low-volume/manual coordinate and address suggestion lookup.
+- No Google Maps API key is required.
+- Coordinates can be manually edited as a fallback.
+- Coordinates can be adjusted by dragging the map marker or clicking the editable map in shelter forms.
+- Moving the marker can suggest an address, but applying that suggestion is optional and explicit.
+- Missing coordinates show a friendly map fallback.
+- Route planning, autocomplete, browser geolocation, nearby search, and distance filtering are not implemented.
 
 ## Database
 
@@ -148,7 +194,7 @@ Run the service/domain test suite with:
 dotnet test
 ```
 
-The `PawConnect.Tests` project covers key business rules for dog management, dog image handling, adoption requests, favorites, shelter resources, and PDF report generation. It also includes service-flow integration tests for public dog visibility, favorite deletion behavior, adoption request status changes, dog image/age behavior, resource stock rules, and email/PDF notification triggers.
+The `PawConnect.Tests` project covers key business rules for dog management, dog image handling, adoption requests, favorites, shelter resources, shelter registration requests, Nominatim geocoding behavior, and PDF report generation. It also includes service-flow integration tests for public dog visibility, favorite deletion behavior, adoption request status changes, dog image/age behavior, resource stock rules, and email/PDF notification triggers.
 
 Tests use isolated in-memory databases and fake email/PDF services. They do not require SQL Server, Mailtrap, a running web server, or browser UI automation.
 
@@ -169,7 +215,7 @@ dotnet tool run dotnet-ef database update
 The latest map coordinate migration is:
 
 ```text
-20260511144505_AddShelterCoordinates
+20260511184208_AddShelterRegistrationRequests
 ```
 
 If `dotnet ef database update` cannot connect from your terminal, check that SQL Server/LocalDB is running and that the `DefaultConnection` server name matches the `PawConnect` database you created in SSMS.

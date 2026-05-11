@@ -1,0 +1,54 @@
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">Shelter Application</MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (Request is not null)
+        {
+            <MudStack Spacing="2">
+                <MudText Typo="Typo.subtitle1">@Request.ShelterName</MudText>
+                <MudText Typo="Typo.body2"><strong>Contact:</strong> @Request.ContactPersonName</MudText>
+                <MudText Typo="Typo.body2"><strong>Email:</strong> @Request.Email</MudText>
+                <MudText Typo="Typo.body2"><strong>Phone:</strong> @Request.PhoneNumber</MudText>
+                <MudText Typo="Typo.body2"><strong>Address:</strong> @Request.Address, @Request.City</MudText>
+                <MudText Typo="Typo.body2"><strong>Description:</strong> @Request.Description</MudText>
+                @if (!string.IsNullOrWhiteSpace(Request.Website))
+                {
+                    <MudText Typo="Typo.body2"><strong>Website:</strong> @Request.Website</MudText>
+                }
+                @if (!string.IsNullOrWhiteSpace(Request.OpeningHours))
+                {
+                    <MudText Typo="Typo.body2"><strong>Opening hours:</strong> @Request.OpeningHours</MudText>
+                }
+                @if (!string.IsNullOrWhiteSpace(Request.ReasonForJoining))
+                {
+                    <MudText Typo="Typo.body2"><strong>Reason:</strong> @Request.ReasonForJoining</MudText>
+                }
+                <MudText Typo="Typo.body2"><strong>Coordinates:</strong> @FormatCoordinates(Request)</MudText>
+            </MudStack>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="Close">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter]
+    public ShelterRegistrationRequest? Request { get; set; }
+
+    private void Close()
+    {
+        MudDialog.Close();
+    }
+
+    private static string FormatCoordinates(ShelterRegistrationRequest request)
+    {
+        return request.Latitude.HasValue && request.Longitude.HasValue
+            ? $"{request.Latitude:0.######}, {request.Longitude:0.######}"
+            : "Not provided";
+    }
+}

@@ -24,6 +24,7 @@ The main user groups are:
 - **MudBlazor**: Main UI component library for layout, navigation, cards, tables, forms, dialogs, snackbars, chips, alerts, and icons.
 - **Leaflet**: Client-side JavaScript map library used to render read-only shelter maps inside Blazor pages.
 - **OpenStreetMap**: Public map tile provider used by the Leaflet shelter map integration. The map feature does not require a paid Google Maps API key.
+- **OpenStreetMap Nominatim**: Used through `NominatimGeocodingService` for manual address-to-coordinate lookup and optional coordinate-to-address suggestions. The app does not call it on every keystroke and does not use it for route planning or nearby search.
 - **MailKit and MimeKit**: Used by `SmtpEmailService` for SMTP email sending with plain text bodies and optional attachments.
 - **Mailtrap SMTP**: The active SMTP-style testing target in configuration. Credentials are configuration-based and should be stored safely outside source control for real use.
 - **QuestPDF**: Used by `PdfReportService` to generate PDF reports for adoption requests, adoption status updates, and low-stock resources.
@@ -59,6 +60,7 @@ Public visitors can:
 - View shelter profile/details pages at `/shelters/{id:int}`, including location information and a read-only map when coordinates are available.
 - View adoption success stories at `/success-stories`.
 - Register or log in through Identity account pages.
+- Submit a shelter application at `/shelters/apply` if they represent a shelter. This creates a pending shelter registration request instead of directly creating a shelter account.
 
 Public dog visibility is intentionally limited to dogs with status `Available` or `Reserved`. Dogs with status `Adopted` or `InTreatment` are excluded from the public dog list.
 
@@ -117,6 +119,7 @@ Admin pages are protected with `[Authorize(Roles = "Admin")]`. Advanced role edi
 - **Shelter listing and details**: Public users can view shelter cards and shelter profile/details pages. Shelter details include address/city information and, when coordinates exist, a read-only Leaflet map using OpenStreetMap tiles. If coordinates are missing, the UI shows a friendly fallback message instead of a broken map.
 - **Success stories**: Public page showing adopted dogs, success story text, adoption dates, and shelter information.
 - **Authentication**: Users can register and log in through Identity account pages. New registrations are assigned the `Adopter` role by default in the register flow.
+- **Shelter applications**: Shelter representatives apply through `/shelters/apply`. Public registration remains adopter-only. Admin and Shelter users are not prompted to apply from public CTAs and cannot submit public shelter applications.
 
 ### Adopter Features
 
@@ -141,6 +144,9 @@ Admin pages are protected with `[Authorize(Roles = "Admin")]`. Advanced role edi
 - **Accept/reject workflow**: Shelters can accept or reject pending requests for their own dogs.
 - **Internal notes**: Private notes are visible to shelters and admins, not adopters or public users.
 - **Location coordinates**: Shelter records can store optional latitude and longitude coordinates. These coordinates are used to display the shelter location on the public shelter profile page.
+- **Address-based coordinate lookup**: Shelter application and admin shelter edit forms can use manual Nominatim lookup to fill optional coordinates from city/address.
+- **Editable coordinate map**: Shelter application and admin shelter edit forms allow users to drag the marker or click the map to adjust optional coordinates after lookup or manual entry.
+- **Optional reverse geocoding**: After users move the editable marker, the app can suggest an address from the selected coordinates. The suggestion is shown for review and only updates address fields when the user chooses to apply it.
 
 ### Admin Features
 
@@ -148,6 +154,7 @@ Admin pages are protected with `[Authorize(Roles = "Admin")]`. Advanced role edi
 - **Users page**: Lists users, roles, contact fields, and adopter profile availability/basic info. Allows safe editing of email, phone, and full name where available.
 - **Shelters page**: Lists shelters and dog counts. Allows editing shelter profile/contact fields.
 - **Shelter coordinates**: Admin shelter editing includes optional latitude and longitude fields so public shelter profile maps can be displayed.
+- **Shelter request review**: Admins review pending shelter applications at `/admin/shelter-requests`. Accepting a request creates an `ApplicationUser`, assigns the `Shelter` role, and creates a linked `Shelter` profile. Rejecting a request does not create a user or shelter. Accept/reject actions are restricted to Admin users.
 - **Dogs page**: Lists all dogs across shelters, including status, shelter, success story indicator, status history access, and allowed delete action.
 - **Adoption requests page**: Lists all adoption requests and request/profile details for admin review.
 
@@ -189,7 +196,39 @@ Relationships:
 - One shelter has many `Dogs`.
 - One shelter has many `ResourceStocks`.
 
-`Latitude` and `Longitude` are optional coordinate fields used by the public shelter details page to render a read-only map. Existing shelters can still work without coordinates; when either coordinate is missing, the UI shows a location-unavailable fallback instead of rendering a broken map.
+`Latitude` and `Longitude` are optional coordinate fields used by the public shelter details page to render a read-only map. Existing shelters can still work without coordinates; when either coordinate is missing, the UI shows a location-unavailable fallback instead of rendering a broken map. In coordinate editing forms, these values can be filled manually, by address lookup, by dragging the map marker, or by clicking the editable map. Marker movement can also trigger an optional reverse geocoding suggestion, but the application does not overwrite address/city fields without explicit user confirmation.
+
+### ShelterRegistrationRequest
+
+Represents a public shelter application submitted before a shelter account exists.
+
+Important fields:
+
+- `ShelterName`
+- `ContactPersonName`
+- `Email`
+- `PhoneNumber`
+- `City`
+- `Address`
+- `Description`
+- `Website`
+- `OpeningHours`
+- `ReasonForJoining`
+- `Latitude`
+- `Longitude`
+- `Status`
+- `SubmittedAt`
+- `ReviewedAt`
+- `ReviewedByUserId`
+- `CreatedUserId`
+- `CreatedShelterId`
+
+Relationships:
+
+- Can optionally reference the admin `ApplicationUser` who reviewed it.
+- Can optionally reference the created `Shelter` after approval.
+
+The request starts as `Pending`. If accepted by an admin, the application creates a shelter Identity account, assigns the `Shelter` role, and creates a linked `Shelter` profile. If rejected, no user or shelter profile is created. Coordinates are optional; missing coordinates do not block application submission or approval. Admin and Shelter users are blocked from submitting public shelter applications because admins review requests and shelter users already have active shelter accounts.
 
 ### Dog
 
@@ -481,6 +520,21 @@ Values:
 
 Used by public dog search/sorting logic.
 
+### ShelterRegistrationRequestStatus
+
+Values:
+
+- `Pending`
+- `Accepted`
+- `Rejected`
+
+Behavior:
+
+- Public shelter applications start as `Pending`.
+- Admins can accept or reject pending applications at `/admin/shelter-requests`.
+- Accepting a request creates the shelter user account, assigns the `Shelter` role, and creates the linked `Shelter` profile.
+- Rejecting a request does not create a user or shelter.
+
 ## 7. Database and Entity Relationships
 
 `ApplicationDbContext` extends `IdentityDbContext<ApplicationUser, IdentityRole, string>`, so Identity tables and PawConnect domain tables share one EF Core context.
@@ -501,11 +555,14 @@ Important relationships:
 - One `ApplicationUser` can have many `FavoriteDogs`.
 - One `ApplicationUser` can have many `RecentlyViewedDogs`.
 - One `ApplicationUser` can be referenced by many `DogStatusHistory` records as `ChangedByUser`.
+- One `ApplicationUser` can review many `ShelterRegistrationRequest` records as an admin reviewer.
 - One `ResourceCategory` has many `ResourceStocks`.
 - One `FoodType` has many `ResourceStocks`.
 - One `FoodType` has many `Dogs` through `PreferredFoodType`.
 
 Shelter location coordinates are stored directly on the `Shelter` entity as optional `Latitude` and `Longitude` values. These fields do not create additional relationships and do not affect shelter creation or existing shelter records when they are empty.
+
+Shelter registration requests are stored separately from approved shelter profiles. A pending request can exist before any `ApplicationUser` or `Shelter` is created. Duplicate pending requests for the same email are blocked by service logic and a filtered unique index.
 
 Important delete behavior:
 
@@ -567,6 +624,14 @@ Map-related organization:
 - `wwwroot/app.css`: Contains global Leaflet sizing/fallback styles and the custom SVG-style shelter marker styling.
 - `Components/App.razor`: References Leaflet CSS and JavaScript CDN assets.
 
+Shelter onboarding/geocoding organization:
+
+- `Components/Pages/ShelterApply.razor`: Public shelter application form at `/shelters/apply`.
+- `Components/Pages/Admin/AdminShelterRequests.razor`: Admin review page at `/admin/shelter-requests`.
+- `Services/ShelterRegistrationRequestService.cs`: Handles application submission, duplicate pending email checks, admin notifications, accept/reject workflow, and creating approved shelter accounts/profiles.
+- `Services/NominatimGeocodingService.cs`: Performs manual address-based coordinate lookup and optional reverse coordinate-to-address lookup through OpenStreetMap Nominatim.
+- `Services/IGeocodingService.cs`: Interface used by public/admin forms so geocoding can be faked in tests.
+
 ## 9. Main Application Flows
 
 ### Public Dog Browsing Flow
@@ -591,7 +656,24 @@ Map-related organization:
 8. The marker popup shows the shelter name and address/city when available.
 9. If coordinates are missing, the map component shows a friendly "Map location is not available for this shelter" fallback instead of trying to initialize Leaflet.
 
-The current implementation does not perform address geocoding, route planning, distance search, or browser geolocation. Coordinates must already be stored on the shelter record.
+The public map is read-only. Address lookup and reverse address suggestions are limited to editable shelter coordinate forms; the app does not implement route planning, distance search, browser geolocation, or automatic typing autocomplete.
+
+### Shelter Registration Request Flow
+
+1. A public shelter representative opens `/shelters/apply`. Anonymous users can submit applications, and logged-in adopters may submit if they are acting as shelter representatives.
+2. The public application form collects shelter name, contact person, email, phone, city, address, description, and optional website/opening hours/reason.
+3. Latitude and longitude are optional. The user may click "Find coordinates" to run a manual Nominatim lookup from address + city + Romania.
+4. If Nominatim returns a result, the form fills `Latitude` and `Longitude` and the editable map marker moves to that location.
+5. If the marker needs adjustment, the user can drag the marker or click the map to update `Latitude` and `Longitude`.
+6. After the marker is moved, the form may call reverse Nominatim lookup once and show a suggested address panel.
+7. The suggested address is optional. The current address/city fields are changed only when the user clicks "Use suggested address".
+8. If Nominatim fails, the user can submit without coordinates or enter/set them manually.
+9. `ShelterRegistrationRequestService.SubmitRequestAsync` validates the form, blocks Admin/Shelter users from submitting public applications, and blocks duplicate pending applications for the same email.
+10. The service saves a `ShelterRegistrationRequest` with `Pending` status before sending any email.
+11. The service attempts to notify admin users by email and attach `ShelterRegistrationRequest.pdf`. Email/PDF failure is logged and does not delete or cancel the request.
+12. Admins review applications at `/admin/shelter-requests`.
+13. Accepting a pending request is admin-only and creates an `ApplicationUser`, assigns the `Shelter` role, creates a linked `Shelter` profile, and copies optional coordinates when present.
+14. Rejecting a pending request is admin-only, marks it as `Rejected`, and does not create a user or shelter profile.
 
 ### Adoption Request Flow
 
@@ -762,6 +844,25 @@ Includes:
 
 Attached when a resource reaches low stock after create/update.
 
+### Shelter Registration Request Report
+
+Method:
+
+- `GenerateShelterRegistrationRequestReportAsync(int shelterRegistrationRequestId)`
+
+Includes:
+
+- Shelter name.
+- Contact person.
+- Email and phone.
+- City and address.
+- Description.
+- Optional website, opening hours, and reason for joining.
+- Optional latitude/longitude.
+- Submitted date and request status.
+
+Attached when a public shelter application is submitted and admin notification email is sent.
+
 The reports use a clean text/table layout with PawConnect header, section headings, rows, and generated-date footer. The code does not implement charts, graphs, scheduled reports, or database storage of generated PDFs.
 
 ## 11.5 Shelter Map Integration
@@ -773,15 +874,19 @@ Implemented behavior:
 - Leaflet handles client-side interactive map rendering.
 - OpenStreetMap provides the map tiles.
 - No Google Maps API key or paid maps API is required.
-- The map is read-only and intended for shelter location display only.
+- Public shelter maps are read-only. Shelter application/admin coordinate forms use an editable mode for coordinate adjustment.
 - Shelter coordinates are stored in the database as optional `Latitude` and `Longitude` fields on the `Shelter` entity.
+- Address information is the primary location input; coordinates can be derived through a manual OpenStreetMap Nominatim lookup, entered manually, or adjusted through the editable map marker.
+- Reverse Nominatim lookup can suggest an address after a marker click/drag. The app displays the suggestion and waits for the user to apply it instead of overwriting address fields automatically.
 - `ShelterMap.razor` receives the coordinates and passes them to JavaScript interop for Leaflet initialization.
+- In editable form mode, `ShelterMap.razor` exposes latitude/longitude callbacks so marker dragging and map clicks update the bound coordinate fields and allow the form to request an optional address suggestion.
 - Marker popups show the shelter name and address/city when available.
 - The map uses a custom inline SVG-style marker, so it does not depend on Leaflet marker PNG files loading correctly.
 
 Not implemented:
 
-- Address-to-coordinate geocoding.
+- Automatic address geocoding while typing.
+- Automatic address replacement after moving the marker.
 - Route planning or directions.
 - "Near me" search.
 - Distance calculations or distance-based filtering.
@@ -830,7 +935,8 @@ Common UI patterns:
 - MudSnackbar for user feedback.
 - MudAlert for empty, warning, and error states.
 - Status chips for dog and adoption request states.
-- Shelter profile pages include a Location card that displays a responsive Leaflet/OpenStreetMap map with rounded corners when coordinates are available.
+- Shelter profile pages include a Location card that displays a responsive read-only Leaflet/OpenStreetMap map with rounded corners when coordinates are available.
+- Shelter application and admin shelter edit forms use editable map mode so users can click to place the pin or drag the marker to refine coordinates, then optionally apply a suggested address found from the selected location.
 - Shelter map fallback states use MudBlazor alerts/messages when coordinates are unavailable, keeping the page usable instead of showing an empty or broken map.
 
 ## 13. Validation and Error Handling
@@ -852,12 +958,14 @@ Examples of service validation:
 - `ResourceStockService` validates name, category, quantity, threshold, unit, and shelter ownership.
 - `AdopterProfileService` validates full name, city, phone number, and profile image URL.
 - `ShelterService` validates shelter profile contact fields, duplicate shelter email, and optional latitude/longitude ranges.
+- `ShelterRegistrationRequestService` validates shelter application required fields, duplicate pending emails, optional latitude/longitude ranges, role restrictions for public submission, and admin-only pending accept/reject behavior.
+- `NominatimGeocodingService` returns `null` for missing/failed forward or reverse geocoding results so forms can show friendly messages without blocking application submission.
 
 Error handling patterns:
 
 - UI pages generally show user-friendly MudSnackbar or MudAlert messages.
 - Missing shelter coordinates do not break shelter profile pages; the map component displays a friendly fallback message instead.
-- Leaflet map initialization is handled through JavaScript interop with unique map element IDs, explicit map sizing, resize invalidation, and disposal to avoid broken map rendering during Blazor Server navigation.
+- Leaflet map initialization is handled through JavaScript interop with unique map element IDs, explicit map sizing, resize invalidation, marker drag/click callbacks in editable mode, and disposal to avoid broken map rendering during Blazor Server navigation.
 - Expected business rule violations use clear `InvalidOperationException` messages.
 - Email and PDF failures are logged and do not fail the main business action.
 - Confirmation dialogs are used before important/destructive actions such as delete, cancel, accept, reject, and logout.
@@ -898,6 +1006,8 @@ Current test organization:
 - `AdoptionRequestServiceTests`
 - `FavoriteDogServiceTests`
 - `ResourceStockServiceTests`
+- `ShelterRegistrationRequestServiceTests`
+- `NominatimGeocodingServiceTests`
 - `PdfReportServiceTests`
 - `Integration/ServiceFlowIntegrationTests`
 - `Helpers/TestDbContextFactory`
@@ -926,6 +1036,15 @@ Current test coverage includes:
 - Resource create/update/delete and ownership.
 - Low-stock detection and non-low-stock detection.
 - Clearing `FoodTypeId` for non-food resources.
+- Shelter registration request submission with optional coordinates.
+- Anonymous shelter registration request submission.
+- Blocking Admin and Shelter users from submitting public shelter applications.
+- Duplicate pending shelter registration request blocking.
+- Admin notification email/PDF attachment capture for shelter applications.
+- Admin accept/reject shelter application behavior.
+- Blocking non-admin users from accepting or rejecting shelter applications.
+- Creating shelter users, assigning the `Shelter` role, and linked shelter profile creation after approval.
+- Nominatim geocoding response parsing and failure handling using fake HTTP responses.
 - PDF report generation returns non-empty bytes.
 - Integration-style service flows for public visibility, favorites/deletion, adoption notifications, dog image/age, resources, and fake PDF/email attachment behavior.
 
@@ -952,6 +1071,10 @@ Role-based authorization:
 - Role-protected pages use `[Authorize(Roles = "...")]`.
 - Sidebar navigation uses `AuthorizeView` with role filters.
 - Public pages remain accessible without authentication.
+- Public registration creates adopter accounts only; shelter accounts are created after admin approval of a shelter registration request.
+- Admin users review shelter applications from `/admin/shelter-requests` and are not allowed to submit public shelter applications.
+- Shelter users already have active shelter accounts and are not allowed to submit public shelter applications.
+- Accepting/rejecting shelter applications is enforced as an Admin-only service operation, not only hidden in the UI.
 - Unauthorized route access is handled through `AuthorizeRouteView` and the account redirect component.
 
 Service-level security/ownership checks:
@@ -981,6 +1104,8 @@ PawConnect is suitable for a bachelor thesis because it demonstrates:
 - A relational database model with meaningful domain entities and relationships.
 - Identity-based authentication and role-based authorization.
 - Business workflows such as adoption requests, dog status transitions, shelter resource management, and low-stock detection.
+- Approval-based shelter onboarding with admin review.
+- Third-party map/location integration using Leaflet, OpenStreetMap, and manual Nominatim geocoding.
 - Service-layer validation and ownership checks.
 - Email communication using SMTP.
 - PDF report generation with structured report content.
@@ -1069,12 +1194,16 @@ Evaluate project outcomes and list future improvements such as real uploads, dep
 - `Adopted` dogs are used for success stories, not public adoption listing.
 - `InTreatment` dogs are hidden from public adoption listing.
 - `AdoptionRequest` stores only request-specific questionnaire answers; stable adopter information is stored in `AdopterProfile`.
+- Public registration is adopter-only; shelter representatives submit approval-based applications at `/shelters/apply`.
+- Admins review shelter applications at `/admin/shelter-requests`; only accepted applications create shelter users/profiles.
+- Apply-as-shelter CTAs are intended for anonymous/public and general public-facing use, not for Admin or Shelter users.
 - `ShelterInternalNotes` are private to shelter/admin views and are not shown to adopters or public users.
 - `Age` still exists on `Dog`, but the current age display uses `AgeYears` and `AgeMonths` through `DogAgeFormatter`.
 - Dog deletion is blocked by adoption request history, not favorites.
 - Favorites and recently viewed records are removed when deleting a dog with no adoption requests.
 - Dog status history records track only status changes, not all dog edits.
-- Shelter maps use optional stored coordinates on `Shelter`; the application does not currently geocode addresses or calculate routes/distances.
+- Shelter maps use optional stored coordinates on `Shelter`; public maps are read-only and coordinate forms can use manual Nominatim lookup plus optional reverse address suggestions.
+- Nominatim geocoding is manual/user-triggered only, not autocomplete, continuous dragging lookup, or automatic background geocoding.
 - Email/PDF failures are intentionally non-blocking and logged.
 - PDF reports are generated dynamically and are not stored in the database.
 - Demo seed data includes test users, demo shelters with approximate Cluj-Napoca coordinates, lookup data, dog records, images, medical records, resources, adopter profile data, and adopted success story examples.

@@ -1,6 +1,7 @@
 @page "/admin/shelters"
 @attribute [Authorize(Roles = "Admin")]
 @inject IShelterService ShelterService
+@inject IGeocodingService GeocodingService
 @inject ISnackbar Snackbar
 
 <PageTitle>Shelters</PageTitle>
@@ -100,10 +101,40 @@
                                 <MudItem xs="12" md="6">
                                     <MudNumericField T="double?" Label="Longitude" @bind-Value="_editShelter.Longitude" Min="-180" Max="180" Variant="Variant.Outlined" HelperText="Optional. Use -180 to 180." />
                                 </MudItem>
+                                <MudItem xs="12">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Use address lookup first, then drag the pin or click the map to adjust the location.</MudText>
+                                    <ShelterMap @bind-Latitude="_editShelter.Latitude"
+                                                @bind-Longitude="_editShelter.Longitude"
+                                                ShelterName="@_editShelter.Name"
+                                                Address="@_editShelter.Address"
+                                                City="@_editShelter.City"
+                                                Height="300px"
+                                                Editable="true"
+                                                CoordinatesChanged="OnMapCoordinatesChangedAsync" />
+                                    @if (_suggestedAddress is not null)
+                                    {
+                                        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mt-2">
+                                            <MudStack Spacing="1">
+                                                <MudText Typo="Typo.subtitle2">Suggested address found from the selected map location.</MudText>
+                                                <MudText Typo="Typo.body2">@_suggestedAddress.DisplayName</MudText>
+                                                <MudStack Row="true" Spacing="1">
+                                                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" OnClick="UseSuggestedAddress">Use suggested address</MudButton>
+                                                    <MudButton Variant="Variant.Text" Color="Color.Default" Size="Size.Small" OnClick="ClearSuggestedAddress">Dismiss</MudButton>
+                                                </MudStack>
+                                            </MudStack>
+                                        </MudAlert>
+                                    }
+                                </MudItem>
                             </MudGrid>
                         </MudForm>
                         <MudStack Row="true" Spacing="2">
                             <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save" Disabled="_isSaving" OnClick="SaveShelterAsync">Save</MudButton>
+                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.TravelExplore" Disabled="_isSaving || _isGeocoding" OnClick="FindCoordinatesAsync">
+                                @(_isGeocoding ? "Searching..." : "Find coordinates")
+                            </MudButton>
+                            <MudButton Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Place" Disabled="@(_isSaving || !_editShelter.Latitude.HasValue || !_editShelter.Longitude.HasValue || _isReverseGeocoding)" OnClick="SuggestAddressFromCoordinatesAsync">
+                                @(_isReverseGeocoding ? "Looking up..." : "Suggest address")
+                            </MudButton>
                             <MudButton Variant="Variant.Text" Color="Color.Default" Disabled="_isSaving" OnClick="CancelEdit">Cancel</MudButton>
                         </MudStack>
                     </MudStack>
@@ -117,9 +148,12 @@
     private List<Shelter> _shelters = [];
     private bool _isLoading = true;
     private bool _isSaving;
+    private bool _isGeocoding;
+    private bool _isReverseGeocoding;
     private string? _error;
     private Shelter? _editShelter;
     private MudForm? _shelterForm;
+    private ReverseGeocodingResult? _suggestedAddress;
 
     protected override async Task OnInitializedAsync()
     {
@@ -161,6 +195,7 @@
     private void CancelEdit()
     {
         _editShelter = null;
+        _suggestedAddress = null;
     }
 
     private async Task SaveShelterAsync()
@@ -200,5 +235,125 @@
         {
             _isSaving = false;
         }
+    }
+
+    private async Task FindCoordinatesAsync()
+    {
+        if (_editShelter is null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_editShelter.Address) || string.IsNullOrWhiteSpace(_editShelter.City))
+        {
+            Snackbar.Add("Enter shelter address and city before searching for coordinates.", Severity.Warning);
+            return;
+        }
+
+        _isGeocoding = true;
+        try
+        {
+            var result = await GeocodingService.FindCoordinatesAsync(_editShelter.Address, _editShelter.City);
+            if (result is null)
+            {
+                Snackbar.Add("Could not find coordinates for this address. Please check the address or enter coordinates manually.", Severity.Warning);
+                return;
+            }
+
+            _editShelter.Latitude = result.Latitude;
+            _editShelter.Longitude = result.Longitude;
+            _suggestedAddress = null;
+            Snackbar.Add("Coordinates found. Save the shelter profile to keep them.", Severity.Success);
+        }
+        catch
+        {
+            Snackbar.Add("Could not search for coordinates right now. You can enter them manually.", Severity.Error);
+        }
+        finally
+        {
+            _isGeocoding = false;
+        }
+    }
+
+    private async Task OnMapCoordinatesChangedAsync((double Latitude, double Longitude) coordinates)
+    {
+        if (_editShelter is null)
+        {
+            return;
+        }
+
+        _editShelter.Latitude = coordinates.Latitude;
+        _editShelter.Longitude = coordinates.Longitude;
+        await SuggestAddressFromCoordinatesAsync(showFailureMessage: false);
+    }
+
+    private async Task SuggestAddressFromCoordinatesAsync()
+    {
+        await SuggestAddressFromCoordinatesAsync(showFailureMessage: true);
+    }
+
+    private async Task SuggestAddressFromCoordinatesAsync(bool showFailureMessage)
+    {
+        if (_editShelter is null)
+        {
+            return;
+        }
+
+        if (!_editShelter.Latitude.HasValue || !_editShelter.Longitude.HasValue)
+        {
+            if (showFailureMessage)
+            {
+                Snackbar.Add("Choose coordinates before asking for an address suggestion.", Severity.Warning);
+            }
+            return;
+        }
+
+        _isReverseGeocoding = true;
+        try
+        {
+            _suggestedAddress = await GeocodingService.ReverseGeocodeAsync(_editShelter.Latitude.Value, _editShelter.Longitude.Value);
+            if (_suggestedAddress is null && showFailureMessage)
+            {
+                Snackbar.Add("Could not suggest an address for this location.", Severity.Info);
+            }
+        }
+        catch
+        {
+            _suggestedAddress = null;
+            if (showFailureMessage)
+            {
+                Snackbar.Add("Could not suggest an address for this location.", Severity.Info);
+            }
+        }
+        finally
+        {
+            _isReverseGeocoding = false;
+        }
+    }
+
+    private void UseSuggestedAddress()
+    {
+        if (_editShelter is null || _suggestedAddress is null)
+        {
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(_suggestedAddress.SuggestedAddress))
+        {
+            _editShelter.Address = _suggestedAddress.SuggestedAddress;
+        }
+
+        if (!string.IsNullOrWhiteSpace(_suggestedAddress.City))
+        {
+            _editShelter.City = _suggestedAddress.City;
+        }
+
+        _suggestedAddress = null;
+        Snackbar.Add("Suggested address applied. Save the shelter profile to keep it.", Severity.Success);
+    }
+
+    private void ClearSuggestedAddress()
+    {
+        _suggestedAddress = null;
     }
 }

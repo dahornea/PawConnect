@@ -31,6 +31,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
     public DbSet<RecentlyViewedDog> RecentlyViewedDogs => Set<RecentlyViewedDog>();
 
+    public DbSet<ShelterRegistrationRequest> ShelterRegistrationRequests => Set<ShelterRegistrationRequest>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -180,6 +182,29 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
         builder.Entity<ResourceStock>()
             .Property(r => r.LastUpdatedAt)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<ShelterRegistrationRequest>()
+            .HasIndex(r => r.Email)
+            .HasFilter("[Status] = 0")
+            .IsUnique();
+
+        builder.Entity<ShelterRegistrationRequest>()
+            .HasOne(r => r.ReviewedByUser)
+            .WithMany(u => u.ReviewedShelterRegistrationRequests)
+            .HasForeignKey(r => r.ReviewedByUserId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.Entity<ShelterRegistrationRequest>()
+            .HasOne(r => r.CreatedShelter)
+            .WithMany()
+            .HasForeignKey(r => r.CreatedShelterId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.Entity<ShelterRegistrationRequest>()
+            .Property(r => r.SubmittedAt)
             .HasDefaultValueSql("GETUTCDATE()");
 
         SeedLookupData(builder);
