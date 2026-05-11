@@ -4,11 +4,11 @@ namespace PawConnect.Tests.Tests.Helpers;
 
 public class TestEmailService : IEmailService
 {
-    public List<(string To, string Subject, string Body, List<EmailAttachment>? Attachments)> SentEmails { get; } = [];
+    public List<(string To, string Subject, string Body, List<EmailAttachment>? Attachments, string? HtmlBody)> SentEmails { get; } = [];
 
-    public Task SendEmailAsync(string to, string subject, string body, List<EmailAttachment>? attachments = null)
+    public Task SendEmailAsync(string to, string subject, string body, List<EmailAttachment>? attachments = null, string? htmlBody = null)
     {
-        SentEmails.Add((to, subject, body, attachments));
+        SentEmails.Add((to, subject, body, attachments, htmlBody));
         return Task.CompletedTask;
     }
 }

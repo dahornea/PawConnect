@@ -760,12 +760,14 @@ Email abstractions:
 - `IEmailService`
 - `SmtpEmailService`
 - `MockEmailService`
+- `PawConnectIdentityEmailSender`
 - `EmailSettings`
 - `EmailAttachment`
 
 `Program.cs` registers:
 
 - `IEmailService` as `SmtpEmailService`.
+- `IEmailSender<ApplicationUser>` as `PawConnectIdentityEmailSender`.
 - `EmailSettings` through `builder.Configuration.GetSection("EmailSettings")`.
 
 The SMTP implementation:
@@ -781,10 +783,14 @@ The SMTP implementation:
 
 Configured email events:
 
+- Forgot Password requests: sends an ASP.NET Core Identity password reset link.
+- Identity account confirmation and email verification requests: sends Identity account links.
 - New adoption request submitted: sends shelter notification.
 - Adoption request accepted: sends adopter notification.
 - Adoption request rejected: sends adopter notification.
 - Resource stock created/updated and low stock: sends shelter notification.
+
+For the password reset flow, the Forgot Password page generates an ASP.NET Core Identity reset token, encodes it with `WebEncoders.Base64UrlEncode`, builds an `/Account/ResetPassword` callback URL, and sends it through `PawConnectIdentityEmailSender`. The reset email includes a plain text fallback with the full URL on its own line for Mailtrap Text view/copy-paste use, and an optional HTML body with a clickable action button. The UI response remains generic so it does not reveal whether an email address belongs to a registered user.
 
 The current `appsettings.json` uses Mailtrap-style sandbox settings with placeholder password text. Real credentials should be stored in `appsettings.Development.json`, .NET User Secrets, or environment variables.
 
@@ -1045,6 +1051,7 @@ Current test coverage includes:
 - Blocking non-admin users from accepting or rejecting shelter applications.
 - Creating shelter users, assigning the `Shelter` role, and linked shelter profile creation after approval.
 - Nominatim geocoding response parsing and failure handling using fake HTTP responses.
+- Identity email sender behavior for password reset and account confirmation emails without sending real SMTP messages.
 - PDF report generation returns non-empty bytes.
 - Integration-style service flows for public visibility, favorites/deletion, adoption notifications, dog image/age, resources, and fake PDF/email attachment behavior.
 

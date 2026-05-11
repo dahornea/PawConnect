@@ -81,6 +81,8 @@ PawConnect uses `IEmailService` with `SmtpEmailService` as the active implementa
 
 Email notifications are triggered when:
 
+- A user requests a password reset through Forgot Password, sending an Identity reset link.
+- Identity account confirmation and email verification messages are sent.
 - An adopter submits a new adoption request, notifying the owning shelter.
 - A shelter accepts or rejects an adoption request, notifying the adopter.
 - A shelter creates or updates a resource stock item that is at or below its low-stock threshold, notifying the shelter.
@@ -94,6 +96,8 @@ Some notifications include PDF report attachments:
 The reports are generated without charts. They use a clean PawConnect-style text and table layout with section headings, spacing, and a generated-date footer.
 
 Email or PDF generation failures are logged and do not cancel the main database action. For example, an adoption request can still be submitted even if SMTP credentials are missing or invalid.
+
+Forgot Password and other ASP.NET Core Identity emails use `PawConnectIdentityEmailSender`, which reuses the same configured `IEmailService`/Mailtrap SMTP settings as the rest of the application. Password reset emails include a clean plain text body with the reset URL on its own line for easy copying from Mailtrap's Text view, plus an HTML body with a clickable action button when HTML preview is available. Demo users are seeded with confirmed email addresses so password reset emails can be sent during development/testing.
 
 SMTP settings are configured in `appsettings.json` under:
 
