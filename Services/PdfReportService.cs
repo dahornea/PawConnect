@@ -39,7 +39,7 @@ public class PdfReportService(ApplicationDbContext context, ILogger<PdfReportSer
                 AddSection(content, "Dog Information", [
                     ("Dog name", dog?.Name),
                     ("Breed", dog?.Breed),
-                    ("Age", dog is null ? null : $"{dog.Age}"),
+                    ("Age", dog is null ? null : DogAgeFormatter.Format(dog)),
                     ("Size", dog?.Size.ToString()),
                     ("Current status", dog?.Status.ToString()),
                     ("Shelter name", dog?.Shelter?.Name)
@@ -98,7 +98,7 @@ public class PdfReportService(ApplicationDbContext context, ILogger<PdfReportSer
                 AddSection(content, "Dog Information", [
                     ("Dog name", dog?.Name),
                     ("Breed", dog?.Breed),
-                    ("Age", dog is null ? null : $"{dog.Age}"),
+                    ("Age", dog is null ? null : DogAgeFormatter.Format(dog)),
                     ("Size", dog?.Size.ToString()),
                     ("Shelter name", shelter?.Name)
                 ]);

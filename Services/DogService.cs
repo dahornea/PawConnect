@@ -23,6 +23,7 @@ public class DogService(ApplicationDbContext context) : IDogService
 
     public async Task UpdateAsync(Dog dog)
     {
+        NormalizeDogAge(dog);
         context.Dogs.Update(dog);
         await context.SaveChangesAsync();
     }
@@ -84,7 +85,7 @@ public class DogService(ApplicationDbContext context) : IDogService
 
         if (maxAge.HasValue)
         {
-            query = query.Where(d => d.Age <= maxAge.Value);
+            query = query.Where(d => d.AgeYears <= maxAge.Value);
         }
 
         if (size.HasValue)
@@ -134,6 +135,7 @@ public class DogService(ApplicationDbContext context) : IDogService
 
     public async Task CreateDogAsync(Dog dog)
     {
+        NormalizeDogAge(dog);
         context.Dogs.Add(dog);
         await context.SaveChangesAsync();
     }
@@ -208,7 +210,9 @@ public class DogService(ApplicationDbContext context) : IDogService
 
         existingDog.Name = dog.Name.Trim();
         existingDog.Breed = dog.Breed.Trim();
-        existingDog.Age = dog.Age;
+        existingDog.AgeYears = dog.AgeYears;
+        existingDog.AgeMonths = dog.AgeMonths;
+        existingDog.Age = dog.AgeYears;
         existingDog.Size = dog.Size;
         existingDog.Location = dog.Location.Trim();
         existingDog.Description = string.IsNullOrWhiteSpace(dog.Description) ? null : dog.Description.Trim();
@@ -235,10 +239,12 @@ public class DogService(ApplicationDbContext context) : IDogService
             throw new InvalidOperationException("Dog was not found for your shelter.");
         }
 
-        if (dog.AdoptionRequests.Count > 0 || dog.FavoriteDogs.Count > 0)
+        if (dog.AdoptionRequests.Count > 0)
         {
-            throw new InvalidOperationException("This dog cannot be deleted because it already has adoption requests or favorites. Change its status instead.");
+            throw new InvalidOperationException("This dog cannot be deleted because it has adoption request history. To remove it from public listings, change its status instead.");
         }
+
+        await RemoveDogReferencesThatDoNotNeedHistoryAsync(dog.Id);
 
         context.Dogs.Remove(dog);
         await context.SaveChangesAsync();
@@ -267,10 +273,12 @@ public class DogService(ApplicationDbContext context) : IDogService
             throw new InvalidOperationException("Dog was not found.");
         }
 
-        if (dog.AdoptionRequests.Count > 0 || dog.FavoriteDogs.Count > 0)
+        if (dog.AdoptionRequests.Count > 0)
         {
-            throw new InvalidOperationException("This dog cannot be deleted because it already has adoption requests or favorites.");
+            throw new InvalidOperationException("This dog cannot be deleted because it has adoption request history. To remove it from public listings, change its status instead.");
         }
+
+        await RemoveDogReferencesThatDoNotNeedHistoryAsync(dog.Id);
 
         context.Dogs.Remove(dog);
         await context.SaveChangesAsync();
@@ -326,8 +334,8 @@ public class DogService(ApplicationDbContext context) : IDogService
         return sortOption switch
         {
             DogSortOption.NameDesc => query.OrderByDescending(d => d.Name),
-            DogSortOption.AgeAsc => query.OrderBy(d => d.Age).ThenBy(d => d.Name),
-            DogSortOption.AgeDesc => query.OrderByDescending(d => d.Age).ThenBy(d => d.Name),
+            DogSortOption.AgeAsc => query.OrderBy(d => d.AgeYears).ThenBy(d => d.AgeMonths).ThenBy(d => d.Name),
+            DogSortOption.AgeDesc => query.OrderByDescending(d => d.AgeYears).ThenByDescending(d => d.AgeMonths).ThenBy(d => d.Name),
             DogSortOption.BreedAsc => query.OrderBy(d => d.Breed).ThenBy(d => d.Name),
             DogSortOption.LocationAsc => query.OrderBy(d => d.Location).ThenBy(d => d.Name),
             DogSortOption.Status => query.OrderBy(d => d.Status).ThenBy(d => d.Name),
@@ -338,6 +346,8 @@ public class DogService(ApplicationDbContext context) : IDogService
 
     private static void ValidateDog(Dog dog)
     {
+        NormalizeDogAge(dog);
+
         if (string.IsNullOrWhiteSpace(dog.Name))
         {
             throw new InvalidOperationException("Dog name is required.");
@@ -348,9 +358,19 @@ public class DogService(ApplicationDbContext context) : IDogService
             throw new InvalidOperationException("Breed is required.");
         }
 
-        if (dog.Age is < 0 or > 30)
+        if (dog.AgeYears is < 0 or > 30)
         {
-            throw new InvalidOperationException("Age must be between 0 and 30.");
+            throw new InvalidOperationException("Age in years must be between 0 and 30.");
+        }
+
+        if (dog.AgeMonths is < 0 or > 11)
+        {
+            throw new InvalidOperationException("Age in months must be between 0 and 11.");
+        }
+
+        if (dog.AgeYears == 0 && dog.AgeMonths == 0)
+        {
+            throw new InvalidOperationException("Please enter the dog's age in years or months.");
         }
 
         if (string.IsNullOrWhiteSpace(dog.Location))
@@ -366,5 +386,30 @@ public class DogService(ApplicationDbContext context) : IDogService
         dog.Name = dog.Name.Trim();
         dog.Breed = dog.Breed.Trim();
         dog.Location = dog.Location.Trim();
+        dog.Age = dog.AgeYears;
+    }
+
+    private static void NormalizeDogAge(Dog dog)
+    {
+        if (dog.AgeYears == 0 && dog.AgeMonths == 0 && dog.Age > 0)
+        {
+            dog.AgeYears = dog.Age;
+        }
+
+        dog.Age = dog.AgeYears;
+    }
+
+    private async Task RemoveDogReferencesThatDoNotNeedHistoryAsync(int dogId)
+    {
+        var favorites = await context.FavoriteDogs
+            .Where(f => f.DogId == dogId)
+            .ToListAsync();
+
+        var recentViews = await context.RecentlyViewedDogs
+            .Where(v => v.DogId == dogId)
+            .ToListAsync();
+
+        context.FavoriteDogs.RemoveRange(favorites);
+        context.RecentlyViewedDogs.RemoveRange(recentViews);
     }
 }

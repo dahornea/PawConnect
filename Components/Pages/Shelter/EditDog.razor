@@ -53,8 +53,11 @@
                             <MudItem xs="12" md="6">
                                 <MudTextField Label="Breed" @bind-Value="_model.Breed" Required="true" RequiredError="Breed is required." Variant="Variant.Outlined" Disabled="@IsReadOnly" />
                             </MudItem>
-                            <MudItem xs="12" md="4">
-                                <MudNumericField T="int" Label="Age" @bind-Value="_model.Age" Min="0" Max="30" Variant="Variant.Outlined" Disabled="@IsReadOnly" />
+                            <MudItem xs="12" md="2">
+                                <MudNumericField T="int" Label="Age Years" @bind-Value="_model.AgeYears" Min="0" Max="30" Variant="Variant.Outlined" Disabled="@IsReadOnly" />
+                            </MudItem>
+                            <MudItem xs="12" md="2">
+                                <MudNumericField T="int" Label="Age Months" @bind-Value="_model.AgeMonths" Min="0" Max="11" Variant="Variant.Outlined" Disabled="@IsReadOnly" />
                             </MudItem>
                             <MudItem xs="12" md="4">
                                 <MudSelect T="DogSize" Label="Size" @bind-Value="_model.Size" Required="true" Variant="Variant.Outlined" Disabled="@IsReadOnly">
@@ -203,6 +206,16 @@
                         </MudGrid>
                     </MudForm>
 
+                    @if (!string.IsNullOrWhiteSpace(_newImage.ImageUrl) && IsValidImageUrl(_newImage.ImageUrl))
+                    {
+                        <MudCard Class="image-card image-preview-card">
+                            <MudCardMedia Image="@_newImage.ImageUrl" Height="150" />
+                            <MudCardContent>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Preview for the new image URL</MudText>
+                            </MudCardContent>
+                        </MudCard>
+                    }
+
                     @if (_images.Count == 0)
                     {
                         <MudAlert Severity="Severity.Info">No images have been added for this dog yet.</MudAlert>
@@ -349,6 +362,11 @@
                 return;
             }
 
+            if (_model.AgeYears == 0 && _model.AgeMonths == 0 && _model.Age > 0)
+            {
+                _model.AgeYears = _model.Age;
+            }
+
             _successStoryText = _model.SuccessStoryText;
             _adoptedAt = _model.AdoptedAt;
             await LoadDogManagementDataAsync();
@@ -493,6 +511,11 @@
 
         try
         {
+            if (_images.Count == 0)
+            {
+                _newImage.IsMainImage = true;
+            }
+
             await DogImageService.AddDogImageAsync(Id, _shelterId.Value, _newImage);
             _newImage = new DogImage();
             await LoadDogManagementDataAsync();
@@ -688,6 +711,12 @@
             DogStatus.InTreatment => Color.Info,
             _ => Color.Default
         };
+    }
+
+    private static bool IsValidImageUrl(string imageUrl)
+    {
+        return Uri.TryCreate(imageUrl, UriKind.Absolute, out var uri) &&
+            (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
     }
 
     private async Task<bool> ConfirmAsync(string title, string message, string confirmText, Color confirmColor, string icon)

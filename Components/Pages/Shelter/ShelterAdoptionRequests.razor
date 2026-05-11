@@ -173,7 +173,7 @@
                                                 </div>
                                             </MudStack>
                                             <MudDivider />
-                                            <MudText Typo="Typo.body2">Age: @(_selectedRequest.Dog?.Age.ToString() ?? "-")</MudText>
+                                            <MudText Typo="Typo.body2">Age: @(_selectedRequest.Dog is null ? "-" : DogAgeFormatter.Format(_selectedRequest.Dog))</MudText>
                                             <MudText Typo="Typo.body2">Size: @(_selectedRequest.Dog?.Size.ToString() ?? "-")</MudText>
                                             <MudText Typo="Typo.body2">Location: @(_selectedRequest.Dog?.Location ?? "-")</MudText>
                                             @if (_selectedRequest.Dog is not null)

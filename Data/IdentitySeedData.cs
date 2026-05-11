@@ -165,6 +165,7 @@ public static class IdentitySeedData
                 Name = "Max",
                 Breed = "Mixed Breed",
                 Age = 3,
+                AgeYears = 3,
                 Size = DogSize.Medium,
                 Location = "Bucharest",
                 Status = DogStatus.Available,
@@ -190,6 +191,7 @@ public static class IdentitySeedData
                 Name = "Bella",
                 Breed = "Labrador Mix",
                 Age = 5,
+                AgeYears = 5,
                 Size = DogSize.Large,
                 Location = "Bucharest",
                 Status = DogStatus.Reserved,
@@ -205,6 +207,7 @@ public static class IdentitySeedData
                 Name = "Luna",
                 Breed = "Terrier Mix",
                 Age = 1,
+                AgeYears = 1,
                 Size = DogSize.Small,
                 Location = "Ilfov",
                 Status = DogStatus.InTreatment,
@@ -228,6 +231,7 @@ public static class IdentitySeedData
                 Name = "Rocky",
                 Breed = "German Shepherd Mix",
                 Age = 4,
+                AgeYears = 4,
                 Size = DogSize.Large,
                 Location = "Brasov",
                 Status = DogStatus.Available,
@@ -243,6 +247,7 @@ public static class IdentitySeedData
                 Name = "Nala",
                 Breed = "Border Collie Mix",
                 Age = 2,
+                AgeYears = 2,
                 Size = DogSize.Medium,
                 Location = "Sibiu",
                 Status = DogStatus.Available,
@@ -258,6 +263,7 @@ public static class IdentitySeedData
                 Name = "Milo",
                 Breed = "Beagle Mix",
                 Age = 2,
+                AgeYears = 2,
                 Size = DogSize.Medium,
                 Location = "Cluj-Napoca",
                 Status = DogStatus.Adopted,
@@ -331,6 +337,11 @@ public static class IdentitySeedData
         var dogs = await context.Dogs.ToListAsync();
         foreach (var dog in dogs)
         {
+            if (dog.AgeYears == 0 && dog.AgeMonths == 0 && dog.Age > 0)
+            {
+                dog.AgeYears = dog.Age;
+            }
+
             await UpdateDemoDogImagesAsync(context, dog);
 
             if (dog.PreferredFoodTypeId is not null)
@@ -338,7 +349,7 @@ public static class IdentitySeedData
                 continue;
             }
 
-            dog.PreferredFoodTypeId = dog.Age switch
+            dog.PreferredFoodTypeId = dog.AgeYears switch
             {
                 <= 1 => PuppyFoodTypeId,
                 >= 5 => SeniorFoodTypeId,
@@ -371,6 +382,7 @@ public static class IdentitySeedData
                     Name = "Daisy",
                     Breed = "Golden Retriever Mix",
                     Age = 3,
+                    AgeYears = 3,
                     Size = DogSize.Medium,
                     Location = "Bucharest",
                     Status = DogStatus.Adopted,
@@ -393,6 +405,7 @@ public static class IdentitySeedData
                     Name = "Nala",
                     Breed = "Border Collie Mix",
                     Age = 2,
+                    AgeYears = 2,
                     Size = DogSize.Medium,
                     Location = "Sibiu",
                     Status = DogStatus.Available,

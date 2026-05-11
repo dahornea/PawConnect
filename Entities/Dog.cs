@@ -15,6 +15,12 @@ public class Dog
     [Range(0, 30)]
     public int Age { get; set; }
 
+    [Range(0, 30)]
+    public int AgeYears { get; set; }
+
+    [Range(0, 11)]
+    public int AgeMonths { get; set; }
+
     public DogSize Size { get; set; }
 
     [Required, StringLength(120)]

@@ -198,7 +198,7 @@
     {
         if (!await ConfirmAsync(
             "Delete dog",
-            $"Are you sure you want to delete {dog.Name}? This action cannot easily be undone. Dogs with favorites or adoption requests cannot be deleted.",
+            "Are you sure you want to delete this dog? This action cannot easily be undone.",
             "Delete",
             Color.Error,
             Icons.Material.Filled.DeleteForever))
@@ -288,15 +288,7 @@
         };
     }
 
-    private static string FormatAge(Dog dog)
-    {
-        return dog.Age switch
-        {
-            0 => "Under 1 year",
-            1 => "1 year",
-            _ => $"{dog.Age} years"
-        };
-    }
+    private static string FormatAge(Dog dog) => DogAgeFormatter.Format(dog);
 
     private static bool HasSuccessStory(Dog dog)
     {

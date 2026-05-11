@@ -3,6 +3,7 @@
 @using PawConnect.Data
 @attribute [Authorize(Roles = "Shelter")]
 @inject IDogService DogService
+@inject IDogImageService DogImageService
 @inject IFoodTypeService FoodTypeService
 @inject IShelterService ShelterService
 @inject AuthenticationStateProvider AuthenticationStateProvider
@@ -42,8 +43,11 @@
                             <MudItem xs="12" md="6">
                                 <MudTextField Label="Breed" @bind-Value="_model.Breed" Required="true" RequiredError="Breed is required." Variant="Variant.Outlined" />
                             </MudItem>
-                            <MudItem xs="12" md="4">
-                                <MudNumericField T="int" Label="Age" @bind-Value="_model.Age" Min="0" Max="30" Variant="Variant.Outlined" />
+                            <MudItem xs="12" md="2">
+                                <MudNumericField T="int" Label="Age Years" @bind-Value="_model.AgeYears" Min="0" Max="30" Variant="Variant.Outlined" />
+                            </MudItem>
+                            <MudItem xs="12" md="2">
+                                <MudNumericField T="int" Label="Age Months" @bind-Value="_model.AgeMonths" Min="0" Max="11" Variant="Variant.Outlined" />
                             </MudItem>
                             <MudItem xs="12" md="4">
                                 <MudSelect T="DogSize" Label="Size" @bind-Value="_model.Size" Required="true" Variant="Variant.Outlined">
@@ -84,6 +88,41 @@
                             <MudItem xs="12">
                                 <MudTextField Label="Medical Status" @bind-Value="_model.MedicalStatus" Lines="3" Variant="Variant.Outlined" />
                             </MudItem>
+                            <MudItem xs="12">
+                                <MudDivider Class="my-2" />
+                                <MudText Typo="Typo.h6" Class="content-title">Dog Images</MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">Optional image URLs saved with this dog profile.</MudText>
+                                <MudGrid Spacing="2">
+                                    <MudItem xs="12" md="9">
+                                        <MudTextField Label="Image URL" @bind-Value="_newImageUrl" Variant="Variant.Outlined" Placeholder="https://example.com/dog-photo.jpg" />
+                                    </MudItem>
+                                    <MudItem xs="12" md="3">
+                                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.AddPhotoAlternate" OnClick="AddPendingImageUrl">Add Image</MudButton>
+                                    </MudItem>
+                                </MudGrid>
+
+                                @if (!string.IsNullOrWhiteSpace(_imageUrlError))
+                                {
+                                    <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">@_imageUrlError</MudAlert>
+                                }
+
+                                @if (_pendingImageUrls.Count > 0)
+                                {
+                                    <MudGrid Spacing="2" Class="mt-2">
+                                        @foreach (var imageUrl in _pendingImageUrls)
+                                        {
+                                            <MudItem xs="12" sm="6" md="4">
+                                                <MudCard Class="image-card">
+                                                    <MudCardMedia Image="@imageUrl" Height="150" />
+                                                    <MudCardActions>
+                                                        <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="@(() => RemovePendingImageUrl(imageUrl))">Remove</MudButton>
+                                                    </MudCardActions>
+                                                </MudCard>
+                                            </MudItem>
+                                        }
+                                    </MudGrid>
+                                }
+                            </MudItem>
                         </MudGrid>
                     </MudForm>
                 </MudCardContent>
@@ -103,7 +142,10 @@
     private bool _isLoading = true;
     private bool _isSaving;
     private string? _error;
+    private string? _newImageUrl;
+    private string? _imageUrlError;
     private int? _shelterId;
+    private List<string> _pendingImageUrls = [];
 
     protected override async Task OnInitializedAsync()
     {
@@ -149,7 +191,13 @@
 
         try
         {
+            if (!AddPendingImageUrlIfPresent())
+            {
+                return;
+            }
+
             await DogService.CreateDogAsync(_model, _shelterId.Value);
+            await SavePendingImagesAsync();
             Snackbar.Add("Dog profile saved.", Severity.Success);
             NavigationManager.NavigateTo("/shelter/dogs");
         }
@@ -165,6 +213,66 @@
         {
             _isSaving = false;
         }
+    }
+
+    private void AddPendingImageUrl()
+    {
+        AddPendingImageUrlIfPresent(showEmptyMessage: true);
+    }
+
+    private bool AddPendingImageUrlIfPresent(bool showEmptyMessage = false)
+    {
+        _imageUrlError = null;
+
+        if (string.IsNullOrWhiteSpace(_newImageUrl))
+        {
+            if (showEmptyMessage)
+            {
+                _imageUrlError = "Enter an image URL first.";
+            }
+
+            return true;
+        }
+
+        var imageUrl = _newImageUrl.Trim();
+        if (!IsValidImageUrl(imageUrl))
+        {
+            _imageUrlError = "Image URL must be a valid http or https web address.";
+            return false;
+        }
+
+        if (_pendingImageUrls.Contains(imageUrl, StringComparer.OrdinalIgnoreCase))
+        {
+            _imageUrlError = "This image URL was already added.";
+            return false;
+        }
+
+        _pendingImageUrls.Add(imageUrl);
+        _newImageUrl = null;
+        return true;
+    }
+
+    private void RemovePendingImageUrl(string imageUrl)
+    {
+        _pendingImageUrls.Remove(imageUrl);
+    }
+
+    private async Task SavePendingImagesAsync()
+    {
+        for (var index = 0; index < _pendingImageUrls.Count; index++)
+        {
+            await DogImageService.AddDogImageAsync(_model.Id, _shelterId!.Value, new DogImage
+            {
+                ImageUrl = _pendingImageUrls[index],
+                IsMainImage = index == 0
+            });
+        }
+    }
+
+    private static bool IsValidImageUrl(string imageUrl)
+    {
+        return Uri.TryCreate(imageUrl, UriKind.Absolute, out var uri) &&
+            (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
     }
 
     private async Task<int?> GetCurrentShelterIdAsync()

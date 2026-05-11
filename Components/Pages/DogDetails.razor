@@ -78,7 +78,7 @@ else
                             <MudStack Row="true" AlignItems="AlignItems.Start" Class="summary-heading">
                                 <div>
                                     <MudText Typo="Typo.h3" Class="dog-title">@_dog.Name</MudText>
-                                    <MudText Typo="Typo.subtitle1" Class="dog-subtitle">@_dog.Breed, @_dog.Age years old</MudText>
+                                    <MudText Typo="Typo.subtitle1" Class="dog-subtitle">@_dog.Breed, @DogAgeFormatter.Format(_dog)</MudText>
                                 </div>
                                 <MudSpacer />
                                 <MudChip T="string" Color="@GetStatusColor(_dog.Status)" Class="status-chip">@_dog.Status</MudChip>
