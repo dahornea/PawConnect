@@ -24,7 +24,16 @@
                 {
                     <MudText Typo="Typo.body2"><strong>Reason:</strong> @Request.ReasonForJoining</MudText>
                 }
-                <MudText Typo="Typo.body2"><strong>Coordinates:</strong> @FormatCoordinates(Request)</MudText>
+                <MudText Typo="Typo.body2"><strong>Map location:</strong> @FormatMapLocation(Request)</MudText>
+                @if (HasMapLocation(Request))
+                {
+                    <ShelterMap Latitude="Request.Latitude"
+                                Longitude="Request.Longitude"
+                                ShelterName="@Request.ShelterName"
+                                Address="@Request.Address"
+                                City="@Request.City"
+                                Height="240px" />
+                }
             </MudStack>
         }
     </DialogContent>
@@ -45,10 +54,15 @@
         MudDialog.Close();
     }
 
-    private static string FormatCoordinates(ShelterRegistrationRequest request)
+    private static bool HasMapLocation(ShelterRegistrationRequest request)
     {
-        return request.Latitude.HasValue && request.Longitude.HasValue
-            ? $"{request.Latitude:0.######}, {request.Longitude:0.######}"
-            : "Not provided";
+        return request.Latitude.HasValue && request.Longitude.HasValue;
+    }
+
+    private static string FormatMapLocation(ShelterRegistrationRequest request)
+    {
+        return HasMapLocation(request)
+            ? "Map location selected"
+            : "No map location provided";
     }
 }

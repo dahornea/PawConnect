@@ -79,11 +79,11 @@
                         <MudText Typo="Typo.caption">@context.City</MudText>
                         @if (context.Latitude.HasValue && context.Longitude.HasValue)
                         {
-                            <MudChip T="string" Color="Color.Info" Size="Size.Small" Variant="Variant.Outlined">Coordinates</MudChip>
+                            <MudChip T="string" Color="Color.Info" Size="Size.Small" Variant="Variant.Outlined">Map location selected</MudChip>
                         }
                         else
                         {
-                            <MudChip T="string" Color="Color.Default" Size="Size.Small" Variant="Variant.Outlined">No coordinates</MudChip>
+                            <MudChip T="string" Color="Color.Default" Size="Size.Small" Variant="Variant.Outlined">No map location</MudChip>
                         }
                     </MudTd>
                     <MudTd DataLabel="Status">

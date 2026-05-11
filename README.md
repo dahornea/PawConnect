@@ -131,11 +131,11 @@ PawConnect uses OpenStreetMap with Leaflet for shelter location maps and editabl
 
 Shelter coordinates are stored directly on the `Shelter` entity as optional `Latitude` and `Longitude` values. Shelters without coordinates still work normally and show a friendly fallback message instead of a broken map.
 
-Shelter applications and admin shelter editing use address information as the primary input. Latitude/Longitude are optional derived fields. Users can click "Find coordinates" to perform a manual OpenStreetMap Nominatim lookup from address + city + Romania. The app does not geocode while typing, and applicants can still submit without coordinates if lookup fails.
+Shelter applications and admin shelter editing use address information as the primary input. Latitude/Longitude are optional derived fields. Public applicants do not manually type coordinates; they can click "Find location" to perform a manual OpenStreetMap Nominatim lookup from address + city + Romania. The app does not geocode while typing, and applicants can still submit without coordinates if lookup fails.
 
-Coordinate forms also include an editable map. After address lookup, users can drag the marker or click the map to adjust the shelter location. Latitude and Longitude remain visible, optional, and manually editable. Public shelter details maps remain read-only.
+The public shelter application form uses an editable map as the user-facing coordinate editor. After address lookup, applicants can drag the marker or click the map to adjust the shelter location. Latitude and Longitude are stored internally, remain optional, and are not shown as raw numeric fields to public applicants or normal shelter location edit forms. Public shelter details maps remain read-only.
 
-When the editable marker is moved, PawConnect can perform a manual reverse Nominatim lookup and show a suggested address. Suggested addresses do not overwrite the current address/city fields automatically; the user must choose "Use suggested address".
+Moving the marker or clicking the editable map can produce a suggested address through a reverse lookup. The "Update address from pin" action applies the displayed suggestion to the address/city fields; marker movement by itself does not automatically overwrite address fields.
 
 The public shelter pages are:
 
@@ -152,11 +152,11 @@ dotnet tool run dotnet-ef database update
 
 Nominatim integration notes:
 
-- Used only for low-volume/manual coordinate and address suggestion lookup.
+- Used only for low-volume/manual location lookup and explicit address updates from the selected pin.
 - No Google Maps API key is required.
-- Coordinates can be manually edited as a fallback.
+- Users select coordinates through address lookup and the editable map marker, not raw coordinate inputs.
 - Coordinates can be adjusted by dragging the map marker or clicking the editable map in shelter forms.
-- Moving the marker can suggest an address, but applying that suggestion is optional and explicit.
+- Moving the marker does not automatically overwrite address/city fields; users can review the suggested address and click "Update address from pin" when they want that update.
 - Missing coordinates show a friendly map fallback.
 - Route planning, autocomplete, browser geolocation, nearby search, and distance filtering are not implemented.
 

@@ -24,7 +24,7 @@ The main user groups are:
 - **MudBlazor**: Main UI component library for layout, navigation, cards, tables, forms, dialogs, snackbars, chips, alerts, and icons.
 - **Leaflet**: Client-side JavaScript map library used to render read-only shelter maps inside Blazor pages.
 - **OpenStreetMap**: Public map tile provider used by the Leaflet shelter map integration. The map feature does not require a paid Google Maps API key.
-- **OpenStreetMap Nominatim**: Used through `NominatimGeocodingService` for manual address-to-coordinate lookup and optional coordinate-to-address suggestions. The app does not call it on every keystroke and does not use it for route planning or nearby search.
+- **OpenStreetMap Nominatim**: Used through `NominatimGeocodingService` for manual address-to-coordinate lookup. The app does not call it on every keystroke and does not use it for route planning or nearby search.
 - **MailKit and MimeKit**: Used by `SmtpEmailService` for SMTP email sending with plain text bodies and optional attachments.
 - **Mailtrap SMTP**: The active SMTP-style testing target in configuration. Credentials are configuration-based and should be stored safely outside source control for real use.
 - **QuestPDF**: Used by `PdfReportService` to generate PDF reports for adoption requests, adoption status updates, and low-stock resources.
@@ -145,15 +145,15 @@ Admin pages are protected with `[Authorize(Roles = "Admin")]`. Advanced role edi
 - **Internal notes**: Private notes are visible to shelters and admins, not adopters or public users.
 - **Location coordinates**: Shelter records can store optional latitude and longitude coordinates. These coordinates are used to display the shelter location on the public shelter profile page.
 - **Address-based coordinate lookup**: Shelter application and admin shelter edit forms can use manual Nominatim lookup to fill optional coordinates from city/address.
-- **Editable coordinate map**: Shelter application and admin shelter edit forms allow users to drag the marker or click the map to adjust optional coordinates after lookup or manual entry.
-- **Optional reverse geocoding**: After users move the editable marker, the app can suggest an address from the selected coordinates. The suggestion is shown for review and only updates address fields when the user chooses to apply it.
+- **Editable coordinate map**: The public shelter application and admin shelter edit forms hide raw latitude/longitude inputs in normal use and use the editable map marker as the location editor.
+- **Address update from pin**: When a marker location exists, users can explicitly update the address/city fields from the selected pin. Moving the marker alone does not overwrite address fields.
 
 ### Admin Features
 
 - **Admin dashboard**: Shows platform-level counts for users, shelters, dogs, and pending adoption requests, plus secondary metrics.
 - **Users page**: Lists users, roles, contact fields, and adopter profile availability/basic info. Allows safe editing of email, phone, and full name where available.
 - **Shelters page**: Lists shelters and dog counts. Allows editing shelter profile/contact fields.
-- **Shelter coordinates**: Admin shelter editing includes optional latitude and longitude fields so public shelter profile maps can be displayed.
+- **Shelter coordinates**: Admin shelter editing stores optional latitude and longitude values internally so public shelter profile maps can be displayed.
 - **Shelter request review**: Admins review pending shelter applications at `/admin/shelter-requests`. Accepting a request creates an `ApplicationUser`, assigns the `Shelter` role, and creates a linked `Shelter` profile. Rejecting a request does not create a user or shelter. Accept/reject actions are restricted to Admin users.
 - **Dogs page**: Lists all dogs across shelters, including status, shelter, success story indicator, status history access, and allowed delete action.
 - **Adoption requests page**: Lists all adoption requests and request/profile details for admin review.
@@ -196,7 +196,7 @@ Relationships:
 - One shelter has many `Dogs`.
 - One shelter has many `ResourceStocks`.
 
-`Latitude` and `Longitude` are optional coordinate fields used by the public shelter details page to render a read-only map. Existing shelters can still work without coordinates; when either coordinate is missing, the UI shows a location-unavailable fallback instead of rendering a broken map. In coordinate editing forms, these values can be filled manually, by address lookup, by dragging the map marker, or by clicking the editable map. Marker movement can also trigger an optional reverse geocoding suggestion, but the application does not overwrite address/city fields without explicit user confirmation.
+`Latitude` and `Longitude` are optional internal coordinate fields used by the public shelter details page to render a read-only map. Existing shelters can still work without coordinates; when either coordinate is missing, the UI shows a location-unavailable fallback instead of rendering a broken map. In the public shelter application form and normal admin shelter edit form, these raw numeric fields are hidden and are updated internally through address lookup, marker dragging, or map clicks. Marker movement does not overwrite address/city fields automatically.
 
 ### ShelterRegistrationRequest
 
@@ -629,7 +629,7 @@ Shelter onboarding/geocoding organization:
 - `Components/Pages/ShelterApply.razor`: Public shelter application form at `/shelters/apply`.
 - `Components/Pages/Admin/AdminShelterRequests.razor`: Admin review page at `/admin/shelter-requests`.
 - `Services/ShelterRegistrationRequestService.cs`: Handles application submission, duplicate pending email checks, admin notifications, accept/reject workflow, and creating approved shelter accounts/profiles.
-- `Services/NominatimGeocodingService.cs`: Performs manual address-based coordinate lookup and optional reverse coordinate-to-address lookup through OpenStreetMap Nominatim.
+- `Services/NominatimGeocodingService.cs`: Performs manual address-based coordinate lookup through OpenStreetMap Nominatim.
 - `Services/IGeocodingService.cs`: Interface used by public/admin forms so geocoding can be faked in tests.
 
 ## 9. Main Application Flows
@@ -656,18 +656,18 @@ Shelter onboarding/geocoding organization:
 8. The marker popup shows the shelter name and address/city when available.
 9. If coordinates are missing, the map component shows a friendly "Map location is not available for this shelter" fallback instead of trying to initialize Leaflet.
 
-The public map is read-only. Address lookup and reverse address suggestions are limited to editable shelter coordinate forms; the app does not implement route planning, distance search, browser geolocation, or automatic typing autocomplete.
+The public map is read-only. Address lookup and explicit address updates from the selected pin are limited to editable shelter location forms; the app does not implement route planning, distance search, browser geolocation, or automatic typing autocomplete.
 
 ### Shelter Registration Request Flow
 
 1. A public shelter representative opens `/shelters/apply`. Anonymous users can submit applications, and logged-in adopters may submit if they are acting as shelter representatives.
 2. The public application form collects shelter name, contact person, email, phone, city, address, description, and optional website/opening hours/reason.
-3. Latitude and longitude are optional. The user may click "Find coordinates" to run a manual Nominatim lookup from address + city + Romania.
+3. Latitude and longitude are optional internal fields. The applicant may click "Find location" to run a manual Nominatim lookup from address + city + Romania.
 4. If Nominatim returns a result, the form fills `Latitude` and `Longitude` and the editable map marker moves to that location.
-5. If the marker needs adjustment, the user can drag the marker or click the map to update `Latitude` and `Longitude`.
-6. After the marker is moved, the form may call reverse Nominatim lookup once and show a suggested address panel.
-7. The suggested address is optional. The current address/city fields are changed only when the user clicks "Use suggested address".
-8. If Nominatim fails, the user can submit without coordinates or enter/set them manually.
+5. If the marker needs adjustment, the user can drag the marker or click the map to update `Latitude` and `Longitude` internally. The public form shows friendly selected/missing location messages instead of raw coordinate values.
+6. Moving the marker does not automatically overwrite the address/city fields.
+7. After the user moves the marker or clicks the map, the app can perform a reverse lookup from the selected marker location and show a suggested address. The address/city fields are updated only when the user clicks "Update address from pin".
+8. If Nominatim fails, the user can submit without coordinates or set them with the map marker.
 9. `ShelterRegistrationRequestService.SubmitRequestAsync` validates the form, blocks Admin/Shelter users from submitting public applications, and blocks duplicate pending applications for the same email.
 10. The service saves a `ShelterRegistrationRequest` with `Pending` status before sending any email.
 11. The service attempts to notify admin users by email and attach `ShelterRegistrationRequest.pdf`. Email/PDF failure is logged and does not delete or cancel the request.
@@ -876,10 +876,10 @@ Implemented behavior:
 - No Google Maps API key or paid maps API is required.
 - Public shelter maps are read-only. Shelter application/admin coordinate forms use an editable mode for coordinate adjustment.
 - Shelter coordinates are stored in the database as optional `Latitude` and `Longitude` fields on the `Shelter` entity.
-- Address information is the primary location input; coordinates can be derived through a manual OpenStreetMap Nominatim lookup, entered manually, or adjusted through the editable map marker.
-- Reverse Nominatim lookup can suggest an address after a marker click/drag. The app displays the suggestion and waits for the user to apply it instead of overwriting address fields automatically.
+- Address information is the primary location input; coordinates can be derived through a manual OpenStreetMap Nominatim lookup or adjusted through the editable map marker. Raw coordinate inputs are hidden from public shelter applicants and normal admin shelter edit forms.
+- The UI exposes an explicit "Update address from pin" action when a suggested address exists. Marker movement alone does not automatically overwrite address fields; reverse lookup results are shown as a suggestion before the user applies them.
 - `ShelterMap.razor` receives the coordinates and passes them to JavaScript interop for Leaflet initialization.
-- In editable form mode, `ShelterMap.razor` exposes latitude/longitude callbacks so marker dragging and map clicks update the bound coordinate fields and allow the form to request an optional address suggestion.
+- In editable form mode, `ShelterMap.razor` exposes latitude/longitude callbacks so marker dragging and map clicks update the bound coordinate fields internally.
 - Marker popups show the shelter name and address/city when available.
 - The map uses a custom inline SVG-style marker, so it does not depend on Leaflet marker PNG files loading correctly.
 
@@ -936,7 +936,7 @@ Common UI patterns:
 - MudAlert for empty, warning, and error states.
 - Status chips for dog and adoption request states.
 - Shelter profile pages include a Location card that displays a responsive read-only Leaflet/OpenStreetMap map with rounded corners when coordinates are available.
-- Shelter application and admin shelter edit forms use editable map mode so users can click to place the pin or drag the marker to refine coordinates, then optionally apply a suggested address found from the selected location.
+- Shelter application and admin shelter edit forms use editable map mode so users can click to place the pin or drag the marker to refine coordinates. The forms keep raw coordinate values internal and show friendly location status messages instead.
 - Shelter map fallback states use MudBlazor alerts/messages when coordinates are unavailable, keeping the page usable instead of showing an empty or broken map.
 
 ## 13. Validation and Error Handling
@@ -959,7 +959,7 @@ Examples of service validation:
 - `AdopterProfileService` validates full name, city, phone number, and profile image URL.
 - `ShelterService` validates shelter profile contact fields, duplicate shelter email, and optional latitude/longitude ranges.
 - `ShelterRegistrationRequestService` validates shelter application required fields, duplicate pending emails, optional latitude/longitude ranges, role restrictions for public submission, and admin-only pending accept/reject behavior.
-- `NominatimGeocodingService` returns `null` for missing/failed forward or reverse geocoding results so forms can show friendly messages without blocking application submission.
+- `NominatimGeocodingService` returns `null` for missing/failed geocoding results so forms can show friendly messages without blocking application submission.
 
 Error handling patterns:
 
@@ -1202,7 +1202,7 @@ Evaluate project outcomes and list future improvements such as real uploads, dep
 - Dog deletion is blocked by adoption request history, not favorites.
 - Favorites and recently viewed records are removed when deleting a dog with no adoption requests.
 - Dog status history records track only status changes, not all dog edits.
-- Shelter maps use optional stored coordinates on `Shelter`; public maps are read-only and coordinate forms can use manual Nominatim lookup plus optional reverse address suggestions.
+- Shelter maps use optional stored coordinates on `Shelter`; public maps are read-only and coordinate forms use manual Nominatim lookup plus editable map markers.
 - Nominatim geocoding is manual/user-triggered only, not autocomplete, continuous dragging lookup, or automatic background geocoding.
 - Email/PDF failures are intentionally non-blocking and logged.
 - PDF reports are generated dynamically and are not stored in the database.

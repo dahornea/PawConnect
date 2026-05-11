@@ -103,7 +103,17 @@
                 <MudButton Href="/dogs" Variant="Variant.Text" Color="Color.Primary" EndIcon="@Icons.Material.Filled.ArrowForward">See all dogs</MudButton>
             </MudStack>
 
-            @if (_featuredDogs.Count == 0)
+            @if (_isLoadingFeaturedDogs)
+            {
+                <MudPaper Elevation="0" Class="empty-state pa-5">
+                    <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                        <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                        <MudText Typo="Typo.h6">Loading featured dogs...</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Fetching available and reserved dogs.</MudText>
+                    </MudStack>
+                </MudPaper>
+            }
+            else if (_featuredDogs.Count == 0)
             {
                 <MudPaper Elevation="0" Class="empty-state pa-5">
                     <MudStack AlignItems="AlignItems.Center" Spacing="2">
@@ -221,6 +231,8 @@
 
 @code {
     private List<Dog> _featuredDogs = [];
+    private bool _isLoadingFeaturedDogs = true;
+    private bool _hasRetriedFeaturedDogsLoad;
 
     [SupplyParameterFromQuery(Name = "loggedOut")]
     private bool LoggedOut { get; set; }
@@ -229,14 +241,20 @@
 
     protected override async Task OnInitializedAsync()
     {
-        try
+        await LoadFeaturedDogsAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _featuredDogs.Count > 0 || _hasRetriedFeaturedDogsLoad)
         {
-            _featuredDogs = (await DogService.GetAvailableDogsAsync()).Take(4).ToList();
+            return;
         }
-        catch
-        {
-            _featuredDogs = [];
-        }
+
+        _hasRetriedFeaturedDogsLoad = true;
+        await Task.Delay(300);
+        await LoadFeaturedDogsAsync();
+        StateHasChanged();
     }
 
     protected override void OnParametersSet()
@@ -245,6 +263,24 @@
         {
             _logoutMessageShown = true;
             Snackbar.Add("You have been logged out successfully.", Severity.Success);
+        }
+    }
+
+    private async Task LoadFeaturedDogsAsync()
+    {
+        _isLoadingFeaturedDogs = true;
+
+        try
+        {
+            _featuredDogs = (await DogService.GetAvailableDogsAsync()).Take(4).ToList();
+        }
+        catch
+        {
+            _featuredDogs = [];
+        }
+        finally
+        {
+            _isLoadingFeaturedDogs = false;
         }
     }
 
