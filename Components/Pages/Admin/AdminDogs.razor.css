@@ -9,6 +9,68 @@
     background: rgba(47, 111, 94, 0.06);
 }
 
+::deep .admin-dogs-table .mud-table-row {
+    vertical-align: middle;
+}
+
+::deep .admin-dogs-table .mud-table-cell {
+    padding-top: 10px;
+    padding-bottom: 10px;
+}
+
+.dog-cell {
+    min-width: 210px;
+}
+
+.dog-name {
+    max-width: 150px;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+::deep .dog-avatar {
+    border: 1px solid rgba(47, 111, 94, 0.12);
+    background: linear-gradient(135deg, rgba(47, 111, 94, 0.12), rgba(201, 129, 45, 0.08));
+}
+
+::deep .dog-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.nowrap-cell {
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.success-story-cell {
+    min-width: 132px;
+    white-space: nowrap;
+}
+
+::deep .story-button {
+    min-width: 0;
+    height: 28px;
+    padding-inline: 10px;
+    border-color: rgba(46, 125, 50, 0.35);
+    background: rgba(46, 125, 50, 0.05);
+    text-transform: none;
+}
+
+.actions-heading,
+.actions-cell {
+    text-align: right;
+}
+
+.actions-stack {
+    min-width: 112px;
+}
+
 ::deep .history-panel {
     border-left: 4px solid #256d85;
 }

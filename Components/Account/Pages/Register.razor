@@ -20,7 +20,7 @@
 <div class="auth-page">
     <MudCard Class="auth-card">
         <MudCardContent>
-            <MudStack Spacing="3">
+            <MudStack Spacing="4">
                 <div class="auth-brand">
                     <span class="auth-brand-icon"><MudIcon Icon="@Icons.Material.Filled.Pets" /></span>
                     <div>
@@ -38,7 +38,7 @@
                     <DataAnnotationsValidator />
                     <ValidationSummary class="auth-validation-summary" role="alert" />
 
-                    <MudStack Spacing="2">
+                    <MudStack Spacing="3">
                         <div class="auth-field">
                             <label for="Input.Email">Email</label>
                             <InputText @bind-Value="Input.Email" id="Input.Email" class="auth-input" autocomplete="username" aria-required="true" placeholder="name@example.com" />
@@ -57,7 +57,6 @@
                             <ValidationMessage For="() => Input.ConfirmPassword" class="auth-validation-message" />
                         </div>
 
-                        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">New public registrations are assigned the Adopter role.</MudAlert>
                         <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large" FullWidth="true" StartIcon="@Icons.Material.Filled.PersonAdd">Register</MudButton>
                     </MudStack>
                 </EditForm>

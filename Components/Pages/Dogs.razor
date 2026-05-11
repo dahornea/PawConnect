@@ -114,17 +114,19 @@
 
                     <MudItem xs="12" sm="6" md="4">
                         <MudCard Class="dog-card">
-                            @if (imageUrl is null)
-                            {
-                                <div class="dog-image dog-image-placeholder">
-                                    <MudIcon Icon="@Icons.Material.Filled.Pets" Color="Color.Primary" />
-                                    <MudText Typo="Typo.caption">No image available</MudText>
-                                </div>
-                            }
-                            else
-                            {
-                                <MudCardMedia Image="@imageUrl" Class="dog-image" />
-                            }
+                            <a class="dog-image-link" href="@($"/dogs/{dog.Id}")" aria-label="@($"View details for {dog.Name}")">
+                                @if (imageUrl is null)
+                                {
+                                    <div class="dog-image dog-image-placeholder">
+                                        <MudIcon Icon="@Icons.Material.Filled.Pets" Color="Color.Primary" />
+                                        <MudText Typo="Typo.caption">No image available</MudText>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <MudCardMedia Image="@imageUrl" Class="dog-image" />
+                                }
+                            </a>
                             <MudCardContent>
                                 <MudStack Spacing="1">
                                     <MudStack Row="true" AlignItems="AlignItems.Start">
@@ -340,13 +342,13 @@
             {
                 await FavoriteDogService.RemoveFavoriteAsync(_currentUserId, dog.Id);
                 _favoriteDogIds.Remove(dog.Id);
-                Snackbar.Add($"{dog.Name} was removed from favorites.", Severity.Success);
+                Snackbar.Add("Dog removed from favorites.", Severity.Success);
             }
             else
             {
                 await FavoriteDogService.AddFavoriteAsync(_currentUserId, dog.Id);
                 _favoriteDogIds.Add(dog.Id);
-                Snackbar.Add($"{dog.Name} was added to favorites.", Severity.Success);
+                Snackbar.Add("Dog added to favorites.", Severity.Success);
             }
         }
         catch (InvalidOperationException ex)
@@ -355,7 +357,7 @@
         }
         catch
         {
-            Snackbar.Add("Favorite could not be updated right now.", Severity.Error);
+            Snackbar.Add("Could not update favorites. Please try again.", Severity.Error);
         }
     }
 

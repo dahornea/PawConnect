@@ -240,6 +240,21 @@ public static class IdentitySeedData
             },
             new Dog
             {
+                Name = "Nala",
+                Breed = "Border Collie Mix",
+                Age = 2,
+                Size = DogSize.Medium,
+                Location = "Sibiu",
+                Status = DogStatus.Available,
+                PreferredFoodTypeId = AdultDryFoodTypeId,
+                DailyFoodAmountGrams = 340,
+                Description = "Bright and affectionate dog who enjoys walks, training, and gentle play.",
+                BehaviorDescription = "Smart, attentive, and eager to bond with people.",
+                MedicalStatus = "Vaccinated and healthy.",
+                Images = [new DogImage { ImageUrl = "https://placedog.net/800/500?id=66", IsMainImage = true }]
+            },
+            new Dog
+            {
                 Name = "Milo",
                 Breed = "Beagle Mix",
                 Age = 2,
@@ -369,6 +384,26 @@ public static class IdentitySeedData
                     Images = [new DogImage { ImageUrl = "https://placedog.net/800/500?id=55", IsMainImage = true }]
                 });
             }
+
+            if (!await context.Dogs.AnyAsync(d => d.Name == "Nala"))
+            {
+                context.Dogs.Add(new Dog
+                {
+                    ShelterId = shelter.Id,
+                    Name = "Nala",
+                    Breed = "Border Collie Mix",
+                    Age = 2,
+                    Size = DogSize.Medium,
+                    Location = "Sibiu",
+                    Status = DogStatus.Available,
+                    PreferredFoodTypeId = AdultDryFoodTypeId,
+                    DailyFoodAmountGrams = 340,
+                    Description = "Bright and affectionate dog who enjoys walks, training, and gentle play.",
+                    BehaviorDescription = "Smart, attentive, and eager to bond with people.",
+                    MedicalStatus = "Vaccinated and healthy.",
+                    Images = [new DogImage { ImageUrl = "https://placedog.net/800/500?id=66", IsMainImage = true }]
+                });
+            }
         }
 
         await context.SaveChangesAsync();
@@ -382,6 +417,7 @@ public static class IdentitySeedData
             "Bella" => "https://placedog.net/800/500?id=22",
             "Rocky" => "https://placedog.net/800/500?id=33",
             "Milo" => "https://placedog.net/800/500?id=44",
+            "Nala" => "https://placedog.net/800/500?id=66",
             _ => null
         };
 

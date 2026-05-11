@@ -41,7 +41,7 @@ else
                 var galleryImages = validImages.Skip(1).ToList();
             }
 
-            <MudGrid Spacing="3">
+            <MudGrid Spacing="3" Class="details-hero-grid">
                 <MudItem xs="12" md="5">
                     <MudCard Class="section-surface">
                         @if (mainImage is null)
@@ -75,36 +75,40 @@ else
                 <MudItem xs="12" md="7">
                     <MudPaper Elevation="0" Class="section-surface dog-summary pa-4">
                         <MudStack Spacing="2">
-                            <MudStack Row="true" AlignItems="AlignItems.Start">
+                            <MudStack Row="true" AlignItems="AlignItems.Start" Class="summary-heading">
                                 <div>
-                                    <MudText Typo="Typo.h4">@_dog.Name</MudText>
-                                    <MudText Typo="Typo.subtitle1">@_dog.Breed, @_dog.Age years old</MudText>
+                                    <MudText Typo="Typo.h3" Class="dog-title">@_dog.Name</MudText>
+                                    <MudText Typo="Typo.subtitle1" Class="dog-subtitle">@_dog.Breed, @_dog.Age years old</MudText>
                                 </div>
                                 <MudSpacer />
-                                <MudChip T="string" Color="@GetStatusColor(_dog.Status)">@_dog.Status</MudChip>
+                                <MudChip T="string" Color="@GetStatusColor(_dog.Status)" Class="status-chip">@_dog.Status</MudChip>
                             </MudStack>
 
                             <MudDivider />
 
-                            <MudGrid>
+                            <MudGrid Class="fact-grid">
                                 <MudItem xs="12" sm="6">
-                                    <MudText Typo="Typo.body2" Color="Color.Secondary">Size</MudText>
-                                    <MudText Typo="Typo.body1">@_dog.Size</MudText>
+                                    <div class="fact-tile">
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">Size</MudText>
+                                        <MudText Typo="Typo.body1">@_dog.Size</MudText>
+                                    </div>
                                 </MudItem>
                                 <MudItem xs="12" sm="6">
-                                    <MudText Typo="Typo.body2" Color="Color.Secondary">Location</MudText>
-                                    <MudText Typo="Typo.body1">@_dog.Location</MudText>
+                                    <div class="fact-tile">
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">Location</MudText>
+                                        <MudText Typo="Typo.body1">@_dog.Location</MudText>
+                                    </div>
                                 </MudItem>
                             </MudGrid>
 
                             @if (!string.IsNullOrWhiteSpace(_dog.Description))
                             {
-                                <MudText Typo="Typo.body1">@_dog.Description</MudText>
+                                <MudText Typo="Typo.body1" Class="dog-description">@_dog.Description</MudText>
                             }
 
                             @if (!string.IsNullOrWhiteSpace(_dog.BehaviorDescription))
                             {
-                                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+                                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="detail-note">
                                     <MudText Typo="Typo.subtitle2">Behavior</MudText>
                                     <MudText Typo="Typo.body2">@_dog.BehaviorDescription</MudText>
                                 </MudAlert>
@@ -112,7 +116,7 @@ else
 
                             @if (!string.IsNullOrWhiteSpace(_dog.MedicalStatus))
                             {
-                                <MudAlert Severity="Severity.Success" Variant="Variant.Outlined">
+                                <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Class="detail-note">
                                     <MudText Typo="Typo.subtitle2">Medical Status</MudText>
                                     <MudText Typo="Typo.body2">@_dog.MedicalStatus</MudText>
                                 </MudAlert>
@@ -141,8 +145,8 @@ else
                             }
                             else if (_currentUserIsShelter)
                             {
-                                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
-                                    Shelter accounts can view public dog information here. Use the shelter dog management page for dogs owned by your shelter.
+                                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="role-note">
+                                    You are viewing this as a shelter account. Use your shelter workspace when you need to manage your own dog profiles.
                                     <MudButton Href="/shelter/dogs" Variant="Variant.Text" Color="Color.Primary" Class="ml-2">Manage Dogs</MudButton>
                                 </MudAlert>
                             }
@@ -215,7 +219,7 @@ else
                     <MudPaper Elevation="0" Class="section-surface info-panel pa-4 h-100">
                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
                             <MudIcon Icon="@Icons.Material.Filled.Business" Color="Color.Primary" />
-                            <MudText Typo="Typo.h6">Shelter</MudText>
+                                    <MudText Typo="Typo.h6" Class="content-title">Shelter</MudText>
                         </MudStack>
                         <MudDivider Class="my-2" />
                         @if (_dog.Shelter is null)
@@ -244,7 +248,7 @@ else
                     <MudPaper Elevation="0" Class="section-surface info-panel pa-4 h-100">
                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
                             <MudIcon Icon="@Icons.Material.Filled.Restaurant" Color="Color.Secondary" />
-                            <MudText Typo="Typo.h6">Food</MudText>
+                            <MudText Typo="Typo.h6" Class="content-title">Food</MudText>
                         </MudStack>
                         <MudDivider Class="my-2" />
                         @if (_dog.PreferredFoodType is null && _dog.DailyFoodAmountGrams is null)
@@ -268,7 +272,7 @@ else
                     <MudPaper Elevation="0" Class="section-surface info-panel pa-4 h-100">
                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
                             <MudIcon Icon="@Icons.Material.Filled.MedicalServices" Color="Color.Info" />
-                            <MudText Typo="Typo.h6">Medical Records</MudText>
+                            <MudText Typo="Typo.h6" Class="content-title">Medical Records</MudText>
                         </MudStack>
                         <MudDivider Class="my-2" />
                         @if (_dog.MedicalRecords.Count == 0)
@@ -433,13 +437,13 @@ else
             {
                 await FavoriteDogService.RemoveFavoriteAsync(_currentUserId, _dog.Id);
                 _isFavorite = false;
-                Snackbar.Add($"{_dog.Name} was removed from favorites.", Severity.Success);
+                Snackbar.Add("Dog removed from favorites.", Severity.Success);
             }
             else
             {
                 await FavoriteDogService.AddFavoriteAsync(_currentUserId, _dog.Id);
                 _isFavorite = true;
-                Snackbar.Add($"{_dog.Name} was added to favorites.", Severity.Success);
+                Snackbar.Add("Dog added to favorites.", Severity.Success);
             }
         }
         catch (InvalidOperationException ex)
@@ -448,7 +452,7 @@ else
         }
         catch
         {
-            Snackbar.Add("Favorite could not be updated right now.", Severity.Error);
+            Snackbar.Add("Could not update favorites. Please try again.", Severity.Error);
         }
     }
 
@@ -518,7 +522,7 @@ else
             _hasPendingRequest = true;
             _showAdoptionForm = false;
             ResetAdoptionForm();
-            Snackbar.Add("Adoption request submitted and shelter notified with PDF report.", Severity.Success);
+            Snackbar.Add("Adoption request submitted successfully.", Severity.Success);
         }
         catch (InvalidOperationException ex)
         {
@@ -526,7 +530,7 @@ else
         }
         catch
         {
-            Snackbar.Add("Adoption request could not be submitted right now.", Severity.Error);
+            Snackbar.Add("Could not submit the request. Please try again.", Severity.Error);
         }
         finally
         {

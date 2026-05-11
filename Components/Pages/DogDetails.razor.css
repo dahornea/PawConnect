@@ -1,6 +1,21 @@
+.dog-details-page {
+    padding-bottom: 20px;
+}
+
+.dog-details-page ::deep .details-hero-grid {
+    align-items: start;
+}
+
+.dog-details-page ::deep .section-surface {
+    border: 1px solid rgba(47, 111, 94, 0.1);
+    border-radius: 14px;
+    box-shadow: 0 12px 32px rgba(31, 47, 42, 0.07);
+}
+
 .dog-details-page ::deep .dog-detail-image {
     height: 430px;
     object-fit: cover;
+    border-radius: 14px;
 }
 
 .dog-details-page .dog-image-placeholder {
@@ -23,11 +38,63 @@
 .dog-details-page ::deep .gallery-image {
     height: 108px;
     object-fit: cover;
+    border-radius: 10px;
 }
 
 .dog-details-page ::deep .dog-summary {
     position: sticky;
     top: 84px;
+    background: linear-gradient(180deg, #ffffff, #f8fbf7);
+}
+
+.dog-details-page .summary-heading {
+    gap: 16px;
+}
+
+.dog-details-page .dog-title {
+    font-weight: 800;
+    letter-spacing: 0;
+    line-height: 1.05;
+}
+
+.dog-details-page .dog-subtitle {
+    color: #66756f;
+}
+
+.dog-details-page ::deep .status-chip {
+    font-weight: 700;
+    margin-top: 4px;
+}
+
+.dog-details-page .fact-grid {
+    margin-top: 2px;
+}
+
+.dog-details-page .fact-tile {
+    border: 1px solid rgba(47, 111, 94, 0.1);
+    border-radius: 10px;
+    background: rgba(244, 247, 242, 0.72);
+    padding: 12px 14px;
+}
+
+.dog-details-page .fact-tile .mud-typography-caption {
+    display: block;
+    margin-bottom: 2px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.dog-details-page .dog-description {
+    border-left: 4px solid #d97706;
+    padding: 10px 14px;
+    background: rgba(255, 251, 235, 0.66);
+    border-radius: 0 10px 10px 0;
+    line-height: 1.55;
+}
+
+.dog-details-page ::deep .detail-note,
+.dog-details-page ::deep .role-note {
+    border-radius: 10px;
 }
 
 .dog-details-page ::deep .request-panel {
@@ -38,6 +105,7 @@
 
 .dog-details-page ::deep .info-panel {
     min-height: 210px;
+    background: linear-gradient(180deg, #ffffff, #fbfcfa);
 }
 
 .dog-details-page ::deep .medical-record {

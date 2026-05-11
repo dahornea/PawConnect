@@ -7,9 +7,9 @@
 
 <MudContainer MaxWidth="MaxWidth.False" Class="px-0">
     <MudStack Spacing="3">
-        <div>
+        <div class="page-header">
             <MudText Typo="Typo.h4">Shelters</MudText>
-            <MudText Typo="Typo.body2" Color="Color.Secondary">View registered shelter profiles and their dog counts.</MudText>
+            <MudText Typo="Typo.body2">View registered shelter profiles and their dog counts.</MudText>
         </div>
 
         @if (_isLoading)
@@ -165,7 +165,7 @@
         try
         {
             await ShelterService.UpdateShelterProfileAsync(_editShelter);
-            Snackbar.Add("Shelter profile updated.", Severity.Success);
+            Snackbar.Add("Shelter profile saved.", Severity.Success);
             _editShelter = null;
             await LoadSheltersAsync();
         }
@@ -175,7 +175,7 @@
         }
         catch
         {
-            Snackbar.Add("Shelter profile could not be updated right now.", Severity.Error);
+            Snackbar.Add("Could not save shelter profile. Please try again.", Severity.Error);
         }
         finally
         {

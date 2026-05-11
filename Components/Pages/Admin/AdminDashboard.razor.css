@@ -33,6 +33,12 @@
     box-shadow: 0 8px 24px rgba(31, 47, 42, 0.06);
 }
 
+.admin-dashboard ::deep .secondary-overview {
+    border: 1px solid rgba(47, 111, 94, 0.1);
+    border-radius: 10px;
+    background: linear-gradient(180deg, #ffffff, #f8fbf7);
+}
+
 .stat-icon {
     width: 44px;
     height: 44px;

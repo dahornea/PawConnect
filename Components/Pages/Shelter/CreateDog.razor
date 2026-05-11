@@ -14,9 +14,9 @@
 
 <MudContainer MaxWidth="MaxWidth.Medium" Class="px-0">
     <MudStack Spacing="3">
-        <div>
+        <div class="page-header">
             <MudText Typo="Typo.h4">Create Dog</MudText>
-            <MudText Typo="Typo.body2" Color="Color.Secondary">Add a new dog profile for your shelter.</MudText>
+            <MudText Typo="Typo.body2">Add a new dog profile for your shelter.</MudText>
         </div>
 
         @if (_isLoading)
@@ -150,7 +150,7 @@
         try
         {
             await DogService.CreateDogAsync(_model, _shelterId.Value);
-            Snackbar.Add("Dog created successfully.", Severity.Success);
+            Snackbar.Add("Dog profile saved.", Severity.Success);
             NavigationManager.NavigateTo("/shelter/dogs");
         }
         catch (InvalidOperationException ex)
@@ -159,7 +159,7 @@
         }
         catch
         {
-            Snackbar.Add("Dog could not be created right now.", Severity.Error);
+            Snackbar.Add("Could not save dog profile. Please try again.", Severity.Error);
         }
         finally
         {

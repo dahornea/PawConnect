@@ -7,15 +7,16 @@
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject UserManager<ApplicationUser> UserManager
 @inject ISnackbar Snackbar
+@inject IDialogService DialogService
 
 <PageTitle>Manage Dogs</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.False" Class="px-0">
     <MudStack Spacing="3">
-        <MudStack Row="true" AlignItems="AlignItems.Center">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Class="page-header-row">
             <div>
                 <MudText Typo="Typo.h4">Manage Dogs</MudText>
-                <MudText Typo="Typo.body2" Color="Color.Secondary">Create, edit, and review dogs assigned to your shelter.</MudText>
+                <MudText Typo="Typo.body2">Create, edit, and review dogs assigned to your shelter.</MudText>
             </div>
             <MudSpacer />
             <MudButton Href="/shelter/dogs/create" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add">Add Dog</MudButton>
@@ -115,15 +116,7 @@
                     <MudTd>
                         <MudStack Row="true" Spacing="1">
                             <MudButton Href="@($"/shelter/dogs/edit/{context.Id}")" Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Edit">Edit</MudButton>
-                            @if (_deleteConfirmDogId == context.Id)
-                            {
-                                <MudButton Variant="Variant.Text" Color="Color.Error" StartIcon="@Icons.Material.Filled.DeleteForever" Disabled="_isDeleting" OnClick="@(() => DeleteAsync(context))">Confirm</MudButton>
-                                <MudButton Variant="Variant.Text" Color="Color.Default" Disabled="_isDeleting" OnClick="CancelDelete">Cancel</MudButton>
-                            }
-                            else
-                            {
-                                <MudButton Variant="Variant.Text" Color="Color.Error" StartIcon="@Icons.Material.Filled.Delete" Disabled="_isDeleting" OnClick="@(() => AskDeleteConfirmation(context))">Delete</MudButton>
-                            }
+                            <MudButton Variant="Variant.Text" Color="Color.Error" StartIcon="@Icons.Material.Filled.Delete" Disabled="_isDeleting" OnClick="@(() => ConfirmDeleteAsync(context))">Delete</MudButton>
                         </MudStack>
                     </MudTd>
                 </RowTemplate>
@@ -141,7 +134,6 @@
     private DogStatus? _statusFilter;
     private DogSize? _sizeFilter;
     private int? _shelterId;
-    private int? _deleteConfirmDogId;
 
     private IEnumerable<Dog> FilteredDogs
     {
@@ -191,15 +183,19 @@
         }
     }
 
-    private void AskDeleteConfirmation(Dog dog)
+    private async Task ConfirmDeleteAsync(Dog dog)
     {
-        _deleteConfirmDogId = dog.Id;
-        Snackbar.Add($"Click Confirm to delete {dog.Name}. Dogs with favorites or adoption requests cannot be deleted.", Severity.Info);
-    }
+        if (!await ConfirmAsync(
+            "Delete dog",
+            $"Are you sure you want to delete {dog.Name}? This action cannot easily be undone. Dogs with favorites or adoption requests cannot be deleted.",
+            "Delete",
+            Color.Error,
+            Icons.Material.Filled.DeleteForever))
+        {
+            return;
+        }
 
-    private void CancelDelete()
-    {
-        _deleteConfirmDogId = null;
+        await DeleteAsync(dog);
     }
 
     private async Task DeleteAsync(Dog dog)
@@ -216,8 +212,7 @@
         {
             await DogService.DeleteDogAsync(dog.Id, _shelterId.Value);
             _dogs.Remove(dog);
-            _deleteConfirmDogId = null;
-            Snackbar.Add($"{dog.Name} was deleted.", Severity.Success);
+            Snackbar.Add("Dog deleted.", Severity.Success);
         }
         catch (InvalidOperationException ex)
         {
@@ -225,12 +220,29 @@
         }
         catch
         {
-            Snackbar.Add("Dog could not be deleted right now.", Severity.Error);
+            Snackbar.Add("Could not delete dog. Please try again.", Severity.Error);
         }
         finally
         {
             _isDeleting = false;
         }
+    }
+
+    private async Task<bool> ConfirmAsync(string title, string message, string confirmText, Color confirmColor, string icon)
+    {
+        var parameters = new DialogParameters
+        {
+            ["Title"] = title,
+            ["Message"] = message,
+            ["ConfirmText"] = confirmText,
+            ["ConfirmColor"] = confirmColor,
+            ["IconColor"] = confirmColor,
+            ["Icon"] = icon
+        };
+
+        var dialog = await DialogService.ShowAsync<ConfirmationDialog>(title, parameters);
+        var result = await dialog.Result;
+        return result is not null && !result.Canceled;
     }
 
     private async Task<int?> GetCurrentShelterIdAsync()

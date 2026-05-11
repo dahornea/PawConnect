@@ -20,7 +20,7 @@
                 <div>
                     <MudText Typo="Typo.caption" Class="dashboard-kicker">System overview</MudText>
                     <MudText Typo="Typo.h4">Admin Dashboard</MudText>
-                    <MudText Typo="Typo.body1">Review users, shelters, dogs, adoption activity, and resource risk in one place.</MudText>
+                    <MudText Typo="Typo.body1">Review users, shelters, dogs, and pending adoption activity.</MudText>
                 </div>
             </MudStack>
         </section>
@@ -49,21 +49,22 @@
                     <MudCard Class="stat-card"><MudCardContent><MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2"><span class="stat-icon"><MudIcon Icon="@Icons.Material.Filled.Pets" /></span><div><MudText Typo="Typo.caption" Color="Color.Secondary">Dogs</MudText><MudText Typo="Typo.h4">@_totalDogs</MudText></div></MudStack></MudCardContent></MudCard>
                 </MudItem>
                 <MudItem xs="12" sm="6" md="3">
-                    <MudCard Class="stat-card"><MudCardContent><MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2"><span class="stat-icon success"><MudIcon Icon="@Icons.Material.Filled.CheckCircle" /></span><div><MudText Typo="Typo.caption" Color="Color.Secondary">Available dogs</MudText><MudText Typo="Typo.h4">@_availableDogs</MudText></div></MudStack></MudCardContent></MudCard>
-                </MudItem>
-                <MudItem xs="12" sm="6" md="3">
-                    <MudCard Class="stat-card"><MudCardContent><MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2"><span class="stat-icon muted"><MudIcon Icon="@Icons.Material.Filled.EmojiEvents" /></span><div><MudText Typo="Typo.caption" Color="Color.Secondary">Adopted dogs</MudText><MudText Typo="Typo.h4">@_adoptedDogs</MudText></div></MudStack></MudCardContent></MudCard>
-                </MudItem>
-                <MudItem xs="12" sm="6" md="3">
                     <MudCard Class="stat-card"><MudCardContent><MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2"><span class="stat-icon warning"><MudIcon Icon="@Icons.Material.Filled.HourglassTop" /></span><div><MudText Typo="Typo.caption" Color="Color.Secondary">Pending requests</MudText><MudText Typo="Typo.h4">@_pendingRequests</MudText></div></MudStack></MudCardContent></MudCard>
-                </MudItem>
-                <MudItem xs="12" sm="6" md="3">
-                    <MudCard Class="stat-card"><MudCardContent><MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2"><span class="stat-icon danger"><MudIcon Icon="@Icons.Material.Filled.Inventory2" /></span><div><MudText Typo="Typo.caption" Color="Color.Secondary">Low stock</MudText><MudText Typo="Typo.h4">@_lowStockResources</MudText></div></MudStack></MudCardContent></MudCard>
                 </MudItem>
             </MudGrid>
 
+            <MudPaper Elevation="0" Class="section-surface secondary-overview pa-3">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudText Typo="Typo.subtitle2">Secondary overview</MudText>
+                    <MudSpacer />
+                    <MudChip T="string" Color="Color.Success" Variant="Variant.Outlined" Size="Size.Small">@_availableDogs available dogs</MudChip>
+                    <MudChip T="string" Color="Color.Default" Variant="Variant.Outlined" Size="Size.Small">@_adoptedDogs adopted dogs</MudChip>
+                    <MudChip T="string" Color="Color.Warning" Variant="Variant.Outlined" Size="Size.Small">@_lowStockResources low-stock shelter resources</MudChip>
+                </MudStack>
+            </MudPaper>
+
             <MudPaper Elevation="0" Class="section-surface pa-4">
-                <MudText Typo="Typo.h5" Class="mb-3">Quick Navigation</MudText>
+                <MudText Typo="Typo.h5" Class="section-title mb-3">Quick Navigation</MudText>
                 <MudGrid>
                     <MudItem xs="12" sm="6" md="3">
                         <MudButton Href="/admin/users" Class="quick-action-button" Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" StartIcon="@Icons.Material.Filled.People">Users</MudButton>

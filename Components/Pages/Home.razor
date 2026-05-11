@@ -1,18 +1,19 @@
 @page "/"
 @inject IDogService DogService
+@inject ISnackbar Snackbar
 
 <PageTitle>PawConnect: A Web Platform for Stray Dog Adoption and Shelter Management</PageTitle>
 
 <div class="home-page">
-    <MudStack Spacing="5">
-        <section class="hero-surface pa-8">
+    <MudStack Spacing="3">
+        <section class="hero-surface pa-4">
             <MudGrid Class="hero-grid" Spacing="4">
                 <MudItem xs="12" md="7">
                     <div class="hero-content">
                         <MudText Typo="Typo.caption" Class="page-kicker">Stray dog adoption and shelter care</MudText>
-                        <MudText Typo="Typo.h2" Class="mt-2 hero-title" GutterBottom="true">PawConnect</MudText>
-                        <MudText Typo="Typo.h6" Class="mb-4 hero-subtitle">
-                            A warm, practical platform for matching stray dogs with adopters while helping shelters manage requests, resources, medical notes, and reports.
+                        <MudText Typo="Typo.h2" Class="mt-1 hero-title" GutterBottom="true">PawConnect</MudText>
+                        <MudText Typo="Typo.subtitle1" Class="mb-3 hero-subtitle">
+                            Match stray dogs with adopters and keep shelter work organized in one place.
                         </MudText>
                         <MudStack Row="true" Spacing="2" Class="hero-actions">
                             <MudButton Href="/dogs" Variant="Variant.Filled" Color="Color.Secondary" Size="Size.Large" StartIcon="@Icons.Material.Filled.Pets">Browse Dogs</MudButton>
@@ -27,26 +28,26 @@
                 </MudItem>
                 <MudItem xs="12" md="5">
                     <div class="hero-visual-panel">
-                        <MudStack Spacing="3">
+                        <MudStack Spacing="2">
                             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                                 <span class="hero-panel-icon"><MudIcon Icon="@Icons.Material.Filled.Pets" /></span>
                                 <div>
                                     <MudText Typo="Typo.h6">Adoption workflow</MudText>
-                                    <MudText Typo="Typo.body2">Simple steps from browsing to shelter review.</MudText>
+                                    <MudText Typo="Typo.body2">Browse, request, review.</MudText>
                                 </div>
                             </MudStack>
                             <MudDivider />
                             <div class="hero-mini-row">
                                 <span>1</span>
-                                <MudText Typo="Typo.body2">Adopters browse public dog profiles</MudText>
+                                <MudText Typo="Typo.body2">Browse public dog profiles</MudText>
                             </div>
                             <div class="hero-mini-row">
                                 <span>2</span>
-                                <MudText Typo="Typo.body2">Requests include adopter profile and questionnaire details</MudText>
+                                <MudText Typo="Typo.body2">Send a clear adoption request</MudText>
                             </div>
                             <div class="hero-mini-row">
                                 <span>3</span>
-                                <MudText Typo="Typo.body2">Shelters review, respond, and receive PDF email reports</MudText>
+                                <MudText Typo="Typo.body2">Shelters review and follow up</MudText>
                             </div>
                         </MudStack>
                     </div>
@@ -55,16 +56,16 @@
         </section>
 
         <section class="home-section">
-            <MudText Typo="Typo.h4">How PawConnect Works</MudText>
-            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">A clear adoption flow that is easy to explain and demo.</MudText>
-            <MudGrid Spacing="3">
+            <MudText Typo="Typo.h5" Class="section-title">How PawConnect Works</MudText>
+            <MudText Typo="Typo.body2" Class="section-subtitle mb-2">Three simple steps from discovery to shelter follow-up.</MudText>
+            <MudGrid Spacing="2">
                 <MudItem xs="12" md="4">
                     <MudCard Class="step-card">
                         <MudCardContent>
                             <span class="step-number">1</span>
                             <MudIcon Icon="@Icons.Material.Filled.Search" Color="Color.Primary" Size="Size.Large" />
                             <MudText Typo="Typo.h6" Class="mt-2">Browse available dogs</MudText>
-                            <MudText Typo="Typo.body2" Color="Color.Secondary">Visitors can search, filter, and review public dog profiles.</MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">Search and filter public dog profiles.</MudText>
                         </MudCardContent>
                     </MudCard>
                 </MudItem>
@@ -74,7 +75,7 @@
                             <span class="step-number">2</span>
                             <MudIcon Icon="@Icons.Material.Filled.AssignmentTurnedIn" Color="Color.Secondary" Size="Size.Large" />
                             <MudText Typo="Typo.h6" Class="mt-2">Submit an adoption request</MudText>
-                            <MudText Typo="Typo.body2" Color="Color.Secondary">Adopters send request-specific answers plus their profile summary.</MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">Share request details and profile context.</MudText>
                         </MudCardContent>
                     </MudCard>
                 </MudItem>
@@ -84,7 +85,7 @@
                             <span class="step-number">3</span>
                             <MudIcon Icon="@Icons.Material.Filled.MarkEmailRead" Color="Color.Primary" Size="Size.Large" />
                             <MudText Typo="Typo.h6" Class="mt-2">Shelter reviews and contacts adopter</MudText>
-                            <MudText Typo="Typo.body2" Color="Color.Secondary">Shelters accept, reject, or follow up using organized request details.</MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">Respond using organized request details.</MudText>
                         </MudCardContent>
                     </MudCard>
                 </MudItem>
@@ -94,8 +95,8 @@
         <section class="home-section">
             <MudStack Row="true" AlignItems="AlignItems.Center" Class="section-heading">
                 <div>
-                    <MudText Typo="Typo.h4">Featured Dogs</MudText>
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">A small preview from the public adoption list.</MudText>
+                    <MudText Typo="Typo.h5" Class="section-title">Featured Dogs</MudText>
+                    <MudText Typo="Typo.body2" Class="section-subtitle">A small preview from the public adoption list.</MudText>
                 </div>
                 <MudSpacer />
                 <MudButton Href="/dogs" Variant="Variant.Text" Color="Color.Primary" EndIcon="@Icons.Material.Filled.ArrowForward">See all dogs</MudButton>
@@ -120,17 +121,19 @@
 
                         <MudItem xs="12" sm="6" md="3">
                             <MudCard Class="featured-dog-card">
-                                @if (imageUrl is null)
-                                {
-                                    <div class="featured-dog-image dog-image-placeholder">
-                                        <MudIcon Icon="@Icons.Material.Filled.Pets" Color="Color.Primary" />
-                                        <MudText Typo="Typo.caption">No image available</MudText>
-                                    </div>
-                                }
-                                else
-                                {
-                                    <MudCardMedia Image="@imageUrl" Class="featured-dog-image" />
-                                }
+                                <a class="dog-image-link" href="@($"/dogs/{dog.Id}")" aria-label="@($"View details for {dog.Name}")">
+                                    @if (imageUrl is null)
+                                    {
+                                        <div class="featured-dog-image dog-image-placeholder">
+                                            <MudIcon Icon="@Icons.Material.Filled.Pets" Color="Color.Primary" />
+                                            <MudText Typo="Typo.caption">No image available</MudText>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <MudCardMedia Image="@imageUrl" Class="featured-dog-image" />
+                                    }
+                                </a>
                                 <MudCardContent>
                                     <MudStack Spacing="1">
                                         <MudStack Row="true" AlignItems="AlignItems.Start">
@@ -152,60 +155,64 @@
             }
         </section>
 
-        <section class="home-section shelter-section pa-5">
-            <MudGrid Class="shelter-grid" Spacing="4">
-                <MudItem xs="12" md="4">
+        <section class="home-section shelter-section pa-4">
+            <MudStack Spacing="3">
+                <div class="shelter-section-heading">
                     <MudText Typo="Typo.caption" Class="page-kicker">For shelters</MudText>
-                    <MudText Typo="Typo.h4">Operational tools without unnecessary complexity</MudText>
-                    <MudText Typo="Typo.body1" Color="Color.Secondary">Shelter accounts can keep dog profiles, requests, resources, and reports organized in one place.</MudText>
-                </MudItem>
-                <MudItem xs="12" md="8">
-                    <MudGrid Spacing="3">
-                        <MudItem xs="12" sm="6">
-                            <MudCard Class="feature-card">
-                                <MudCardContent>
-                                    <MudIcon Icon="@Icons.Material.Filled.Pets" Color="Color.Primary" Size="Size.Large" />
-                                    <MudText Typo="Typo.h6" Class="mt-2">Manage dogs</MudText>
-                                    <MudText Typo="Typo.body2" Color="Color.Secondary">Create and maintain dog profiles, images, medical records, and status history.</MudText>
-                                </MudCardContent>
-                            </MudCard>
-                        </MudItem>
-                        <MudItem xs="12" sm="6">
-                            <MudCard Class="feature-card">
-                                <MudCardContent>
-                                    <MudIcon Icon="@Icons.Material.Filled.FactCheck" Color="Color.Secondary" Size="Size.Large" />
-                                    <MudText Typo="Typo.h6" Class="mt-2">Track adoption requests</MudText>
-                                    <MudText Typo="Typo.body2" Color="Color.Secondary">Review adopter profiles, questionnaire answers, statuses, and private notes.</MudText>
-                                </MudCardContent>
-                            </MudCard>
-                        </MudItem>
-                        <MudItem xs="12" sm="6">
-                            <MudCard Class="feature-card">
-                                <MudCardContent>
-                                    <MudIcon Icon="@Icons.Material.Filled.Inventory" Color="Color.Primary" Size="Size.Large" />
-                                    <MudText Typo="Typo.h6" Class="mt-2">Monitor resources</MudText>
-                                    <MudText Typo="Typo.body2" Color="Color.Secondary">Track food, medicine, blankets, cleaning supplies, and low-stock thresholds.</MudText>
-                                </MudCardContent>
-                            </MudCard>
-                        </MudItem>
-                        <MudItem xs="12" sm="6">
-                            <MudCard Class="feature-card">
-                                <MudCardContent>
-                                    <MudIcon Icon="@Icons.Material.Filled.PictureAsPdf" Color="Color.Info" Size="Size.Large" />
-                                    <MudText Typo="Typo.h6" Class="mt-2">Email and PDF reports</MudText>
-                                    <MudText Typo="Typo.body2" Color="Color.Secondary">Receive Mailtrap-tested notifications with clean PDF report attachments.</MudText>
-                                </MudCardContent>
-                            </MudCard>
-                        </MudItem>
-                    </MudGrid>
-                </MudItem>
-            </MudGrid>
+                    <MudText Typo="Typo.h5" Class="section-title">Simple tools for daily shelter work</MudText>
+                    <MudText Typo="Typo.body2" Class="section-subtitle">Manage dogs, requests, resources, and reports without extra complexity.</MudText>
+                </div>
+
+                <MudGrid Spacing="2">
+                    <MudItem xs="12" sm="6" md="3">
+                        <MudCard Class="feature-card compact-feature-card">
+                            <MudCardContent>
+                                <MudIcon Icon="@Icons.Material.Filled.Pets" Color="Color.Primary" />
+                                <MudText Typo="Typo.subtitle1" Class="mt-1">Manage dogs</MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">Profiles and records.</MudText>
+                            </MudCardContent>
+                        </MudCard>
+                    </MudItem>
+                    <MudItem xs="12" sm="6" md="3">
+                        <MudCard Class="feature-card compact-feature-card">
+                            <MudCardContent>
+                                <MudIcon Icon="@Icons.Material.Filled.FactCheck" Color="Color.Secondary" />
+                                <MudText Typo="Typo.subtitle1" Class="mt-1">Track requests</MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">Profiles and answers.</MudText>
+                            </MudCardContent>
+                        </MudCard>
+                    </MudItem>
+                    <MudItem xs="12" sm="6" md="3">
+                        <MudCard Class="feature-card compact-feature-card">
+                            <MudCardContent>
+                                <MudIcon Icon="@Icons.Material.Filled.Inventory" Color="Color.Primary" />
+                                <MudText Typo="Typo.subtitle1" Class="mt-1">Monitor stock</MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">Low-resource warnings.</MudText>
+                            </MudCardContent>
+                        </MudCard>
+                    </MudItem>
+                    <MudItem xs="12" sm="6" md="3">
+                        <MudCard Class="feature-card compact-feature-card">
+                            <MudCardContent>
+                                <MudIcon Icon="@Icons.Material.Filled.PictureAsPdf" Color="Color.Info" />
+                                <MudText Typo="Typo.subtitle1" Class="mt-1">Reports</MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">Email PDF summaries.</MudText>
+                            </MudCardContent>
+                        </MudCard>
+                    </MudItem>
+                </MudGrid>
+            </MudStack>
         </section>
     </MudStack>
 </div>
 
 @code {
     private List<Dog> _featuredDogs = [];
+
+    [SupplyParameterFromQuery(Name = "loggedOut")]
+    private bool LoggedOut { get; set; }
+
+    private bool _logoutMessageShown;
 
     protected override async Task OnInitializedAsync()
     {
@@ -216,6 +223,15 @@
         catch
         {
             _featuredDogs = [];
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (LoggedOut && !_logoutMessageShown)
+        {
+            _logoutMessageShown = true;
+            Snackbar.Add("You have been logged out successfully.", Severity.Success);
         }
     }
 

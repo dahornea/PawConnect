@@ -16,7 +16,7 @@
 <div class="auth-page">
     <MudCard Class="auth-card">
         <MudCardContent>
-            <MudStack Spacing="3">
+            <MudStack Spacing="4">
                 <div class="auth-brand">
                     <span class="auth-brand-icon"><MudIcon Icon="@Icons.Material.Filled.Pets" /></span>
                     <div>
@@ -34,7 +34,7 @@
                     <DataAnnotationsValidator />
                     <ValidationSummary class="auth-validation-summary" role="alert" />
 
-                    <MudStack Spacing="2">
+                    <MudStack Spacing="3">
                         <div class="auth-field">
                             <label for="Input.Email">Email</label>
                             <InputText @bind-Value="Input.Email" id="Input.Email" class="auth-input" autocomplete="username webauthn" aria-required="true" placeholder="name@example.com" />

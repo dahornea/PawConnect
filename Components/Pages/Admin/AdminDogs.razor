@@ -2,14 +2,15 @@
 @attribute [Authorize(Roles = "Admin")]
 @inject IDogService DogService
 @inject ISnackbar Snackbar
+@inject IDialogService DialogService
 
 <PageTitle>Admin Dogs</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.False" Class="px-0">
     <MudStack Spacing="3">
-        <div>
+        <div class="page-header">
             <MudText Typo="Typo.h4">Dogs</MudText>
-            <MudText Typo="Typo.body2" Color="Color.Secondary">View dogs from all shelters and safely remove unused records.</MudText>
+            <MudText Typo="Typo.body2">View dogs from all shelters and safely remove unused records.</MudText>
         </div>
 
         @if (_isLoading)
@@ -35,7 +36,7 @@
         }
         else
         {
-            <MudTable Items="_dogs" Dense="true" Hover="true" Class="table-shell">
+            <MudTable Items="_dogs" Dense="true" Hover="true" Class="table-shell admin-dogs-table">
                 <HeaderContent>
                     <MudTh>Dog</MudTh>
                     <MudTh>Breed</MudTh>
@@ -45,15 +46,15 @@
                     <MudTh>Shelter</MudTh>
                     <MudTh>Status</MudTh>
                     <MudTh>Success Story</MudTh>
-                    <MudTh></MudTh>
+                    <MudTh Class="actions-heading">Actions</MudTh>
                 </HeaderContent>
                 <RowTemplate>
-                    <MudTd DataLabel="Dog">
+                    <MudTd DataLabel="Dog" Class="dog-cell">
                         @{
                             var imageUrl = GetImageUrl(context);
                         }
                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                            <MudAvatar Size="Size.Large">
+                            <MudAvatar Size="Size.Large" Class="dog-avatar">
                                 @if (imageUrl is null)
                                 {
                                     <MudIcon Icon="@Icons.Material.Filled.Pets" />
@@ -63,43 +64,51 @@
                                     <MudImage Src="@imageUrl" Alt="@context.Name" />
                                 }
                             </MudAvatar>
-                            <MudText Typo="Typo.body2">@context.Name</MudText>
+                            <MudText Typo="Typo.body2" Class="dog-name">@context.Name</MudText>
                         </MudStack>
                     </MudTd>
-                    <MudTd DataLabel="Breed">@context.Breed</MudTd>
-                    <MudTd DataLabel="Age">@context.Age</MudTd>
-                    <MudTd DataLabel="Size">@context.Size</MudTd>
-                    <MudTd DataLabel="Location">@context.Location</MudTd>
-                    <MudTd DataLabel="Shelter">@(context.Shelter?.Name ?? "-")</MudTd>
-                    <MudTd DataLabel="Status">
+                    <MudTd DataLabel="Breed" Class="nowrap-cell">@context.Breed</MudTd>
+                    <MudTd DataLabel="Age" Class="nowrap-cell">@FormatAge(context)</MudTd>
+                    <MudTd DataLabel="Size" Class="nowrap-cell">@context.Size</MudTd>
+                    <MudTd DataLabel="Location" Class="nowrap-cell">@context.Location</MudTd>
+                    <MudTd DataLabel="Shelter" Class="nowrap-cell">@(context.Shelter?.Name ?? "-")</MudTd>
+                    <MudTd DataLabel="Status" Class="nowrap-cell">
                         <MudChip T="string" Color="@GetStatusColor(context.Status)" Size="Size.Small">@context.Status</MudChip>
                     </MudTd>
-                    <MudTd DataLabel="Success Story">
-                        @if (context.Status == DogStatus.Adopted)
-                        {
-                            <MudStack Spacing="1">
-                                <MudText Typo="Typo.caption" Color="Color.Secondary">Adopted: @(context.AdoptedAt.HasValue ? context.AdoptedAt.Value.ToLocalTime().ToString("dd MMM yyyy") : "-")</MudText>
-                                <MudText Typo="Typo.caption">@(string.IsNullOrWhiteSpace(context.SuccessStoryText) ? "No story text yet." : context.SuccessStoryText)</MudText>
-                            </MudStack>
-                        }
-                        else
-                        {
-                            <MudText Typo="Typo.caption" Color="Color.Secondary">-</MudText>
-                        }
-                    </MudTd>
-                    <MudTd>
-                        <MudStack Row="true" Spacing="1">
-                            <MudButton Href="@($"/dogs/{context.Id}")" Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Visibility">View</MudButton>
-                            <MudButton Variant="Variant.Text" Color="Color.Info" StartIcon="@Icons.Material.Filled.History" Disabled="_isHistoryLoading" OnClick="@(() => LoadStatusHistoryAsync(context))">History</MudButton>
-                            @if (_deleteConfirmDogId == context.Id)
+                    <MudTd DataLabel="Success Story" Class="success-story-cell">
+                        <MudStack Spacing="1">
+                            @if (HasSuccessStory(context))
                             {
-                                <MudButton Variant="Variant.Text" Color="Color.Error" StartIcon="@Icons.Material.Filled.DeleteForever" Disabled="_isDeleting" OnClick="@(() => DeleteDogAsync(context))">Confirm</MudButton>
-                                <MudButton Variant="Variant.Text" Color="Color.Default" Disabled="_isDeleting" OnClick="CancelDelete">Cancel</MudButton>
+                                <MudButton Variant="Variant.Outlined"
+                                           Color="Color.Success"
+                                           Size="Size.Small"
+                                           StartIcon="@Icons.Material.Filled.EmojiEvents"
+                                           Class="story-button"
+                                           OnClick="@(() => OpenSuccessStoryDialogAsync(context))">
+                                    Has story
+                                </MudButton>
                             }
                             else
                             {
-                                <MudButton Variant="Variant.Text" Color="Color.Error" StartIcon="@Icons.Material.Filled.Delete" Disabled="_isDeleting" OnClick="@(() => AskDeleteConfirmation(context))">Delete</MudButton>
+                                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default">No story</MudChip>
                             }
+                            @if (context.AdoptedAt.HasValue)
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Adopted: @context.AdoptedAt.Value.ToLocalTime().ToString("dd MMM yyyy")</MudText>
+                            }
+                        </MudStack>
+                    </MudTd>
+                    <MudTd DataLabel="Actions" Class="actions-cell">
+                        <MudStack Row="true" Spacing="1" Justify="Justify.FlexEnd" Class="actions-stack">
+                            <MudTooltip Text="View dog details">
+                                <MudIconButton Href="@($"/dogs/{context.Id}")" Icon="@Icons.Material.Filled.Visibility" Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" aria-label="View dog details" />
+                            </MudTooltip>
+                            <MudTooltip Text="View status history">
+                                <MudIconButton Icon="@Icons.Material.Filled.History" Variant="Variant.Text" Color="Color.Info" Size="Size.Small" Disabled="_isHistoryLoading" OnClick="@(() => LoadStatusHistoryAsync(context))" aria-label="View status history" />
+                            </MudTooltip>
+                            <MudTooltip Text="Delete dog">
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Variant="Variant.Text" Color="Color.Error" Size="Size.Small" Disabled="_isDeleting" OnClick="@(() => ConfirmDeleteDogAsync(context))" aria-label="Delete dog" />
+                            </MudTooltip>
                         </MudStack>
                     </MudTd>
                 </RowTemplate>
@@ -166,7 +175,6 @@
     private bool _isHistoryLoading;
     private string? _error;
     private string? _historyError;
-    private int? _deleteConfirmDogId;
     private Dog? _selectedHistoryDog;
     private List<DogStatusHistory> _statusHistory = [];
 
@@ -186,15 +194,19 @@
         }
     }
 
-    private void AskDeleteConfirmation(Dog dog)
+    private async Task ConfirmDeleteDogAsync(Dog dog)
     {
-        _deleteConfirmDogId = dog.Id;
-        Snackbar.Add($"Click Confirm to delete {dog.Name}. Dogs with favorites or adoption requests cannot be deleted.", Severity.Info);
-    }
+        if (!await ConfirmAsync(
+            "Delete dog",
+            $"Are you sure you want to delete {dog.Name}? This action cannot easily be undone. Dogs with favorites or adoption requests cannot be deleted.",
+            "Delete",
+            Color.Error,
+            Icons.Material.Filled.DeleteForever))
+        {
+            return;
+        }
 
-    private void CancelDelete()
-    {
-        _deleteConfirmDogId = null;
+        await DeleteDogAsync(dog);
     }
 
     private async Task DeleteDogAsync(Dog dog)
@@ -205,8 +217,7 @@
         {
             await DogService.DeleteDogForAdminAsync(dog.Id);
             _dogs.Remove(dog);
-            _deleteConfirmDogId = null;
-            Snackbar.Add($"{dog.Name} was deleted.", Severity.Success);
+            Snackbar.Add("Dog deleted.", Severity.Success);
         }
         catch (InvalidOperationException ex)
         {
@@ -214,7 +225,7 @@
         }
         catch
         {
-            Snackbar.Add("Dog could not be deleted right now.", Severity.Error);
+            Snackbar.Add("Could not delete dog. Please try again.", Severity.Error);
         }
         finally
         {
@@ -275,5 +286,51 @@
             DogStatus.InTreatment => Color.Info,
             _ => Color.Default
         };
+    }
+
+    private static string FormatAge(Dog dog)
+    {
+        return dog.Age switch
+        {
+            0 => "Under 1 year",
+            1 => "1 year",
+            _ => $"{dog.Age} years"
+        };
+    }
+
+    private static bool HasSuccessStory(Dog dog)
+    {
+        return !string.IsNullOrWhiteSpace(dog.SuccessStoryText) || dog.AdoptedAt.HasValue;
+    }
+
+    private async Task OpenSuccessStoryDialogAsync(Dog dog)
+    {
+        var parameters = new DialogParameters
+        {
+            ["DogName"] = dog.Name,
+            ["Breed"] = dog.Breed,
+            ["ShelterName"] = dog.Shelter?.Name,
+            ["AdoptedAt"] = dog.AdoptedAt,
+            ["SuccessStoryText"] = dog.SuccessStoryText
+        };
+
+        await DialogService.ShowAsync<SuccessStoryDetailsDialog>("Success Story", parameters);
+    }
+
+    private async Task<bool> ConfirmAsync(string title, string message, string confirmText, Color confirmColor, string icon)
+    {
+        var parameters = new DialogParameters
+        {
+            ["Title"] = title,
+            ["Message"] = message,
+            ["ConfirmText"] = confirmText,
+            ["ConfirmColor"] = confirmColor,
+            ["IconColor"] = confirmColor,
+            ["Icon"] = icon
+        };
+
+        var dialog = await DialogService.ShowAsync<ConfirmationDialog>(title, parameters);
+        var result = await dialog.Result;
+        return result is not null && !result.Canceled;
     }
 }

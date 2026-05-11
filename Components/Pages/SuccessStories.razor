@@ -42,17 +42,19 @@
 
                     <MudItem xs="12" sm="6" md="4">
                         <MudCard Class="success-card h-100">
-                            @if (imageUrl is null)
-                            {
-                                <div class="success-image dog-image-placeholder">
-                                    <MudIcon Icon="@Icons.Material.Filled.Pets" Color="Color.Primary" />
-                                    <MudText Typo="Typo.caption">No image available</MudText>
-                                </div>
-                            }
-                            else
-                            {
-                                <MudCardMedia Image="@imageUrl" Class="success-image" />
-                            }
+                            <a class="dog-image-link" href="@($"/dogs/{dog.Id}")" aria-label="@($"View details for {dog.Name}")">
+                                @if (imageUrl is null)
+                                {
+                                    <div class="success-image dog-image-placeholder">
+                                        <MudIcon Icon="@Icons.Material.Filled.Pets" Color="Color.Primary" />
+                                        <MudText Typo="Typo.caption">No image available</MudText>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <MudCardMedia Image="@imageUrl" Class="success-image" />
+                                }
+                            </a>
                             <MudCardContent>
                                 <MudStack Spacing="2">
                                     <MudStack Row="true" AlignItems="AlignItems.Start">

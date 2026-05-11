@@ -104,7 +104,7 @@
             </MudGrid>
 
             <MudPaper Elevation="0" Class="section-surface pa-4">
-                <MudText Typo="Typo.h5" Class="mb-3">Quick Actions</MudText>
+                <MudText Typo="Typo.h5" Class="section-title mb-3">Quick Actions</MudText>
                 <MudGrid>
                     <MudItem xs="12" sm="6" md="3">
                         <MudButton Href="/dogs" Class="quick-action-button" Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" StartIcon="@Icons.Material.Filled.Search">Browse Dogs</MudButton>
@@ -124,7 +124,7 @@
             <MudGrid Spacing="3">
                 <MudItem xs="12" md="7">
                     <MudPaper Elevation="0" Class="section-surface pa-4 h-100">
-                        <MudText Typo="Typo.h5" Class="mb-3">Recent Adoption Requests</MudText>
+                        <MudText Typo="Typo.h5" Class="section-title mb-3">Recent Adoption Requests</MudText>
                         @if (_recentRequests.Count == 0)
                         {
                             <MudPaper Elevation="0" Class="empty-state pa-4">
@@ -156,7 +156,7 @@
 
                 <MudItem xs="12" md="5">
                     <MudPaper Elevation="0" Class="section-surface pa-4 h-100">
-                        <MudText Typo="Typo.h5" Class="mb-3">Favorite Dogs</MudText>
+                        <MudText Typo="Typo.h5" Class="section-title mb-3">Favorite Dogs</MudText>
                         @if (_recentFavorites.Count == 0)
                         {
                             <MudPaper Elevation="0" Class="empty-state pa-4">
@@ -176,16 +176,18 @@
                                         <MudCard Class="preview-card">
                                             <MudCardContent>
                                                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                                                    <MudAvatar Size="Size.Large">
-                                                        @if (favoriteImageUrl is null)
-                                                        {
-                                                            <MudIcon Icon="@Icons.Material.Filled.Pets" />
-                                                        }
-                                                        else
-                                                        {
-                                                            <MudImage Src="@favoriteImageUrl" Alt="@favorite.Dog.Name" />
-                                                        }
-                                                    </MudAvatar>
+                                                    <a class="avatar-link" href="@($"/dogs/{favorite.Dog.Id}")" aria-label="@($"View details for {favorite.Dog.Name}")">
+                                                        <MudAvatar Size="Size.Large">
+                                                            @if (favoriteImageUrl is null)
+                                                            {
+                                                                <MudIcon Icon="@Icons.Material.Filled.Pets" />
+                                                            }
+                                                            else
+                                                            {
+                                                                <MudImage Src="@favoriteImageUrl" Alt="@favorite.Dog.Name" />
+                                                            }
+                                                        </MudAvatar>
+                                                    </a>
                                                     <div>
                                                         <MudText Typo="Typo.subtitle1">@favorite.Dog.Name</MudText>
                                                         <MudText Typo="Typo.body2" Color="Color.Secondary">@favorite.Dog.Breed | @favorite.Dog.Location</MudText>
@@ -205,7 +207,7 @@
 
             <MudPaper Elevation="0" Class="section-surface pa-4">
                 <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-3">
-                    <MudText Typo="Typo.h5">Recently Viewed Dogs</MudText>
+                        <MudText Typo="Typo.h5" Class="section-title">Recently Viewed Dogs</MudText>
                     <MudSpacer />
                     @if (_recentlyViewedDogs.Count > 0)
                     {
@@ -231,17 +233,19 @@
 
                                 <MudItem xs="12" sm="6" md="4">
                                     <MudCard Class="preview-card h-100">
-                                        @if (recentImageUrl is null)
-                                        {
-                                            <div class="preview-image dog-image-placeholder">
-                                                <MudIcon Icon="@Icons.Material.Filled.Pets" Color="Color.Primary" />
-                                                <MudText Typo="Typo.caption">No image available</MudText>
-                                            </div>
-                                        }
-                                        else
-                                        {
-                                            <MudCardMedia Image="@recentImageUrl" Class="preview-image" />
-                                        }
+                                        <a class="dog-image-link" href="@($"/dogs/{recentView.Dog.Id}")" aria-label="@($"View details for {recentView.Dog.Name}")">
+                                            @if (recentImageUrl is null)
+                                            {
+                                                <div class="preview-image dog-image-placeholder">
+                                                    <MudIcon Icon="@Icons.Material.Filled.Pets" Color="Color.Primary" />
+                                                    <MudText Typo="Typo.caption">No image available</MudText>
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <MudCardMedia Image="@recentImageUrl" Class="preview-image" />
+                                            }
+                                        </a>
                                         <MudCardContent>
                                             <MudStack Spacing="1">
                                                 <MudStack Row="true" AlignItems="AlignItems.Start">
@@ -360,7 +364,7 @@
         }
         catch
         {
-            Snackbar.Add("Recently viewed dogs could not be cleared right now.", Severity.Error);
+            Snackbar.Add("Could not clear recently viewed dogs. Please try again.", Severity.Error);
         }
         finally
         {

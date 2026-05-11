@@ -1,0 +1,67 @@
+<MudDialog>
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.EmojiEvents" Color="Color.Success" />
+            <MudText Typo="Typo.h6">Success Story</MudText>
+        </MudStack>
+    </TitleContent>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <div>
+                <MudText Typo="Typo.h6">@DogName</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">@Breed</MudText>
+            </div>
+
+            <MudPaper Elevation="0" Class="pa-3 success-story-summary">
+                <MudStack Spacing="1">
+                    <MudText Typo="Typo.body2"><strong>Shelter:</strong> @DisplayOrFallback(ShelterName)</MudText>
+                    @if (AdoptedAt.HasValue)
+                    {
+                        <MudText Typo="Typo.body2"><strong>Adopted:</strong> @AdoptedAt.Value.ToLocalTime().ToString("dd MMM yyyy")</MudText>
+                    }
+                </MudStack>
+            </MudPaper>
+
+            <MudDivider />
+
+            <MudText Typo="Typo.body1">
+                @(string.IsNullOrWhiteSpace(SuccessStoryText)
+                    ? "This dog has found a loving home through PawConnect."
+                    : SuccessStoryText)
+            </MudText>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Close">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter]
+    public string DogName { get; set; } = string.Empty;
+
+    [Parameter]
+    public string Breed { get; set; } = string.Empty;
+
+    [Parameter]
+    public string? ShelterName { get; set; }
+
+    [Parameter]
+    public DateTime? AdoptedAt { get; set; }
+
+    [Parameter]
+    public string? SuccessStoryText { get; set; }
+
+    private static string DisplayOrFallback(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? "-" : value;
+    }
+
+    private void Close()
+    {
+        MudDialog.Close();
+    }
+}

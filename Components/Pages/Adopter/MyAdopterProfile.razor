@@ -11,9 +11,9 @@
 
 <MudContainer MaxWidth="MaxWidth.Medium" Class="px-0">
     <MudStack Spacing="3">
-        <div>
+        <div class="page-header">
             <MudText Typo="Typo.h4">Adopter Profile</MudText>
-            <MudText Typo="Typo.body2" Color="Color.Secondary">Share basic home and contact details to help shelters review adoption requests.</MudText>
+            <MudText Typo="Typo.body2">Share basic home and contact details to help shelters review adoption requests.</MudText>
         </div>
 
         @if (_isLoading)
@@ -161,7 +161,7 @@
         try
         {
             await AdopterProfileService.CreateOrUpdateProfileAsync(_currentUserId, _profile);
-            Snackbar.Add("Adopter profile saved.", Severity.Success);
+            Snackbar.Add("Profile saved successfully.", Severity.Success);
         }
         catch (InvalidOperationException ex)
         {
@@ -169,7 +169,7 @@
         }
         catch
         {
-            Snackbar.Add("Adopter profile could not be saved right now.", Severity.Error);
+            Snackbar.Add("Could not save profile. Please check the form and try again.", Severity.Error);
         }
         finally
         {

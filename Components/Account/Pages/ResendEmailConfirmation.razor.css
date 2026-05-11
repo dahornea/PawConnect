@@ -34,28 +34,47 @@
 
 .auth-field {
     display: grid;
-    gap: 6px;
+    gap: 9px;
 }
 
 .auth-field label {
     color: #294139;
+    font-size: 0.92rem;
     font-weight: 600;
+    line-height: 1.2;
 }
 
 .auth-input {
     width: 100%;
-    min-height: 48px;
-    border-radius: 10px;
-    border: 1px solid rgba(47, 111, 94, 0.22);
-    background: #ffffff;
-    padding: 10px 12px;
+    min-height: 56px;
+    border-radius: 14px;
+    border: 1px solid rgba(47, 111, 94, 0.14);
+    background: linear-gradient(180deg, #ffffff, #fbfdfb);
+    padding: 13px 16px;
     color: #1f2f2a;
     outline: none;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 1px 2px rgba(31, 47, 42, 0.03);
+    transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+.auth-input::placeholder {
+    color: #8a9994;
+}
+
+.auth-input:hover {
+    border-color: rgba(47, 111, 94, 0.28);
+    background: #ffffff;
 }
 
 .auth-input:focus {
     border-color: #2f6f5e;
-    box-shadow: 0 0 0 3px rgba(47, 111, 94, 0.12);
+    background: #ffffff;
+    box-shadow: 0 0 0 4px rgba(47, 111, 94, 0.11), 0 6px 18px rgba(31, 47, 42, 0.06);
+}
+
+.auth-input.invalid {
+    border-color: rgba(185, 28, 28, 0.46);
+    box-shadow: 0 0 0 3px rgba(185, 28, 28, 0.08);
 }
 
 .auth-validation-summary,

@@ -16,6 +16,25 @@
     object-fit: cover;
 }
 
+.dog-image-link {
+    display: block;
+    color: inherit;
+    cursor: pointer;
+    overflow: hidden;
+    text-decoration: none;
+}
+
+.dog-image-link ::deep .dog-image,
+.dog-image-link .dog-image-placeholder {
+    transition: filter 160ms ease, transform 160ms ease;
+}
+
+.dog-image-link:hover ::deep .dog-image,
+.dog-image-link:hover .dog-image-placeholder {
+    filter: saturate(1.05);
+    transform: scale(1.015);
+}
+
 .dog-image-placeholder {
     display: flex;
     min-height: 210px;

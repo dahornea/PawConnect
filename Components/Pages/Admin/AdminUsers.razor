@@ -11,9 +11,9 @@
 
 <MudContainer MaxWidth="MaxWidth.False" Class="px-0">
     <MudStack Spacing="3">
-        <div>
+        <div class="page-header">
             <MudText Typo="Typo.h4">Users</MudText>
-            <MudText Typo="Typo.body2" Color="Color.Secondary">View registered users and their assigned roles.</MudText>
+            <MudText Typo="Typo.body2">View registered users and their assigned roles.</MudText>
         </div>
 
         @if (_isLoading)
@@ -241,17 +241,17 @@
             var result = await UserManager.UpdateAsync(user);
             if (!result.Succeeded)
             {
-                Snackbar.Add(string.Join(" ", result.Errors.Select(e => e.Description)), Severity.Error);
+                Snackbar.Add("Could not save user profile. Please check the form and try again.", Severity.Error);
                 return;
             }
 
-            Snackbar.Add("User profile updated.", Severity.Success);
+            Snackbar.Add("User profile saved.", Severity.Success);
             _editUser = null;
             await LoadUsersAsync();
         }
         catch
         {
-            Snackbar.Add("User profile could not be updated right now.", Severity.Error);
+            Snackbar.Add("Could not save user profile. Please try again.", Severity.Error);
         }
         finally
         {
