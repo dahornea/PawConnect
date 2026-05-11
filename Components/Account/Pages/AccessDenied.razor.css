@@ -1,0 +1,28 @@
+.access-page {
+    min-height: calc(100vh - 180px);
+    display: grid;
+    place-items: center;
+    padding: 32px 16px;
+}
+
+::deep .access-card {
+    width: min(100%, 520px);
+    border-radius: 18px;
+    border: 1px solid rgba(185, 28, 28, 0.14);
+    box-shadow: 0 24px 70px rgba(31, 47, 42, 0.16);
+}
+
+.access-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    background: #b91c1c;
+}
+
+.text-center {
+    text-align: center;
+}

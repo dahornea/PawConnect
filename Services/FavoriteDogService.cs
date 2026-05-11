@@ -1,10 +1,11 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using PawConnect.Data;
 using PawConnect.Entities;
 
 namespace PawConnect.Services;
 
-public class FavoriteDogService(ApplicationDbContext context) : IFavoriteDogService
+public class FavoriteDogService(ApplicationDbContext context, UserManager<ApplicationUser> userManager) : IFavoriteDogService
 {
     public Task<List<FavoriteDog>> GetAllAsync()
     {
@@ -97,6 +98,8 @@ public class FavoriteDogService(ApplicationDbContext context) : IFavoriteDogServ
 
     public async Task AddFavoriteAsync(string adopterId, int dogId)
     {
+        await EnsureAdopterAsync(adopterId);
+
         var dog = await context.Dogs
             .AsNoTracking()
             .FirstOrDefaultAsync(d => d.Id == dogId);
@@ -128,6 +131,8 @@ public class FavoriteDogService(ApplicationDbContext context) : IFavoriteDogServ
 
     public async Task RemoveFavoriteAsync(string adopterId, int dogId)
     {
+        await EnsureAdopterAsync(adopterId);
+
         var favorite = await context.FavoriteDogs
             .FirstOrDefaultAsync(f => f.AdopterId == adopterId && f.DogId == dogId);
 
@@ -138,5 +143,14 @@ public class FavoriteDogService(ApplicationDbContext context) : IFavoriteDogServ
 
         context.FavoriteDogs.Remove(favorite);
         await context.SaveChangesAsync();
+    }
+
+    private async Task EnsureAdopterAsync(string adopterId)
+    {
+        var user = await userManager.FindByIdAsync(adopterId);
+        if (user is null || !await userManager.IsInRoleAsync(user, IdentitySeedData.AdopterRole))
+        {
+            throw new InvalidOperationException("Only adopter accounts can manage favorite dogs.");
+        }
     }
 }

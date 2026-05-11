@@ -1,0 +1,74 @@
+.success-stories-page .success-hero {
+    border-radius: 12px;
+    border: 1px solid rgba(217, 119, 6, 0.16);
+    background: linear-gradient(135deg, rgba(217, 119, 6, 0.92), rgba(47, 111, 94, 0.9));
+    color: #ffffff;
+    box-shadow: 0 16px 42px rgba(31, 47, 42, 0.14);
+}
+
+.success-stories-page .success-kicker {
+    color: #fff4d6;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.success-stories-page .success-hero .mud-typography-h4 {
+    color: #ffffff;
+    font-weight: 800;
+    letter-spacing: 0;
+    line-height: 1.12;
+}
+
+.success-stories-page .success-hero .mud-typography-body1 {
+    color: rgba(255, 255, 255, 0.88);
+    font-weight: 500;
+    line-height: 1.48;
+}
+
+.success-stories-page ::deep .success-card {
+    border: 1px solid rgba(47, 111, 94, 0.1);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 8px 24px rgba(31, 47, 42, 0.06);
+}
+
+.success-stories-page ::deep .success-image {
+    height: 230px;
+    object-fit: cover;
+}
+
+.success-stories-page .dog-image-link {
+    display: block;
+    color: inherit;
+    cursor: pointer;
+    overflow: hidden;
+    text-decoration: none;
+}
+
+.success-stories-page .dog-image-link ::deep .success-image,
+.success-stories-page .dog-image-link .dog-image-placeholder {
+    transition: filter 160ms ease, transform 160ms ease;
+}
+
+.success-stories-page .dog-image-link:hover ::deep .success-image,
+.success-stories-page .dog-image-link:hover .dog-image-placeholder {
+    filter: saturate(1.05);
+    transform: scale(1.015);
+}
+
+.success-stories-page .dog-image-placeholder {
+    display: flex;
+    min-height: 230px;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 8px;
+    color: #2f6f5e;
+    background:
+        linear-gradient(135deg, rgba(47, 111, 94, 0.1), rgba(217, 119, 6, 0.08)),
+        #f4f7f2;
+}
+
+.success-stories-page .dog-image-placeholder .mud-icon-root {
+    font-size: 2rem;
+}

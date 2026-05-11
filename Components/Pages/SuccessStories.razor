@@ -3,12 +3,14 @@
 
 <PageTitle>Success Stories</PageTitle>
 
+<div class="success-stories-page">
 <MudContainer MaxWidth="MaxWidth.False" Class="px-0">
     <MudStack Spacing="3">
-        <div>
+        <section class="success-hero pa-5">
+            <MudText Typo="Typo.caption" Class="success-kicker">Positive outcomes</MudText>
             <MudText Typo="Typo.h4">Adoption Success Stories</MudText>
-            <MudText Typo="Typo.body2" Color="Color.Secondary">Celebrate dogs who found loving homes through PawConnect.</MudText>
-        </div>
+            <MudText Typo="Typo.body1">Celebrate dogs who found loving homes through PawConnect.</MudText>
+        </section>
 
         @if (_isLoading)
         {
@@ -23,16 +25,36 @@
         }
         else if (_adoptedDogs.Count == 0)
         {
-            <MudAlert Severity="Severity.Info">No adoption success stories have been added yet.</MudAlert>
+            <MudPaper Elevation="0" Class="empty-state pa-6">
+                <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.EmojiEvents" Color="Color.Secondary" Size="Size.Large" />
+                    <MudText Typo="Typo.h6">No adoption success stories yet</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Adopted dogs will appear here when shelters add their success story details.</MudText>
+                </MudStack>
+            </MudPaper>
         }
         else
         {
             <MudGrid Spacing="3">
                 @foreach (var dog in _adoptedDogs)
                 {
+                    var imageUrl = GetDogImageUrl(dog);
+
                     <MudItem xs="12" sm="6" md="4">
-                        <MudCard Class="h-100">
-                            <MudCardMedia Image="@GetDogImageUrl(dog)" Height="220" />
+                        <MudCard Class="success-card h-100">
+                            <a class="dog-image-link" href="@($"/dogs/{dog.Id}")" aria-label="@($"View details for {dog.Name}")">
+                                @if (imageUrl is null)
+                                {
+                                    <div class="success-image dog-image-placeholder">
+                                        <MudIcon Icon="@Icons.Material.Filled.Pets" Color="Color.Primary" />
+                                        <MudText Typo="Typo.caption">No image available</MudText>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <MudCardMedia Image="@imageUrl" Class="success-image" />
+                                }
+                            </a>
                             <MudCardContent>
                                 <MudStack Spacing="2">
                                     <MudStack Row="true" AlignItems="AlignItems.Start">
@@ -72,6 +94,7 @@
         }
     </MudStack>
 </MudContainer>
+</div>
 
 @code {
     private List<Dog> _adoptedDogs = [];
@@ -94,10 +117,25 @@
         }
     }
 
-    private static string GetDogImageUrl(Dog dog)
+    private static string? GetDogImageUrl(Dog dog)
     {
-        return dog.Images.FirstOrDefault(i => i.IsMainImage)?.ImageUrl
-            ?? dog.Images.FirstOrDefault()?.ImageUrl
-            ?? "https://placehold.co/800x500?text=Dog";
+        return dog.Images
+            .Where(i => IsValidImageUrl(i.ImageUrl))
+            .OrderByDescending(i => i.IsMainImage)
+            .ThenBy(i => i.Id)
+            .Select(i => i.ImageUrl)
+            .FirstOrDefault();
+    }
+
+    private static bool IsValidImageUrl(string? imageUrl)
+    {
+        if (string.IsNullOrWhiteSpace(imageUrl) ||
+            imageUrl.Contains("placehold.co", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return Uri.TryCreate(imageUrl, UriKind.Absolute, out var uri) &&
+            (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
     }
 }

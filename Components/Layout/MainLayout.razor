@@ -1,4 +1,13 @@
 @inherits LayoutComponentBase
+@implements IDisposable
+@using Microsoft.AspNetCore.Identity
+@using PawConnect.Data
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject UserManager<ApplicationUser> UserManager
+@inject IAdopterProfileService AdopterProfileService
+@inject IShelterService ShelterService
+@inject IDialogService DialogService
+@inject IJSRuntime JSRuntime
 
 <MudThemeProvider Theme="_theme" />
 <MudPopoverProvider />
@@ -6,32 +15,52 @@
 <MudSnackbarProvider />
 
 <MudLayout>
-    <MudAppBar Elevation="1" Color="Color.Primary">
+    <MudAppBar Elevation="0" Color="Color.Primary" Class="app-shell-bar">
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@ToggleDrawer" />
-        <MudText Typo="Typo.h6" Class="ms-2">PawConnect</MudText>
+        <a href="/" class="app-brand-link ms-2" aria-label="Go to PawConnect home">
+            <span class="brand-mark">
+                <MudIcon Icon="@Icons.Material.Filled.Pets" Color="Color.Inherit" />
+            </span>
+            <MudText Typo="Typo.h6">PawConnect</MudText>
+        </a>
         <MudSpacer />
         <AuthorizeView>
             <Authorized>
-                <MudText Typo="Typo.body2" Class="me-3">@context.User.Identity?.Name</MudText>
-                <form action="Account/Logout" method="post">
+                @{
+                    var displayName = GetDisplayName(context.User.Identity?.Name);
+                    var displayEmail = GetDisplayEmail(context.User.Identity?.Name);
+                }
+                <div class="user-display me-2">
+                    <span class="user-avatar">
+                        <MudIcon Icon="@CurrentUserIcon" Color="Color.Inherit" />
+                    </span>
+                    <span class="user-copy">
+                        <span class="user-name">@displayName</span>
+                        @if (!string.IsNullOrWhiteSpace(displayEmail))
+                        {
+                            <span class="user-email">@displayEmail</span>
+                        }
+                    </span>
+                </div>
+                <form id="logout-form" action="/Account/Logout" method="post">
                     <AntiforgeryToken />
-                    <input type="hidden" name="ReturnUrl" value="" />
-                    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Text" Color="Color.Inherit" StartIcon="@Icons.Material.Filled.Logout">Logout</MudButton>
+                    <input type="hidden" name="ReturnUrl" value="?loggedOut=true" />
+                    <MudButton ButtonType="ButtonType.Button" Variant="Variant.Text" Color="Color.Inherit" StartIcon="@Icons.Material.Filled.Logout" OnClick="ConfirmLogoutAsync">Logout</MudButton>
                 </form>
             </Authorized>
             <NotAuthorized>
-                <MudButton Href="Account/Login" Variant="Variant.Text" Color="Color.Inherit" StartIcon="@Icons.Material.Filled.Login">Login</MudButton>
-                <MudButton Href="Account/Register" Variant="Variant.Text" Color="Color.Inherit" StartIcon="@Icons.Material.Filled.PersonAdd">Register</MudButton>
+                <MudButton Href="/Account/Login" Variant="Variant.Text" Color="Color.Inherit" StartIcon="@Icons.Material.Filled.Login">Login</MudButton>
+                <MudButton Href="/Account/Register" Variant="Variant.Text" Color="Color.Inherit" StartIcon="@Icons.Material.Filled.PersonAdd">Register</MudButton>
             </NotAuthorized>
         </AuthorizeView>
     </MudAppBar>
 
-    <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="1" Variant="DrawerVariant.Responsive">
+    <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="0" Variant="DrawerVariant.Responsive" Class="drawer-shell">
         <NavMenu />
     </MudDrawer>
 
-    <MudMainContent>
-        <MudContainer MaxWidth="MaxWidth.Large" Class="py-6">
+    <MudMainContent Class="app-main">
+        <MudContainer MaxWidth="MaxWidth.Large" Class="app-content">
             @Body
         </MudContainer>
     </MudMainContent>
@@ -45,26 +74,155 @@
 
 @code {
     private bool _drawerOpen = true;
+    private string? _displayName;
+    private string? _displayEmail;
+    private string _currentUserIcon = Icons.Material.Filled.AccountCircle;
+    private const string LogoutFormId = "logout-form";
+
+    private string CurrentUserIcon => _currentUserIcon;
 
     private readonly MudTheme _theme = new()
     {
         PaletteLight = new PaletteLight
         {
             Primary = "#2F6F5E",
-            Secondary = "#D97706",
+            Secondary = "#C9812D",
+            Tertiary = "#6A8F7A",
+            Success = "#2E7D32",
+            Warning = "#C9812D",
+            Error = "#B91C1C",
+            Info = "#256D85",
             AppbarBackground = "#2F6F5E",
-            Background = "#F6F7F3",
-            Surface = "#FFFFFF",
-            DrawerBackground = "#FFFFFF"
+            Background = "#F3F6F0",
+            Surface = "#FFFEFB",
+            DrawerBackground = "#FFFEFB",
+            DrawerText = "#294139",
+            TextPrimary = "#1F2F2A",
+            TextSecondary = "#66756F"
         },
         LayoutProperties = new LayoutProperties
         {
-            DefaultBorderRadius = "8px"
+            DefaultBorderRadius = "10px"
         }
     };
 
     private void ToggleDrawer()
     {
         _drawerOpen = !_drawerOpen;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        AuthenticationStateProvider.AuthenticationStateChanged += OnAuthenticationStateChanged;
+        await LoadUserDisplayAsync(await AuthenticationStateProvider.GetAuthenticationStateAsync());
+    }
+
+    private async void OnAuthenticationStateChanged(Task<AuthenticationState> authenticationStateTask)
+    {
+        await LoadUserDisplayAsync(await authenticationStateTask);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task LoadUserDisplayAsync(AuthenticationState authState)
+    {
+        var principal = authState.User;
+        if (principal.Identity?.IsAuthenticated != true)
+        {
+            _displayName = null;
+            _displayEmail = null;
+            _currentUserIcon = Icons.Material.Filled.AccountCircle;
+            return;
+        }
+
+        try
+        {
+            var user = await UserManager.GetUserAsync(principal);
+            _displayEmail = user?.Email ?? principal.Identity.Name;
+            _displayName = user?.FullName;
+            _currentUserIcon = Icons.Material.Filled.AccountCircle;
+
+            if (user is null)
+            {
+                _displayName = _displayEmail;
+                return;
+            }
+
+            if (principal.IsInRole(IdentitySeedData.AdopterRole))
+            {
+                var profile = await AdopterProfileService.GetProfileForUserAsync(user.Id);
+                _displayName = string.IsNullOrWhiteSpace(profile?.FullName)
+                    ? FirstNonEmpty(user.FullName, _displayEmail)
+                    : profile.FullName;
+                _currentUserIcon = Icons.Material.Filled.Person;
+            }
+            else if (principal.IsInRole(IdentitySeedData.ShelterRole))
+            {
+                var shelter = await ShelterService.GetShelterForUserAsync(user.Id);
+                _displayName = string.IsNullOrWhiteSpace(shelter?.Name)
+                    ? FirstNonEmpty(user.FullName, _displayEmail)
+                    : shelter.Name;
+                _currentUserIcon = Icons.Material.Filled.Business;
+            }
+            else if (principal.IsInRole(IdentitySeedData.AdminRole))
+            {
+                _displayName = FirstNonEmpty(user.FullName, "Admin", _displayEmail);
+                _currentUserIcon = Icons.Material.Filled.AdminPanelSettings;
+            }
+            else
+            {
+                _displayName = FirstNonEmpty(user.FullName, _displayEmail);
+            }
+        }
+        catch
+        {
+            _displayEmail = principal.Identity.Name;
+            _displayName = _displayEmail;
+            _currentUserIcon = Icons.Material.Filled.AccountCircle;
+        }
+    }
+
+    private string GetDisplayName(string? fallbackName)
+    {
+        return FirstNonEmpty(_displayName, _displayEmail, fallbackName, "Signed in");
+    }
+
+    private string? GetDisplayEmail(string? fallbackEmail)
+    {
+        var email = FirstNonEmpty(_displayEmail, fallbackEmail);
+        var name = GetDisplayName(fallbackEmail);
+
+        return string.Equals(email, name, StringComparison.OrdinalIgnoreCase) ? null : email;
+    }
+
+    private static string FirstNonEmpty(params string?[] values)
+    {
+        return values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
+    }
+
+    private async Task ConfirmLogoutAsync()
+    {
+        var parameters = new DialogParameters
+        {
+            ["Title"] = "Log out?",
+            ["Message"] = "Are you sure you want to log out of PawConnect?",
+            ["ConfirmText"] = "Log out",
+            ["CancelText"] = "Cancel",
+            ["ConfirmColor"] = Color.Primary,
+            ["IconColor"] = Color.Primary,
+            ["Icon"] = Icons.Material.Filled.Logout
+        };
+
+        var dialog = await DialogService.ShowAsync<ConfirmationDialog>("Log out?", parameters);
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled)
+        {
+            await JSRuntime.InvokeVoidAsync("pawConnect.submitForm", LogoutFormId);
+        }
+    }
+
+    public void Dispose()
+    {
+        AuthenticationStateProvider.AuthenticationStateChanged -= OnAuthenticationStateChanged;
     }
 }

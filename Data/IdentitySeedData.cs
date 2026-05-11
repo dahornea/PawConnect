@@ -173,7 +173,7 @@ public static class IdentitySeedData
                 Description = "Friendly and playful dog looking for an active family.",
                 BehaviorDescription = "Energetic, social, and good on walks.",
                 MedicalStatus = "Vaccinated and dewormed.",
-                Images = [new DogImage { ImageUrl = "https://placehold.co/800x500?text=Max", IsMainImage = true }],
+                Images = [new DogImage { ImageUrl = "https://placedog.net/800/500?id=11", IsMainImage = true }],
                 MedicalRecords =
                 [
                     new MedicalRecord
@@ -198,7 +198,7 @@ public static class IdentitySeedData
                 Description = "Calm, affectionate, and good with people.",
                 BehaviorDescription = "Gentle and patient.",
                 MedicalStatus = "Healthy.",
-                Images = [new DogImage { ImageUrl = "https://placehold.co/800x500?text=Bella", IsMainImage = true }]
+                Images = [new DogImage { ImageUrl = "https://placedog.net/800/500?id=22", IsMainImage = true }]
             },
             new Dog
             {
@@ -213,7 +213,6 @@ public static class IdentitySeedData
                 Description = "Young dog currently receiving basic medical care.",
                 BehaviorDescription = "Curious but shy around new people.",
                 MedicalStatus = "Under treatment for a minor skin condition.",
-                Images = [new DogImage { ImageUrl = "https://placehold.co/800x500?text=Luna", IsMainImage = true }],
                 MedicalRecords =
                 [
                     new MedicalRecord
@@ -237,7 +236,22 @@ public static class IdentitySeedData
                 Description = "Loyal dog suitable for an experienced adopter.",
                 BehaviorDescription = "Protective, smart, and active.",
                 MedicalStatus = "Vaccinated.",
-                Images = [new DogImage { ImageUrl = "https://placehold.co/800x500?text=Rocky", IsMainImage = true }]
+                Images = [new DogImage { ImageUrl = "https://placedog.net/800/500?id=33", IsMainImage = true }]
+            },
+            new Dog
+            {
+                Name = "Nala",
+                Breed = "Border Collie Mix",
+                Age = 2,
+                Size = DogSize.Medium,
+                Location = "Sibiu",
+                Status = DogStatus.Available,
+                PreferredFoodTypeId = AdultDryFoodTypeId,
+                DailyFoodAmountGrams = 340,
+                Description = "Bright and affectionate dog who enjoys walks, training, and gentle play.",
+                BehaviorDescription = "Smart, attentive, and eager to bond with people.",
+                MedicalStatus = "Vaccinated and healthy.",
+                Images = [new DogImage { ImageUrl = "https://placedog.net/800/500?id=66", IsMainImage = true }]
             },
             new Dog
             {
@@ -252,7 +266,9 @@ public static class IdentitySeedData
                 Description = "Cheerful dog used as an adopted example in demo data.",
                 BehaviorDescription = "Playful and food motivated.",
                 MedicalStatus = "Healthy.",
-                Images = [new DogImage { ImageUrl = "https://placehold.co/800x500?text=Milo", IsMainImage = true }]
+                AdoptedAt = new DateTime(2026, 4, 20, 0, 0, 0, DateTimeKind.Utc),
+                SuccessStoryText = "Milo found a patient family who loves long walks and training games.",
+                Images = [new DogImage { ImageUrl = "https://placedog.net/800/500?id=44", IsMainImage = true }]
             }
         ];
 
@@ -315,6 +331,8 @@ public static class IdentitySeedData
         var dogs = await context.Dogs.ToListAsync();
         foreach (var dog in dogs)
         {
+            await UpdateDemoDogImagesAsync(context, dog);
+
             if (dog.PreferredFoodTypeId is not null)
             {
                 continue;
@@ -335,6 +353,96 @@ public static class IdentitySeedData
             };
         }
 
+        if (shelter is not null)
+        {
+            var milo = dogs.FirstOrDefault(d => d.Name == "Milo");
+            if (milo is not null)
+            {
+                milo.Status = DogStatus.Adopted;
+                milo.AdoptedAt ??= new DateTime(2026, 4, 20, 0, 0, 0, DateTimeKind.Utc);
+                milo.SuccessStoryText ??= "Milo found a patient family who loves long walks and training games.";
+            }
+
+            if (!await context.Dogs.AnyAsync(d => d.Name == "Daisy"))
+            {
+                context.Dogs.Add(new Dog
+                {
+                    ShelterId = shelter.Id,
+                    Name = "Daisy",
+                    Breed = "Golden Retriever Mix",
+                    Age = 3,
+                    Size = DogSize.Medium,
+                    Location = "Bucharest",
+                    Status = DogStatus.Adopted,
+                    PreferredFoodTypeId = AdultDryFoodTypeId,
+                    DailyFoodAmountGrams = 360,
+                    Description = "Gentle and social dog who quickly became a favorite with volunteers.",
+                    BehaviorDescription = "Friendly, calm, and comfortable around children.",
+                    MedicalStatus = "Vaccinated and healthy.",
+                    AdoptedAt = new DateTime(2026, 4, 28, 0, 0, 0, DateTimeKind.Utc),
+                    SuccessStoryText = "Daisy was adopted by a family who first met her through PawConnect and followed up with the shelter the same week.",
+                    Images = [new DogImage { ImageUrl = "https://placedog.net/800/500?id=55", IsMainImage = true }]
+                });
+            }
+
+            if (!await context.Dogs.AnyAsync(d => d.Name == "Nala"))
+            {
+                context.Dogs.Add(new Dog
+                {
+                    ShelterId = shelter.Id,
+                    Name = "Nala",
+                    Breed = "Border Collie Mix",
+                    Age = 2,
+                    Size = DogSize.Medium,
+                    Location = "Sibiu",
+                    Status = DogStatus.Available,
+                    PreferredFoodTypeId = AdultDryFoodTypeId,
+                    DailyFoodAmountGrams = 340,
+                    Description = "Bright and affectionate dog who enjoys walks, training, and gentle play.",
+                    BehaviorDescription = "Smart, attentive, and eager to bond with people.",
+                    MedicalStatus = "Vaccinated and healthy.",
+                    Images = [new DogImage { ImageUrl = "https://placedog.net/800/500?id=66", IsMainImage = true }]
+                });
+            }
+        }
+
         await context.SaveChangesAsync();
+    }
+
+    private static async Task UpdateDemoDogImagesAsync(ApplicationDbContext context, Dog dog)
+    {
+        var imageUrl = dog.Name switch
+        {
+            "Max" => "https://placedog.net/800/500?id=11",
+            "Bella" => "https://placedog.net/800/500?id=22",
+            "Rocky" => "https://placedog.net/800/500?id=33",
+            "Milo" => "https://placedog.net/800/500?id=44",
+            "Nala" => "https://placedog.net/800/500?id=66",
+            _ => null
+        };
+
+        if (imageUrl is null)
+        {
+            return;
+        }
+
+        var images = await context.DogImages.Where(i => i.DogId == dog.Id).ToListAsync();
+        var mainImage = images.FirstOrDefault(i => i.IsMainImage) ?? images.FirstOrDefault();
+        if (mainImage is null)
+        {
+            context.DogImages.Add(new DogImage
+            {
+                DogId = dog.Id,
+                ImageUrl = imageUrl,
+                IsMainImage = true
+            });
+            return;
+        }
+
+        if (mainImage.ImageUrl.Contains("placehold.co", StringComparison.OrdinalIgnoreCase))
+        {
+            mainImage.ImageUrl = imageUrl;
+            mainImage.IsMainImage = true;
+        }
     }
 }

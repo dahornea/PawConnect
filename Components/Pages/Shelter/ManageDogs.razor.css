@@ -1,0 +1,14 @@
+::deep .filter-panel {
+    border-left: 4px solid #2f6f5e;
+}
+
+::deep .table-shell {
+    border: 1px solid rgba(47, 111, 94, 0.1);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 8px 24px rgba(31, 47, 42, 0.05);
+}
+
+::deep .table-shell .mud-table-head {
+    background: rgba(47, 111, 94, 0.06);
+}

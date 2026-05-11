@@ -1,0 +1,25 @@
+::deep .form-card,
+::deep .image-card {
+    border: 1px solid rgba(47, 111, 94, 0.1);
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(31, 47, 42, 0.06);
+}
+
+::deep .form-card .mud-card-actions {
+    border-top: 1px solid rgba(47, 111, 94, 0.08);
+    background: rgba(244, 247, 242, 0.55);
+}
+
+::deep .management-section {
+    border-left: 4px solid #2f6f5e;
+}
+
+::deep .table-shell {
+    border: 1px solid rgba(47, 111, 94, 0.1);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+::deep .table-shell .mud-table-head {
+    background: rgba(47, 111, 94, 0.06);
+}

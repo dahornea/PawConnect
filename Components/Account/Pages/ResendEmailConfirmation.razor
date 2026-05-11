@@ -14,23 +14,41 @@
 
 <PageTitle>Resend email confirmation</PageTitle>
 
-<h1>Resend email confirmation</h1>
-<h2>Enter your email.</h2>
-<hr />
-<StatusMessage Message="@message" />
-<div class="row">
-    <div class="col-md-4">
-        <EditForm Model="Input" FormName="resend-email-confirmation" OnValidSubmit="OnValidSubmitAsync" method="post">
-            <DataAnnotationsValidator />
-            <ValidationSummary class="text-danger" role="alert" />
-            <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.Email" id="Input.Email" class="form-control" aria-required="true" placeholder="name@example.com" />
-                <label for="Input.Email" class="form-label">Email</label>
-                <ValidationMessage For="() => Input.Email" class="text-danger" />
-            </div>
-            <button type="submit" class="w-100 btn btn-lg btn-primary">Resend</button>
-        </EditForm>
-    </div>
+<div class="auth-page">
+    <MudCard Class="auth-card">
+        <MudCardContent>
+            <MudStack Spacing="3">
+                <div class="auth-brand">
+                    <span class="auth-brand-icon"><MudIcon Icon="@Icons.Material.Filled.MarkEmailRead" /></span>
+                    <div>
+                        <MudText Typo="Typo.h4">Resend email confirmation</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Enter your email address and we will send a fresh confirmation link.</MudText>
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(message))
+                {
+                    <MudAlert Severity="Severity.Success">@message</MudAlert>
+                }
+
+                <EditForm Model="Input" FormName="resend-email-confirmation" OnValidSubmit="OnValidSubmitAsync" method="post">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary class="auth-validation-summary" role="alert" />
+                    <MudStack Spacing="2">
+                        <div class="auth-field">
+                            <label for="Input.Email">Email</label>
+                            <InputText @bind-Value="Input.Email" id="Input.Email" class="auth-input" aria-required="true" placeholder="name@example.com" />
+                            <ValidationMessage For="() => Input.Email" class="auth-validation-message" />
+                        </div>
+                        <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large" FullWidth="true" StartIcon="@Icons.Material.Filled.Send">Resend confirmation</MudButton>
+                    </MudStack>
+                </EditForm>
+
+                <MudDivider />
+                <MudLink Href="/Account/Login">Back to login</MudLink>
+            </MudStack>
+        </MudCardContent>
+    </MudCard>
 </div>
 
 @code {

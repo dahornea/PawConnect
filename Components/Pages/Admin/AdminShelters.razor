@@ -7,9 +7,9 @@
 
 <MudContainer MaxWidth="MaxWidth.False" Class="px-0">
     <MudStack Spacing="3">
-        <div>
+        <div class="page-header">
             <MudText Typo="Typo.h4">Shelters</MudText>
-            <MudText Typo="Typo.body2" Color="Color.Secondary">View registered shelter profiles and their dog counts.</MudText>
+            <MudText Typo="Typo.body2">View registered shelter profiles and their dog counts.</MudText>
         </div>
 
         @if (_isLoading)
@@ -25,11 +25,17 @@
         }
         else if (_shelters.Count == 0)
         {
-            <MudAlert Severity="Severity.Info">No shelters found.</MudAlert>
+            <MudPaper Elevation="0" Class="empty-state pa-5">
+                <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.Business" Color="Color.Secondary" Size="Size.Large" />
+                    <MudText Typo="Typo.h6">No shelters found</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Shelter profiles will appear here when they are created.</MudText>
+                </MudStack>
+            </MudPaper>
         }
         else
         {
-            <MudTable Items="_shelters" Dense="true" Hover="true">
+            <MudTable Items="_shelters" Dense="true" Hover="true" Class="table-shell">
                 <HeaderContent>
                     <MudTh>Name</MudTh>
                     <MudTh>City</MudTh>
@@ -54,7 +60,7 @@
 
             @if (_editShelter is not null)
             {
-                <MudPaper Elevation="0" Class="pa-4 mt-3">
+                <MudPaper Elevation="0" Class="section-surface edit-panel pa-4 mt-3">
                     <MudStack Spacing="2">
                         <MudText Typo="Typo.h6">Edit Shelter</MudText>
                         <MudForm @ref="_shelterForm">
@@ -159,7 +165,7 @@
         try
         {
             await ShelterService.UpdateShelterProfileAsync(_editShelter);
-            Snackbar.Add("Shelter profile updated.", Severity.Success);
+            Snackbar.Add("Shelter profile saved.", Severity.Success);
             _editShelter = null;
             await LoadSheltersAsync();
         }
@@ -169,7 +175,7 @@
         }
         catch
         {
-            Snackbar.Add("Shelter profile could not be updated right now.", Severity.Error);
+            Snackbar.Add("Could not save shelter profile. Please try again.", Severity.Error);
         }
         finally
         {

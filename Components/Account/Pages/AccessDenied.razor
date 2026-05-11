@@ -2,7 +2,20 @@
 
 <PageTitle>Access denied</PageTitle>
 
-<header>
-    <h1 class="text-danger">Access denied</h1>
-    <p class="text-danger">You do not have access to this resource.</p>
-</header>
+<div class="access-page">
+    <MudCard Class="access-card">
+        <MudCardContent>
+            <MudStack Spacing="3" AlignItems="AlignItems.Center" Class="text-center">
+                <span class="access-icon"><MudIcon Icon="@Icons.Material.Filled.Lock" /></span>
+                <div>
+                    <MudText Typo="Typo.h4">Access denied</MudText>
+                    <MudText Typo="Typo.body1" Color="Color.Secondary">You do not have permission to view this PawConnect page.</MudText>
+                </div>
+                <MudStack Row="true" Spacing="2">
+                    <MudButton Href="/" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Home">Go Home</MudButton>
+                    <MudButton Href="/Account/Login" Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Login">Log in</MudButton>
+                </MudStack>
+            </MudStack>
+        </MudCardContent>
+    </MudCard>
+</div>

@@ -10,6 +10,7 @@
 
 <PageTitle>Dogs</PageTitle>
 
+<div class="dogs-page">
 <MudContainer MaxWidth="MaxWidth.False" Class="px-0">
     <MudStack Spacing="3">
         <div class="page-header">
@@ -17,7 +18,7 @@
             <MudText Typo="Typo.body2" Color="Color.Secondary">Browse dogs currently available or reserved in the shelter system.</MudText>
         </div>
 
-        <MudPaper Elevation="0" Class="pa-4">
+        <MudPaper Elevation="0" Class="section-surface filter-panel pa-4">
             <MudGrid Spacing="2">
                 <MudItem xs="12" md="4">
                     <MudTextField Label="Search by name" @bind-Value="_searchTerm" Variant="Variant.Outlined" Margin="Margin.Dense" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
@@ -95,22 +96,46 @@
         }
         else if (_dogs.Count == 0)
         {
-            <MudAlert Severity="Severity.Info">No dogs matched your filters.</MudAlert>
+            <MudPaper Elevation="0" Class="empty-state pa-6">
+                <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.SearchOff" Color="Color.Secondary" Size="Size.Large" />
+                    <MudText Typo="Typo.h6">No dogs matched your filters</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Try clearing filters or broadening your search.</MudText>
+                    <MudButton Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Clear" OnClick="ClearFiltersAsync">Reset Filters</MudButton>
+                </MudStack>
+            </MudPaper>
         }
         else
         {
             <MudGrid Spacing="3">
                 @foreach (var dog in _dogs)
                 {
+                    var imageUrl = GetMainImageUrl(dog);
+
                     <MudItem xs="12" sm="6" md="4">
-                        <MudCard Class="h-100">
-                            <MudCardMedia Image="@GetImageUrl(dog)" Class="dog-image" />
+                        <MudCard Class="dog-card">
+                            <a class="dog-image-link" href="@($"/dogs/{dog.Id}")" aria-label="@($"View details for {dog.Name}")">
+                                @if (imageUrl is null)
+                                {
+                                    <div class="dog-image dog-image-placeholder">
+                                        <MudIcon Icon="@Icons.Material.Filled.Pets" Color="Color.Primary" />
+                                        <MudText Typo="Typo.caption">No image available</MudText>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <MudCardMedia Image="@imageUrl" Class="dog-image" />
+                                }
+                            </a>
                             <MudCardContent>
                                 <MudStack Spacing="1">
                                     <MudStack Row="true" AlignItems="AlignItems.Start">
                                         <MudText Typo="Typo.h6">@dog.Name</MudText>
                                         <MudSpacer />
-                                        <MudIconButton Icon="@GetFavoriteIcon(dog.Id)" Color="@GetFavoriteColor(dog.Id)" Size="Size.Small" OnClick="@(() => ToggleFavoriteAsync(dog))" aria-label="@GetFavoriteTitle(dog.Id)" />
+                                        @if (_currentUserIsAdopter || !_currentUserIsAuthenticated)
+                                        {
+                                            <MudIconButton Icon="@GetFavoriteIcon(dog.Id)" Color="@GetFavoriteColor(dog.Id)" Size="Size.Small" OnClick="@(() => ToggleFavoriteAsync(dog))" aria-label="@GetFavoriteTitle(dog.Id)" />
+                                        }
                                         <MudChip T="string" Color="@GetStatusColor(dog.Status)" Size="Size.Small">@dog.Status</MudChip>
                                     </MudStack>
                                     <MudText Typo="Typo.body2">@dog.Breed, @dog.Age years old</MudText>
@@ -131,6 +156,7 @@
         }
     </MudStack>
 </MudContainer>
+</div>
 
 @code {
     private List<Dog> _dogs = [];
@@ -146,6 +172,7 @@
     private string _selectedStatus = string.Empty;
     private DogSortOption _sortOption = DogSortOption.NameAsc;
     private string? _currentUserId;
+    private bool _currentUserIsAuthenticated;
     private bool _currentUserIsAdopter;
     private HashSet<int> _favoriteDogIds = [];
 
@@ -211,11 +238,26 @@
         await ApplyFiltersAsync();
     }
 
-    private static string GetImageUrl(Dog dog)
+    private static string? GetMainImageUrl(Dog dog)
     {
-        return dog.Images.FirstOrDefault(i => i.IsMainImage)?.ImageUrl
-            ?? dog.Images.FirstOrDefault()?.ImageUrl
-            ?? "https://placehold.co/800x500?text=Dog";
+        return dog.Images
+            .Where(i => IsValidImageUrl(i.ImageUrl))
+            .OrderByDescending(i => i.IsMainImage)
+            .ThenBy(i => i.Id)
+            .Select(i => i.ImageUrl)
+            .FirstOrDefault();
+    }
+
+    private static bool IsValidImageUrl(string? imageUrl)
+    {
+        if (string.IsNullOrWhiteSpace(imageUrl) ||
+            imageUrl.Contains("placehold.co", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return Uri.TryCreate(imageUrl, UriKind.Absolute, out var uri) &&
+            (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
     }
 
     private static string GetShortDescription(string description)
@@ -256,7 +298,8 @@
         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
         var principal = authState.User;
 
-        _currentUserIsAdopter = principal.Identity?.IsAuthenticated == true && principal.IsInRole("Adopter");
+        _currentUserIsAuthenticated = principal.Identity?.IsAuthenticated == true;
+        _currentUserIsAdopter = _currentUserIsAuthenticated && principal.IsInRole("Adopter");
         if (!_currentUserIsAdopter)
         {
             _currentUserId = null;
@@ -283,7 +326,7 @@
         if (string.IsNullOrWhiteSpace(_currentUserId))
         {
             Snackbar.Add("Please log in with an adopter account to save favorite dogs.", Severity.Info);
-            NavigationManager.NavigateTo($"Account/Login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}");
+            NavigationManager.NavigateTo($"/Account/Login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}");
             return;
         }
 
@@ -299,13 +342,13 @@
             {
                 await FavoriteDogService.RemoveFavoriteAsync(_currentUserId, dog.Id);
                 _favoriteDogIds.Remove(dog.Id);
-                Snackbar.Add($"{dog.Name} was removed from favorites.", Severity.Success);
+                Snackbar.Add("Dog removed from favorites.", Severity.Success);
             }
             else
             {
                 await FavoriteDogService.AddFavoriteAsync(_currentUserId, dog.Id);
                 _favoriteDogIds.Add(dog.Id);
-                Snackbar.Add($"{dog.Name} was added to favorites.", Severity.Success);
+                Snackbar.Add("Dog added to favorites.", Severity.Success);
             }
         }
         catch (InvalidOperationException ex)
@@ -314,7 +357,7 @@
         }
         catch
         {
-            Snackbar.Add("Favorite could not be updated right now.", Severity.Error);
+            Snackbar.Add("Could not update favorites. Please try again.", Severity.Error);
         }
     }
 

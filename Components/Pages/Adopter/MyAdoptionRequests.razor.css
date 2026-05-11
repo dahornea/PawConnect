@@ -1,0 +1,48 @@
+.request-summary-grid {
+    margin-bottom: 2px;
+}
+
+::deep .summary-card,
+::deep .request-card {
+    border: 1px solid rgba(47, 111, 94, 0.1);
+    border-radius: 12px;
+    background: linear-gradient(180deg, #ffffff, #f8fbf7);
+    box-shadow: 0 8px 22px rgba(31, 47, 42, 0.05);
+}
+
+::deep .request-card {
+    transition: box-shadow 140ms ease, transform 140ms ease;
+}
+
+::deep .request-card:hover {
+    box-shadow: 0 12px 28px rgba(31, 47, 42, 0.08);
+    transform: translateY(-1px);
+}
+
+::deep .request-card .mud-card-content {
+    padding: 16px;
+}
+
+::deep .request-card-grid {
+    align-items: center;
+}
+
+::deep .dog-avatar {
+    background: rgba(47, 111, 94, 0.1);
+    color: #2f6f5e;
+}
+
+.request-meta {
+    align-items: flex-start;
+}
+
+::deep .status-chip {
+    font-weight: 700;
+}
+
+@media (min-width: 960px) {
+    .request-meta {
+        align-items: flex-end;
+        text-align: right;
+    }
+}
