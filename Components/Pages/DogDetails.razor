@@ -239,6 +239,9 @@ else
                                 {
                                     <MudText Typo="Typo.body2">Email: @_dog.Shelter.Email</MudText>
                                 }
+                                <MudButton Href="@($"/shelters/{_dog.Shelter.Id}")" Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.LocationOn" Class="mt-1">
+                                    View shelter location
+                                </MudButton>
                             </MudStack>
                         }
                     </MudPaper>

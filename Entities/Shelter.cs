@@ -25,6 +25,12 @@ public class Shelter
     [EmailAddress, StringLength(120)]
     public string? Email { get; set; }
 
+    [Range(-90, 90)]
+    public double? Latitude { get; set; }
+
+    [Range(-180, 180)]
+    public double? Longitude { get; set; }
+
     public string? ApplicationUserId { get; set; }
 
     public ApplicationUser? ApplicationUser { get; set; }

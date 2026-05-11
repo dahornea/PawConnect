@@ -149,12 +149,14 @@ public static class IdentitySeedData
 
         var shelter = new Shelter
         {
-            Name = "PawConnect Demo Shelter",
-            Description = "Development shelter used for demo data and dashboard testing.",
-            Address = "123 Shelter Street",
-            City = "Bucharest",
+            Name = "Happy Paws Shelter",
+            Description = "Fictional demo shelter used for PawConnect development and presentation data.",
+            Address = "Strada Observatorului 12, Cluj-Napoca",
+            City = "Cluj-Napoca",
             PhoneNumber = "+40 700 000 001",
             Email = "u8878233525@id.gle",
+            Latitude = 46.7556,
+            Longitude = 23.5804,
             ApplicationUserId = ShelterUserId
         };
 
@@ -286,7 +288,41 @@ public static class IdentitySeedData
             new ResourceStock { Name = "Disinfectant", Quantity = 8, Unit = "liters", LowStockThreshold = 4, ResourceCategoryId = CleaningSuppliesCategoryId }
         ];
 
-        context.Shelters.Add(shelter);
+        context.Shelters.AddRange(
+            shelter,
+            new Shelter
+            {
+                Name = "Hope Tails Rescue",
+                Description = "Fictional demo rescue profile for map and listing demonstrations.",
+                Address = "Strada Fabricii 45, Cluj-Napoca",
+                City = "Cluj-Napoca",
+                PhoneNumber = "+40 700 000 002",
+                Email = "hope-tails@example.test",
+                Latitude = 46.7842,
+                Longitude = 23.6157
+            },
+            new Shelter
+            {
+                Name = "Safe Haven Dogs",
+                Description = "Fictional demo shelter profile with an approximate Cluj-Napoca marker.",
+                Address = "Strada Buna Ziua 22, Cluj-Napoca",
+                City = "Cluj-Napoca",
+                PhoneNumber = "+40 700 000 003",
+                Email = "safe-haven@example.test",
+                Latitude = 46.7421,
+                Longitude = 23.6184
+            },
+            new Shelter
+            {
+                Name = "Green Yard Shelter",
+                Description = "Fictional demo shelter profile for public shelter map testing.",
+                Address = "Strada Donath 60, Cluj-Napoca",
+                City = "Cluj-Napoca",
+                PhoneNumber = "+40 700 000 004",
+                Email = "green-yard@example.test",
+                Latitude = 46.7719,
+                Longitude = 23.5458
+            });
         await context.SaveChangesAsync();
     }
 
@@ -321,6 +357,48 @@ public static class IdentitySeedData
         }
 
         var shelter = await context.Shelters.FirstOrDefaultAsync();
+        if (shelter is not null)
+        {
+            shelter.Name = "Happy Paws Shelter";
+            shelter.Description = "Fictional demo shelter used for PawConnect development and presentation data.";
+            shelter.Address = "Strada Observatorului 12, Cluj-Napoca";
+            shelter.City = "Cluj-Napoca";
+            shelter.PhoneNumber = "+40 700 000 001";
+            shelter.Email = "u8878233525@id.gle";
+            shelter.Latitude = 46.7556;
+            shelter.Longitude = 23.5804;
+
+            await EnsureDemoShelterAsync(
+                context,
+                "Hope Tails Rescue",
+                "Fictional demo rescue profile for map and listing demonstrations.",
+                "Strada Fabricii 45, Cluj-Napoca",
+                "+40 700 000 002",
+                "hope-tails@example.test",
+                46.7842,
+                23.6157);
+
+            await EnsureDemoShelterAsync(
+                context,
+                "Safe Haven Dogs",
+                "Fictional demo shelter profile with an approximate Cluj-Napoca marker.",
+                "Strada Buna Ziua 22, Cluj-Napoca",
+                "+40 700 000 003",
+                "safe-haven@example.test",
+                46.7421,
+                23.6184);
+
+            await EnsureDemoShelterAsync(
+                context,
+                "Green Yard Shelter",
+                "Fictional demo shelter profile for public shelter map testing.",
+                "Strada Donath 60, Cluj-Napoca",
+                "+40 700 000 004",
+                "green-yard@example.test",
+                46.7719,
+                23.5458);
+        }
+
         if (shelter is not null && !await context.ResourceStocks.AnyAsync(r => r.ResourceCategoryId == CleaningSuppliesCategoryId))
         {
             context.ResourceStocks.Add(new ResourceStock
@@ -420,6 +498,42 @@ public static class IdentitySeedData
         }
 
         await context.SaveChangesAsync();
+    }
+
+    private static async Task EnsureDemoShelterAsync(
+        ApplicationDbContext context,
+        string name,
+        string description,
+        string address,
+        string phoneNumber,
+        string email,
+        double latitude,
+        double longitude)
+    {
+        var shelter = await context.Shelters.FirstOrDefaultAsync(s => s.Name == name);
+        if (shelter is null)
+        {
+            context.Shelters.Add(new Shelter
+            {
+                Name = name,
+                Description = description,
+                Address = address,
+                City = "Cluj-Napoca",
+                PhoneNumber = phoneNumber,
+                Email = email,
+                Latitude = latitude,
+                Longitude = longitude
+            });
+            return;
+        }
+
+        shelter.Description = description;
+        shelter.Address = address;
+        shelter.City = "Cluj-Napoca";
+        shelter.PhoneNumber = phoneNumber;
+        shelter.Email = email;
+        shelter.Latitude = latitude;
+        shelter.Longitude = longitude;
     }
 
     private static async Task UpdateDemoDogImagesAsync(ApplicationDbContext context, Dog dog)

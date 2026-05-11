@@ -8,6 +8,121 @@ a {
     color: #2f6f5e;
 }
 
+.shelter-map-frame,
+.shelter-map.leaflet-container {
+    width: 100%;
+    height: 100%;
+    min-height: 340px;
+}
+
+.shelter-map.leaflet-container {
+    border-radius: 14px;
+    background: #eef4ed;
+    position: relative;
+    overflow: hidden;
+    z-index: 0;
+    outline-style: none;
+}
+
+.shelter-map .leaflet-layer,
+.shelter-map .leaflet-pane,
+.shelter-map .leaflet-tile,
+.shelter-map .leaflet-marker-icon,
+.shelter-map .leaflet-marker-shadow,
+.shelter-map .leaflet-tile-container,
+.shelter-map .leaflet-pane > svg,
+.shelter-map .leaflet-pane > canvas,
+.shelter-map .leaflet-zoom-box,
+.shelter-map .leaflet-image-layer,
+.shelter-map .leaflet-overlay-pane svg,
+.shelter-map .leaflet-tile-pane,
+.shelter-map .leaflet-overlay-pane,
+.shelter-map .leaflet-marker-pane,
+.shelter-map .leaflet-shadow-pane,
+.shelter-map .leaflet-tooltip-pane,
+.shelter-map .leaflet-popup-pane {
+    position: absolute;
+    left: 0;
+    top: 0;
+}
+
+.shelter-map .leaflet-tile,
+.shelter-map .leaflet-marker-icon,
+.shelter-map .leaflet-marker-shadow {
+    max-width: none !important;
+}
+
+.shelter-map .leaflet-tile {
+    width: 256px;
+    height: 256px;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+
+.shelter-map .leaflet-control {
+    position: relative;
+    z-index: 800;
+    pointer-events: auto;
+}
+
+.shelter-map .leaflet-top,
+.shelter-map .leaflet-bottom {
+    position: absolute;
+    z-index: 1000;
+    pointer-events: none;
+}
+
+.shelter-map .leaflet-top {
+    top: 0;
+}
+
+.shelter-map .leaflet-right {
+    right: 0;
+}
+
+.shelter-map .leaflet-bottom {
+    bottom: 0;
+}
+
+.shelter-map .leaflet-left {
+    left: 0;
+}
+
+.shelter-map .leaflet-control-zoom {
+    margin-left: 10px;
+    margin-top: 10px;
+}
+
+.shelter-map .leaflet-control-attribution {
+    margin: 0;
+    padding: 0 5px;
+    background: rgba(255, 255, 255, 0.82);
+    font-size: 0.68rem;
+}
+
+.shelter-map .pawconnect-map-marker {
+    background: transparent;
+    border: 0;
+}
+
+.shelter-map .pawconnect-map-marker svg {
+    display: block;
+    width: 34px;
+    height: 46px;
+    overflow: visible;
+    filter: drop-shadow(0 8px 12px rgba(12, 52, 42, 0.28));
+}
+
+.shelter-map .pawconnect-map-marker path {
+    fill: #2f7665;
+    stroke: #ffffff;
+    stroke-width: 3;
+}
+
+.shelter-map .pawconnect-map-marker circle {
+    fill: #ffffff;
+}
+
 h1:focus {
     outline: none;
 }

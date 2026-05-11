@@ -1,0 +1,14 @@
+.shelter-card {
+    height: 100%;
+}
+
+.shelter-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--mud-palette-primary);
+    background: rgba(47, 111, 94, 0.1);
+}

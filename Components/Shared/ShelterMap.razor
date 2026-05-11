@@ -1,0 +1,74 @@
+@implements IAsyncDisposable
+@inject IJSRuntime JSRuntime
+
+@if (HasCoordinates)
+{
+    <div class="shelter-map-frame" style="@($"height:{Height};")">
+        <div id="@_mapId" class="shelter-map"></div>
+    </div>
+}
+else
+{
+    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+        Map location is not available for this shelter.
+    </MudAlert>
+}
+
+@code {
+    private readonly string _mapId = $"shelter-map-{Guid.NewGuid():N}";
+
+    [Parameter]
+    public double? Latitude { get; set; }
+
+    [Parameter]
+    public double? Longitude { get; set; }
+
+    [Parameter]
+    public string ShelterName { get; set; } = "Shelter";
+
+    [Parameter]
+    public string? Address { get; set; }
+
+    [Parameter]
+    public string? City { get; set; }
+
+    [Parameter]
+    public string Height { get; set; } = "340px";
+
+    private bool HasCoordinates => Latitude.HasValue && Longitude.HasValue;
+
+    private string AddressText => string.Join(", ", new[] { Address, City }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || !HasCoordinates)
+        {
+            return;
+        }
+
+        await JSRuntime.InvokeVoidAsync(
+            "pawConnect.renderShelterMap",
+            _mapId,
+            Latitude,
+            Longitude,
+            ShelterName,
+            AddressText);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (!HasCoordinates)
+        {
+            return;
+        }
+
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("pawConnect.disposeShelterMap", _mapId);
+        }
+        catch
+        {
+            // The JS runtime can already be disconnected during Blazor Server teardown.
+        }
+    }
+}

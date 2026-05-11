@@ -4,36 +4,57 @@ using PawConnect.Entities;
 
 namespace PawConnect.Services;
 
-public class ShelterService(ApplicationDbContext context) : IShelterService
+public class ShelterService(IDbContextFactory<ApplicationDbContext> contextFactory) : IShelterService
 {
     public Task<List<Shelter>> GetAllAsync()
     {
         return GetAllSheltersAsync();
     }
 
-    public Task<Shelter?> GetByIdAsync(int id)
+    public async Task<Shelter?> GetByIdAsync(int id)
     {
-        return context.Shelters
+        await using var context = await contextFactory.CreateDbContextAsync();
+
+        return await context.Shelters
             .Include(s => s.Dogs)
+            .ThenInclude(d => d.Images)
             .Include(s => s.ResourceStocks)
+            .AsSplitQuery()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(s => s.Id == id);
+    }
+
+    public async Task<Shelter?> GetPublicShelterDetailsAsync(int id)
+    {
+        await using var context = await contextFactory.CreateDbContextAsync();
+
+        return await context.Shelters
+            .Include(s => s.Dogs)
+            .AsSplitQuery()
             .AsNoTracking()
             .FirstOrDefaultAsync(s => s.Id == id);
     }
 
     public async Task CreateAsync(Shelter shelter)
     {
+        await using var context = await contextFactory.CreateDbContextAsync();
+
         context.Shelters.Add(shelter);
         await context.SaveChangesAsync();
     }
 
     public async Task UpdateAsync(Shelter shelter)
     {
+        await using var context = await contextFactory.CreateDbContextAsync();
+
         context.Shelters.Update(shelter);
         await context.SaveChangesAsync();
     }
 
     public async Task DeleteAsync(int id)
     {
+        await using var context = await contextFactory.CreateDbContextAsync();
+
         var shelter = await context.Shelters.FindAsync(id);
         if (shelter is null)
         {
@@ -44,20 +65,27 @@ public class ShelterService(ApplicationDbContext context) : IShelterService
         await context.SaveChangesAsync();
     }
 
-    public Task<List<Shelter>> GetAllSheltersAsync()
+    public async Task<List<Shelter>> GetAllSheltersAsync()
     {
-        return context.Shelters
+        await using var context = await contextFactory.CreateDbContextAsync();
+
+        return await context.Shelters
             .Include(s => s.Dogs)
             .Include(s => s.ResourceStocks)
+            .AsSplitQuery()
+            .OrderBy(s => s.Name)
             .AsNoTracking()
             .ToListAsync();
     }
 
-    public Task<Shelter?> GetShelterForUserAsync(string userId)
+    public async Task<Shelter?> GetShelterForUserAsync(string userId)
     {
-        return context.Shelters
+        await using var context = await contextFactory.CreateDbContextAsync();
+
+        return await context.Shelters
             .Include(s => s.Dogs)
             .Include(s => s.ResourceStocks)
+            .AsSplitQuery()
             .AsNoTracking()
             .FirstOrDefaultAsync(s => s.ApplicationUserId == userId);
     }
@@ -65,6 +93,8 @@ public class ShelterService(ApplicationDbContext context) : IShelterService
     public async Task UpdateShelterProfileAsync(Shelter shelter)
     {
         ValidateShelterProfile(shelter);
+
+        await using var context = await contextFactory.CreateDbContextAsync();
 
         var existingShelter = await context.Shelters.FirstOrDefaultAsync(s => s.Id == shelter.Id);
         if (existingShelter is null)
@@ -86,6 +116,8 @@ public class ShelterService(ApplicationDbContext context) : IShelterService
         existingShelter.City = shelter.City.Trim();
         existingShelter.PhoneNumber = string.IsNullOrWhiteSpace(shelter.PhoneNumber) ? null : shelter.PhoneNumber.Trim();
         existingShelter.Email = string.IsNullOrWhiteSpace(shelter.Email) ? null : shelter.Email.Trim();
+        existingShelter.Latitude = shelter.Latitude;
+        existingShelter.Longitude = shelter.Longitude;
 
         await context.SaveChangesAsync();
     }
@@ -115,6 +147,16 @@ public class ShelterService(ApplicationDbContext context) : IShelterService
         if (!string.IsNullOrWhiteSpace(shelter.PhoneNumber) && !new System.ComponentModel.DataAnnotations.PhoneAttribute().IsValid(shelter.PhoneNumber))
         {
             throw new InvalidOperationException("Shelter phone number must be valid.");
+        }
+
+        if (shelter.Latitude is < -90 or > 90)
+        {
+            throw new InvalidOperationException("Latitude must be between -90 and 90.");
+        }
+
+        if (shelter.Longitude is < -180 or > 180)
+        {
+            throw new InvalidOperationException("Longitude must be between -180 and 180.");
         }
     }
 }

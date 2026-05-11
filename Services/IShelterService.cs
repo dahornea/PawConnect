@@ -8,6 +8,8 @@ public interface IShelterService
 
     Task<Shelter?> GetByIdAsync(int id);
 
+    Task<Shelter?> GetPublicShelterDetailsAsync(int id);
+
     Task CreateAsync(Shelter shelter);
 
     Task UpdateAsync(Shelter shelter);

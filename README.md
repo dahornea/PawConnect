@@ -22,7 +22,7 @@ PawConnect is a beginner-friendly ASP.NET Core Blazor Server skeleton for a stra
 - SQL Server DbContext and EF migrations
 - Domain entities for shelters, dogs, dog images, medical records, adoption requests, favorite dogs, adopter profiles, and resource stock
 - Seed roles, test users, and demo domain data at startup after the database schema exists
-- Demo data includes one shelter, five dogs, dog images, medical records, resource categories, food types, and resource stock
+- Demo data includes Cluj-Napoca demo shelters, dogs, dog images, medical records, resource categories, food types, and resource stock
 - MudBlazor layout with role-based sidebar navigation
 - Placeholder pages for public, adopter, shelter, and admin workflows
 - Simple service and repository layer
@@ -95,6 +95,25 @@ dotnet user-secrets set "EmailSettings:EnableSsl" "true"
 
 Mailtrap sandbox is useful for development because it captures test emails and lets you inspect PDF attachments without delivering them to real inboxes. If you switch to Gmail SMTP later, Gmail requires an App Password.
 
+## Shelter Map Integration
+
+PawConnect uses OpenStreetMap with Leaflet for read-only shelter location maps. No Google Maps API key or paid map service is required.
+
+Shelter coordinates are stored directly on the `Shelter` entity as optional `Latitude` and `Longitude` values. Shelters without coordinates still work normally and show a friendly fallback message instead of a broken map.
+
+The public shelter pages are:
+
+- `/shelters`
+- `/shelters/{id:int}`
+
+Demo shelters use approximate, fictional Cluj-Napoca, Romania locations for development and testing. The demo addresses and coordinates are not real shelter addresses and should not be treated as public contact/location data for real organizations.
+
+After adding the map coordinate fields, apply migrations with:
+
+```bash
+dotnet tool run dotnet-ef database update
+```
+
 ## Database
 
 The connection string points to a SQL Server database named `PawConnect`:
@@ -147,10 +166,10 @@ Apply migrations to the `PawConnect` database:
 dotnet tool run dotnet-ef database update
 ```
 
-The latest dog age migration is:
+The latest map coordinate migration is:
 
 ```text
-20260511121925_AddDogAgeYearsMonths
+20260511144505_AddShelterCoordinates
 ```
 
 If `dotnet ef database update` cannot connect from your terminal, check that SQL Server/LocalDB is running and that the `DefaultConnection` server name matches the `PawConnect` database you created in SSMS.
