@@ -309,8 +309,8 @@ public static class IdentitySeedData
                 City = "Cluj-Napoca",
                 PhoneNumber = "+40 700 000 003",
                 Email = "safe-haven@example.test",
-                Latitude = 46.7421,
-                Longitude = 23.6184
+                Latitude = 46.7509,
+                Longitude = 23.6022
             },
             new Shelter
             {
@@ -385,8 +385,8 @@ public static class IdentitySeedData
                 "Strada Buna Ziua 22, Cluj-Napoca",
                 "+40 700 000 003",
                 "safe-haven@example.test",
-                46.7421,
-                23.6184);
+                46.7509,
+                23.6022);
 
             await EnsureDemoShelterAsync(
                 context,
