@@ -1,11 +1,15 @@
 @implements IAsyncDisposable
 @inject IJSRuntime JSRuntime
 
-@if (HasCoordinates)
+@if (HasCoordinates || Editable)
 {
     <div class="shelter-map-frame" style="@($"height:{Height};")">
         <div id="@_mapId" class="shelter-map"></div>
     </div>
+    @if (Editable && !HasCoordinates)
+    {
+        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1">Click on the map to set the shelter location.</MudText>
+    }
 }
 else
 {
@@ -16,12 +20,25 @@ else
 
 @code {
     private readonly string _mapId = $"shelter-map-{Guid.NewGuid():N}";
+    private DotNetObjectReference<ShelterMap>? _dotNetReference;
+    private double? _lastRenderedLatitude;
+    private double? _lastRenderedLongitude;
+    private bool _hasRenderedMap;
 
     [Parameter]
     public double? Latitude { get; set; }
 
     [Parameter]
+    public EventCallback<double?> LatitudeChanged { get; set; }
+
+    [Parameter]
     public double? Longitude { get; set; }
+
+    [Parameter]
+    public EventCallback<double?> LongitudeChanged { get; set; }
+
+    [Parameter]
+    public EventCallback<(double Latitude, double Longitude)> CoordinatesChanged { get; set; }
 
     [Parameter]
     public string ShelterName { get; set; } = "Shelter";
@@ -35,13 +52,50 @@ else
     [Parameter]
     public string Height { get; set; } = "340px";
 
+    [Parameter]
+    public bool Editable { get; set; }
+
     private bool HasCoordinates => Latitude.HasValue && Longitude.HasValue;
 
     private string AddressText => string.Join(", ", new[] { Address, City }.Where(value => !string.IsNullOrWhiteSpace(value)));
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender || !HasCoordinates)
+        if (!HasCoordinates && !Editable)
+        {
+            return;
+        }
+
+        _dotNetReference ??= DotNetObjectReference.Create(this);
+
+        await JSRuntime.InvokeVoidAsync(
+            "pawConnect.renderShelterMap",
+            _mapId,
+            Latitude,
+            Longitude,
+            ShelterName,
+            AddressText,
+            Editable,
+            Editable ? _dotNetReference : null);
+
+        _lastRenderedLatitude = Latitude;
+        _lastRenderedLongitude = Longitude;
+        _hasRenderedMap = true;
+    }
+
+    protected override bool ShouldRender()
+    {
+        return true;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!_hasRenderedMap || (!HasCoordinates && !Editable))
+        {
+            return;
+        }
+
+        if (_lastRenderedLatitude == Latitude && _lastRenderedLongitude == Longitude)
         {
             return;
         }
@@ -52,16 +106,29 @@ else
             Latitude,
             Longitude,
             ShelterName,
-            AddressText);
+            AddressText,
+            Editable,
+            Editable ? _dotNetReference : null);
+
+        _lastRenderedLatitude = Latitude;
+        _lastRenderedLongitude = Longitude;
+    }
+
+    [JSInvokable]
+    public async Task OnMapCoordinatesChanged(double latitude, double longitude)
+    {
+        Latitude = latitude;
+        Longitude = longitude;
+        _lastRenderedLatitude = latitude;
+        _lastRenderedLongitude = longitude;
+
+        await LatitudeChanged.InvokeAsync(latitude);
+        await LongitudeChanged.InvokeAsync(longitude);
+        await CoordinatesChanged.InvokeAsync((latitude, longitude));
     }
 
     public async ValueTask DisposeAsync()
     {
-        if (!HasCoordinates)
-        {
-            return;
-        }
-
         try
         {
             await JSRuntime.InvokeVoidAsync("pawConnect.disposeShelterMap", _mapId);
@@ -70,5 +137,7 @@ else
         {
             // The JS runtime can already be disconnected during Blazor Server teardown.
         }
+
+        _dotNetReference?.Dispose();
     }
 }

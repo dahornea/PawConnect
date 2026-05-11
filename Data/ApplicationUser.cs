@@ -15,6 +15,8 @@ public class ApplicationUser : IdentityUser
 
     public ICollection<DogStatusHistory> DogStatusHistories { get; set; } = new List<DogStatusHistory>();
 
+    public ICollection<ShelterRegistrationRequest> ReviewedShelterRegistrationRequests { get; set; } = new List<ShelterRegistrationRequest>();
+
     public Shelter? Shelter { get; set; }
 
     public AdopterProfile? AdopterProfile { get; set; }

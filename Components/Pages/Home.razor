@@ -1,4 +1,5 @@
 @page "/"
+@using PawConnect.Data
 @inject IDogService DogService
 @inject ISnackbar Snackbar
 
@@ -161,6 +162,18 @@
                     <MudText Typo="Typo.caption" Class="page-kicker">For shelters</MudText>
                     <MudText Typo="Typo.h5" Class="section-title">Simple tools for daily shelter work</MudText>
                     <MudText Typo="Typo.body2" Class="section-subtitle">Manage dogs, requests, resources, and reports without extra complexity.</MudText>
+                    <AuthorizeView Context="shelterApplyContext">
+                        <Authorized>
+                            @if (!shelterApplyContext.User.IsInRole(IdentitySeedData.AdminRole) &&
+                                                        !shelterApplyContext.User.IsInRole(IdentitySeedData.ShelterRole))
+                            {
+                                <MudButton Href="/shelters/apply" Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Business" Class="mt-2">Apply as a Shelter</MudButton>
+                            }
+                        </Authorized>
+                        <NotAuthorized>
+                            <MudButton Href="/shelters/apply" Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Business" Class="mt-2">Apply as a Shelter</MudButton>
+                        </NotAuthorized>
+                    </AuthorizeView>
                 </div>
 
                 <MudGrid Spacing="2">

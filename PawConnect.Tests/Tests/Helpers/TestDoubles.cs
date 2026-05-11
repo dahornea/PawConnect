@@ -31,4 +31,9 @@ public class TestPdfReportService : IPdfReportService
     {
         return Task.FromResult(PdfBytes);
     }
+
+    public Task<byte[]> GenerateShelterRegistrationRequestReportAsync(int shelterRegistrationRequestId)
+    {
+        return Task.FromResult(PdfBytes);
+    }
 }

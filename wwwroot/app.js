@@ -17,26 +17,30 @@ window.pawConnect.submitForm = (formId) => {
 
 window.pawConnect.maps = window.pawConnect.maps || {};
 
-window.pawConnect.renderShelterMap = (elementId, latitude, longitude, shelterName, addressText) => {
+window.pawConnect.renderShelterMap = (elementId, latitude, longitude, shelterName, addressText, editable = false, dotNetReference = null) => {
     const element = document.getElementById(elementId);
 
-    if (!element || typeof L === "undefined" || latitude === null || longitude === null) {
+    if (!element || typeof L === "undefined") {
         return;
     }
 
     if (window.pawConnect.maps[elementId]) {
         const existing = window.pawConnect.maps[elementId];
-        existing.map.invalidateSize();
+        existing.dotNetReference = dotNetReference || existing.dotNetReference;
+        existing.editable = editable;
+        updateShelterMapMarker(existing, latitude, longitude, shelterName, addressText, editable);
         scheduleMapResize(existing.map);
         return;
     }
 
-    waitForMapElementSize(element, () => initializeShelterMap(element, elementId, latitude, longitude, shelterName, addressText));
+    waitForMapElementSize(element, () => initializeShelterMap(element, elementId, latitude, longitude, shelterName, addressText, editable, dotNetReference));
 };
 
-function initializeShelterMap(element, elementId, latitude, longitude, shelterName, addressText) {
+function initializeShelterMap(element, elementId, latitude, longitude, shelterName, addressText, editable, dotNetReference) {
     if (window.pawConnect.maps[elementId]) {
-        scheduleMapResize(window.pawConnect.maps[elementId].map);
+        const existing = window.pawConnect.maps[elementId];
+        updateShelterMapMarker(existing, latitude, longitude, shelterName, addressText, editable);
+        scheduleMapResize(existing.map);
         return;
     }
 
@@ -45,23 +49,36 @@ function initializeShelterMap(element, elementId, latitude, longitude, shelterNa
     element.style.height = "100%";
     element.style.minHeight = "340px";
 
+    const start = getMapStart(latitude, longitude);
     const map = L.map(element, {
         scrollWheelZoom: false,
         dragging: true,
         zoomControl: true,
         attributionControl: true
-    }).setView([latitude, longitude], 14);
+    }).setView([start.latitude, start.longitude], start.hasMarker ? 14 : 12);
 
     const tileLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 19,
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(map);
 
-    const popup = `<strong>${escapeHtml(shelterName || "Shelter")}</strong>${addressText ? `<br>${escapeHtml(addressText)}` : ""}`;
-    L.marker([latitude, longitude], {
-        icon: createShelterMarkerIcon(),
-        title: shelterName || "Shelter"
-    }).addTo(map).bindPopup(popup);
+    const entry = {
+        map,
+        marker: null,
+        resizeObserver: null,
+        editable,
+        dotNetReference
+    };
+
+    if (start.hasMarker) {
+        setShelterMarker(entry, latitude, longitude, shelterName, addressText, editable, false);
+    }
+
+    if (editable) {
+        map.on("click", event => {
+            setShelterMarker(entry, event.latlng.lat, event.latlng.lng, shelterName, addressText, true, true);
+        });
+    }
 
     const resizeObserver = typeof ResizeObserver === "undefined"
         ? null
@@ -69,8 +86,9 @@ function initializeShelterMap(element, elementId, latitude, longitude, shelterNa
 
     resizeObserver?.observe(element);
     tileLayer.on("load", () => scheduleMapResize(map));
+    entry.resizeObserver = resizeObserver;
 
-    window.pawConnect.maps[elementId] = { map, resizeObserver };
+    window.pawConnect.maps[elementId] = entry;
 
     scheduleMapResize(map);
 }
@@ -86,6 +104,83 @@ window.pawConnect.disposeShelterMap = (elementId) => {
     entry.map.remove();
     delete window.pawConnect.maps[elementId];
 };
+
+function updateShelterMapMarker(entry, latitude, longitude, shelterName, addressText, editable) {
+    if (!entry) {
+        return;
+    }
+
+    entry.editable = editable;
+    const start = getMapStart(latitude, longitude);
+    if (!start.hasMarker) {
+        if (entry.marker) {
+            entry.map.removeLayer(entry.marker);
+            entry.marker = null;
+        }
+        scheduleMapResize(entry.map);
+        return;
+    }
+
+    setShelterMarker(entry, latitude, longitude, shelterName, addressText, editable, false);
+    entry.map.setView([latitude, longitude], Math.max(entry.map.getZoom(), 14), { animate: true });
+    scheduleMapResize(entry.map);
+}
+
+function setShelterMarker(entry, latitude, longitude, shelterName, addressText, editable, notifyBlazor) {
+    const popup = `<strong>${escapeHtml(shelterName || "Shelter")}</strong>${addressText ? `<br>${escapeHtml(addressText)}` : ""}`;
+
+    if (!entry.marker) {
+        entry.marker = L.marker([latitude, longitude], {
+            icon: createShelterMarkerIcon(),
+            title: shelterName || "Shelter",
+            draggable: editable
+        }).addTo(entry.map).bindPopup(popup);
+
+        entry.marker.on("dragend", event => {
+            const position = event.target.getLatLng();
+            notifyCoordinateChanged(entry, position.lat, position.lng);
+        });
+    } else {
+        entry.marker.setLatLng([latitude, longitude]);
+        entry.marker.setPopupContent(popup);
+        if (editable) {
+            entry.marker.dragging?.enable();
+        } else {
+            entry.marker.dragging?.disable();
+        }
+    }
+
+    if (notifyBlazor) {
+        notifyCoordinateChanged(entry, latitude, longitude);
+    }
+}
+
+function notifyCoordinateChanged(entry, latitude, longitude) {
+    if (!entry?.dotNetReference) {
+        return;
+    }
+
+    entry.dotNetReference.invokeMethodAsync("OnMapCoordinatesChanged", roundCoordinate(latitude), roundCoordinate(longitude));
+}
+
+function getMapStart(latitude, longitude) {
+    const hasMarker = latitude !== null &&
+        longitude !== null &&
+        latitude !== undefined &&
+        longitude !== undefined &&
+        !Number.isNaN(Number(latitude)) &&
+        !Number.isNaN(Number(longitude));
+
+    return {
+        latitude: hasMarker ? Number(latitude) : 46.7712,
+        longitude: hasMarker ? Number(longitude) : 23.6236,
+        hasMarker
+    };
+}
+
+function roundCoordinate(value) {
+    return Math.round(Number(value) * 1000000) / 1000000;
+}
 
 function createShelterMarkerIcon() {
     return L.divIcon({

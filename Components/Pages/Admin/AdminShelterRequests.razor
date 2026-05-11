@@ -1,0 +1,233 @@
+@page "/admin/shelter-requests"
+@attribute [Authorize(Roles = "Admin")]
+@using Microsoft.AspNetCore.Identity
+@using PawConnect.Data
+@inject IShelterRegistrationRequestService ShelterRegistrationRequestService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject UserManager<ApplicationUser> UserManager
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Shelter Requests</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.False" Class="px-0">
+    <MudStack Spacing="3">
+        <div class="page-header">
+            <MudText Typo="Typo.h4">Shelter Requests</MudText>
+            <MudText Typo="Typo.body2">Review public shelter applications before creating shelter accounts.</MudText>
+        </div>
+
+        @if (_isLoading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="py-8">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Loading shelter applications...</MudText>
+            </MudStack>
+        }
+        else if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <MudAlert Severity="Severity.Error">@_error</MudAlert>
+        }
+        else if (_requests.Count == 0)
+        {
+            <MudPaper Elevation="0" Class="empty-state pa-5">
+                <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.MarkEmailUnread" Color="Color.Secondary" Size="Size.Large" />
+                    <MudText Typo="Typo.h6">No shelter applications yet</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Applications submitted from /shelters/apply will appear here.</MudText>
+                </MudStack>
+            </MudPaper>
+        }
+        else
+        {
+            <MudGrid Spacing="2">
+                <MudItem xs="12" md="3">
+                    <MudCard Class="stat-card"><MudCardContent><MudText Typo="Typo.caption" Color="Color.Secondary">Total</MudText><MudText Typo="Typo.h5">@_requests.Count</MudText></MudCardContent></MudCard>
+                </MudItem>
+                <MudItem xs="12" md="3">
+                    <MudCard Class="stat-card"><MudCardContent><MudText Typo="Typo.caption" Color="Color.Secondary">Pending</MudText><MudText Typo="Typo.h5">@CountStatus(ShelterRegistrationRequestStatus.Pending)</MudText></MudCardContent></MudCard>
+                </MudItem>
+                <MudItem xs="12" md="3">
+                    <MudCard Class="stat-card"><MudCardContent><MudText Typo="Typo.caption" Color="Color.Secondary">Accepted</MudText><MudText Typo="Typo.h5">@CountStatus(ShelterRegistrationRequestStatus.Accepted)</MudText></MudCardContent></MudCard>
+                </MudItem>
+                <MudItem xs="12" md="3">
+                    <MudCard Class="stat-card"><MudCardContent><MudText Typo="Typo.caption" Color="Color.Secondary">Rejected</MudText><MudText Typo="Typo.h5">@CountStatus(ShelterRegistrationRequestStatus.Rejected)</MudText></MudCardContent></MudCard>
+                </MudItem>
+            </MudGrid>
+
+            <MudTable Items="_requests" Dense="true" Hover="true" Class="table-shell">
+                <HeaderContent>
+                    <MudTh>Shelter</MudTh>
+                    <MudTh>Contact</MudTh>
+                    <MudTh>Location</MudTh>
+                    <MudTh>Status</MudTh>
+                    <MudTh>Submitted</MudTh>
+                    <MudTh>Actions</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Shelter">
+                        <MudText Typo="Typo.subtitle2">@context.ShelterName</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">@context.Description</MudText>
+                    </MudTd>
+                    <MudTd DataLabel="Contact">
+                        <MudText Typo="Typo.body2">@context.ContactPersonName</MudText>
+                        <MudText Typo="Typo.caption">@context.Email</MudText>
+                        <MudText Typo="Typo.caption">@context.PhoneNumber</MudText>
+                    </MudTd>
+                    <MudTd DataLabel="Location">
+                        <MudText Typo="Typo.body2">@context.Address</MudText>
+                        <MudText Typo="Typo.caption">@context.City</MudText>
+                        @if (context.Latitude.HasValue && context.Longitude.HasValue)
+                        {
+                            <MudChip T="string" Color="Color.Info" Size="Size.Small" Variant="Variant.Outlined">Coordinates</MudChip>
+                        }
+                        else
+                        {
+                            <MudChip T="string" Color="Color.Default" Size="Size.Small" Variant="Variant.Outlined">No coordinates</MudChip>
+                        }
+                    </MudTd>
+                    <MudTd DataLabel="Status">
+                        <MudChip T="string" Color="@GetStatusColor(context.Status)" Size="Size.Small">@context.Status</MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Submitted">@context.SubmittedAt.ToLocalTime().ToString("dd MMM yyyy")</MudTd>
+                    <MudTd DataLabel="Actions">
+                        <MudStack Row="true" Spacing="1" Class="action-cell">
+                            <MudButton Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Visibility" OnClick="@(() => ViewRequest(context))">Details</MudButton>
+                            @if (context.Status == ShelterRegistrationRequestStatus.Pending)
+                            {
+                                <MudButton Variant="Variant.Filled" Color="Color.Success" Size="Size.Small" OnClick="@(() => AcceptAsync(context.Id))">Accept</MudButton>
+                                <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small" OnClick="@(() => RejectAsync(context.Id))">Reject</MudButton>
+                            }
+                        </MudStack>
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        }
+    </MudStack>
+</MudContainer>
+
+@code {
+    private List<ShelterRegistrationRequest> _requests = [];
+    private bool _isLoading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            _requests = await ShelterRegistrationRequestService.GetAllAsync();
+        }
+        catch
+        {
+            _error = "Shelter applications could not be loaded right now.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void ViewRequest(ShelterRegistrationRequest request)
+    {
+        var parameters = new DialogParameters
+        {
+            ["Request"] = request
+        };
+
+        DialogService.ShowAsync<ShelterRequestDetailsDialog>("Shelter Application", parameters);
+    }
+
+    private async Task AcceptAsync(int requestId)
+    {
+        if (!await ConfirmAsync("Accept shelter application?", "Accepting creates a Shelter user account and linked shelter profile."))
+        {
+            return;
+        }
+
+        try
+        {
+            var adminId = await GetCurrentUserIdAsync();
+            await ShelterRegistrationRequestService.AcceptRequestAsync(requestId, adminId);
+            Snackbar.Add("Shelter application accepted. Shelter account created.", Severity.Success);
+            await LoadAsync();
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch
+        {
+            Snackbar.Add("Could not accept the shelter application. Please try again.", Severity.Error);
+        }
+    }
+
+    private async Task RejectAsync(int requestId)
+    {
+        if (!await ConfirmAsync("Reject shelter application?", "Rejecting keeps the application for history but does not create a shelter account.", Color.Error))
+        {
+            return;
+        }
+
+        try
+        {
+            var adminId = await GetCurrentUserIdAsync();
+            await ShelterRegistrationRequestService.RejectRequestAsync(requestId, adminId);
+            Snackbar.Add("Shelter application rejected.", Severity.Success);
+            await LoadAsync();
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch
+        {
+            Snackbar.Add("Could not reject the shelter application. Please try again.", Severity.Error);
+        }
+    }
+
+    private async Task<bool> ConfirmAsync(string title, string message, Color confirmColor = Color.Primary)
+    {
+        var parameters = new DialogParameters
+        {
+            ["Title"] = title,
+            ["Message"] = message,
+            ["ConfirmText"] = confirmColor == Color.Error ? "Reject" : "Accept",
+            ["CancelText"] = "Cancel",
+            ["ConfirmColor"] = confirmColor,
+            ["Icon"] = Icons.Material.Filled.HelpOutline
+        };
+
+        var dialog = await DialogService.ShowAsync<ConfirmationDialog>(title, parameters);
+        var result = await dialog.Result;
+        return result is not null && !result.Canceled;
+    }
+
+    private async Task<string> GetCurrentUserIdAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = await UserManager.GetUserAsync(authState.User);
+        return user?.Id ?? string.Empty;
+    }
+
+    private int CountStatus(ShelterRegistrationRequestStatus status)
+    {
+        return _requests.Count(r => r.Status == status);
+    }
+
+    private static Color GetStatusColor(ShelterRegistrationRequestStatus status)
+    {
+        return status switch
+        {
+            ShelterRegistrationRequestStatus.Pending => Color.Warning,
+            ShelterRegistrationRequestStatus.Accepted => Color.Success,
+            ShelterRegistrationRequestStatus.Rejected => Color.Error,
+            _ => Color.Default
+        };
+    }
+
+}

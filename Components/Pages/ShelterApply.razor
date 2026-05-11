@@ -1,0 +1,321 @@
+@page "/shelters/apply"
+@using Microsoft.AspNetCore.Identity
+@using PawConnect.Data
+@inject IShelterRegistrationRequestService ShelterRegistrationRequestService
+@inject IGeocodingService GeocodingService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject UserManager<ApplicationUser> UserManager
+@inject ISnackbar Snackbar
+
+<PageTitle>Apply as a Shelter</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.False" Class="px-0">
+    <MudStack Spacing="3">
+        <div class="page-header">
+            <MudText Typo="Typo.h4">Apply as a Shelter</MudText>
+            <MudText Typo="Typo.body2">Submit your shelter information for administrator review. Public registration remains for adopter accounts.</MudText>
+        </div>
+
+        @if (_isCheckingAccess)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="py-8">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Checking access...</MudText>
+            </MudStack>
+        }
+        else if (_blockedRole == IdentitySeedData.AdminRole)
+        {
+            <MudAlert Severity="Severity.Info" Variant="Variant.Filled">Admins manage shelter applications from the Admin Shelter Requests page.</MudAlert>
+            <MudButton Href="/admin/shelter-requests" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.MarkEmailUnread">Go to Shelter Requests</MudButton>
+        }
+        else if (_blockedRole == IdentitySeedData.ShelterRole)
+        {
+            <MudAlert Severity="Severity.Info" Variant="Variant.Filled">Your shelter account is already active.</MudAlert>
+            <MudButton Href="/shelter/dashboard" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Dashboard">Go to Shelter Dashboard</MudButton>
+        }
+        else
+        {
+        @if (_submitted)
+        {
+            <MudAlert Severity="Severity.Success" Variant="Variant.Filled">
+                Shelter application submitted successfully. An administrator will review it before a shelter account is created.
+            </MudAlert>
+        }
+
+        <MudPaper Elevation="0" Class="section-surface pa-4">
+            <MudForm @ref="_form">
+                <MudGrid Spacing="3">
+                    <MudItem xs="12" md="6">
+                        <MudTextField Label="Shelter name" @bind-Value="_request.ShelterName" Required="true" RequiredError="Shelter name is required." Variant="Variant.Outlined" />
+                    </MudItem>
+                    <MudItem xs="12" md="6">
+                        <MudTextField Label="Contact person name" @bind-Value="_request.ContactPersonName" Required="true" RequiredError="Contact person name is required." Variant="Variant.Outlined" />
+                    </MudItem>
+                    <MudItem xs="12" md="6">
+                        <MudTextField Label="Email" @bind-Value="_request.Email" Required="true" RequiredError="Email is required." Variant="Variant.Outlined" />
+                    </MudItem>
+                    <MudItem xs="12" md="6">
+                        <MudTextField Label="Phone number" @bind-Value="_request.PhoneNumber" Required="true" RequiredError="Phone number is required." Variant="Variant.Outlined" />
+                    </MudItem>
+                    <MudItem xs="12" md="5">
+                        <MudTextField Label="City" @bind-Value="_request.City" Required="true" RequiredError="City is required." Variant="Variant.Outlined" />
+                    </MudItem>
+                    <MudItem xs="12" md="7">
+                        <MudTextField Label="Street / address" @bind-Value="_request.Address" Required="true" RequiredError="Address is required." Variant="Variant.Outlined" />
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudTextField Label="Description" @bind-Value="_request.Description" Required="true" RequiredError="Description is required." Lines="4" Variant="Variant.Outlined" />
+                    </MudItem>
+                    <MudItem xs="12" md="4">
+                        <MudTextField Label="Website" @bind-Value="_request.Website" Variant="Variant.Outlined" />
+                    </MudItem>
+                    <MudItem xs="12" md="4">
+                        <MudTextField Label="Opening hours" @bind-Value="_request.OpeningHours" Variant="Variant.Outlined" />
+                    </MudItem>
+                    <MudItem xs="12" md="4">
+                        <MudTextField Label="Reason for joining" @bind-Value="_request.ReasonForJoining" Variant="Variant.Outlined" />
+                    </MudItem>
+                </MudGrid>
+            </MudForm>
+        </MudPaper>
+
+        <MudPaper Elevation="0" Class="section-surface pa-4">
+            <MudStack Spacing="2">
+                <div>
+                    <MudText Typo="Typo.h6" Class="section-title">Location Coordinates</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Coordinates are optional. Use address lookup if you want the public shelter map to show immediately.</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Move the pin to adjust coordinates. A suggested address may be shown after selecting a location.</MudText>
+                </div>
+                <MudGrid Spacing="2">
+                    <MudItem xs="12" md="6">
+                        <MudNumericField T="double?" Label="Latitude" @bind-Value="_request.Latitude" Min="-90" Max="90" Variant="Variant.Outlined" HelperText="Optional. Must be between -90 and 90." />
+                    </MudItem>
+                    <MudItem xs="12" md="6">
+                        <MudNumericField T="double?" Label="Longitude" @bind-Value="_request.Longitude" Min="-180" Max="180" Variant="Variant.Outlined" HelperText="Optional. Must be between -180 and 180." />
+                    </MudItem>
+                </MudGrid>
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.TravelExplore" Disabled="_isGeocoding" OnClick="FindCoordinatesAsync">
+                        @(_isGeocoding ? "Searching..." : "Find coordinates")
+                    </MudButton>
+                    <MudButton Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Place" Disabled="@(!_request.Latitude.HasValue || !_request.Longitude.HasValue || _isReverseGeocoding)" OnClick="SuggestAddressFromCoordinatesAsync">
+                        @(_isReverseGeocoding ? "Looking up..." : "Suggest address from coordinates")
+                    </MudButton>
+                    @if (_isGeocoding)
+                    {
+                        <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Primary" />
+                    }
+                </MudStack>
+
+                <ShelterMap @bind-Latitude="_request.Latitude"
+                            @bind-Longitude="_request.Longitude"
+                            ShelterName="@(_request.ShelterName.Length == 0 ? "Shelter location preview" : _request.ShelterName)"
+                            Address="@_request.Address"
+                            City="@_request.City"
+                            Height="300px"
+                            Editable="true"
+                            CoordinatesChanged="OnMapCoordinatesChangedAsync" />
+
+                @if (!_request.Latitude.HasValue || !_request.Longitude.HasValue)
+                {
+                    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">No coordinates selected yet. You can still submit the application without map coordinates.</MudAlert>
+                }
+
+                @if (_suggestedAddress is not null)
+                {
+                    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+                        <MudStack Spacing="1">
+                            <MudText Typo="Typo.subtitle2">Suggested address found from the selected map location.</MudText>
+                            <MudText Typo="Typo.body2">@_suggestedAddress.DisplayName</MudText>
+                            <MudStack Row="true" Spacing="1">
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" OnClick="UseSuggestedAddress">Use suggested address</MudButton>
+                                <MudButton Variant="Variant.Text" Color="Color.Default" Size="Size.Small" OnClick="ClearSuggestedAddress">Dismiss</MudButton>
+                            </MudStack>
+                        </MudStack>
+                    </MudAlert>
+                }
+            </MudStack>
+        </MudPaper>
+
+        <MudStack Row="true" Spacing="2">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large" StartIcon="@Icons.Material.Filled.Send" Disabled="_isSubmitting" OnClick="SubmitAsync">
+                Submit application
+            </MudButton>
+            <MudButton Href="/shelters" Variant="Variant.Text" Color="Color.Default">Back to shelters</MudButton>
+        </MudStack>
+        }
+    </MudStack>
+</MudContainer>
+
+@code {
+    private ShelterRegistrationRequest _request = new();
+    private MudForm? _form;
+    private bool _isSubmitting;
+    private bool _isGeocoding;
+    private bool _isReverseGeocoding;
+    private bool _submitted;
+    private bool _isCheckingAccess = true;
+    private string? _currentUserId;
+    private string? _blockedRole;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.Identity?.IsAuthenticated == true)
+        {
+            var user = await UserManager.GetUserAsync(authState.User);
+            _currentUserId = user?.Id;
+
+            if (authState.User.IsInRole(IdentitySeedData.AdminRole))
+            {
+                _blockedRole = IdentitySeedData.AdminRole;
+            }
+            else if (authState.User.IsInRole(IdentitySeedData.ShelterRole))
+            {
+                _blockedRole = IdentitySeedData.ShelterRole;
+            }
+        }
+
+        _isCheckingAccess = false;
+    }
+
+    private async Task FindCoordinatesAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_request.Address) || string.IsNullOrWhiteSpace(_request.City))
+        {
+            Snackbar.Add("Enter city and address before searching for coordinates.", Severity.Warning);
+            return;
+        }
+
+        _isGeocoding = true;
+        try
+        {
+            var result = await GeocodingService.FindCoordinatesAsync(_request.Address, _request.City);
+            if (result is null)
+            {
+                Snackbar.Add("Could not find coordinates for this address. Please check the address or enter coordinates manually.", Severity.Warning);
+                return;
+            }
+
+            _request.Latitude = result.Latitude;
+            _request.Longitude = result.Longitude;
+            _suggestedAddress = null;
+            Snackbar.Add("Coordinates found and added to the application.", Severity.Success);
+        }
+        catch
+        {
+            Snackbar.Add("Could not search for coordinates right now. You can enter them manually or submit without them.", Severity.Error);
+        }
+        finally
+        {
+            _isGeocoding = false;
+        }
+    }
+
+    private ReverseGeocodingResult? _suggestedAddress;
+
+    private async Task OnMapCoordinatesChangedAsync((double Latitude, double Longitude) coordinates)
+    {
+        _request.Latitude = coordinates.Latitude;
+        _request.Longitude = coordinates.Longitude;
+        await SuggestAddressFromCoordinatesAsync(showFailureMessage: false);
+    }
+
+    private async Task SuggestAddressFromCoordinatesAsync()
+    {
+        await SuggestAddressFromCoordinatesAsync(showFailureMessage: true);
+    }
+
+    private async Task SuggestAddressFromCoordinatesAsync(bool showFailureMessage)
+    {
+        if (!_request.Latitude.HasValue || !_request.Longitude.HasValue)
+        {
+            if (showFailureMessage)
+            {
+                Snackbar.Add("Choose coordinates before asking for an address suggestion.", Severity.Warning);
+            }
+            return;
+        }
+
+        _isReverseGeocoding = true;
+        try
+        {
+            _suggestedAddress = await GeocodingService.ReverseGeocodeAsync(_request.Latitude.Value, _request.Longitude.Value);
+            if (_suggestedAddress is null && showFailureMessage)
+            {
+                Snackbar.Add("Could not suggest an address for this location.", Severity.Info);
+            }
+        }
+        catch
+        {
+            _suggestedAddress = null;
+            if (showFailureMessage)
+            {
+                Snackbar.Add("Could not suggest an address for this location.", Severity.Info);
+            }
+        }
+        finally
+        {
+            _isReverseGeocoding = false;
+        }
+    }
+
+    private void UseSuggestedAddress()
+    {
+        if (_suggestedAddress is null)
+        {
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(_suggestedAddress.SuggestedAddress))
+        {
+            _request.Address = _suggestedAddress.SuggestedAddress;
+        }
+
+        if (!string.IsNullOrWhiteSpace(_suggestedAddress.City))
+        {
+            _request.City = _suggestedAddress.City;
+        }
+
+        _suggestedAddress = null;
+        Snackbar.Add("Suggested address applied.", Severity.Success);
+    }
+
+    private void ClearSuggestedAddress()
+    {
+        _suggestedAddress = null;
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (_form is not null)
+        {
+            await _form.ValidateAsync();
+            if (!_form.IsValid)
+            {
+                return;
+            }
+        }
+
+        _isSubmitting = true;
+        try
+        {
+            await ShelterRegistrationRequestService.SubmitRequestAsync(_request, _currentUserId);
+            _request = new();
+            _submitted = true;
+            Snackbar.Add("Shelter application submitted successfully.", Severity.Success);
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch
+        {
+            Snackbar.Add("Could not submit the shelter application. Please try again.", Severity.Error);
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+}

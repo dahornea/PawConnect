@@ -65,6 +65,31 @@
                 <MudStack Class="auth-links">
                     <MudLink Href="/Account/Login">Already have an account? Log in</MudLink>
                 </MudStack>
+
+                <AuthorizeView Context="shelterApplyContext">
+                    <Authorized>
+                        @if (!shelterApplyContext.User.IsInRole(IdentitySeedData.AdminRole) &&
+                                                !shelterApplyContext.User.IsInRole(IdentitySeedData.ShelterRole))
+                        {
+                            <MudPaper Elevation="0" Class="section-surface pa-3">
+                                <MudStack Spacing="1">
+                                    <MudText Typo="Typo.subtitle2">Represent a shelter?</MudText>
+                                    <MudText Typo="Typo.body2" Color="Color.Secondary">Shelters can apply to join PawConnect and will be reviewed by an administrator.</MudText>
+                                    <MudButton Href="/shelters/apply" Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Business">Apply as a Shelter</MudButton>
+                                </MudStack>
+                            </MudPaper>
+                        }
+                    </Authorized>
+                    <NotAuthorized>
+                        <MudPaper Elevation="0" Class="section-surface pa-3">
+                            <MudStack Spacing="1">
+                                <MudText Typo="Typo.subtitle2">Represent a shelter?</MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">Shelters can apply to join PawConnect and will be reviewed by an administrator.</MudText>
+                                <MudButton Href="/shelters/apply" Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Business">Apply as a Shelter</MudButton>
+                            </MudStack>
+                        </MudPaper>
+                    </NotAuthorized>
+                </AuthorizeView>
             </MudStack>
         </MudCardContent>
     </MudCard>

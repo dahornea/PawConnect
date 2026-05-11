@@ -157,6 +157,43 @@ public class PdfReportService(ApplicationDbContext context, ILogger<PdfReportSer
             });
     }
 
+    public async Task<byte[]> GenerateShelterRegistrationRequestReportAsync(int shelterRegistrationRequestId)
+    {
+        var request = await context.ShelterRegistrationRequests
+            .AsNoTracking()
+            .FirstOrDefaultAsync(r => r.Id == shelterRegistrationRequestId);
+
+        if (request is null)
+        {
+            throw new InvalidOperationException("Shelter registration request was not found.");
+        }
+
+        return BuildReport(
+            "PawConnect - Shelter Registration Request",
+            content =>
+            {
+                AddSection(content, "Shelter Information", [
+                    ("Shelter name", request.ShelterName),
+                    ("Contact person", request.ContactPersonName),
+                    ("Email", request.Email),
+                    ("Phone", request.PhoneNumber),
+                    ("City", request.City),
+                    ("Address", request.Address),
+                    ("Description", request.Description)
+                ]);
+
+                AddSection(content, "Additional Details", [
+                    ("Website", request.Website),
+                    ("Opening hours", request.OpeningHours),
+                    ("Reason for joining", request.ReasonForJoining),
+                    ("Latitude", request.Latitude?.ToString("0.######")),
+                    ("Longitude", request.Longitude?.ToString("0.######")),
+                    ("Submitted date", FormatDateTime(request.SubmittedAt)),
+                    ("Status", request.Status.ToString())
+                ]);
+            });
+    }
+
     private byte[] BuildReport(string title, Action<ColumnDescriptor> buildContent)
     {
         try
