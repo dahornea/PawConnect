@@ -121,6 +121,16 @@ dotnet run
 
 Open the URL shown in the terminal, usually `https://localhost:7xxx` or `http://localhost:5xxx`.
 
+## Tests
+
+Run the service/domain test suite with:
+
+```bash
+dotnet test
+```
+
+The `PawConnect.Tests` project covers key business rules for dog management, dog image handling, adoption requests, favorites, shelter resources, and PDF report generation. These are service-level tests, not browser UI tests.
+
 ## Migrations
 
 Create a new migration after changing entities:
