@@ -1,14 +1,121 @@
-.shelter-card {
-    height: 100%;
+::deep .shelters-intro {
+    border-left: 4px solid #2f6f5e;
 }
 
+.shelters-intro-content,
+.shelter-cta-content {
+    flex-wrap: wrap;
+}
+
+.intro-icon,
 .shelter-icon {
-    width: 42px;
-    height: 42px;
-    border-radius: 12px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     color: var(--mud-palette-primary);
     background: rgba(47, 111, 94, 0.1);
+}
+
+.intro-icon {
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+}
+
+.shelter-icon {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    border-radius: 12px;
+}
+
+::deep .shelter-search-panel {
+    border-left: 4px solid #c9812d;
+}
+
+.shelter-grid-host {
+    width: 100%;
+}
+
+.shelter-grid-host ::deep .shelter-grid {
+    align-items: stretch;
+}
+
+.shelter-grid-host ::deep .shelter-grid-item {
+    display: flex;
+}
+
+.shelter-card-shell {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
+}
+
+.shelter-card-shell ::deep .shelter-card {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
+}
+
+.shelter-card-shell ::deep .shelter-card-content {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+}
+
+.shelter-card-shell ::deep .shelter-card-body {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.shelter-heading {
+    min-width: 0;
+}
+
+::deep .shelter-name {
+    color: #20362f;
+    font-weight: 700;
+    line-height: 1.18;
+}
+
+.shelter-card-shell ::deep .shelter-address {
+    min-height: 42px;
+}
+
+.shelter-card-shell ::deep .shelter-description {
+    display: -webkit-box;
+    min-height: 44px;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.shelter-card-shell ::deep .shelter-chip-row {
+    flex-wrap: wrap;
+    margin-top: auto;
+    min-height: 32px;
+}
+
+.shelter-card-shell ::deep .shelter-card-actions {
+    margin-top: auto;
+    padding: 0 16px 16px;
+}
+
+@media (max-width: 700px) {
+    .shelters-intro-content,
+    .shelter-cta-content {
+        align-items: flex-start !important;
+        flex-direction: column !important;
+    }
+
+    .shelter-cta-content .mud-spacer {
+        display: none;
+    }
+
+    .shelter-cta-content .mud-button-root {
+        width: 100%;
+    }
 }

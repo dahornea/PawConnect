@@ -8,16 +8,26 @@
     <MudStack Spacing="3">
         <div class="page-header">
             <MudText Typo="Typo.h4">Shelters</MudText>
-            <MudText Typo="Typo.body2">Find PawConnect demo shelter locations and public contact details.</MudText>
+            <MudText Typo="Typo.body2">Find PawConnect shelter locations and public contact details.</MudText>
         </div>
+
+        <MudPaper Elevation="0" Class="section-surface shelters-intro pa-4">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="shelters-intro-content">
+                <span class="intro-icon"><MudIcon Icon="@Icons.Material.Filled.Business" /></span>
+                <div>
+                    <MudText Typo="Typo.h6" Class="content-title">Browse approved shelters</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">View each shelter's public contact details, location information, and currently listed dogs.</MudText>
+                </div>
+            </MudStack>
+        </MudPaper>
 
         <AuthorizeView Context="shelterApplyContext">
             <Authorized>
                 @if (!shelterApplyContext.User.IsInRole(IdentitySeedData.AdminRole) &&
                                 !shelterApplyContext.User.IsInRole(IdentitySeedData.ShelterRole))
                 {
-                    <MudPaper Elevation="0" Class="section-surface pa-4">
-                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudPaper Elevation="0" Class="section-surface shelter-cta pa-4">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="shelter-cta-content">
                             <MudIcon Icon="@Icons.Material.Filled.Business" Color="Color.Primary" />
                             <div>
                                 <MudText Typo="Typo.subtitle1">Is your shelter missing from PawConnect?</MudText>
@@ -30,8 +40,8 @@
                 }
             </Authorized>
             <NotAuthorized>
-                <MudPaper Elevation="0" Class="section-surface pa-4">
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudPaper Elevation="0" Class="section-surface shelter-cta pa-4">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="shelter-cta-content">
                         <MudIcon Icon="@Icons.Material.Filled.Business" Color="Color.Primary" />
                         <div>
                             <MudText Typo="Typo.subtitle1">Is your shelter missing from PawConnect?</MudText>
@@ -67,43 +77,77 @@
         }
         else
         {
-            <MudGrid Spacing="3">
-                @foreach (var shelter in _shelters)
-                {
-                    <MudItem xs="12" md="6" lg="4">
-                        <MudCard Class="shelter-card">
-                            <MudCardContent>
-                                <MudStack Spacing="2">
-                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                                        <span class="shelter-icon"><MudIcon Icon="@Icons.Material.Filled.Business" /></span>
-                                        <div>
-                                            <MudText Typo="Typo.h6">@shelter.Name</MudText>
-                                            <MudText Typo="Typo.body2" Color="Color.Secondary">@shelter.City</MudText>
-                                        </div>
-                                    </MudStack>
-                                    <MudText Typo="Typo.body2">@shelter.Address</MudText>
-                                    @if (!string.IsNullOrWhiteSpace(shelter.Description))
-                                    {
-                                        <MudText Typo="Typo.body2" Color="Color.Secondary">@shelter.Description</MudText>
-                                    }
-                                    <MudStack Row="true" AlignItems="AlignItems.Center">
-                                        <MudChip T="string" Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small">@shelter.Dogs.Count dogs</MudChip>
-                                        @if (shelter.Latitude.HasValue && shelter.Longitude.HasValue)
-                                        {
-                                            <MudChip T="string" Color="Color.Info" Variant="Variant.Outlined" Size="Size.Small">Map available</MudChip>
-                                        }
-                                    </MudStack>
-                                </MudStack>
-                            </MudCardContent>
-                            <MudCardActions>
-                                <MudButton Href="@($"/shelters/{shelter.Id}")" Variant="Variant.Filled" Color="Color.Primary" EndIcon="@Icons.Material.Filled.ArrowForward">
-                                    View Shelter
-                                </MudButton>
-                            </MudCardActions>
-                        </MudCard>
-                    </MudItem>
-                }
-            </MudGrid>
+            <MudPaper Elevation="0" Class="section-surface shelter-search-panel pa-3">
+                <MudTextField Label="Search shelters"
+                              @bind-Value="_searchTerm"
+                              Immediate="true"
+                              Variant="Variant.Outlined"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Search"
+                              Placeholder="Search by name, city, or address" />
+            </MudPaper>
+
+            @if (!FilteredShelters.Any())
+            {
+                <MudPaper Elevation="0" Class="empty-state pa-5">
+                    <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                        <MudIcon Icon="@Icons.Material.Filled.SearchOff" Color="Color.Secondary" Size="Size.Large" />
+                        <MudText Typo="Typo.h6">No shelters match your search.</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Try searching by shelter name, city, or street address.</MudText>
+                    </MudStack>
+                </MudPaper>
+            }
+            else
+            {
+                <div class="shelter-grid-host">
+                    <MudGrid Spacing="3" Class="shelter-grid">
+                        @foreach (var shelter in FilteredShelters)
+                        {
+                            var publicDogCount = GetPublicDogCount(shelter);
+                            <MudItem xs="12" md="6" lg="4" Class="shelter-grid-item">
+                                <div class="shelter-card-shell">
+                                    <MudCard Class="shelter-card">
+                                        <MudCardContent Class="shelter-card-content">
+                                            <MudStack Spacing="2" Class="shelter-card-body">
+                                                <MudStack Row="true" AlignItems="AlignItems.Start" Spacing="2">
+                                                    <span class="shelter-icon"><MudIcon Icon="@Icons.Material.Filled.Business" /></span>
+                                                    <div class="shelter-heading">
+                                                        <MudText Typo="Typo.h6" Class="shelter-name">@shelter.Name</MudText>
+                                                        <MudText Typo="Typo.body2" Color="Color.Secondary">@shelter.City</MudText>
+                                                    </div>
+                                                </MudStack>
+
+                                                <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Start" Class="shelter-address">
+                                                    <MudIcon Icon="@Icons.Material.Filled.Place" Size="Size.Small" Color="Color.Secondary" />
+                                                    <MudText Typo="Typo.body2" Color="Color.Secondary">@shelter.Address</MudText>
+                                                </MudStack>
+
+                                                @if (!string.IsNullOrWhiteSpace(shelter.Description))
+                                                {
+                                                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="shelter-description">@shelter.Description</MudText>
+                                                }
+
+                                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="shelter-chip-row">
+                                                    <MudChip T="string" Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small">@GetDogCountText(publicDogCount)</MudChip>
+                                                    @if (HasMapLocation(shelter))
+                                                    {
+                                                        <MudChip T="string" Color="Color.Info" Variant="Variant.Outlined" Size="Size.Small">Map available</MudChip>
+                                                    }
+                                                </MudStack>
+                                            </MudStack>
+                                        </MudCardContent>
+                                        <MudCardActions Class="shelter-card-actions">
+                                            <MudButton Href="@($"/shelters/{shelter.Id}")" Variant="Variant.Filled" Color="Color.Primary" EndIcon="@Icons.Material.Filled.ArrowForward" FullWidth="true">
+                                                View Shelter
+                                            </MudButton>
+                                        </MudCardActions>
+                                    </MudCard>
+                                </div>
+                            </MudItem>
+                        }
+                    </MudGrid>
+                </div>
+            }
         }
     </MudStack>
 </MudContainer>
@@ -112,6 +156,24 @@
     private List<PawConnect.Entities.Shelter> _shelters = [];
     private bool _isLoading = true;
     private string? _error;
+    private string? _searchTerm;
+
+    private IEnumerable<PawConnect.Entities.Shelter> FilteredShelters
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(_searchTerm))
+            {
+                return _shelters;
+            }
+
+            var term = _searchTerm.Trim();
+            return _shelters.Where(shelter =>
+                Contains(shelter.Name, term) ||
+                Contains(shelter.City, term) ||
+                Contains(shelter.Address, term));
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -127,5 +189,30 @@
         {
             _isLoading = false;
         }
+    }
+
+    private static bool Contains(string? value, string term)
+    {
+        return !string.IsNullOrWhiteSpace(value) && value.Contains(term, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static int GetPublicDogCount(PawConnect.Entities.Shelter shelter)
+    {
+        return shelter.Dogs.Count(dog => dog.Status is PawConnect.Entities.DogStatus.Available or PawConnect.Entities.DogStatus.Reserved);
+    }
+
+    private static string GetDogCountText(int publicDogCount)
+    {
+        return publicDogCount switch
+        {
+            0 => "No public dogs yet",
+            1 => "1 public dog",
+            _ => $"{publicDogCount} public dogs"
+        };
+    }
+
+    private static bool HasMapLocation(PawConnect.Entities.Shelter shelter)
+    {
+        return shelter.Latitude.HasValue && shelter.Longitude.HasValue;
     }
 }

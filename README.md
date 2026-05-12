@@ -292,6 +292,8 @@ The public shelter pages are:
 - `/shelters`
 - `/shelters/{id:int}`
 
+The public `/shelters` page lists approved shelter profiles with public-safe contact/location details, public dog counts, a simple search by shelter name/city/address, and an "Apply as a Shelter" call-to-action that points to `/shelters/apply`. The application CTA is hidden for Admin and Shelter users because those roles either review applications or already have active shelter accounts.
+
 Demo shelters use approximate, fictional Cluj-Napoca, Romania locations for development and testing. The demo addresses and coordinates are not real shelter addresses and should not be treated as public contact/location data for real organizations.
 
 After adding the map coordinate fields, apply migrations with:
