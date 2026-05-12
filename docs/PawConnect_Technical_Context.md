@@ -94,6 +94,7 @@ Shelter users can:
 - View and manage adoption requests for dogs belonging to their shelter at `/shelter/adoption-requests`.
 - Accept or reject pending adoption requests.
 - Edit private internal shelter notes on adoption requests.
+- Export their own shelter dogs, adoption requests, and resource stock as CSV/PDF where available.
 
 Shelter services check the `ShelterId` before changing dog, resource, image, medical record, and adoption request data.
 
@@ -146,6 +147,7 @@ Admin pages are protected with `[Authorize(Roles = "Admin")]`. Advanced role edi
 - **Adoption request review**: Shelters can view adopter profile summaries, questionnaire answers, dog information, and internal notes.
 - **Accept/reject workflow**: Shelters can accept or reject pending requests for their own dogs.
 - **Internal notes**: Private notes are visible to shelters and admins, not adopters or public users.
+- **Shelter exports**: Shelter users can export only their own operational data. `/shelter/dogs` provides CSV export, while `/shelter/adoption-requests` and `/shelter/resources` provide CSV and formatted PDF exports.
 - **Location coordinates**: Shelter records can store optional latitude and longitude coordinates. These coordinates are used to display the shelter location on the public shelter profile page.
 - **Address-based coordinate lookup**: Shelter application and admin shelter edit forms can use manual Nominatim lookup to fill optional coordinates from city/address.
 - **Editable coordinate map**: The public shelter application and admin shelter edit forms hide raw latitude/longitude inputs in normal use and use the editable map marker as the location editor.
@@ -647,12 +649,13 @@ Scheduled report organization:
 - `Services/IPdfReportService.cs` and `Services/PdfReportService.cs`: Generate `ShelterSummaryReport-{date}.pdf` content.
 - `Program.cs`: Registers Quartz, the hosted service, the job, and the minute-based trigger when `ScheduledReports:Enabled` is true.
 
-Admin export organization:
+Export organization:
 
-- `Services/IExportService.cs` and `Services/ExportService.cs`: Generate Admin CSV/PDF export bytes and filenames.
+- `Services/IExportService.cs` and `Services/ExportService.cs`: Generate Admin and Shelter CSV/PDF export bytes and filenames.
 - `Services/IBrowserFileDownloadService.cs` and `Services/BrowserFileDownloadService.cs`: Trigger browser downloads through JavaScript interop.
 - `wwwroot/app.js`: Contains `pawConnect.downloadFileFromBase64` for in-browser export downloads.
 - `Components/Pages/Admin/*.razor`: Existing Admin pages expose compact export buttons near the page header/table area.
+- `Components/Pages/Shelter/ManageDogs.razor`, `Components/Pages/Shelter/ShelterAdoptionRequests.razor`, and `Components/Pages/Shelter/Resources.razor`: Shelter pages expose compact export buttons scoped to the authenticated shelter.
 
 ## 9. Main Application Flows
 
@@ -799,6 +802,18 @@ The public map is read-only. Address lookup and explicit address updates from th
 6. `IBrowserFileDownloadService` calls JavaScript interop to download the generated file in the browser.
 7. Export files are not stored in the database or permanently written to disk.
 8. User CSV exports intentionally omit sensitive Identity fields such as password hashes, security stamps, concurrency stamps, and tokens.
+
+### Shelter Export Flow
+
+1. A Shelter user opens `/shelter/dogs`, `/shelter/adoption-requests`, or `/shelter/resources`.
+2. The page resolves the current shelter from the authenticated Identity user.
+3. The page displays compact export actions near the page header or table area.
+4. The component calls `IExportService` with the current `ShelterId`.
+5. Shelter dog exports return only dogs belonging to that shelter.
+6. Shelter adoption request exports return only requests for dogs owned by that shelter and may include private shelter internal notes.
+7. Shelter resource exports return only resource stock rows for that shelter and include low-stock status.
+8. CSV exports are table-style UTF-8 files suitable for Excel; adoption requests and resources also support QuestPDF-formatted PDFs.
+9. `IBrowserFileDownloadService` downloads the generated file in the browser without storing it in the database.
 
 ## 10. Email Notification System
 
@@ -1154,6 +1169,10 @@ Current test coverage includes:
 - Admin dogs CSV includes dog, shelter, status, food, and formatted age data.
 - Admin adoption request and shelter request CSV exports include expected business fields.
 - Admin adoption request and shelter request PDF exports return non-empty PDF bytes.
+- Shelter dogs CSV includes only dogs from the current shelter.
+- Shelter adoption requests CSV includes only requests for the current shelter's dogs.
+- Shelter resources CSV includes only current shelter resources and low-stock status.
+- Shelter adoption request and resource PDF exports return non-empty PDF bytes.
 - Integration-style service flows for public visibility, favorites/deletion, adoption notifications, dog image/age, resources, and fake PDF/email attachment behavior.
 
 The README documents running tests with:
@@ -1194,10 +1213,12 @@ Service-level security/ownership checks:
 - Shelter image and medical record management checks dog ownership.
 - Shelter resource management checks resource `ShelterId`.
 - Shelter adoption request review checks the request dog belongs to the shelter.
+- Shelter export generation receives the current `ShelterId` and filters dogs, adoption requests, and resources to that shelter.
 - Adopter request cancellation checks request ownership.
 - Recently viewed data is keyed by adopter ID and returned only for that adopter.
 - Admin pages are role-protected and can access platform-wide data.
 - Admin export actions are exposed only on Admin pages, and user exports intentionally exclude sensitive Identity security fields.
+- Shelter export actions are exposed only on Shelter pages and are scoped to the authenticated shelter account.
 
 Sensitive operations:
 

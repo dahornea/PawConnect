@@ -15,6 +15,16 @@ public interface IExportService
     Task<ExportFile> GenerateAdoptionRequestsPdfAsync();
 
     Task<ExportFile> GenerateShelterRequestsPdfAsync();
+
+    Task<ExportFile> GenerateShelterDogsCsvAsync(int shelterId);
+
+    Task<ExportFile> GenerateShelterAdoptionRequestsCsvAsync(int shelterId);
+
+    Task<ExportFile> GenerateShelterAdoptionRequestsPdfAsync(int shelterId);
+
+    Task<ExportFile> GenerateShelterResourcesCsvAsync(int shelterId);
+
+    Task<ExportFile> GenerateShelterResourcesPdfAsync(int shelterId);
 }
 
 public sealed record ExportFile(string FileName, string ContentType, byte[] Content);

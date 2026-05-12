@@ -247,6 +247,23 @@ CSV files are UTF-8 encoded with a header row and can be opened in Excel. PDF fi
 
 Export buttons are shown only on Admin pages, which are protected with the `Admin` role. If export logic is reused later through endpoints, those endpoints should also require Admin authorization.
 
+## Shelter Exports
+
+Shelter pages include export actions for the authenticated shelter's own operational data. Exports are generated on demand and downloaded in the browser; files are not stored in the database.
+
+CSV exports are available for:
+
+- `/shelter/dogs`
+- `/shelter/adoption-requests`
+- `/shelter/resources`
+
+PDF exports are available where a formatted report is useful:
+
+- `/shelter/adoption-requests`
+- `/shelter/resources`
+
+CSV files are UTF-8 encoded with a header row and can be opened in Excel. PDF files use a clean PawConnect report layout generated with QuestPDF. Shelter exports are scoped by the current shelter profile, so a shelter user can export only their own dogs, adoption requests, and resource stock.
+
 ## Database
 
 The connection string points to a SQL Server database named `PawConnect`:
@@ -281,7 +298,7 @@ Run the service/domain test suite with:
 dotnet test
 ```
 
-The `PawConnect.Tests` project covers key business rules for dog management, dog image handling, adoption requests, favorites, shelter resources, shelter registration requests, Nominatim geocoding behavior, scheduled shelter summary reports, PDF report generation, and admin export generation. It also includes service-flow integration tests for public dog visibility, favorite deletion behavior, adoption request status changes, dog image/age behavior, resource stock rules, and email/PDF notification triggers.
+The `PawConnect.Tests` project covers key business rules for dog management, dog image handling, adoption requests, favorites, shelter resources, shelter registration requests, Nominatim geocoding behavior, scheduled shelter summary reports, PDF report generation, admin export generation, and shelter export generation. It also includes service-flow integration tests for public dog visibility, favorite deletion behavior, adoption request status changes, dog image/age behavior, resource stock rules, and email/PDF notification triggers.
 
 Tests use isolated in-memory databases and fake email/PDF services. They do not require SQL Server, a real SMTP provider, a running web server, or browser UI automation.
 
