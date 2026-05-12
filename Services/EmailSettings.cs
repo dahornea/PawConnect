@@ -15,4 +15,8 @@ public class EmailSettings
     public string SenderName { get; set; } = "PawConnect";
 
     public bool EnableSsl { get; set; } = true;
+
+    public bool OpenLocalInboxOnStartup { get; set; }
+
+    public string LocalInboxUrl { get; set; } = string.Empty;
 }

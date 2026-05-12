@@ -9,4 +9,6 @@ public interface IPdfReportService
     Task<byte[]> GenerateLowStockResourceReportAsync(int resourceStockId);
 
     Task<byte[]> GenerateShelterRegistrationRequestReportAsync(int shelterRegistrationRequestId);
+
+    Task<byte[]> GenerateShelterSummaryReportAsync(int shelterId, DateTime fromDate, DateTime toDate);
 }

@@ -9,6 +9,7 @@ PawConnect is a beginner-friendly ASP.NET Core Blazor Server skeleton for a stra
 - SQL Server
 - ASP.NET Core Identity with roles
 - MudBlazor
+- Quartz.NET for scheduled background jobs
 
 ## Roles
 
@@ -28,6 +29,7 @@ PawConnect is a beginner-friendly ASP.NET Core Blazor Server skeleton for a stra
 - Simple service and repository layer
 - SMTP email notification service using configuration-based settings
 - PDF email report attachments for adoption and low-stock notifications
+- Scheduled shelter summary reports with PDF email attachments and manual Shelter Dashboard sending
 - Adopter profile page for household/contact information used during adoption request review
 - Dog status history tracking for shelter/admin review
 - Internal shelter notes for adoption requests, visible only to shelter users and admins
@@ -77,7 +79,7 @@ Submitting a shelter request attempts to notify admins by email and attach a PDF
 
 ## Email Notifications
 
-PawConnect uses `IEmailService` with `SmtpEmailService` as the active implementation. The service sends email through SMTP using MailKit. Important notifications include a branded PawConnect HTML layout with a plain text fallback, so Mailtrap can be used to inspect both readable text bodies and richer HTML previews.
+PawConnect uses `IEmailService` with `SmtpEmailService` as the active implementation. The service sends email through a generic SMTP server using MailKit. Important notifications include a branded PawConnect HTML layout with a plain text fallback, so a local SMTP catcher can be used to inspect readable text bodies, richer HTML previews, and PDF attachments during development.
 
 Email notifications are triggered when:
 
@@ -92,42 +94,119 @@ Some notifications include PDF report attachments:
 - `AdoptionRequestReport.pdf` is attached when a new adoption request is sent to a shelter.
 - `AdoptionStatusReport.pdf` is attached when a request is accepted or rejected and the adopter is notified.
 - `LowStockResourceReport.pdf` is attached when a resource reaches low stock.
+- `ShelterSummaryReport-{yyyy-MM-dd}.pdf` is attached when a shelter summary report is sent manually or by the scheduler.
 
 The reports are generated without charts. They use a clean PawConnect-style text and table layout with section headings, spacing, and a generated-date footer.
 
 Email or PDF generation failures are logged and do not cancel the main database action. For example, an adoption request can still be submitted even if SMTP credentials are missing or invalid.
 
-Forgot Password and other ASP.NET Core Identity emails use `PawConnectIdentityEmailSender`, which reuses the same configured `IEmailService`/Mailtrap SMTP settings as the rest of the application. Password reset emails include a clean plain text body with the reset URL on its own line for easy copying from Mailtrap's Text view, plus a branded HTML body with a clickable action button when HTML preview is available. Demo users are seeded with confirmed email addresses so password reset emails can be sent during development/testing.
+Forgot Password and other ASP.NET Core Identity emails use `PawConnectIdentityEmailSender`, which reuses the same configured `IEmailService` SMTP settings as the rest of the application. Password reset emails include a clean plain text body with the reset URL on its own line for easy copying from a local development inbox, plus a branded HTML body with a clickable action button when HTML preview is available. Demo users are seeded with confirmed email addresses so password reset emails can be sent during development/testing.
 
 SMTP settings are configured in `appsettings.json` under:
 
 ```json
 "EmailSettings": {
-  "SmtpHost": "sandbox.smtp.mailtrap.io",
-  "SmtpPort": 2525,
-  "SmtpUser": "4d19669f0d9a6b",
-  "SmtpPassword": "the-full-password-from-mailtrap",
+  "SmtpHost": "localhost",
+  "SmtpPort": 1025,
+  "SmtpUser": "",
+  "SmtpPassword": "",
   "SenderEmail": "no-reply@pawconnect.local",
   "SenderName": "PawConnect",
-  "EnableSsl": true
+  "EnableSsl": false,
+  "OpenLocalInboxOnStartup": false,
+  "LocalInboxUrl": "http://localhost:8025"
 }
 ```
 
-Do not commit real passwords or app passwords. For local development, put real values in `appsettings.Development.json`, .NET User Secrets, or environment variables.
+Do not commit real SMTP credentials. For external SMTP providers, put real values in `appsettings.Development.json`, .NET User Secrets, or environment variables.
 
-Example User Secrets setup:
+## Local Email Testing
+
+For development, use a local SMTP catcher so no real emails are sent. Local catchers also let you inspect password reset emails, adoption/resource/shelter notifications, scheduled reports, HTML bodies, plain text bodies, and PDF attachments in a browser.
+
+Recommended option: Mailpit.
 
 ```bash
-dotnet user-secrets set "EmailSettings:SmtpHost" "sandbox.smtp.mailtrap.io"
-dotnet user-secrets set "EmailSettings:SmtpPort" "2525"
-dotnet user-secrets set "EmailSettings:SmtpUser" "4d19669f0d9a6b"
-dotnet user-secrets set "EmailSettings:SmtpPassword" "the-full-password-from-mailtrap"
-dotnet user-secrets set "EmailSettings:SenderEmail" "no-reply@pawconnect.local"
-dotnet user-secrets set "EmailSettings:SenderName" "PawConnect"
-dotnet user-secrets set "EmailSettings:EnableSsl" "true"
+docker run -d --name mailpit -p 1025:1025 -p 8025:8025 axllent/mailpit
 ```
 
-Mailtrap sandbox is useful for development because it captures test emails and lets you inspect PDF attachments without delivering them to real inboxes. If you switch to Gmail SMTP later, Gmail requires an App Password.
+Mailpit web UI:
+
+```text
+http://localhost:8025
+```
+
+Development `EmailSettings` for Mailpit:
+
+```json
+"EmailSettings": {
+  "SmtpHost": "localhost",
+  "SmtpPort": 1025,
+  "SmtpUser": "",
+  "SmtpPassword": "",
+  "SenderEmail": "no-reply@pawconnect.local",
+  "SenderName": "PawConnect",
+  "EnableSsl": false,
+  "OpenLocalInboxOnStartup": true,
+  "LocalInboxUrl": "http://localhost:8025"
+}
+```
+
+Alternative option: smtp4dev.
+
+```bash
+docker run -d --name smtp4dev -p 3000:80 -p 2525:25 rnwood/smtp4dev
+```
+
+smtp4dev web UI:
+
+```text
+http://localhost:3000
+```
+
+Development `EmailSettings` for smtp4dev:
+
+```json
+"EmailSettings": {
+  "SmtpHost": "localhost",
+  "SmtpPort": 2525,
+  "SmtpUser": "",
+  "SmtpPassword": "",
+  "SenderEmail": "no-reply@pawconnect.local",
+  "SenderName": "PawConnect",
+  "EnableSsl": false,
+  "OpenLocalInboxOnStartup": true,
+  "LocalInboxUrl": "http://localhost:3000"
+}
+```
+
+The SMTP service connects without authentication when `SmtpUser` and `SmtpPassword` are empty. External SMTP providers can still be configured later through the same `EmailSettings` keys.
+
+In Development, PawConnect can open the local email inbox automatically when the app starts. This is controlled by `OpenLocalInboxOnStartup` and `LocalInboxUrl`; it opens the browser UI only and does not start the Mailpit/smtp4dev Docker container for you.
+
+## Scheduled Shelter Summary Reports
+
+PawConnect uses Quartz.NET for optional scheduled shelter summary reports. The job is in-process and uses Quartz's simple in-memory scheduling. No external cron job, Hangfire server, Quartz dashboard, or persistent Quartz job store is required.
+
+The scheduled job is `ShelterSummaryReportJob`. It calls `IShelterSummaryReportService`, which generates a PDF through `IPdfReportService` and sends it through the existing generic `IEmailService` SMTP configuration. The report summarizes:
+
+- adoption request counts and new requests in the report period
+- dog status counts and recently adopted dogs
+- low-stock resources with category, food type, quantity, unit, and threshold
+
+Shelter users can also send the same report manually from `/shelter/dashboard` with the "Send Summary Report" button. Manual sending works even when automatic scheduling is disabled, which is useful for demo/testing.
+
+Scheduled report settings are configured in `appsettings.json`:
+
+```json
+"ScheduledReports": {
+  "Enabled": false,
+  "RunOnStartupInDevelopment": false,
+  "ShelterReportIntervalMinutes": 5
+}
+```
+
+`Enabled` is `false` by default to avoid accidental email spam during local development. A 5-minute interval is convenient for demos; production values should usually be larger, such as `1440` minutes for daily reports. `RunOnStartupInDevelopment` only sends at startup when it is explicitly set to `true` in development. When scheduled reports are enabled, each run sends a summary report to every shelter that has an email address.
 
 ## Shelter Map Integration
 
@@ -200,9 +279,9 @@ Run the service/domain test suite with:
 dotnet test
 ```
 
-The `PawConnect.Tests` project covers key business rules for dog management, dog image handling, adoption requests, favorites, shelter resources, shelter registration requests, Nominatim geocoding behavior, and PDF report generation. It also includes service-flow integration tests for public dog visibility, favorite deletion behavior, adoption request status changes, dog image/age behavior, resource stock rules, and email/PDF notification triggers.
+The `PawConnect.Tests` project covers key business rules for dog management, dog image handling, adoption requests, favorites, shelter resources, shelter registration requests, Nominatim geocoding behavior, scheduled shelter summary reports, and PDF report generation. It also includes service-flow integration tests for public dog visibility, favorite deletion behavior, adoption request status changes, dog image/age behavior, resource stock rules, and email/PDF notification triggers.
 
-Tests use isolated in-memory databases and fake email/PDF services. They do not require SQL Server, Mailtrap, a running web server, or browser UI automation.
+Tests use isolated in-memory databases and fake email/PDF services. They do not require SQL Server, a real SMTP server, a running web server, or browser UI automation.
 
 ## Migrations
 

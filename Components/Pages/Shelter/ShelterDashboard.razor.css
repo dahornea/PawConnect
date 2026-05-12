@@ -60,3 +60,7 @@
     height: 100%;
     background: rgba(255, 251, 235, 0.72);
 }
+
+.shelter-dashboard ::deep .report-card-stack {
+    flex-wrap: wrap;
+}
