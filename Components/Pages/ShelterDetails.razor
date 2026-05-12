@@ -61,13 +61,34 @@
                 <MudItem xs="12" md="7">
                     <MudPaper Elevation="0" Class="section-surface pa-4">
                         <MudStack Spacing="2">
-                            <MudText Typo="Typo.h6" Class="section-title">Location</MudText>
-                            <MudText Typo="Typo.body2" Color="Color.Secondary">Approximate demo location in Cluj-Napoca.</MudText>
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                <div>
+                                    <MudText Typo="Typo.h6" Class="section-title">Location</MudText>
+                                    <MudText Typo="Typo.body2" Color="Color.Secondary">Approximate demo location in Cluj-Napoca.</MudText>
+                                </div>
+                                <MudSpacer />
+                                @if (GoogleMapsUrl is not null)
+                                {
+                                    <MudButton Href="@GoogleMapsUrl"
+                                               Target="_blank"
+                                               Rel="noopener noreferrer"
+                                               Variant="Variant.Outlined"
+                                               Color="Color.Primary"
+                                               Size="Size.Small"
+                                               StartIcon="@Icons.Material.Filled.Map">
+                                        Open in Google Maps
+                                    </MudButton>
+                                }
+                            </MudStack>
                             <ShelterMap Latitude="_shelter.Latitude"
                                         Longitude="_shelter.Longitude"
                                         ShelterName="@_shelter.Name"
                                         Address="@_shelter.Address"
                                         City="@_shelter.City" />
+                            @if (GoogleMapsUrl is not null)
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Opens Google Maps in a new tab for navigation.</MudText>
+                            }
                         </MudStack>
                     </MudPaper>
                 </MudItem>
@@ -135,6 +156,8 @@
 
     private int PublicDogCount => PublicDogs.Count;
 
+    private string? GoogleMapsUrl => BuildGoogleMapsUrl(_shelter);
+
     protected override async Task OnParametersSetAsync()
     {
         _isLoading = true;
@@ -165,5 +188,27 @@
             DogStatus.Adopted => Color.Success,
             _ => Color.Default
         };
+    }
+
+    private static string? BuildGoogleMapsUrl(PawConnect.Entities.Shelter? shelter)
+    {
+        if (shelter is null)
+        {
+            return null;
+        }
+
+        if (shelter.Latitude.HasValue && shelter.Longitude.HasValue)
+        {
+            var latitude = shelter.Latitude.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            var longitude = shelter.Longitude.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            return $"https://www.google.com/maps/search/?api=1&query={latitude},{longitude}";
+        }
+
+        var addressQuery = string.Join(", ", new[] { shelter.Address, shelter.City }
+            .Where(value => !string.IsNullOrWhiteSpace(value)));
+
+        return string.IsNullOrWhiteSpace(addressQuery)
+            ? null
+            : $"https://www.google.com/maps/search/?api=1&query={Uri.EscapeDataString(addressQuery)}";
     }
 }
