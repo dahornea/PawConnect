@@ -11,7 +11,8 @@ public class ShelterRegistrationRequestService(
     IEmailService emailService,
     IPdfReportService pdfReportService,
     ILogger<ShelterRegistrationRequestService> logger,
-    IAuditLogService? auditLogService = null) : IShelterRegistrationRequestService
+    IAuditLogService? auditLogService = null,
+    INotificationService? notificationService = null) : IShelterRegistrationRequestService
 {
     public async Task<ShelterRegistrationRequest> SubmitRequestAsync(ShelterRegistrationRequest request, string? currentUserId = null)
     {
@@ -195,6 +196,22 @@ public class ShelterRegistrationRequestService(
                 .Where(email => !string.IsNullOrWhiteSpace(email))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
+
+            if (notificationService is not null)
+            {
+                foreach (var admin in admins)
+                {
+                    await notificationService.CreateNotificationAsync(
+                        admin.Id,
+                        "New shelter application",
+                        $"{request.ShelterName} submitted a shelter application.",
+                        NotificationCategory.ShelterApplication,
+                        NotificationType.Info,
+                        "/admin/shelter-requests",
+                        "ShelterRegistrationRequest",
+                        request.Id.ToString());
+                }
+            }
 
             if (recipients.Count == 0)
             {

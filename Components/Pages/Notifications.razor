@@ -1,0 +1,251 @@
+@page "/notifications"
+@using System.Security.Claims
+@attribute [Authorize]
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject INotificationService NotificationService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<PageTitle>Notifications</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.False" Class="px-0">
+    <MudStack Spacing="3">
+        <div class="page-header">
+            <MudText Typo="Typo.h4">Notifications</MudText>
+            <MudText Typo="Typo.body2">Review important PawConnect updates for your account.</MudText>
+        </div>
+
+        <MudPaper Elevation="0" Class="section-surface pa-3">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Spacing="2" Class="flex-wrap">
+                <MudStack Row="true" Spacing="1" Class="flex-wrap">
+                    <MudButton Variant="@GetFilterVariant(null, false)" Color="Color.Primary" Size="Size.Small" OnClick="@(() => SetFilterAsync(null, false))">All</MudButton>
+                    <MudButton Variant="@(_unreadOnly ? Variant.Filled : Variant.Outlined)" Color="Color.Primary" Size="Size.Small" OnClick="@(() => SetFilterAsync(null, true))">Unread</MudButton>
+                    @foreach (var category in Enum.GetValues<NotificationCategory>())
+                    {
+                        <MudButton Variant="@GetFilterVariant(category, false)" Color="@GetCategoryColor(category)" Size="Size.Small" OnClick="@(() => SetFilterAsync(category, false))">@GetCategoryLabel(category)</MudButton>
+                    }
+                </MudStack>
+                <MudButton Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.DoneAll" Disabled="@(_unreadCount == 0)" OnClick="MarkAllAsReadAsync">Mark all as read</MudButton>
+            </MudStack>
+        </MudPaper>
+
+        @if (_isLoading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="py-8">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Loading notifications...</MudText>
+            </MudStack>
+        }
+        else if (_notifications.Count == 0)
+        {
+            <MudPaper Elevation="0" Class="empty-state pa-5">
+                <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.NotificationsNone" Color="Color.Secondary" Size="Size.Large" />
+                    <MudText Typo="Typo.h6">No notifications found</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Notifications for important actions will appear here.</MudText>
+                </MudStack>
+            </MudPaper>
+        }
+        else
+        {
+            @foreach (var group in _notifications.GroupBy(n => n.Category))
+            {
+                <MudPaper Elevation="0" Class="section-surface pa-3">
+                    <MudStack Spacing="2">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                            <MudIcon Icon="@GetCategoryIcon(group.Key)" Color="@GetCategoryColor(group.Key)" />
+                            <MudText Typo="Typo.h6">@GetCategoryLabel(group.Key)</MudText>
+                        </MudStack>
+                        <MudDivider />
+                        @foreach (var notification in group)
+                        {
+                            <MudPaper Elevation="0" Class="@($"notification-row pa-3 {(notification.IsRead ? "is-read" : "is-unread")}")">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="notification-row-content">
+                                    <MudIcon Icon="@GetTypeIcon(notification.Type)" Color="@GetTypeColor(notification.Type)" />
+                                    <div class="notification-main">
+                                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="flex-wrap">
+                                            <MudText Typo="Typo.subtitle2">@notification.Title</MudText>
+                                            @if (!notification.IsRead)
+                                            {
+                                                <MudChip T="string" Size="Size.Small" Color="Color.Warning">Unread</MudChip>
+                                            }
+                                        </MudStack>
+                                        <MudText Typo="Typo.body2" Color="Color.Secondary">@notification.Message</MudText>
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">@notification.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudText>
+                                    </div>
+                                    <MudSpacer />
+                                    <MudStack Row="true" Spacing="1" Class="flex-wrap">
+                                        @if (!notification.IsRead)
+                                        {
+                                            <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" OnClick="@(() => MarkAsReadAsync(notification))">Mark as read</MudButton>
+                                        }
+                                        @if (!string.IsNullOrWhiteSpace(notification.Link))
+                                        {
+                                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Filled.OpenInNew" OnClick="@(() => OpenNotificationAsync(notification))">Open</MudButton>
+                                        }
+                                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeleteNotificationAsync(notification))" aria-label="Delete notification" />
+                                    </MudStack>
+                                </MudStack>
+                            </MudPaper>
+                        }
+                    </MudStack>
+                </MudPaper>
+            }
+        }
+    </MudStack>
+</MudContainer>
+
+@code {
+    private List<Notification> _notifications = [];
+    private string? _userId;
+    private bool _isLoading = true;
+    private bool _unreadOnly;
+    private int _unreadCount;
+    private NotificationCategory? _categoryFilter;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        _userId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        await LoadNotificationsAsync();
+    }
+
+    private async Task SetFilterAsync(NotificationCategory? category, bool unreadOnly)
+    {
+        _categoryFilter = category;
+        _unreadOnly = unreadOnly;
+        await LoadNotificationsAsync();
+    }
+
+    private async Task LoadNotificationsAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_userId))
+        {
+            _notifications = [];
+            _isLoading = false;
+            return;
+        }
+
+        _isLoading = true;
+        try
+        {
+            _notifications = await NotificationService.GetNotificationsForUserAsync(_userId, _categoryFilter, _unreadOnly, 200);
+            _unreadCount = await NotificationService.GetUnreadCountAsync(_userId);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task MarkAsReadAsync(Notification notification)
+    {
+        if (string.IsNullOrWhiteSpace(_userId))
+        {
+            return;
+        }
+
+        await NotificationService.MarkAsReadAsync(notification.Id, _userId);
+        await LoadNotificationsAsync();
+    }
+
+    private async Task MarkAllAsReadAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_userId))
+        {
+            return;
+        }
+
+        await NotificationService.MarkAllAsReadAsync(_userId);
+        await LoadNotificationsAsync();
+        Snackbar.Add("Notifications marked as read.", Severity.Success);
+    }
+
+    private async Task DeleteNotificationAsync(Notification notification)
+    {
+        if (string.IsNullOrWhiteSpace(_userId))
+        {
+            return;
+        }
+
+        await NotificationService.DeleteNotificationAsync(notification.Id, _userId);
+        await LoadNotificationsAsync();
+        Snackbar.Add("Notification deleted.", Severity.Success);
+    }
+
+    private async Task OpenNotificationAsync(Notification notification)
+    {
+        if (!string.IsNullOrWhiteSpace(_userId) && !notification.IsRead)
+        {
+            await NotificationService.MarkAsReadAsync(notification.Id, _userId);
+        }
+
+        if (!string.IsNullOrWhiteSpace(notification.Link))
+        {
+            NavigationManager.NavigateTo(notification.Link);
+        }
+    }
+
+    private Variant GetFilterVariant(NotificationCategory? category, bool unreadOnly)
+    {
+        return _categoryFilter == category && _unreadOnly == unreadOnly ? Variant.Filled : Variant.Outlined;
+    }
+
+    private static string GetCategoryLabel(NotificationCategory category)
+    {
+        return category switch
+        {
+            NotificationCategory.ShelterApplication => "Shelter Applications",
+            NotificationCategory.Resource => "Resources",
+            NotificationCategory.Report => "Reports",
+            NotificationCategory.System => "System",
+            _ => "Adoption"
+        };
+    }
+
+    private static string GetCategoryIcon(NotificationCategory category)
+    {
+        return category switch
+        {
+            NotificationCategory.ShelterApplication => Icons.Material.Filled.Business,
+            NotificationCategory.Resource => Icons.Material.Filled.Inventory,
+            NotificationCategory.Report => Icons.Material.Filled.PictureAsPdf,
+            NotificationCategory.System => Icons.Material.Filled.Info,
+            _ => Icons.Material.Filled.Pets
+        };
+    }
+
+    private static Color GetCategoryColor(NotificationCategory category)
+    {
+        return category switch
+        {
+            NotificationCategory.Resource => Color.Warning,
+            NotificationCategory.Report => Color.Success,
+            NotificationCategory.System => Color.Default,
+            NotificationCategory.ShelterApplication => Color.Secondary,
+            _ => Color.Info
+        };
+    }
+
+    private static string GetTypeIcon(NotificationType type)
+    {
+        return type switch
+        {
+            NotificationType.Success => Icons.Material.Filled.CheckCircle,
+            NotificationType.Warning => Icons.Material.Filled.Warning,
+            NotificationType.Error => Icons.Material.Filled.Error,
+            _ => Icons.Material.Filled.Info
+        };
+    }
+
+    private static Color GetTypeColor(NotificationType type)
+    {
+        return type switch
+        {
+            NotificationType.Success => Color.Success,
+            NotificationType.Warning => Color.Warning,
+            NotificationType.Error => Color.Error,
+            _ => Color.Info
+        };
+    }
+}

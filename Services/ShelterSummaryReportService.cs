@@ -11,7 +11,8 @@ public class ShelterSummaryReportService(
     IPdfReportService pdfReportService,
     IOptions<ScheduledReportSettings> options,
     ILogger<ShelterSummaryReportService> logger,
-    IAuditLogService? auditLogService = null) : IShelterSummaryReportService
+    IAuditLogService? auditLogService = null,
+    INotificationService? notificationService = null) : IShelterSummaryReportService
 {
     private readonly ScheduledReportSettings settings = options.Value;
 
@@ -29,7 +30,12 @@ public class ShelterSummaryReportService(
 
         var toDate = DateTime.UtcNow;
         var fromDate = toDate.AddDays(-1);
-        await SendReportForShelterAsync(shelter, fromDate, toDate, cancellationToken);
+        await SendReportForShelterAsync(
+            shelter,
+            fromDate,
+            toDate,
+            suppressReportNotificationDuplicates: false,
+            cancellationToken);
     }
 
     public async Task<int> SendScheduledShelterSummaryReportsAsync(CancellationToken cancellationToken = default)
@@ -56,7 +62,12 @@ public class ShelterSummaryReportService(
             var shelter = shelters[index];
             try
             {
-                await SendReportForShelterAsync(shelter, fromDate, toDate, cancellationToken);
+                await SendReportForShelterAsync(
+                    shelter,
+                    fromDate,
+                    toDate,
+                    suppressReportNotificationDuplicates: true,
+                    cancellationToken);
                 sentCount++;
             }
             catch (Exception ex)
@@ -72,6 +83,7 @@ public class ShelterSummaryReportService(
         Shelter shelter,
         DateTime fromDate,
         DateTime toDate,
+        bool suppressReportNotificationDuplicates,
         CancellationToken cancellationToken)
     {
         var recipient = shelter.ApplicationUser?.Email ?? shelter.Email;
@@ -127,6 +139,19 @@ public class ShelterSummaryReportService(
 
         cancellationToken.ThrowIfCancellationRequested();
         await emailService.SendEmailAsync(recipient, subject, body, attachments, htmlBody);
+        if (notificationService is not null && !string.IsNullOrWhiteSpace(shelter.ApplicationUserId))
+        {
+            await notificationService.CreateNotificationAsync(
+                shelter.ApplicationUserId,
+                "Summary report sent",
+                "Your shelter summary report was sent by email.",
+                NotificationCategory.Report,
+                NotificationType.Success,
+                "/shelter/dashboard",
+                "Shelter",
+                shelter.Id.ToString(),
+                suppressReportNotificationDuplicates ? TimeSpan.FromMinutes(60) : null);
+        }
         if (auditLogService is not null)
         {
             await auditLogService.LogSystemAsync(

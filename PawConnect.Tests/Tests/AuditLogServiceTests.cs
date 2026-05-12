@@ -80,7 +80,7 @@ public class AuditLogServiceTests
             new TestPdfReportService(),
             NullLogger<AdoptionRequestService>.Instance,
             TestDbContextFactory.CreateUserManager(context),
-            auditService);
+            auditLogService: auditService);
 
         await adoptionService.AcceptRequestAsync(request.Id, TestDbContextFactory.ShelterId, TestDbContextFactory.ShelterUserId);
 

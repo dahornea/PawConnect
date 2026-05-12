@@ -22,17 +22,24 @@ public static class TestDbContextFactory
     public const int MedicineCategoryId = 2;
     public const int AdultFoodTypeId = 1;
 
-    public static ApplicationDbContext CreateContext()
+    public static string CreateDatabaseName()
     {
-        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .EnableSensitiveDataLogging()
-            .Options;
+        return Guid.NewGuid().ToString();
+    }
+
+    public static ApplicationDbContext CreateContext(string? databaseName = null)
+    {
+        var options = CreateOptions(databaseName ?? CreateDatabaseName());
 
         var context = new ApplicationDbContext(options);
         context.Database.EnsureCreated();
         SeedIdentityAndLookups(context);
         return context;
+    }
+
+    public static IDbContextFactory<ApplicationDbContext> CreateContextFactory(string databaseName)
+    {
+        return new InMemoryApplicationDbContextFactory(CreateOptions(databaseName));
     }
 
     public static UserManager<ApplicationUser> CreateUserManager(ApplicationDbContext context)
@@ -165,5 +172,22 @@ public static class TestDbContextFactory
             UserId = userId,
             RoleId = roleName
         };
+    }
+
+    private static DbContextOptions<ApplicationDbContext> CreateOptions(string databaseName)
+    {
+        return new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseInMemoryDatabase(databaseName)
+            .EnableSensitiveDataLogging()
+            .Options;
+    }
+
+    private sealed class InMemoryApplicationDbContextFactory(DbContextOptions<ApplicationDbContext> options)
+        : IDbContextFactory<ApplicationDbContext>
+    {
+        public ApplicationDbContext CreateDbContext()
+        {
+            return new ApplicationDbContext(options);
+        }
     }
 }
