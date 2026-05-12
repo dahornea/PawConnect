@@ -151,7 +151,7 @@ public static class IdentitySeedData
         {
             Name = "Happy Paws Shelter",
             Description = "Fictional demo shelter used for PawConnect development and presentation data.",
-            Address = "Strada Observatorului 12, Cluj-Napoca",
+            Address = "Strada Observatorului 12",
             City = "Cluj-Napoca",
             PhoneNumber = "+40 700 000 001",
             Email = "u8878233525@id.gle",
@@ -294,7 +294,7 @@ public static class IdentitySeedData
             {
                 Name = "Hope Tails Rescue",
                 Description = "Fictional demo rescue profile for map and listing demonstrations.",
-                Address = "Strada Fabricii 45, Cluj-Napoca",
+                Address = "Strada Fabricii 45",
                 City = "Cluj-Napoca",
                 PhoneNumber = "+40 700 000 002",
                 Email = "hope-tails@example.test",
@@ -305,7 +305,7 @@ public static class IdentitySeedData
             {
                 Name = "Safe Haven Dogs",
                 Description = "Fictional demo shelter profile with an approximate Cluj-Napoca marker.",
-                Address = "Strada Buna Ziua 22, Cluj-Napoca",
+                Address = "Strada Buna Ziua 22",
                 City = "Cluj-Napoca",
                 PhoneNumber = "+40 700 000 003",
                 Email = "safe-haven@example.test",
@@ -316,7 +316,7 @@ public static class IdentitySeedData
             {
                 Name = "Green Yard Shelter",
                 Description = "Fictional demo shelter profile for public shelter map testing.",
-                Address = "Strada Donath 60, Cluj-Napoca",
+                Address = "Strada Donath 60",
                 City = "Cluj-Napoca",
                 PhoneNumber = "+40 700 000 004",
                 Email = "green-yard@example.test",
@@ -361,7 +361,7 @@ public static class IdentitySeedData
         {
             shelter.Name = "Happy Paws Shelter";
             shelter.Description = "Fictional demo shelter used for PawConnect development and presentation data.";
-            shelter.Address = "Strada Observatorului 12, Cluj-Napoca";
+            shelter.Address = "Strada Observatorului 12";
             shelter.City = "Cluj-Napoca";
             shelter.PhoneNumber = "+40 700 000 001";
             shelter.Email = "u8878233525@id.gle";
@@ -372,7 +372,7 @@ public static class IdentitySeedData
                 context,
                 "Hope Tails Rescue",
                 "Fictional demo rescue profile for map and listing demonstrations.",
-                "Strada Fabricii 45, Cluj-Napoca",
+                "Strada Fabricii 45",
                 "+40 700 000 002",
                 "hope-tails@example.test",
                 46.7842,
@@ -382,7 +382,7 @@ public static class IdentitySeedData
                 context,
                 "Safe Haven Dogs",
                 "Fictional demo shelter profile with an approximate Cluj-Napoca marker.",
-                "Strada Buna Ziua 22, Cluj-Napoca",
+                "Strada Buna Ziua 22",
                 "+40 700 000 003",
                 "safe-haven@example.test",
                 46.7509,
@@ -392,7 +392,7 @@ public static class IdentitySeedData
                 context,
                 "Green Yard Shelter",
                 "Fictional demo shelter profile for public shelter map testing.",
-                "Strada Donath 60, Cluj-Napoca",
+                "Strada Donath 60",
                 "+40 700 000 004",
                 "green-yard@example.test",
                 46.7719,
