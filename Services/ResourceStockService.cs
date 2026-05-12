@@ -10,7 +10,8 @@ public class ResourceStockService(
     IPdfReportService pdfReportService,
     ILogger<ResourceStockService> logger,
     IAuditLogService? auditLogService = null,
-    INotificationService? notificationService = null) : IResourceStockService
+    INotificationService? notificationService = null,
+    IReportHistoryService? reportHistoryService = null) : IResourceStockService
 {
     public Task<List<ResourceStock>> GetAllAsync()
     {
@@ -296,7 +297,22 @@ public class ResourceStockService(
                 ],
                 hasAttachment: attachments.Count > 0);
 
-            await emailService.SendEmailAsync(shelterEmail ?? string.Empty, $"Low stock warning: {resource.Name}", body, attachments, htmlBody);
+            var subject = $"Low stock warning: {resource.Name}";
+            await emailService.SendEmailAsync(shelterEmail ?? string.Empty, subject, body, attachments, htmlBody);
+            if (reportHistoryService is not null && attachments.Count > 0)
+            {
+                await reportHistoryService.RecordReportSentAsync(new ReportHistoryRecord(
+                    ReportHistoryTypes.LowStockResourceReport,
+                    ReportHistoryTriggers.System,
+                    shelterEmail,
+                    subject,
+                    attachments[0].FileName,
+                    GeneratedAt: DateTime.UtcNow,
+                    SentAt: DateTime.UtcNow,
+                    ShelterId: resource.ShelterId,
+                    RelatedEntityName: "ResourceStock",
+                    RelatedEntityId: resource.Id.ToString()));
+            }
             if (auditLogService is not null)
             {
                 await auditLogService.LogSystemAsync(

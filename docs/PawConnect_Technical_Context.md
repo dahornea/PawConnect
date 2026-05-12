@@ -2,7 +2,7 @@
 
 ## 1. Application Overview
 
-PawConnect is a C# ASP.NET Core Blazor Server web application for stray dog adoption and shelter management. The application connects public visitors and adopter users with shelter dogs, while also giving shelters operational tools for managing dog profiles, adoption requests, medical records, dog images, resource stock, and low-stock warnings. It also includes persistent in-app notifications so important events are visible inside the platform as well as through email/snackbar feedback.
+PawConnect is a C# ASP.NET Core Blazor Server web application for stray dog adoption and shelter management. The application connects public visitors and adopter users with shelter dogs, while also giving shelters operational tools for managing dog profiles, adoption requests, medical records, dog images, resource stock, and low-stock warnings. It also includes persistent in-app notifications and report history metadata so important events and generated reports are visible inside the platform as well as through email/snackbar feedback.
 
 The project is designed as a multi-role, database-backed web system suitable for a bachelor thesis. It demonstrates real application concerns such as authentication, authorization, entity relationships, business rules, email communication, PDF report generation, UI feedback, and automated tests.
 
@@ -96,6 +96,7 @@ Shelter users can:
 - Accept or reject pending adoption requests.
 - Edit private internal shelter notes on adoption requests.
 - Export their own shelter dogs, adoption requests, and resource stock as CSV/PDF where available.
+- Review recent report/export metadata for their own shelter on the Shelter Dashboard.
 - View private in-app notifications for new adoption requests, cancelled requests, low-stock resources, and sent shelter summary reports.
 
 Shelter services check the `ShelterId` before changing dog, resource, image, medical record, and adoption request data.
@@ -168,6 +169,7 @@ Admin pages are protected with `[Authorize(Roles = "Admin")]`. Advanced role edi
 - **Dogs page**: Lists all dogs across shelters, including status, shelter, success story indicator, status history access, and allowed delete action.
 - **Adoption requests page**: Lists all adoption requests and request/profile details for admin review.
 - **Admin exports**: Admin pages provide CSV downloads for users, shelters, dogs, adoption requests, and shelter applications. Adoption request and shelter application pages also provide formatted PDF summary exports.
+- **Report history**: Admins review generated/sent report and export metadata at `/admin/report-history`.
 - **Activity log**: Admins can review important user and system actions at `/admin/activity-log`.
 - **In-app notifications**: Admins receive private notifications for important admin-facing events such as new shelter applications.
 
@@ -513,6 +515,36 @@ Business role:
 - Enforces ownership through `NotificationService`, so users can only view, mark, or delete their own notifications.
 - Avoids sensitive data such as passwords, reset tokens, security stamps, SMTP credentials, and private system secrets.
 
+### ReportHistory
+
+Represents metadata for generated reports, emailed report attachments, and CSV/PDF exports.
+
+Important fields:
+
+- `ReportType`
+- `RecipientEmail`
+- `Subject`
+- `FileName`
+- `GeneratedAt`
+- `SentAt`
+- `WasSuccessful`
+- `ErrorMessage`
+- `TriggeredBy`
+- `TriggeredByUserId`
+- `TriggeredByUserEmail`
+- `ShelterId`
+- `AdminUserId`
+- `RelatedEntityName`
+- `RelatedEntityId`
+
+Business role:
+
+- Tracks when a report/export was generated or sent without storing PDF/CSV binary content.
+- Records metadata for manual shelter reports, Quartz scheduled shelter reports, adoption/resource/shelter application PDF notifications, and Admin/Shelter exports where practical.
+- Stores short, user-safe failure messages when a send/generation attempt fails.
+- Allows shelters to see only their own report history and admins to review all report history.
+- Avoids sensitive values such as SMTP credentials, password reset links, tokens, passwords, and report file contents.
+
 ## 6. Enums and Business States
 
 ### DogStatus
@@ -652,7 +684,9 @@ Important relationships:
 - One `ApplicationUser` can be referenced by many `DogStatusHistory` records as `ChangedByUser`.
 - One `ApplicationUser` can review many `ShelterRegistrationRequest` records as an admin reviewer.
 - One `ApplicationUser` has many private `Notification` records.
+- One `Shelter` can be referenced by many `ReportHistory` records for shelter-scoped report/export metadata.
 - `AuditLog` stores user identifiers and emails as denormalized text metadata instead of a required foreign key, so historical activity remains readable even if account details later change.
+- `ReportHistory` stores recipient/user identifiers as metadata and only has an optional shelter relationship; it does not store generated PDF/CSV files.
 - One `ResourceCategory` has many `ResourceStocks`.
 - One `FoodType` has many `ResourceStocks`.
 - One `FoodType` has many `Dogs` through `PreferredFoodType`.
@@ -672,6 +706,7 @@ Important delete behavior:
 - `RecentlyViewedDog` to dog and adopter uses restricted delete.
 - `DogStatusHistory.ChangedByUser` uses `SetNull` if the user is deleted.
 - `Notification` cascades when the owning Identity user is deleted.
+- `ReportHistory` uses `SetNull` for its optional shelter relationship so metadata can remain readable if a shelter is removed.
 - Resource relationships use restricted delete.
 
 Important indexes:
@@ -681,6 +716,7 @@ Important indexes:
 - `AdoptionRequest` has a filtered unique index on `AdopterId + DogId` for pending requests (`Status = 0`).
 - `AdopterProfile` has a unique index on `ApplicationUserId`.
 - `Notification` has an index on `UserId + IsRead + CreatedAt` to support unread count and recent notification queries.
+- `ReportHistory` has indexes on `GeneratedAt`, `ReportType`, and `ShelterId + GeneratedAt` to support recent admin/shelter history views.
 
 ## 8. Architecture and Code Organization
 
@@ -736,6 +772,8 @@ Scheduled report organization:
 
 - `Jobs/ShelterSummaryReportJob.cs`: Thin Quartz job that calls the shelter summary report service.
 - `Services/IShelterSummaryReportService.cs` and `Services/ShelterSummaryReportService.cs`: Own scheduled report iteration, manual report sending, email body creation, and PDF attachment creation.
+- `Entities/ReportHistory.cs`: Stores metadata for generated/sent reports and exports without storing generated file bytes.
+- `Services/IReportHistoryService.cs` and `Services/ReportHistoryService.cs`: Record successful/failed/generated report metadata and query shelter/admin history views.
 - `Services/ScheduledReportSettings.cs`: Configuration model for enabling/disabling scheduled reports, startup behavior, and minute interval.
 - `Services/IPdfReportService.cs` and `Services/PdfReportService.cs`: Generate `ShelterSummaryReport-{date}.pdf` content.
 - `Program.cs`: Registers Quartz, the hosted service, the job, and the minute-based trigger when `ScheduledReports:Enabled` is true.
@@ -745,10 +783,13 @@ Export organization:
 - `Services/IExportService.cs` and `Services/ExportService.cs`: Generate Admin and Shelter CSV/PDF export bytes and filenames.
 - `Services/IBrowserFileDownloadService.cs` and `Services/BrowserFileDownloadService.cs`: Trigger browser downloads through JavaScript interop.
 - `Services/IAuditLogService.cs`, `Services/AuditLogService.cs`, and `Services/AuditActions.cs`: Record and query lightweight activity logs for admin monitoring.
+- `Services/IReportHistoryService.cs` and `Services/ReportHistoryService.cs`: Track export generation metadata as `CsvExport` or `PdfExport` records.
 - `wwwroot/app.js`: Contains `pawConnect.downloadFileFromBase64` for in-browser export downloads.
 - `Components/Pages/Admin/*.razor`: Existing Admin pages expose compact export buttons near the page header/table area.
+- `Components/Pages/Admin/AdminReportHistory.razor`: Admin-only report history page for all report/export metadata.
 - `Components/Pages/Admin/AdminActivityLog.razor`: Admin-only activity log page with action/entity/search filters.
 - `Components/Pages/Shelter/ManageDogs.razor`, `Components/Pages/Shelter/ShelterAdoptionRequests.razor`, and `Components/Pages/Shelter/Resources.razor`: Shelter pages expose compact export buttons scoped to the authenticated shelter.
+- `Components/Pages/Shelter/ShelterDashboard.razor`: Shows recent report history metadata for the authenticated shelter.
 
 Notification organization:
 
@@ -905,6 +946,7 @@ The public map is read-only. Address lookup and explicit address updates from th
 6. `IBrowserFileDownloadService` calls JavaScript interop to download the generated file in the browser.
 7. Export files are not stored in the database or permanently written to disk.
 8. User CSV exports intentionally omit sensitive Identity fields such as password hashes, security stamps, concurrency stamps, and tokens.
+9. `ReportHistoryService` records export metadata as `CsvExport` or `PdfExport`; the file bytes are not persisted.
 
 ### Shelter Export Flow
 
@@ -917,6 +959,18 @@ The public map is read-only. Address lookup and explicit address updates from th
 7. Shelter resource exports return only resource stock rows for that shelter and include low-stock status.
 8. CSV exports are table-style UTF-8 files suitable for Excel; adoption requests and resources also support QuestPDF-formatted PDFs.
 9. `IBrowserFileDownloadService` downloads the generated file in the browser without storing it in the database.
+10. `ReportHistoryService` records shelter export metadata with the current `ShelterId`, preserving ownership filtering for history views.
+
+### Report History Flow
+
+1. A report/email/export flow generates report metadata, such as file name, report type, recipient, trigger type, and related shelter/entity information.
+2. The report or export continues through the existing email/download path. Generated PDF/CSV bytes are not stored in the database.
+3. The service calls `IReportHistoryService` after a successful generated/sent report, or when a send failure can be recorded safely.
+4. `ReportHistoryService` stores a `ReportHistory` row with `WasSuccessful`, `GeneratedAt`, optional `SentAt`, and a short error message when failed.
+5. If history recording fails, the failure is logged and the original report/email/export action continues.
+6. Shelter users see recent records for their own `ShelterId` on `/shelter/dashboard`.
+7. Admin users review all records at `/admin/report-history`, with simple report type and status filters.
+8. The history view is metadata-only; it does not offer report download because generated files are not persisted.
 
 ### In-App Notification Flow
 
@@ -1099,6 +1153,8 @@ Important classes and configuration:
 
 The scheduler uses Quartz's in-memory scheduling. The project does not include external cron, Hangfire, a Quartz dashboard, or a persistent Quartz job store. Admin scheduled reports are not implemented yet and remain a possible future extension.
 
+Manual and scheduled shelter summary sends create `ReportHistory` metadata records. Manual dashboard sends use `TriggeredBy = Manual`; Quartz sends use `TriggeredBy = Quartz`. Successful records include generated/sent timestamps and the report file name, while failed send attempts store a short error message. The PDF content itself is not stored.
+
 ## 11.5 Shelter Map Integration
 
 The application includes a simple third-party map integration for public shelter profile pages.
@@ -1212,6 +1268,8 @@ Error handling patterns:
 - Audit logging is best-effort: audit failures are logged as warnings and do not fail the main user action.
 - Notification creation is best-effort: notification failures are logged and do not fail the original business action.
 - Notification read/delete methods include the current `UserId`, so a user cannot mark or delete another user's notification.
+- Report history logging is best-effort: failures are logged as warnings and do not fail report sending, export download, Quartz runs, or PDF/email notification flows.
+- Report history stores metadata only and does not persist PDF/CSV bytes, password reset links, SMTP credentials, tokens, or other secrets.
 - `UseStatusCodePagesWithReExecute("/not-found")` provides a friendly not-found route.
 - `AuthorizeRouteView` redirects unauthorized route access through the account redirect component.
 
@@ -1257,6 +1315,7 @@ Current test organization:
 - `ShelterSummaryReportServiceTests`
 - `PdfReportServiceTests`
 - `ExportServiceTests`
+- `ReportHistoryServiceTests`
 - `AuditLogServiceTests`
 - `NotificationServiceTests`
 - `Integration/ServiceFlowIntegrationTests`
@@ -1320,6 +1379,13 @@ Current test coverage includes:
 - Shelter adoption requests CSV includes only requests for the current shelter's dogs.
 - Shelter resources CSV includes only current shelter resources and low-stock status.
 - Shelter adoption request and resource PDF exports return non-empty PDF bytes.
+- Report history records are created for manual shelter summary reports.
+- Report history records are created for failed shelter report sends.
+- Scheduled shelter reports are tracked with the Quartz trigger.
+- Shelter report history queries return only the current shelter's records.
+- Admin report history queries can return all records and filter failures.
+- Export generation creates metadata-only report history records.
+- `ReportHistory` does not include binary content/bytes fields.
 - Audit logs are created for selected dog, adoption request, and resource actions.
 - Recent audit log queries return newest records first.
 - Audit descriptions tested do not include sensitive Identity field names such as password hash or security stamp.
@@ -1372,6 +1438,8 @@ Service-level security/ownership checks:
 - Admin pages are role-protected and can access platform-wide data.
 - Admin export actions are exposed only on Admin pages, and user exports intentionally exclude sensitive Identity security fields.
 - Shelter export actions are exposed only on Shelter pages and are scoped to the authenticated shelter account.
+- Shelter report history queries are scoped by the authenticated shelter's `ShelterId`.
+- Admin report history is available only on the Admin-protected `/admin/report-history` page.
 - Audit logging excludes passwords, reset tokens, security stamps, SMTP credentials, and full change snapshots.
 - Notifications are private to the owning `ApplicationUser`; query, mark-as-read, mark-all-as-read, and delete operations enforce ownership through `NotificationService`.
 
@@ -1397,6 +1465,7 @@ PawConnect is suitable for a bachelor thesis because it demonstrates:
 - Persistent role-based in-app notifications grouped by adoption, shelter application, resource, report, and system categories.
 - PDF report generation with structured report content.
 - Quartz.NET scheduled shelter summary reports with manual dashboard sending.
+- Report history metadata tracking for report/export traceability without storing generated file contents.
 - Lightweight audit/activity logging for traceability and accountability.
 - MudBlazor UI with dashboards, forms, tables, dialogs, cards, snackbars, and empty/loading states.
 - Automated service/domain tests and integration-style flow tests.

@@ -12,7 +12,8 @@ public class AdoptionRequestService(
     ILogger<AdoptionRequestService> logger,
     UserManager<ApplicationUser> userManager,
     INotificationService? notificationService = null,
-    IAuditLogService? auditLogService = null) : IAdoptionRequestService
+    IAuditLogService? auditLogService = null,
+    IReportHistoryService? reportHistoryService = null) : IAdoptionRequestService
 {
     public Task<List<AdoptionRequest>> GetAllAsync()
     {
@@ -484,7 +485,17 @@ public class AdoptionRequestService(
                 ],
                 hasAttachment: attachments.Count > 0);
 
-            await emailService.SendEmailAsync(shelterEmail ?? string.Empty, $"New adoption request for {dog.Name}", body, attachments, htmlBody);
+            var subject = $"New adoption request for {dog.Name}";
+            await emailService.SendEmailAsync(shelterEmail ?? string.Empty, subject, body, attachments, htmlBody);
+            await RecordPdfEmailReportAsync(
+                ReportHistoryTypes.AdoptionRequestReport,
+                shelterEmail,
+                subject,
+                attachments,
+                ReportHistoryTriggers.System,
+                dog.ShelterId,
+                "AdoptionRequest",
+                adoptionRequestId.ToString());
         }
         catch (Exception ex)
         {
@@ -552,7 +563,17 @@ public class AdoptionRequestService(
                 ],
                 hasAttachment: attachments.Count > 0);
 
-            await emailService.SendEmailAsync(adopterEmail ?? string.Empty, $"Adoption request {status}: {dogName}", body, attachments, htmlBody);
+            var subject = $"Adoption request {status}: {dogName}";
+            await emailService.SendEmailAsync(adopterEmail ?? string.Empty, subject, body, attachments, htmlBody);
+            await RecordPdfEmailReportAsync(
+                ReportHistoryTypes.AdoptionStatusReport,
+                adopterEmail,
+                subject,
+                attachments,
+                ReportHistoryTriggers.Shelter,
+                request.Dog?.ShelterId,
+                "AdoptionRequest",
+                request.Id.ToString());
         }
         catch (Exception ex)
         {
@@ -580,6 +601,34 @@ public class AdoptionRequestService(
             logger.LogWarning(ex, "PDF attachment {FileName} could not be generated.", fileName);
             return [];
         }
+    }
+
+    private Task RecordPdfEmailReportAsync(
+        string reportType,
+        string? recipientEmail,
+        string subject,
+        IReadOnlyList<EmailAttachment> attachments,
+        string triggeredBy,
+        int? shelterId,
+        string relatedEntityName,
+        string relatedEntityId)
+    {
+        if (reportHistoryService is null || attachments.Count == 0)
+        {
+            return Task.CompletedTask;
+        }
+
+        return reportHistoryService.RecordReportSentAsync(new ReportHistoryRecord(
+            reportType,
+            triggeredBy,
+            recipientEmail,
+            subject,
+            attachments[0].FileName,
+            GeneratedAt: DateTime.UtcNow,
+            SentAt: DateTime.UtcNow,
+            ShelterId: shelterId,
+            RelatedEntityName: relatedEntityName,
+            RelatedEntityId: relatedEntityId));
     }
 
     private Task LogAsync(

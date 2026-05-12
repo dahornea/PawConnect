@@ -14,7 +14,8 @@ public class ExportService(
     ApplicationDbContext context,
     UserManager<ApplicationUser> userManager,
     ILogger<ExportService> logger,
-    IAuditLogService? auditLogService = null) : IExportService
+    IAuditLogService? auditLogService = null,
+    IReportHistoryService? reportHistoryService = null) : IExportService
 {
     private const string CsvContentType = "text/csv;charset=utf-8";
     private const string PdfContentType = "application/pdf";
@@ -51,7 +52,7 @@ public class ExportService(
             "pawconnect-users",
             ["User Id", "Email", "UserName", "Full Name", "PhoneNumber", "Roles", "EmailConfirmed"],
             rows);
-        await LogExportAsync(file, "Admin users CSV export was generated.");
+        await LogExportAsync(file, "Admin users CSV export was generated.", relatedEntityName: "Users");
         return file;
     }
 
@@ -81,7 +82,7 @@ public class ExportService(
             "pawconnect-shelters",
             ["Shelter Id", "Shelter Name", "Email", "Phone Number", "City", "Address", "Description", "Latitude", "Longitude", "Number of Dogs"],
             rows);
-        await LogExportAsync(file, "Admin shelters CSV export was generated.");
+        await LogExportAsync(file, "Admin shelters CSV export was generated.", relatedEntityName: "Shelters");
         return file;
     }
 
@@ -114,7 +115,7 @@ public class ExportService(
             "pawconnect-dogs",
             ["Dog Id", "Name", "Breed", "Age", "Size", "Location", "Shelter Name", "Status", "Preferred Food Type", "Daily Food Amount Grams", "Success Story", "AdoptedAt"],
             rows);
-        await LogExportAsync(file, "Admin dogs CSV export was generated.");
+        await LogExportAsync(file, "Admin dogs CSV export was generated.", relatedEntityName: "Dogs");
         return file;
     }
 
@@ -139,7 +140,7 @@ public class ExportService(
             "pawconnect-adoption-requests",
             ["Request Id", "Dog Name", "Shelter Name", "Adopter Email", "Status", "CreatedAt", "UpdatedAt", "ReasonForAdoption", "HoursAlonePerDay", "AdditionalInformation"],
             rows);
-        await LogExportAsync(file, "Admin adoption requests CSV export was generated.");
+        await LogExportAsync(file, "Admin adoption requests CSV export was generated.", relatedEntityName: "AdoptionRequests");
         return file;
     }
 
@@ -165,7 +166,7 @@ public class ExportService(
             "pawconnect-shelter-requests",
             ["Request Id", "Shelter Name", "Contact Person", "Email", "Phone", "City", "Address", "Status", "CreatedAt", "ReviewedAt", "ReviewedBy"],
             rows);
-        await LogExportAsync(file, "Admin shelter registration requests CSV export was generated.");
+        await LogExportAsync(file, "Admin shelter registration requests CSV export was generated.", relatedEntityName: "ShelterRegistrationRequests");
         return file;
     }
 
@@ -200,7 +201,7 @@ public class ExportService(
             });
 
         var file = BuildPdfExport("pawconnect-adoption-requests", bytes);
-        await LogExportAsync(file, "Admin adoption requests PDF export was generated.");
+        await LogExportAsync(file, "Admin adoption requests PDF export was generated.", relatedEntityName: "AdoptionRequests");
         return file;
     }
 
@@ -235,7 +236,7 @@ public class ExportService(
             });
 
         var file = BuildPdfExport("pawconnect-shelter-requests", bytes);
-        await LogExportAsync(file, "Admin shelter registration requests PDF export was generated.");
+        await LogExportAsync(file, "Admin shelter registration requests PDF export was generated.", relatedEntityName: "ShelterRegistrationRequests");
         return file;
     }
 
@@ -268,7 +269,7 @@ public class ExportService(
             "pawconnect-shelter-dogs",
             ["Dog Id", "Name", "Breed", "Age", "Size", "Location", "Status", "Preferred Food Type", "Daily Food Amount Grams", "Medical Status", "AdoptedAt", "Has Success Story"],
             rows);
-        await LogExportAsync(file, "Shelter dogs CSV export was generated.", shelterId);
+        await LogExportAsync(file, "Shelter dogs CSV export was generated.", shelterId, "Dogs");
         return file;
     }
 
@@ -294,7 +295,7 @@ public class ExportService(
             "pawconnect-shelter-adoption-requests",
             ["Request Id", "Dog Name", "Adopter Email", "Adopter Full Name", "Status", "CreatedAt", "UpdatedAt", "ReasonForAdoption", "HoursAlonePerDay", "AdditionalInformation", "ShelterInternalNotes"],
             rows);
-        await LogExportAsync(file, "Shelter adoption requests CSV export was generated.", shelterId);
+        await LogExportAsync(file, "Shelter adoption requests CSV export was generated.", shelterId, "AdoptionRequests");
         return file;
     }
 
@@ -341,7 +342,7 @@ public class ExportService(
             });
 
         var file = BuildPdfExport("pawconnect-shelter-adoption-requests", bytes);
-        await LogExportAsync(file, "Shelter adoption requests PDF export was generated.", shelterId);
+        await LogExportAsync(file, "Shelter adoption requests PDF export was generated.", shelterId, "AdoptionRequests");
         return file;
     }
 
@@ -365,7 +366,7 @@ public class ExportService(
             "pawconnect-shelter-resources",
             ["Resource Id", "Name", "Category", "Food Type", "Quantity", "Unit", "LowStockThreshold", "IsLowStock", "LastUpdatedAt"],
             rows);
-        await LogExportAsync(file, "Shelter resources CSV export was generated.", shelterId);
+        await LogExportAsync(file, "Shelter resources CSV export was generated.", shelterId, "Resources");
         return file;
     }
 
@@ -400,7 +401,7 @@ public class ExportService(
             });
 
         var file = BuildPdfExport("pawconnect-shelter-resources", bytes);
-        await LogExportAsync(file, "Shelter resources PDF export was generated.", shelterId);
+        await LogExportAsync(file, "Shelter resources PDF export was generated.", shelterId, "Resources");
         return file;
     }
 
@@ -473,18 +474,39 @@ public class ExportService(
         return new ExportFile(BuildFileName(filePrefix, "pdf"), PdfContentType, content);
     }
 
-    private Task LogExportAsync(ExportFile file, string description, int? shelterId = null)
+    private async Task LogExportAsync(ExportFile file, string description, int? shelterId = null, string? relatedEntityName = null)
     {
         var additionalData = shelterId.HasValue
             ? $"FileName={file.FileName};ContentType={file.ContentType};ShelterId={shelterId.Value}"
             : $"FileName={file.FileName};ContentType={file.ContentType}";
 
-        return auditLogService?.LogAsync(
-            AuditActions.ExportGenerated,
-            "Export",
-            file.FileName,
-            description,
-            additionalData: additionalData) ?? Task.CompletedTask;
+        if (auditLogService is not null)
+        {
+            await auditLogService.LogAsync(
+                AuditActions.ExportGenerated,
+                "Export",
+                file.FileName,
+                description,
+                additionalData: additionalData);
+        }
+
+        if (reportHistoryService is not null)
+        {
+            await reportHistoryService.RecordReportGeneratedAsync(new ReportHistoryRecord(
+                IsPdf(file) ? ReportHistoryTypes.PdfExport : ReportHistoryTypes.CsvExport,
+                shelterId.HasValue ? ReportHistoryTriggers.Shelter : ReportHistoryTriggers.Admin,
+                Subject: description,
+                FileName: file.FileName,
+                GeneratedAt: DateTime.UtcNow,
+                ShelterId: shelterId,
+                RelatedEntityName: relatedEntityName ?? "Export",
+                RelatedEntityId: file.FileName));
+        }
+    }
+
+    private static bool IsPdf(ExportFile file)
+    {
+        return file.ContentType.Equals(PdfContentType, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string BuildFileName(string filePrefix, string extension)

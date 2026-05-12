@@ -1,0 +1,216 @@
+@page "/admin/report-history"
+@attribute [Authorize(Roles = "Admin")]
+@inject IReportHistoryService ReportHistoryService
+@inject ISnackbar Snackbar
+
+<PageTitle>Report History</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.False" Class="px-0">
+    <MudStack Spacing="3">
+        <div class="page-header">
+            <MudText Typo="Typo.h4">Report History</MudText>
+            <MudText Typo="Typo.body2">Review generated and sent report metadata without storing report files.</MudText>
+        </div>
+
+        <MudPaper Elevation="0" Class="section-surface pa-3">
+            <MudGrid Spacing="2">
+                <MudItem xs="12" sm="6" md="4">
+                    <MudSelect T="string" Label="Report type" @bind-Value="_reportTypeFilter" Clearable="true" Variant="Variant.Outlined">
+                        @foreach (var reportType in ReportTypeFilters)
+                        {
+                            <MudSelectItem Value="@reportType">@FormatReportType(reportType)</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudSelect T="string" Label="Status" @bind-Value="_statusFilter" Clearable="true" Variant="Variant.Outlined">
+                        <MudSelectItem Value="@SuccessFilter">Successful</MudSelectItem>
+                        <MudSelectItem Value="@FailedFilter">Failed</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" md="5">
+                    <MudStack Row="true" Spacing="1" Class="mt-2">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.FilterAlt" Disabled="_isLoading" OnClick="LoadReportsAsync">Apply</MudButton>
+                        <MudButton Variant="Variant.Text" Color="Color.Default" Disabled="_isLoading" OnClick="ClearFiltersAsync">Clear</MudButton>
+                    </MudStack>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+
+        @if (_isLoading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="py-8">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Loading report history...</MudText>
+            </MudStack>
+        }
+        else if (_reports.Count == 0)
+        {
+            <MudPaper Elevation="0" Class="empty-state pa-5">
+                <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.Assessment" Color="Color.Secondary" Size="Size.Large" />
+                    <MudText Typo="Typo.h6">No reports have been generated yet.</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Report and export metadata will appear here after generation.</MudText>
+                </MudStack>
+            </MudPaper>
+        }
+        else
+        {
+            <MudTable Items="_reports" Dense="true" Hover="true" Class="table-shell" RowsPerPage="15">
+                <HeaderContent>
+                    <MudTh>Generated</MudTh>
+                    <MudTh>Report</MudTh>
+                    <MudTh>Status</MudTh>
+                    <MudTh>Shelter</MudTh>
+                    <MudTh>Recipient</MudTh>
+                    <MudTh>Triggered by</MudTh>
+                    <MudTh>Error</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Generated">@FormatDateTime(context.GeneratedAt)</MudTd>
+                    <MudTd DataLabel="Report">
+                        <MudText Typo="Typo.body2">@FormatReportType(context.ReportType)</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@(context.FileName ?? "Metadata only")</MudText>
+                    </MudTd>
+                    <MudTd DataLabel="Status">
+                        <MudChip T="string" Size="Size.Small" Color="@GetReportStatusColor(context)" Variant="Variant.Outlined">
+                            @GetReportStatusText(context)
+                        </MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Shelter">@(context.Shelter?.Name ?? "-")</MudTd>
+                    <MudTd DataLabel="Recipient">@(context.RecipientEmail ?? "-")</MudTd>
+                    <MudTd DataLabel="Triggered by">
+                        <MudText Typo="Typo.body2">@context.TriggeredBy</MudText>
+                        @if (!string.IsNullOrWhiteSpace(context.TriggeredByUserEmail))
+                        {
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">@context.TriggeredByUserEmail</MudText>
+                        }
+                    </MudTd>
+                    <MudTd DataLabel="Error">
+                        @if (string.IsNullOrWhiteSpace(context.ErrorMessage))
+                        {
+                            <span>-</span>
+                        }
+                        else
+                        {
+                            <MudTooltip Text="@context.ErrorMessage">
+                                <MudText Typo="Typo.caption" Color="Color.Error">@Truncate(context.ErrorMessage)</MudText>
+                            </MudTooltip>
+                        }
+                    </MudTd>
+                </RowTemplate>
+                <PagerContent>
+                    <MudTablePager />
+                </PagerContent>
+            </MudTable>
+        }
+    </MudStack>
+</MudContainer>
+
+@code {
+    private const string SuccessFilter = "Successful";
+    private const string FailedFilter = "Failed";
+
+    private static readonly IReadOnlyList<string> ReportTypeFilters =
+    [
+        ReportHistoryTypes.ShelterSummaryReport,
+        ReportHistoryTypes.AdoptionRequestReport,
+        ReportHistoryTypes.AdoptionStatusReport,
+        ReportHistoryTypes.LowStockResourceReport,
+        ReportHistoryTypes.ShelterRegistrationRequestReport,
+        ReportHistoryTypes.CsvExport,
+        ReportHistoryTypes.PdfExport
+    ];
+
+    private List<ReportHistory> _reports = [];
+    private bool _isLoading = true;
+    private string? _reportTypeFilter;
+    private string? _statusFilter;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadReportsAsync();
+    }
+
+    private async Task LoadReportsAsync()
+    {
+        _isLoading = true;
+
+        try
+        {
+            _reports = await ReportHistoryService.GetAdminReportHistoryAsync(_reportTypeFilter, GetStatusFilter());
+        }
+        catch
+        {
+            Snackbar.Add("Report history could not be loaded right now.", Severity.Error);
+            _reports = [];
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task ClearFiltersAsync()
+    {
+        _reportTypeFilter = null;
+        _statusFilter = null;
+        await LoadReportsAsync();
+    }
+
+    private bool? GetStatusFilter()
+    {
+        return _statusFilter switch
+        {
+            SuccessFilter => true,
+            FailedFilter => false,
+            _ => null
+        };
+    }
+
+    private static string FormatReportType(string reportType)
+    {
+        return reportType switch
+        {
+            ReportHistoryTypes.ShelterSummaryReport => "Shelter Summary Report",
+            ReportHistoryTypes.AdminPlatformSummaryReport => "Admin Platform Summary Report",
+            ReportHistoryTypes.AdoptionRequestReport => "Adoption Request Report",
+            ReportHistoryTypes.AdoptionStatusReport => "Adoption Status Report",
+            ReportHistoryTypes.LowStockResourceReport => "Low Stock Resource Report",
+            ReportHistoryTypes.ShelterRegistrationRequestReport => "Shelter Application Report",
+            ReportHistoryTypes.CsvExport => "CSV Export",
+            ReportHistoryTypes.PdfExport => "PDF Export",
+            _ => reportType
+        };
+    }
+
+    private static string FormatDateTime(DateTime value)
+    {
+        return value.ToLocalTime().ToString("dd MMM yyyy HH:mm");
+    }
+
+    private static Color GetReportStatusColor(ReportHistory report)
+    {
+        if (!report.WasSuccessful)
+        {
+            return Color.Error;
+        }
+
+        return report.SentAt.HasValue ? Color.Success : Color.Info;
+    }
+
+    private static string GetReportStatusText(ReportHistory report)
+    {
+        if (!report.WasSuccessful)
+        {
+            return "Failed";
+        }
+
+        return report.SentAt.HasValue ? "Sent" : "Generated";
+    }
+
+    private static string Truncate(string value)
+    {
+        return value.Length <= 80 ? value : $"{value[..80]}...";
+    }
+}
