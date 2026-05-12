@@ -37,6 +37,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
     public DbSet<Notification> Notifications => Set<Notification>();
 
+    public DbSet<ReportHistory> ReportHistories => Set<ReportHistory>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -236,6 +238,26 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
         builder.Entity<Notification>()
             .HasIndex(notification => new { notification.UserId, notification.IsRead, notification.CreatedAt });
+
+        builder.Entity<ReportHistory>()
+            .HasOne(history => history.Shelter)
+            .WithMany()
+            .HasForeignKey(history => history.ShelterId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.Entity<ReportHistory>()
+            .Property(history => history.GeneratedAt)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<ReportHistory>()
+            .HasIndex(history => history.GeneratedAt);
+
+        builder.Entity<ReportHistory>()
+            .HasIndex(history => history.ReportType);
+
+        builder.Entity<ReportHistory>()
+            .HasIndex(history => new { history.ShelterId, history.GeneratedAt });
 
         SeedLookupData(builder);
     }

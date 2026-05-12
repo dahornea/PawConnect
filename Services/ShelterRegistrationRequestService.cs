@@ -12,7 +12,8 @@ public class ShelterRegistrationRequestService(
     IPdfReportService pdfReportService,
     ILogger<ShelterRegistrationRequestService> logger,
     IAuditLogService? auditLogService = null,
-    INotificationService? notificationService = null) : IShelterRegistrationRequestService
+    INotificationService? notificationService = null,
+    IReportHistoryService? reportHistoryService = null) : IShelterRegistrationRequestService
 {
     public async Task<ShelterRegistrationRequest> SubmitRequestAsync(ShelterRegistrationRequest request, string? currentUserId = null)
     {
@@ -255,7 +256,21 @@ public class ShelterRegistrationRequestService(
 
             foreach (var recipient in recipients)
             {
-                await emailService.SendEmailAsync(recipient!, "New shelter application submitted", body, attachments, htmlBody);
+                const string subject = "New shelter application submitted";
+                await emailService.SendEmailAsync(recipient!, subject, body, attachments, htmlBody);
+                if (reportHistoryService is not null && attachments.Count > 0)
+                {
+                    await reportHistoryService.RecordReportSentAsync(new ReportHistoryRecord(
+                        ReportHistoryTypes.ShelterRegistrationRequestReport,
+                        ReportHistoryTriggers.System,
+                        recipient,
+                        subject,
+                        attachments[0].FileName,
+                        GeneratedAt: DateTime.UtcNow,
+                        SentAt: DateTime.UtcNow,
+                        RelatedEntityName: "ShelterRegistrationRequest",
+                        RelatedEntityId: request.Id.ToString()));
+                }
             }
         }
         catch (Exception ex)

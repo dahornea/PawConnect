@@ -12,7 +12,8 @@ public class ShelterSummaryReportService(
     IOptions<ScheduledReportSettings> options,
     ILogger<ShelterSummaryReportService> logger,
     IAuditLogService? auditLogService = null,
-    INotificationService? notificationService = null) : IShelterSummaryReportService
+    INotificationService? notificationService = null,
+    IReportHistoryService? reportHistoryService = null) : IShelterSummaryReportService
 {
     private readonly ScheduledReportSettings settings = options.Value;
 
@@ -34,6 +35,7 @@ public class ShelterSummaryReportService(
             shelter,
             fromDate,
             toDate,
+            ReportHistoryTriggers.Manual,
             suppressReportNotificationDuplicates: false,
             cancellationToken);
     }
@@ -66,6 +68,7 @@ public class ShelterSummaryReportService(
                     shelter,
                     fromDate,
                     toDate,
+                    ReportHistoryTriggers.Quartz,
                     suppressReportNotificationDuplicates: true,
                     cancellationToken);
                 sentCount++;
@@ -83,62 +86,89 @@ public class ShelterSummaryReportService(
         Shelter shelter,
         DateTime fromDate,
         DateTime toDate,
+        string triggeredBy,
         bool suppressReportNotificationDuplicates,
         CancellationToken cancellationToken)
     {
         var recipient = shelter.ApplicationUser?.Email ?? shelter.Email;
-        if (string.IsNullOrWhiteSpace(recipient))
+        var fileDate = toDate.ToLocalTime().ToString("yyyy-MM-dd");
+        var fileName = $"ShelterSummaryReport-{fileDate}.pdf";
+        var subject = $"PawConnect Shelter Summary Report - {fileDate}";
+        var generatedAt = DateTime.UtcNow;
+
+        try
         {
-            throw new InvalidOperationException("Shelter email is not available.");
+            if (string.IsNullOrWhiteSpace(recipient))
+            {
+                throw new InvalidOperationException("Shelter email is not available.");
+            }
+
+            logger.LogInformation(
+                "Sending shelter summary report for shelter {ShelterId} ({ShelterName}) to {Recipient}.",
+                shelter.Id,
+                shelter.Name,
+                recipient);
+
+            var pdfBytes = await pdfReportService.GenerateShelterSummaryReportAsync(shelter.Id, fromDate, toDate);
+            var attachments = new List<EmailAttachment>
+            {
+                new()
+                {
+                    FileName = fileName,
+                    ContentType = "application/pdf",
+                    Content = pdfBytes
+                }
+            };
+
+            var body = $"""
+                Hello,
+
+                Your PawConnect shelter summary report is attached.
+
+                Shelter: {shelter.Name}
+                Report period: {fromDate.ToLocalTime():dd MMM yyyy HH:mm} - {toDate.ToLocalTime():dd MMM yyyy HH:mm}
+
+                This report summarizes adoption requests, dog statuses, and low-stock resources.
+                """;
+
+            var htmlBody = PawConnectEmailTemplate.BuildHtml(
+                "Shelter Summary Report",
+                "Hello,",
+                [
+                    "Your PawConnect shelter summary report is attached.",
+                    "It summarizes adoption requests, dog statuses, and low-stock resources for your shelter."
+                ],
+                details:
+                [
+                    new("Shelter", shelter.Name),
+                    new("Report period", $"{fromDate.ToLocalTime():dd MMM yyyy HH:mm} - {toDate.ToLocalTime():dd MMM yyyy HH:mm}")
+                ],
+                hasAttachment: true,
+                note: "This report was generated automatically by PawConnect.");
+
+            cancellationToken.ThrowIfCancellationRequested();
+            await emailService.SendEmailAsync(recipient, subject, body, attachments, htmlBody);
+            await RecordShelterSummaryReportSentAsync(
+                shelter,
+                recipient,
+                subject,
+                fileName,
+                generatedAt,
+                triggeredBy);
+        }
+        catch (Exception ex)
+        {
+            await RecordShelterSummaryReportFailedAsync(
+                shelter,
+                recipient,
+                subject,
+                fileName,
+                generatedAt,
+                triggeredBy,
+                ex);
+            throw;
         }
 
-        logger.LogInformation(
-            "Sending shelter summary report for shelter {ShelterId} ({ShelterName}) to {Recipient}.",
-            shelter.Id,
-            shelter.Name,
-            recipient);
-
-        var pdfBytes = await pdfReportService.GenerateShelterSummaryReportAsync(shelter.Id, fromDate, toDate);
-        var fileDate = toDate.ToLocalTime().ToString("yyyy-MM-dd");
-        var attachments = new List<EmailAttachment>
-        {
-            new()
-            {
-                FileName = $"ShelterSummaryReport-{fileDate}.pdf",
-                ContentType = "application/pdf",
-                Content = pdfBytes
-            }
-        };
-
-        var subject = $"PawConnect Shelter Summary Report - {fileDate}";
-        var body = $"""
-            Hello,
-
-            Your PawConnect shelter summary report is attached.
-
-            Shelter: {shelter.Name}
-            Report period: {fromDate.ToLocalTime():dd MMM yyyy HH:mm} - {toDate.ToLocalTime():dd MMM yyyy HH:mm}
-
-            This report summarizes adoption requests, dog statuses, and low-stock resources.
-            """;
-
-        var htmlBody = PawConnectEmailTemplate.BuildHtml(
-            "Shelter Summary Report",
-            "Hello,",
-            [
-                "Your PawConnect shelter summary report is attached.",
-                "It summarizes adoption requests, dog statuses, and low-stock resources for your shelter."
-            ],
-            details:
-            [
-                new("Shelter", shelter.Name),
-                new("Report period", $"{fromDate.ToLocalTime():dd MMM yyyy HH:mm} - {toDate.ToLocalTime():dd MMM yyyy HH:mm}")
-            ],
-            hasAttachment: true,
-            note: "This report was generated automatically by PawConnect.");
-
-        cancellationToken.ThrowIfCancellationRequested();
-        await emailService.SendEmailAsync(recipient, subject, body, attachments, htmlBody);
         if (notificationService is not null && !string.IsNullOrWhiteSpace(shelter.ApplicationUserId))
         {
             await notificationService.CreateNotificationAsync(
@@ -162,5 +192,48 @@ public class ShelterSummaryReportService(
                 additionalData: $"Recipient={recipient};From={fromDate:O};To={toDate:O}");
         }
         logger.LogInformation("Shelter summary report sent to shelter {ShelterId}.", shelter.Id);
+    }
+
+    private Task RecordShelterSummaryReportSentAsync(
+        Shelter shelter,
+        string recipient,
+        string subject,
+        string fileName,
+        DateTime generatedAt,
+        string triggeredBy)
+    {
+        return reportHistoryService?.RecordReportSentAsync(new ReportHistoryRecord(
+            ReportHistoryTypes.ShelterSummaryReport,
+            triggeredBy,
+            recipient,
+            subject,
+            fileName,
+            generatedAt,
+            SentAt: DateTime.UtcNow,
+            ShelterId: shelter.Id,
+            RelatedEntityName: "Shelter",
+            RelatedEntityId: shelter.Id.ToString())) ?? Task.CompletedTask;
+    }
+
+    private Task RecordShelterSummaryReportFailedAsync(
+        Shelter shelter,
+        string? recipient,
+        string subject,
+        string fileName,
+        DateTime generatedAt,
+        string triggeredBy,
+        Exception exception)
+    {
+        return reportHistoryService?.RecordReportFailedAsync(new ReportHistoryRecord(
+            ReportHistoryTypes.ShelterSummaryReport,
+            triggeredBy,
+            recipient,
+            subject,
+            fileName,
+            generatedAt,
+            ErrorMessage: exception.Message,
+            ShelterId: shelter.Id,
+            RelatedEntityName: "Shelter",
+            RelatedEntityId: shelter.Id.ToString())) ?? Task.CompletedTask;
     }
 }

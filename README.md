@@ -44,6 +44,7 @@ PawConnect is a beginner-friendly ASP.NET Core Blazor Server skeleton for a stra
 - Role-based in-app notifications with categorized notification bell and `/notifications` page
 - Optional address-based coordinate lookup using OpenStreetMap Nominatim
 - Service-level validation and duplicate prevention for core shelter, adoption, dog image, resource, export, notification, and report workflows
+- Report History metadata tracking for generated/sent reports and CSV/PDF exports
 
 ## Planned Features
 
@@ -242,6 +243,34 @@ Scheduled report settings are configured in `appsettings.json`:
 
 `Enabled` is `false` by default to avoid accidental email spam during local development. A 5-minute interval is convenient for demos; production values should usually be larger, such as `1440` minutes for daily reports. `RunOnStartupInDevelopment` only sends at startup when it is explicitly set to `true` in development. When scheduled reports are enabled, each run sends a summary report to every shelter that has an email address.
 
+## Report History
+
+PawConnect stores generated/sent report metadata in `ReportHistories`. This tracks when reports and exports were generated, who received emailed reports, whether sending succeeded, the file name, trigger type, and related shelter/entity information.
+
+Report history is metadata only:
+
+- PDF and CSV bytes are not stored in the database.
+- Password reset links, tokens, SMTP credentials, and other secrets are not stored.
+- Failed send attempts store a short user-safe error message.
+- History logging is best-effort and does not block email sending, PDF generation, scheduled reports, or browser downloads.
+
+Tracked examples include:
+
+- Manual Shelter Summary Reports from `/shelter/dashboard`
+- Quartz scheduled Shelter Summary Reports
+- Adoption request/status PDF notification reports
+- Low-stock resource PDF reports
+- Shelter registration request PDF reports
+- Admin and Shelter CSV/PDF exports
+
+Shelter users see recent metadata for their own shelter on `/shelter/dashboard`. Admin users can review all records at:
+
+```text
+/admin/report-history
+```
+
+Stored report download from history is intentionally not implemented because PawConnect does not persist generated files.
+
 ## Shelter Map Integration
 
 PawConnect uses OpenStreetMap with Leaflet for shelter location maps and editable coordinate previews in shelter forms. No Google Maps API key or paid map service is required.
@@ -363,7 +392,7 @@ Run the service/domain test suite with:
 dotnet test
 ```
 
-The `PawConnect.Tests` project covers key business rules for dog management, dog image handling, adoption requests, favorites, shelter resources, shelter registration requests, Nominatim geocoding behavior, scheduled shelter summary reports, PDF report generation, admin export generation, shelter export generation, audit log behavior, and in-app notification ownership/triggers. It also includes service-flow integration tests for public dog visibility, favorite deletion behavior, adoption request status changes, dog image/age behavior, resource stock rules, and email/PDF notification triggers.
+The `PawConnect.Tests` project covers key business rules for dog management, dog image handling, adoption requests, favorites, shelter resources, shelter registration requests, Nominatim geocoding behavior, scheduled shelter summary reports, PDF report generation, admin export generation, shelter export generation, report history metadata tracking, audit log behavior, and in-app notification ownership/triggers. It also includes service-flow integration tests for public dog visibility, favorite deletion behavior, adoption request status changes, dog image/age behavior, resource stock rules, and email/PDF notification triggers.
 
 Tests use isolated in-memory databases and fake email/PDF services. They do not require SQL Server, a real SMTP provider, a running web server, or browser UI automation.
 
@@ -386,6 +415,7 @@ Recent feature migrations include:
 ```text
 20260512203656_AddAuditLogs
 20260512210309_AddNotifications
+20260512222313_AddReportHistory
 ```
 
 If `dotnet ef database update` cannot connect from your terminal, check that SQL Server/LocalDB is running and that the `DefaultConnection` server name matches the `PawConnect` database you created in SSMS.

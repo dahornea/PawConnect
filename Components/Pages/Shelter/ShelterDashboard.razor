@@ -7,6 +7,7 @@
 @inject IResourceStockService ResourceStockService
 @inject IShelterService ShelterService
 @inject IShelterSummaryReportService ShelterSummaryReportService
+@inject IReportHistoryService ReportHistoryService
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject UserManager<ApplicationUser> UserManager
 @inject ISnackbar Snackbar
@@ -131,6 +132,50 @@
             <MudPaper Elevation="0" Class="section-surface pa-4">
                 <MudStack Spacing="2">
                     <MudStack Row="true" AlignItems="AlignItems.Center">
+                        <MudText Typo="Typo.h5" Class="section-title">Recent Reports</MudText>
+                        <MudSpacer />
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Metadata only</MudText>
+                    </MudStack>
+
+                    @if (_recentReports.Count == 0)
+                    {
+                        <MudPaper Elevation="0" Class="empty-state pa-4">
+                            <MudText Typo="Typo.body1">No reports have been generated yet.</MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">Sent shelter reports and exports will appear here as metadata.</MudText>
+                        </MudPaper>
+                    }
+                    else
+                    {
+                        <MudTable Items="_recentReports" Dense="true" Hover="true" Class="table-shell">
+                            <HeaderContent>
+                                <MudTh>Report</MudTh>
+                                <MudTh>Generated</MudTh>
+                                <MudTh>Status</MudTh>
+                                <MudTh>Triggered by</MudTh>
+                                <MudTh>Recipient</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Report">
+                                    <MudText Typo="Typo.body2">@FormatReportType(context.ReportType)</MudText>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">@(context.FileName ?? "No file stored")</MudText>
+                                </MudTd>
+                                <MudTd DataLabel="Generated">@FormatDateTime(context.GeneratedAt)</MudTd>
+                                <MudTd DataLabel="Status">
+                                    <MudChip T="string" Size="Size.Small" Color="@GetReportStatusColor(context)" Variant="Variant.Outlined">
+                                        @GetReportStatusText(context)
+                                    </MudChip>
+                                </MudTd>
+                                <MudTd DataLabel="Triggered by">@context.TriggeredBy</MudTd>
+                                <MudTd DataLabel="Recipient">@(context.RecipientEmail ?? "-")</MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    }
+                </MudStack>
+            </MudPaper>
+
+            <MudPaper Elevation="0" Class="section-surface pa-4">
+                <MudStack Spacing="2">
+                    <MudStack Row="true" AlignItems="AlignItems.Center">
                         <MudText Typo="Typo.h5" Class="section-title">Low-Stock Resources</MudText>
                         <MudSpacer />
                         <MudButton Href="/shelter/resources" Variant="Variant.Text" Color="Color.Primary" EndIcon="@Icons.Material.Filled.ArrowForward">Manage Resources</MudButton>
@@ -178,6 +223,7 @@
     private int? _shelterId;
     private bool _isSendingReport;
     private List<ResourceStock> _lowStockResources = [];
+    private List<ReportHistory> _recentReports = [];
 
     protected override async Task OnInitializedAsync()
     {
@@ -194,6 +240,7 @@
             var dogs = await DogService.GetDogsForShelterAsync(shelterId.Value);
             var requests = await AdoptionRequestService.GetRequestsForShelterAsync(shelterId.Value);
             _lowStockResources = await ResourceStockService.GetLowStockResourcesForShelterAsync(shelterId.Value);
+            _recentReports = await ReportHistoryService.GetReportHistoryForShelterAsync(shelterId.Value, 5);
 
             _dogCount = dogs.Count;
             _availableDogCount = dogs.Count(d => d.Status == DogStatus.Available);
@@ -234,15 +281,57 @@
         {
             _isSendingReport = true;
             await ShelterSummaryReportService.SendShelterSummaryReportAsync(_shelterId.Value);
+            _recentReports = await ReportHistoryService.GetReportHistoryForShelterAsync(_shelterId.Value, 5);
             Snackbar.Add("Summary report sent to your shelter email.", Severity.Success);
         }
         catch
         {
+            _recentReports = await ReportHistoryService.GetReportHistoryForShelterAsync(_shelterId.Value, 5);
             Snackbar.Add("Could not send summary report. Please try again.", Severity.Error);
         }
         finally
         {
             _isSendingReport = false;
         }
+    }
+
+    private static string FormatReportType(string reportType)
+    {
+        return reportType switch
+        {
+            ReportHistoryTypes.ShelterSummaryReport => "Shelter Summary Report",
+            ReportHistoryTypes.CsvExport => "CSV Export",
+            ReportHistoryTypes.PdfExport => "PDF Export",
+            ReportHistoryTypes.AdoptionRequestReport => "Adoption Request Report",
+            ReportHistoryTypes.AdoptionStatusReport => "Adoption Status Report",
+            ReportHistoryTypes.LowStockResourceReport => "Low Stock Resource Report",
+            ReportHistoryTypes.ShelterRegistrationRequestReport => "Shelter Application Report",
+            _ => reportType
+        };
+    }
+
+    private static string FormatDateTime(DateTime value)
+    {
+        return value.ToLocalTime().ToString("dd MMM yyyy HH:mm");
+    }
+
+    private static Color GetReportStatusColor(ReportHistory report)
+    {
+        if (!report.WasSuccessful)
+        {
+            return Color.Error;
+        }
+
+        return report.SentAt.HasValue ? Color.Success : Color.Info;
+    }
+
+    private static string GetReportStatusText(ReportHistory report)
+    {
+        if (!report.WasSuccessful)
+        {
+            return "Failed";
+        }
+
+        return report.SentAt.HasValue ? "Sent" : "Generated";
     }
 }
