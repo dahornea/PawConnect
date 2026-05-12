@@ -38,6 +38,7 @@ PawConnect is a beginner-friendly ASP.NET Core Blazor Server skeleton for a stra
 - Dog ages support years and months for puppy-friendly display
 - Approval-based shelter registration requests at `/shelters/apply`
 - Admin shelter application review at `/admin/shelter-requests`
+- Admin CSV/PDF exports for platform management pages
 - Optional address-based coordinate lookup using OpenStreetMap Nominatim
 
 ## Planned Features
@@ -107,14 +108,14 @@ SMTP settings are configured in `appsettings.json` under:
 ```json
 "EmailSettings": {
   "SmtpHost": "localhost",
-  "SmtpPort": 1025,
+  "SmtpPort": 2525,
   "SmtpUser": "",
   "SmtpPassword": "",
   "SenderEmail": "no-reply@pawconnect.local",
   "SenderName": "PawConnect",
   "EnableSsl": false,
   "OpenLocalInboxOnStartup": false,
-  "LocalInboxUrl": "http://localhost:8025"
+  "LocalInboxUrl": "http://localhost:3000"
 }
 ```
 
@@ -124,38 +125,10 @@ Do not commit real SMTP credentials. For external SMTP providers, put real value
 
 For development, use a local SMTP catcher so no real emails are sent. Local catchers also let you inspect password reset emails, adoption/resource/shelter notifications, scheduled reports, HTML bodies, plain text bodies, and PDF attachments in a browser.
 
-Recommended option: Mailpit.
+Recommended option for this project setup: smtp4dev without Docker.
 
-```bash
-docker run -d --name mailpit -p 1025:1025 -p 8025:8025 axllent/mailpit
-```
-
-Mailpit web UI:
-
-```text
-http://localhost:8025
-```
-
-Development `EmailSettings` for Mailpit:
-
-```json
-"EmailSettings": {
-  "SmtpHost": "localhost",
-  "SmtpPort": 1025,
-  "SmtpUser": "",
-  "SmtpPassword": "",
-  "SenderEmail": "no-reply@pawconnect.local",
-  "SenderName": "PawConnect",
-  "EnableSsl": false,
-  "OpenLocalInboxOnStartup": true,
-  "LocalInboxUrl": "http://localhost:8025"
-}
-```
-
-Alternative option: smtp4dev.
-
-```bash
-docker run -d --name smtp4dev -p 3000:80 -p 2525:25 rnwood/smtp4dev
+```powershell
+smtp4dev --urls=http://localhost:3000 --smtpport=2525
 ```
 
 smtp4dev web UI:
@@ -179,6 +152,14 @@ Development `EmailSettings` for smtp4dev:
   "LocalInboxUrl": "http://localhost:3000"
 }
 ```
+
+Alternative option: Mailpit.
+
+```bash
+docker run -d --name mailpit -p 1025:1025 -p 8025:8025 axllent/mailpit
+```
+
+Mailpit uses SMTP port `1025` and web UI `http://localhost:8025`.
 
 The SMTP service connects without authentication when `SmtpUser` and `SmtpPassword` are empty. External SMTP providers can still be configured later through the same `EmailSettings` keys.
 
@@ -245,6 +226,27 @@ Nominatim integration notes:
 - Missing coordinates show a friendly map fallback.
 - Route planning, autocomplete, browser geolocation, nearby search, and distance filtering are not implemented.
 
+## Admin Exports
+
+Admin pages include export actions for platform data. Exports are generated on demand and downloaded in the browser; files are not stored in the database.
+
+CSV exports are available for:
+
+- `/admin/users`
+- `/admin/shelters`
+- `/admin/dogs`
+- `/admin/adoption-requests`
+- `/admin/shelter-requests`
+
+PDF exports are available where a formatted summary is useful:
+
+- `/admin/adoption-requests`
+- `/admin/shelter-requests`
+
+CSV files are UTF-8 encoded with a header row and can be opened in Excel. PDF files use a clean PawConnect report layout generated with QuestPDF. Admin user exports intentionally exclude sensitive Identity fields such as password hashes, security stamps, concurrency stamps, and reset tokens.
+
+Export buttons are shown only on Admin pages, which are protected with the `Admin` role. If export logic is reused later through endpoints, those endpoints should also require Admin authorization.
+
 ## Database
 
 The connection string points to a SQL Server database named `PawConnect`:
@@ -279,9 +281,9 @@ Run the service/domain test suite with:
 dotnet test
 ```
 
-The `PawConnect.Tests` project covers key business rules for dog management, dog image handling, adoption requests, favorites, shelter resources, shelter registration requests, Nominatim geocoding behavior, scheduled shelter summary reports, and PDF report generation. It also includes service-flow integration tests for public dog visibility, favorite deletion behavior, adoption request status changes, dog image/age behavior, resource stock rules, and email/PDF notification triggers.
+The `PawConnect.Tests` project covers key business rules for dog management, dog image handling, adoption requests, favorites, shelter resources, shelter registration requests, Nominatim geocoding behavior, scheduled shelter summary reports, PDF report generation, and admin export generation. It also includes service-flow integration tests for public dog visibility, favorite deletion behavior, adoption request status changes, dog image/age behavior, resource stock rules, and email/PDF notification triggers.
 
-Tests use isolated in-memory databases and fake email/PDF services. They do not require SQL Server, a real SMTP server, a running web server, or browser UI automation.
+Tests use isolated in-memory databases and fake email/PDF services. They do not require SQL Server, a real SMTP provider, a running web server, or browser UI automation.
 
 ## Migrations
 

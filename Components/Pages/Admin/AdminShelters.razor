@@ -2,6 +2,8 @@
 @attribute [Authorize(Roles = "Admin")]
 @inject IShelterService ShelterService
 @inject IGeocodingService GeocodingService
+@inject IExportService ExportService
+@inject IBrowserFileDownloadService FileDownloadService
 @inject ISnackbar Snackbar
 
 <PageTitle>Shelters</PageTitle>
@@ -12,6 +14,20 @@
             <MudText Typo="Typo.h4">Shelters</MudText>
             <MudText Typo="Typo.body2">View registered shelter profiles and their dog counts.</MudText>
         </div>
+
+        <MudPaper Elevation="0" Class="section-surface pa-3">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Spacing="2" Class="flex-wrap">
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Export all approved shelter profiles and dog counts.</MudText>
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Primary"
+                           Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.FileDownload"
+                           Disabled="_isLoading || _isExporting"
+                           OnClick="ExportSheltersCsvAsync">
+                    Export CSV
+                </MudButton>
+            </MudStack>
+        </MudPaper>
 
         @if (_isLoading)
         {
@@ -157,6 +173,7 @@
     private bool _isLoading = true;
     private bool _isSaving;
     private bool _isReverseGeocoding;
+    private bool _isExporting;
     private string? _error;
     private Shelter? _editShelter;
     private double? _savedLatitude;
@@ -222,6 +239,31 @@
         _suggestedAddressRequestVersion++;
         _suggestedAddress = null;
         _suggestedAddressUnavailable = false;
+    }
+
+    private async Task ExportSheltersCsvAsync()
+    {
+        await ExportAsync(() => ExportService.GenerateSheltersCsvAsync());
+    }
+
+    private async Task ExportAsync(Func<Task<ExportFile>> exportAction)
+    {
+        _isExporting = true;
+
+        try
+        {
+            var file = await exportAction();
+            await FileDownloadService.DownloadAsync(file);
+            Snackbar.Add("Export generated successfully.", Severity.Success);
+        }
+        catch
+        {
+            Snackbar.Add("Could not generate export. Please try again.", Severity.Error);
+        }
+        finally
+        {
+            _isExporting = false;
+        }
     }
 
     private async Task SaveShelterAsync()

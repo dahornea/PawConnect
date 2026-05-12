@@ -27,7 +27,7 @@ The main user groups are:
 - **OpenStreetMap Nominatim**: Used through `NominatimGeocodingService` for manual address-to-coordinate lookup. The app does not call it on every keystroke and does not use it for route planning or nearby search.
 - **MailKit and MimeKit**: Used by `SmtpEmailService` for provider-agnostic SMTP email sending with plain text bodies, branded HTML bodies, and optional attachments.
 - **Generic SMTP / local SMTP catcher**: Email delivery is configured through `EmailSettings`. Development can use a local SMTP catcher such as Mailpit or smtp4dev so emails are captured locally and are not delivered to real users.
-- **QuestPDF**: Used by `PdfReportService` to generate PDF reports for adoption requests, adoption status updates, low-stock resources, shelter registration requests, and shelter summary reports.
+- **QuestPDF**: Used by `PdfReportService` and admin export logic to generate PDF reports for adoption requests, adoption status updates, low-stock resources, shelter registration requests, shelter summary reports, and formatted admin exports.
 - **Quartz.NET**: Used for in-process scheduled shelter summary report jobs. The implementation uses simple in-memory scheduling, not an external cron job, Hangfire, a Quartz dashboard, or a persistent Quartz job store.
 - **xUnit**: Test framework used by the `PawConnect.Tests` project.
 - **EF Core InMemory**: Test database provider used by service and integration-style tests.
@@ -160,6 +160,7 @@ Admin pages are protected with `[Authorize(Roles = "Admin")]`. Advanced role edi
 - **Shelter request review**: Admins review pending shelter applications at `/admin/shelter-requests`. Accepting a request creates an `ApplicationUser`, assigns the `Shelter` role, and creates a linked `Shelter` profile. Rejecting a request does not create a user or shelter. Accept/reject actions are restricted to Admin users.
 - **Dogs page**: Lists all dogs across shelters, including status, shelter, success story indicator, status history access, and allowed delete action.
 - **Adoption requests page**: Lists all adoption requests and request/profile details for admin review.
+- **Admin exports**: Admin pages provide CSV downloads for users, shelters, dogs, adoption requests, and shelter applications. Adoption request and shelter application pages also provide formatted PDF summary exports.
 
 ## 5. Domain Model / Entities
 
@@ -642,9 +643,16 @@ Scheduled report organization:
 
 - `Jobs/ShelterSummaryReportJob.cs`: Thin Quartz job that calls the shelter summary report service.
 - `Services/IShelterSummaryReportService.cs` and `Services/ShelterSummaryReportService.cs`: Own scheduled report iteration, manual report sending, email body creation, and PDF attachment creation.
-- `Services/ScheduledReportSettings.cs`: Configuration model for enabling/disabling scheduled reports, startup behavior, minute interval, and delay between scheduled shelter emails.
+- `Services/ScheduledReportSettings.cs`: Configuration model for enabling/disabling scheduled reports, startup behavior, and minute interval.
 - `Services/IPdfReportService.cs` and `Services/PdfReportService.cs`: Generate `ShelterSummaryReport-{date}.pdf` content.
 - `Program.cs`: Registers Quartz, the hosted service, the job, and the minute-based trigger when `ScheduledReports:Enabled` is true.
+
+Admin export organization:
+
+- `Services/IExportService.cs` and `Services/ExportService.cs`: Generate Admin CSV/PDF export bytes and filenames.
+- `Services/IBrowserFileDownloadService.cs` and `Services/BrowserFileDownloadService.cs`: Trigger browser downloads through JavaScript interop.
+- `wwwroot/app.js`: Contains `pawConnect.downloadFileFromBase64` for in-browser export downloads.
+- `Components/Pages/Admin/*.razor`: Existing Admin pages expose compact export buttons near the page header/table area.
 
 ## 9. Main Application Flows
 
@@ -779,6 +787,18 @@ The public map is read-only. Address lookup and explicit address updates from th
 4. Admin user and shelter pages allow editing basic profile/contact fields.
 5. Admin dog page lists dogs from all shelters and supports viewing status history, success story details, and deleting dogs when deletion rules allow.
 6. Admin adoption request page displays request data, including questionnaire and private/internal shelter notes for review.
+7. Admin pages can export page-level platform data as CSV. Adoption requests and shelter applications can also be exported as formatted PDF summaries.
+
+### Admin Export Flow
+
+1. An Admin user opens an Admin page such as `/admin/users`, `/admin/dogs`, `/admin/adoption-requests`, or `/admin/shelter-requests`.
+2. The page displays an export action area with `Export CSV` and, where useful, `Export PDF`.
+3. The component calls `IExportService` to generate the file content in memory.
+4. CSV exports include header rows and table-style platform data suitable for Excel.
+5. PDF exports use QuestPDF for clean formatted summaries of adoption requests and shelter applications.
+6. `IBrowserFileDownloadService` calls JavaScript interop to download the generated file in the browser.
+7. Export files are not stored in the database or permanently written to disk.
+8. User CSV exports intentionally omit sensitive Identity fields such as password hashes, security stamps, concurrency stamps, and tokens.
 
 ## 10. Email Notification System
 
@@ -830,7 +850,7 @@ Application notifications for adoption requests, low-stock resources, and shelte
 
 Scheduled shelter summary report emails also use the existing email infrastructure and attach a generated PDF. The scheduled job is disabled by default through `ScheduledReports:Enabled = false`; the Shelter Dashboard manual send action still works for demo/testing.
 
-The current `appsettings.json` uses safe local SMTP catcher defaults: `localhost:1025`, empty credentials, and `EnableSsl = false`. `appsettings.Development.json` enables automatic opening of the local inbox URL for convenience. Real external SMTP credentials should be stored in `appsettings.Development.json`, .NET User Secrets, or environment variables and should not be committed to source control.
+The current `appsettings.json` uses safe local SMTP catcher defaults: `localhost:2525`, empty credentials, and `EnableSsl = false`. `appsettings.Development.json` enables automatic opening of the local inbox URL for convenience. Real external SMTP credentials should be stored in `appsettings.Development.json`, .NET User Secrets, or environment variables and should not be committed to source control.
 
 ## 11. PDF Report System
 
@@ -1087,6 +1107,7 @@ Current test organization:
 - `NominatimGeocodingServiceTests`
 - `ShelterSummaryReportServiceTests`
 - `PdfReportServiceTests`
+- `ExportServiceTests`
 - `Integration/ServiceFlowIntegrationTests`
 - `Helpers/TestDbContextFactory`
 - `Helpers/TestDoubles`
@@ -1129,6 +1150,10 @@ Current test coverage includes:
 - Manual shelter summary report sending creates an email with a PDF attachment for the current shelter.
 - Scheduled shelter report logic respects `ScheduledReports:Enabled = false`.
 - Scheduled shelter report logic sends reports to all shelters with an email when enabled.
+- Admin users CSV includes user/role data and excludes sensitive Identity fields.
+- Admin dogs CSV includes dog, shelter, status, food, and formatted age data.
+- Admin adoption request and shelter request CSV exports include expected business fields.
+- Admin adoption request and shelter request PDF exports return non-empty PDF bytes.
 - Integration-style service flows for public visibility, favorites/deletion, adoption notifications, dog image/age, resources, and fake PDF/email attachment behavior.
 
 The README documents running tests with:
@@ -1172,6 +1197,7 @@ Service-level security/ownership checks:
 - Adopter request cancellation checks request ownership.
 - Recently viewed data is keyed by adopter ID and returned only for that adopter.
 - Admin pages are role-protected and can access platform-wide data.
+- Admin export actions are exposed only on Admin pages, and user exports intentionally exclude sensitive Identity security fields.
 
 Sensitive operations:
 

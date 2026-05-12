@@ -5,6 +5,8 @@
 @attribute [Authorize(Roles = "Admin")]
 @inject UserManager<ApplicationUser> UserManager
 @inject IAdopterProfileService AdopterProfileService
+@inject IExportService ExportService
+@inject IBrowserFileDownloadService FileDownloadService
 @inject ISnackbar Snackbar
 
 <PageTitle>Users</PageTitle>
@@ -15,6 +17,20 @@
             <MudText Typo="Typo.h4">Users</MudText>
             <MudText Typo="Typo.body2">View registered users and their assigned roles.</MudText>
         </div>
+
+        <MudPaper Elevation="0" Class="section-surface pa-3">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Spacing="2" Class="flex-wrap">
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Export all admin user rows without Identity security fields.</MudText>
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Primary"
+                           Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.FileDownload"
+                           Disabled="_isLoading || _isExporting"
+                           OnClick="ExportUsersCsvAsync">
+                    Export CSV
+                </MudButton>
+            </MudStack>
+        </MudPaper>
 
         @if (_isLoading)
         {
@@ -126,6 +142,7 @@
     private List<UserRow> _users = [];
     private bool _isLoading = true;
     private bool _isSaving;
+    private bool _isExporting;
     private string? _error;
     private UserEditModel? _editUser;
     private MudForm? _userForm;
@@ -183,6 +200,31 @@
     private void CancelEdit()
     {
         _editUser = null;
+    }
+
+    private async Task ExportUsersCsvAsync()
+    {
+        await ExportAsync(() => ExportService.GenerateUsersCsvAsync());
+    }
+
+    private async Task ExportAsync(Func<Task<ExportFile>> exportAction)
+    {
+        _isExporting = true;
+
+        try
+        {
+            var file = await exportAction();
+            await FileDownloadService.DownloadAsync(file);
+            Snackbar.Add("Export generated successfully.", Severity.Success);
+        }
+        catch
+        {
+            Snackbar.Add("Could not generate export. Please try again.", Severity.Error);
+        }
+        finally
+        {
+            _isExporting = false;
+        }
     }
 
     private async Task SaveUserAsync()
