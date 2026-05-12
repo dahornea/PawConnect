@@ -6,6 +6,8 @@
 @inject IResourceCategoryService ResourceCategoryService
 @inject IFoodTypeService FoodTypeService
 @inject IShelterService ShelterService
+@inject IExportService ExportService
+@inject IBrowserFileDownloadService FileDownloadService
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject UserManager<ApplicationUser> UserManager
 @inject ISnackbar Snackbar
@@ -19,6 +21,30 @@
             <MudText Typo="Typo.h4">Resources</MudText>
             <MudText Typo="Typo.body2">Manage shelter stock, categories, food types, and low-stock thresholds.</MudText>
         </div>
+
+        <MudPaper Elevation="0" Class="section-surface pa-3">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Spacing="2" Class="flex-wrap">
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Export resource stock records for your shelter only.</MudText>
+                <MudStack Row="true" Spacing="1" Class="flex-wrap">
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Primary"
+                               Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.FileDownload"
+                               Disabled="@(_isLoading || _isExporting || _shelterId is null)"
+                               OnClick="ExportResourcesCsvAsync">
+                        Export CSV
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Secondary"
+                               Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.PictureAsPdf"
+                               Disabled="@(_isLoading || _isExporting || _shelterId is null)"
+                               OnClick="ExportResourcesPdfAsync">
+                        Export PDF
+                    </MudButton>
+                </MudStack>
+            </MudStack>
+        </MudPaper>
 
         @if (_isLoading)
         {
@@ -140,6 +166,7 @@
     private MudForm? _form;
     private bool _isLoading = true;
     private bool _isSaving;
+    private bool _isExporting;
     private string? _error;
     private int? _shelterId;
 
@@ -222,6 +249,48 @@
         finally
         {
             _isSaving = false;
+        }
+    }
+
+    private async Task ExportResourcesCsvAsync()
+    {
+        if (_shelterId is null)
+        {
+            Snackbar.Add("Current shelter profile could not be found.", Severity.Error);
+            return;
+        }
+
+        await ExportAsync(() => ExportService.GenerateShelterResourcesCsvAsync(_shelterId.Value));
+    }
+
+    private async Task ExportResourcesPdfAsync()
+    {
+        if (_shelterId is null)
+        {
+            Snackbar.Add("Current shelter profile could not be found.", Severity.Error);
+            return;
+        }
+
+        await ExportAsync(() => ExportService.GenerateShelterResourcesPdfAsync(_shelterId.Value));
+    }
+
+    private async Task ExportAsync(Func<Task<ExportFile>> exportAction)
+    {
+        _isExporting = true;
+
+        try
+        {
+            var file = await exportAction();
+            await FileDownloadService.DownloadAsync(file);
+            Snackbar.Add("Export generated successfully.", Severity.Success);
+        }
+        catch
+        {
+            Snackbar.Add("Could not generate export. Please try again.", Severity.Error);
+        }
+        finally
+        {
+            _isExporting = false;
         }
     }
 

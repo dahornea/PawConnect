@@ -221,6 +221,161 @@ public class ExportService(ApplicationDbContext context, UserManager<Application
         return BuildPdfExport("pawconnect-shelter-requests", bytes);
     }
 
+    public async Task<ExportFile> GenerateShelterDogsCsvAsync(int shelterId)
+    {
+        var dogs = await context.Dogs
+            .Include(d => d.PreferredFoodType)
+            .Where(d => d.ShelterId == shelterId)
+            .OrderBy(d => d.Name)
+            .AsNoTracking()
+            .ToListAsync();
+
+        var rows = dogs.Select(d => new[]
+        {
+            d.Id.ToString(CultureInfo.InvariantCulture),
+            d.Name,
+            d.Breed,
+            DogAgeFormatter.Format(d),
+            d.Size.ToString(),
+            d.Location,
+            d.Status.ToString(),
+            d.PreferredFoodType?.Name,
+            d.DailyFoodAmountGrams?.ToString(CultureInfo.InvariantCulture),
+            d.MedicalStatus,
+            FormatDate(d.AdoptedAt),
+            FormatYesNo(HasSuccessStory(d))
+        });
+
+        return BuildCsv(
+            "pawconnect-shelter-dogs",
+            ["Dog Id", "Name", "Breed", "Age", "Size", "Location", "Status", "Preferred Food Type", "Daily Food Amount Grams", "Medical Status", "AdoptedAt", "Has Success Story"],
+            rows);
+    }
+
+    public async Task<ExportFile> GenerateShelterAdoptionRequestsCsvAsync(int shelterId)
+    {
+        var requests = await GetShelterAdoptionRequestsAsync(shelterId);
+        var rows = requests.Select(r => new[]
+        {
+            r.Id.ToString(CultureInfo.InvariantCulture),
+            r.Dog?.Name,
+            r.Adopter?.Email,
+            GetAdopterFullName(r.Adopter),
+            r.Status.ToString(),
+            FormatDateTime(r.CreatedAt),
+            FormatDateTime(r.UpdatedAt),
+            r.ReasonForAdoption,
+            r.HoursAlonePerDay?.ToString(CultureInfo.InvariantCulture),
+            r.AdditionalInformation,
+            r.ShelterInternalNotes
+        });
+
+        return BuildCsv(
+            "pawconnect-shelter-adoption-requests",
+            ["Request Id", "Dog Name", "Adopter Email", "Adopter Full Name", "Status", "CreatedAt", "UpdatedAt", "ReasonForAdoption", "HoursAlonePerDay", "AdditionalInformation", "ShelterInternalNotes"],
+            rows);
+    }
+
+    public async Task<ExportFile> GenerateShelterAdoptionRequestsPdfAsync(int shelterId)
+    {
+        var shelter = await GetShelterByIdAsync(shelterId);
+        var requests = await GetShelterAdoptionRequestsAsync(shelterId);
+
+        var bytes = BuildPdf(
+            "PawConnect - Shelter Adoption Requests Export",
+            content =>
+            {
+                AddSummary(content, [
+                    ("Shelter", shelter?.Name ?? "Current shelter"),
+                    ("Total", requests.Count.ToString(CultureInfo.InvariantCulture)),
+                    ("Pending", CountAdoptionStatus(requests, AdoptionRequestStatus.Pending)),
+                    ("Accepted", CountAdoptionStatus(requests, AdoptionRequestStatus.Accepted)),
+                    ("Rejected", CountAdoptionStatus(requests, AdoptionRequestStatus.Rejected)),
+                    ("Cancelled", CountAdoptionStatus(requests, AdoptionRequestStatus.Cancelled))
+                ]);
+
+                AddTable(
+                    content,
+                    ["Dog", "Adopter", "Status", "Created", "Updated"],
+                    requests.Select(r => new[]
+                    {
+                        r.Dog?.Name ?? "-",
+                        GetAdopterDisplay(r.Adopter),
+                        r.Status.ToString(),
+                        FormatDateTime(r.CreatedAt),
+                        FormatDateTime(r.UpdatedAt)
+                    }));
+
+                AddTable(
+                    content,
+                    ["Dog", "Reason", "Hours Alone", "Internal Notes"],
+                    requests.Select(r => new[]
+                    {
+                        r.Dog?.Name ?? "-",
+                        r.ReasonForAdoption,
+                        r.HoursAlonePerDay?.ToString(CultureInfo.InvariantCulture),
+                        r.ShelterInternalNotes
+                    }));
+            });
+
+        return BuildPdfExport("pawconnect-shelter-adoption-requests", bytes);
+    }
+
+    public async Task<ExportFile> GenerateShelterResourcesCsvAsync(int shelterId)
+    {
+        var resources = await GetShelterResourcesAsync(shelterId);
+        var rows = resources.Select(r => new[]
+        {
+            r.Id.ToString(CultureInfo.InvariantCulture),
+            r.Name,
+            r.ResourceCategory?.Name,
+            r.FoodType?.Name,
+            r.Quantity.ToString(CultureInfo.InvariantCulture),
+            r.Unit,
+            r.LowStockThreshold.ToString(CultureInfo.InvariantCulture),
+            FormatYesNo(IsLowStock(r)),
+            FormatDateTime(r.LastUpdatedAt)
+        });
+
+        return BuildCsv(
+            "pawconnect-shelter-resources",
+            ["Resource Id", "Name", "Category", "Food Type", "Quantity", "Unit", "LowStockThreshold", "IsLowStock", "LastUpdatedAt"],
+            rows);
+    }
+
+    public async Task<ExportFile> GenerateShelterResourcesPdfAsync(int shelterId)
+    {
+        var shelter = await GetShelterByIdAsync(shelterId);
+        var resources = await GetShelterResourcesAsync(shelterId);
+
+        var bytes = BuildPdf(
+            "PawConnect - Shelter Resource Stock Export",
+            content =>
+            {
+                AddSummary(content, [
+                    ("Shelter", shelter?.Name ?? "Current shelter"),
+                    ("Total resources", resources.Count.ToString(CultureInfo.InvariantCulture)),
+                    ("Low stock", resources.Count(IsLowStock).ToString(CultureInfo.InvariantCulture))
+                ]);
+
+                AddTable(
+                    content,
+                    ["Resource", "Category", "Food Type", "Quantity", "Unit", "Threshold", "Low Stock"],
+                    resources.Select(r => new[]
+                    {
+                        r.Name,
+                        r.ResourceCategory?.Name ?? "-",
+                        r.FoodType?.Name ?? "-",
+                        r.Quantity.ToString(CultureInfo.InvariantCulture),
+                        r.Unit,
+                        r.LowStockThreshold.ToString(CultureInfo.InvariantCulture),
+                        FormatYesNo(IsLowStock(r))
+                    }));
+            });
+
+        return BuildPdfExport("pawconnect-shelter-resources", bytes);
+    }
+
     private Task<List<AdoptionRequest>> GetAdoptionRequestsAsync()
     {
         return context.AdoptionRequests
@@ -230,6 +385,37 @@ public class ExportService(ApplicationDbContext context, UserManager<Application
             .OrderByDescending(r => r.CreatedAt)
             .AsNoTracking()
             .ToListAsync();
+    }
+
+    private Task<List<AdoptionRequest>> GetShelterAdoptionRequestsAsync(int shelterId)
+    {
+        return context.AdoptionRequests
+            .Include(r => r.Dog)
+            .ThenInclude(d => d!.Shelter)
+            .Include(r => r.Adopter)
+            .ThenInclude(a => a!.AdopterProfile)
+            .Where(r => r.Dog != null && r.Dog.ShelterId == shelterId)
+            .OrderByDescending(r => r.CreatedAt)
+            .AsNoTracking()
+            .ToListAsync();
+    }
+
+    private Task<List<ResourceStock>> GetShelterResourcesAsync(int shelterId)
+    {
+        return context.ResourceStocks
+            .Include(r => r.ResourceCategory)
+            .Include(r => r.FoodType)
+            .Where(r => r.ShelterId == shelterId)
+            .OrderBy(r => r.Name)
+            .AsNoTracking()
+            .ToListAsync();
+    }
+
+    private Task<Shelter?> GetShelterByIdAsync(int shelterId)
+    {
+        return context.Shelters
+            .AsNoTracking()
+            .FirstOrDefaultAsync(s => s.Id == shelterId);
     }
 
     private Task<List<ShelterRegistrationRequest>> GetShelterRequestsAsync()
@@ -309,7 +495,7 @@ public class ExportService(ApplicationDbContext context, UserManager<Application
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Admin export PDF generation failed for {Title}.", title);
+            logger.LogWarning(ex, "Export PDF generation failed for {Title}.", title);
             throw;
         }
     }
@@ -338,7 +524,7 @@ public class ExportService(ApplicationDbContext context, UserManager<Application
 
     private static void ComposeFooter(IContainer container)
     {
-        container.AlignCenter().Text("Admin export generated by PawConnect.")
+        container.AlignCenter().Text("Export generated by PawConnect.")
             .FontSize(8)
             .FontColor(Colors.Grey.Darken1);
     }
@@ -440,9 +626,24 @@ public class ExportService(ApplicationDbContext context, UserManager<Application
             : $"{adopter.FullName} ({adopter.Email})";
     }
 
+    private static string? GetAdopterFullName(ApplicationUser? adopter)
+    {
+        if (!string.IsNullOrWhiteSpace(adopter?.AdopterProfile?.FullName))
+        {
+            return adopter.AdopterProfile.FullName;
+        }
+
+        return string.IsNullOrWhiteSpace(adopter?.FullName) ? null : adopter.FullName;
+    }
+
     private static bool HasSuccessStory(Dog dog)
     {
         return !string.IsNullOrWhiteSpace(dog.SuccessStoryText) || dog.AdoptedAt.HasValue;
+    }
+
+    private static bool IsLowStock(ResourceStock resource)
+    {
+        return resource.Quantity <= resource.LowStockThreshold;
     }
 
     private static string FormatYesNo(bool value)

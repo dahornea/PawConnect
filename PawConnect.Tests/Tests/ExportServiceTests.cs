@@ -70,6 +70,41 @@ public class ExportServiceTests
     }
 
     [Fact]
+    public async Task GenerateShelterDogsCsvAsync_ContainsOnlyCurrentShelterDogs()
+    {
+        using var context = TestDbContextFactory.CreateContext();
+        context.Dogs.AddRange(
+            new Dog
+            {
+                Name = "Shelter Puppy",
+                Breed = "Mixed Breed",
+                AgeYears = 0,
+                AgeMonths = 7,
+                Age = 0,
+                Size = DogSize.Small,
+                Location = "Cluj-Napoca",
+                Status = DogStatus.Available,
+                ShelterId = TestDbContextFactory.ShelterId,
+                MedicalStatus = "Healthy",
+                PreferredFoodTypeId = TestDbContextFactory.AdultFoodTypeId,
+                DailyFoodAmountGrams = 250
+            },
+            TestDbContextFactory.CreateDog("Other Shelter Dog", shelterId: TestDbContextFactory.OtherShelterId));
+        await context.SaveChangesAsync();
+
+        var service = CreateService(context);
+
+        var file = await service.GenerateShelterDogsCsvAsync(TestDbContextFactory.ShelterId);
+        var csv = Decode(file.Content);
+
+        Assert.Contains("Dog Id,Name,Breed,Age,Size,Location,Status,Preferred Food Type,Daily Food Amount Grams,Medical Status,AdoptedAt,Has Success Story", csv);
+        Assert.Contains("Shelter Puppy", csv);
+        Assert.Contains("7 months old", csv);
+        Assert.Contains("Healthy", csv);
+        Assert.DoesNotContain("Other Shelter Dog", csv);
+    }
+
+    [Fact]
     public async Task GenerateAdoptionRequestsCsvAsync_ContainsRequestStatusDogAndAdopterData()
     {
         using var context = TestDbContextFactory.CreateContext();
@@ -99,6 +134,95 @@ public class ExportServiceTests
         Assert.Contains("adopter@test.com", csv);
         Assert.Contains("Pending", csv);
         Assert.Contains("Family companion", csv);
+    }
+
+    [Fact]
+    public async Task GenerateShelterAdoptionRequestsCsvAsync_ContainsOnlyCurrentShelterRequests()
+    {
+        using var context = TestDbContextFactory.CreateContext();
+        var shelterDog = TestDbContextFactory.CreateDog("Shelter Dog");
+        var otherDog = TestDbContextFactory.CreateDog("Other Dog", shelterId: TestDbContextFactory.OtherShelterId);
+        context.Dogs.AddRange(shelterDog, otherDog);
+        context.AdopterProfiles.Add(new AdopterProfile
+        {
+            ApplicationUserId = TestDbContextFactory.AdopterId,
+            FullName = "Profile Adopter",
+            City = "Cluj-Napoca"
+        });
+        await context.SaveChangesAsync();
+
+        context.AdoptionRequests.AddRange(
+            new AdoptionRequest
+            {
+                DogId = shelterDog.Id,
+                AdopterId = TestDbContextFactory.AdopterId,
+                Status = AdoptionRequestStatus.Pending,
+                ReasonForAdoption = "Ready to adopt",
+                HoursAlonePerDay = 2,
+                AdditionalInformation = "Has experience.",
+                ShelterInternalNotes = "Private shelter note"
+            },
+            new AdoptionRequest
+            {
+                DogId = otherDog.Id,
+                AdopterId = TestDbContextFactory.SecondAdopterId,
+                Status = AdoptionRequestStatus.Pending,
+                ReasonForAdoption = "Other shelter request"
+            });
+        await context.SaveChangesAsync();
+
+        var service = CreateService(context);
+
+        var file = await service.GenerateShelterAdoptionRequestsCsvAsync(TestDbContextFactory.ShelterId);
+        var csv = Decode(file.Content);
+
+        Assert.Contains("Request Id,Dog Name,Adopter Email,Adopter Full Name,Status,CreatedAt,UpdatedAt,ReasonForAdoption,HoursAlonePerDay,AdditionalInformation,ShelterInternalNotes", csv);
+        Assert.Contains("Shelter Dog", csv);
+        Assert.Contains("Profile Adopter", csv);
+        Assert.Contains("Private shelter note", csv);
+        Assert.DoesNotContain("Other Dog", csv);
+        Assert.DoesNotContain("Other shelter request", csv);
+    }
+
+    [Fact]
+    public async Task GenerateShelterResourcesCsvAsync_ContainsOnlyCurrentShelterResourcesAndLowStockStatus()
+    {
+        using var context = TestDbContextFactory.CreateContext();
+        context.ResourceStocks.AddRange(
+            new ResourceStock
+            {
+                Name = "Adult food",
+                ShelterId = TestDbContextFactory.ShelterId,
+                ResourceCategoryId = TestDbContextFactory.FoodCategoryId,
+                FoodTypeId = TestDbContextFactory.AdultFoodTypeId,
+                Quantity = 3,
+                Unit = "kg",
+                LowStockThreshold = 5,
+                LastUpdatedAt = DateTime.UtcNow
+            },
+            new ResourceStock
+            {
+                Name = "Other shelter medicine",
+                ShelterId = TestDbContextFactory.OtherShelterId,
+                ResourceCategoryId = TestDbContextFactory.MedicineCategoryId,
+                Quantity = 10,
+                Unit = "items",
+                LowStockThreshold = 2,
+                LastUpdatedAt = DateTime.UtcNow
+            });
+        await context.SaveChangesAsync();
+
+        var service = CreateService(context);
+
+        var file = await service.GenerateShelterResourcesCsvAsync(TestDbContextFactory.ShelterId);
+        var csv = Decode(file.Content);
+
+        Assert.Contains("Resource Id,Name,Category,Food Type,Quantity,Unit,LowStockThreshold,IsLowStock,LastUpdatedAt", csv);
+        Assert.Contains("Adult food", csv);
+        Assert.Contains("Food", csv);
+        Assert.Contains("Adult dry food", csv);
+        Assert.Contains("Yes", csv);
+        Assert.DoesNotContain("Other shelter medicine", csv);
     }
 
     [Fact]
@@ -149,6 +273,30 @@ public class ExportServiceTests
         var service = CreateService(context);
 
         var file = await service.GenerateShelterRequestsPdfAsync();
+
+        Assert.Equal("application/pdf", file.ContentType);
+        Assert.StartsWith("%PDF", Encoding.UTF8.GetString(file.Content[..4]));
+    }
+
+    [Fact]
+    public async Task GenerateShelterAdoptionRequestsPdfAsync_ReturnsPdfBytes()
+    {
+        using var context = TestDbContextFactory.CreateContext();
+        var service = CreateService(context);
+
+        var file = await service.GenerateShelterAdoptionRequestsPdfAsync(TestDbContextFactory.ShelterId);
+
+        Assert.Equal("application/pdf", file.ContentType);
+        Assert.StartsWith("%PDF", Encoding.UTF8.GetString(file.Content[..4]));
+    }
+
+    [Fact]
+    public async Task GenerateShelterResourcesPdfAsync_ReturnsPdfBytes()
+    {
+        using var context = TestDbContextFactory.CreateContext();
+        var service = CreateService(context);
+
+        var file = await service.GenerateShelterResourcesPdfAsync(TestDbContextFactory.ShelterId);
 
         Assert.Equal("application/pdf", file.ContentType);
         Assert.StartsWith("%PDF", Encoding.UTF8.GetString(file.Content[..4]));
