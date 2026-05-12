@@ -163,6 +163,7 @@ Admin pages are protected with `[Authorize(Roles = "Admin")]`. Advanced role edi
 - **Dogs page**: Lists all dogs across shelters, including status, shelter, success story indicator, status history access, and allowed delete action.
 - **Adoption requests page**: Lists all adoption requests and request/profile details for admin review.
 - **Admin exports**: Admin pages provide CSV downloads for users, shelters, dogs, adoption requests, and shelter applications. Adoption request and shelter application pages also provide formatted PDF summary exports.
+- **Activity log**: Admins can review important user and system actions at `/admin/activity-log`.
 
 ## 5. Domain Model / Entities
 
@@ -456,6 +457,29 @@ Important fields:
 - `OpenLocalInboxOnStartup`
 - `LocalInboxUrl`
 
+### AuditLog
+
+Represents a lightweight activity record for important user and system actions.
+
+Important fields:
+
+- `Action`
+- `EntityName`
+- `EntityId`
+- `Description`
+- `UserId`
+- `UserEmail`
+- `UserRole`
+- `CreatedAt`
+- `IpAddress`
+- `AdditionalData`
+
+Business role:
+
+- Provides traceability for actions such as dog changes, adoption request status changes, shelter application review, resource changes, reports, and exports.
+- Stores only useful accountability metadata, not full entity snapshots or sensitive security values.
+- Background actions can be logged with `UserEmail = "System"` and `UserRole = "System"`.
+
 ## 6. Enums and Business States
 
 ### DogStatus
@@ -564,6 +588,7 @@ Important relationships:
 - One `ApplicationUser` can have many `RecentlyViewedDogs`.
 - One `ApplicationUser` can be referenced by many `DogStatusHistory` records as `ChangedByUser`.
 - One `ApplicationUser` can review many `ShelterRegistrationRequest` records as an admin reviewer.
+- `AuditLog` stores user identifiers and emails as denormalized text metadata instead of a required foreign key, so historical activity remains readable even if account details later change.
 - One `ResourceCategory` has many `ResourceStocks`.
 - One `FoodType` has many `ResourceStocks`.
 - One `FoodType` has many `Dogs` through `PreferredFoodType`.
@@ -653,8 +678,10 @@ Export organization:
 
 - `Services/IExportService.cs` and `Services/ExportService.cs`: Generate Admin and Shelter CSV/PDF export bytes and filenames.
 - `Services/IBrowserFileDownloadService.cs` and `Services/BrowserFileDownloadService.cs`: Trigger browser downloads through JavaScript interop.
+- `Services/IAuditLogService.cs`, `Services/AuditLogService.cs`, and `Services/AuditActions.cs`: Record and query lightweight activity logs for admin monitoring.
 - `wwwroot/app.js`: Contains `pawConnect.downloadFileFromBase64` for in-browser export downloads.
 - `Components/Pages/Admin/*.razor`: Existing Admin pages expose compact export buttons near the page header/table area.
+- `Components/Pages/Admin/AdminActivityLog.razor`: Admin-only activity log page with action/entity/search filters.
 - `Components/Pages/Shelter/ManageDogs.razor`, `Components/Pages/Shelter/ShelterAdoptionRequests.razor`, and `Components/Pages/Shelter/Resources.razor`: Shelter pages expose compact export buttons scoped to the authenticated shelter.
 
 ## 9. Main Application Flows
@@ -814,6 +841,15 @@ The public map is read-only. Address lookup and explicit address updates from th
 7. Shelter resource exports return only resource stock rows for that shelter and include low-stock status.
 8. CSV exports are table-style UTF-8 files suitable for Excel; adoption requests and resources also support QuestPDF-formatted PDFs.
 9. `IBrowserFileDownloadService` downloads the generated file in the browser without storing it in the database.
+
+### Audit Log Flow
+
+1. A user or system process performs an important business action.
+2. The relevant service completes the main database action first.
+3. The service calls `IAuditLogService` with an action name, entity name/id, description, and available user/system metadata.
+4. `AuditLogService` enriches the log with current user claims when available and stores an `AuditLog` row.
+5. If audit logging fails, the failure is logged as a warning and the original business action is not rolled back.
+6. Admin users open `/admin/activity-log` to review recent activity, filter by action/entity, and search by description, user email, or entity id.
 
 ## 10. Email Notification System
 
@@ -1081,6 +1117,7 @@ Error handling patterns:
 - Email and PDF failures are logged and do not fail the main business action.
 - Scheduled shelter report failures are logged per shelter so one failed report does not stop the whole Quartz job.
 - Confirmation dialogs are used before important/destructive actions such as delete, cancel, accept, reject, and logout.
+- Audit logging is best-effort: audit failures are logged as warnings and do not fail the main user action.
 - `UseStatusCodePagesWithReExecute("/not-found")` provides a friendly not-found route.
 - `AuthorizeRouteView` redirects unauthorized route access through the account redirect component.
 
@@ -1123,6 +1160,7 @@ Current test organization:
 - `ShelterSummaryReportServiceTests`
 - `PdfReportServiceTests`
 - `ExportServiceTests`
+- `AuditLogServiceTests`
 - `Integration/ServiceFlowIntegrationTests`
 - `Helpers/TestDbContextFactory`
 - `Helpers/TestDoubles`
@@ -1173,6 +1211,9 @@ Current test coverage includes:
 - Shelter adoption requests CSV includes only requests for the current shelter's dogs.
 - Shelter resources CSV includes only current shelter resources and low-stock status.
 - Shelter adoption request and resource PDF exports return non-empty PDF bytes.
+- Audit logs are created for selected dog, adoption request, and resource actions.
+- Recent audit log queries return newest records first.
+- Audit descriptions tested do not include sensitive Identity field names such as password hash or security stamp.
 - Integration-style service flows for public visibility, favorites/deletion, adoption notifications, dog image/age, resources, and fake PDF/email attachment behavior.
 
 The README documents running tests with:
@@ -1203,6 +1244,7 @@ Role-based authorization:
 - Shelter users already have active shelter accounts and are not allowed to submit public shelter applications.
 - Accepting/rejecting shelter applications is enforced as an Admin-only service operation, not only hidden in the UI.
 - Shelter users can manually send only their own shelter summary report from `/shelter/dashboard`; the page resolves the shelter from the authenticated account.
+- Audit logs are visible only to Admin users through `/admin/activity-log`.
 - Unauthorized route access is handled through `AuthorizeRouteView` and the account redirect component.
 
 Service-level security/ownership checks:
@@ -1219,6 +1261,7 @@ Service-level security/ownership checks:
 - Admin pages are role-protected and can access platform-wide data.
 - Admin export actions are exposed only on Admin pages, and user exports intentionally exclude sensitive Identity security fields.
 - Shelter export actions are exposed only on Shelter pages and are scoped to the authenticated shelter account.
+- Audit logging excludes passwords, reset tokens, security stamps, SMTP credentials, and full change snapshots.
 
 Sensitive operations:
 
@@ -1241,6 +1284,7 @@ PawConnect is suitable for a bachelor thesis because it demonstrates:
 - Email communication using SMTP.
 - PDF report generation with structured report content.
 - Quartz.NET scheduled shelter summary reports with manual dashboard sending.
+- Lightweight audit/activity logging for traceability and accountability.
 - MudBlazor UI with dashboards, forms, tables, dialogs, cards, snackbars, and empty/loading states.
 - Automated service/domain tests and integration-style flow tests.
 - Seed/demo data for presentation and testing.
@@ -1275,6 +1319,7 @@ Features intentionally not present:
 - No passkey-focused custom login flow beyond template account support.
 - No complex analytics/charts.
 - No admin scheduled reports.
+- No full event sourcing, rollback, or audit-based entity restoration.
 - No route planning, distance search, or browser geolocation.
 - No public comments, likes, or social features for success stories.
 - No complex role management from admin UI.

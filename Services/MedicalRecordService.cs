@@ -4,7 +4,7 @@ using PawConnect.Entities;
 
 namespace PawConnect.Services;
 
-public class MedicalRecordService(ApplicationDbContext context) : IMedicalRecordService
+public class MedicalRecordService(ApplicationDbContext context, IAuditLogService? auditLogService = null) : IMedicalRecordService
 {
     public Task<List<MedicalRecord>> GetAllAsync()
     {
@@ -57,7 +57,7 @@ public class MedicalRecordService(ApplicationDbContext context) : IMedicalRecord
 
     public async Task AddMedicalRecordAsync(int dogId, int shelterId, MedicalRecord record)
     {
-        await EnsureDogCanBeManagedAsync(dogId, shelterId);
+        var dog = await EnsureDogCanBeManagedAsync(dogId, shelterId);
         ValidateMedicalRecord(record);
 
         record.Id = 0;
@@ -66,6 +66,12 @@ public class MedicalRecordService(ApplicationDbContext context) : IMedicalRecord
 
         context.MedicalRecords.Add(record);
         await context.SaveChangesAsync();
+        await LogAsync(
+            AuditActions.MedicalRecordAdded,
+            "MedicalRecord",
+            record.Id.ToString(),
+            $"Medical record was added for dog {dog.Name}.",
+            additionalData: $"DogId={dogId};ShelterId={shelterId}");
     }
 
     public async Task UpdateMedicalRecordAsync(int shelterId, MedicalRecord record)
@@ -89,6 +95,12 @@ public class MedicalRecordService(ApplicationDbContext context) : IMedicalRecord
         existingRecord.Notes = string.IsNullOrWhiteSpace(record.Notes) ? null : record.Notes.Trim();
 
         await context.SaveChangesAsync();
+        await LogAsync(
+            AuditActions.MedicalRecordUpdated,
+            "MedicalRecord",
+            existingRecord.Id.ToString(),
+            $"Medical record was updated for dog {existingRecord.Dog.Name}.",
+            additionalData: $"DogId={existingRecord.DogId};ShelterId={shelterId}");
     }
 
     public async Task DeleteMedicalRecordAsync(int recordId, int shelterId)
@@ -106,9 +118,15 @@ public class MedicalRecordService(ApplicationDbContext context) : IMedicalRecord
 
         context.MedicalRecords.Remove(record);
         await context.SaveChangesAsync();
+        await LogAsync(
+            AuditActions.MedicalRecordDeleted,
+            "MedicalRecord",
+            recordId.ToString(),
+            $"Medical record was deleted for dog {record.Dog.Name}.",
+            additionalData: $"DogId={record.DogId};ShelterId={shelterId}");
     }
 
-    private async Task EnsureDogCanBeManagedAsync(int dogId, int shelterId)
+    private async Task<Dog> EnsureDogCanBeManagedAsync(int dogId, int shelterId)
     {
         var dog = await context.Dogs.FirstOrDefaultAsync(d => d.Id == dogId && d.ShelterId == shelterId);
         if (dog is null)
@@ -117,6 +135,7 @@ public class MedicalRecordService(ApplicationDbContext context) : IMedicalRecord
         }
 
         EnsureDogIsNotAdopted(dog);
+        return dog;
     }
 
     private static void EnsureDogIsNotAdopted(Dog dog)
@@ -133,5 +152,10 @@ public class MedicalRecordService(ApplicationDbContext context) : IMedicalRecord
         {
             throw new InvalidOperationException("Record date is required.");
         }
+    }
+
+    private Task LogAsync(string action, string entityName, string? entityId, string description, string? additionalData = null)
+    {
+        return auditLogService?.LogAsync(action, entityName, entityId, description, additionalData: additionalData) ?? Task.CompletedTask;
     }
 }

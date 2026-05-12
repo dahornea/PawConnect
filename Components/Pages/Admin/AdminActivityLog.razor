@@ -1,0 +1,178 @@
+@page "/admin/activity-log"
+@attribute [Authorize(Roles = "Admin")]
+@inject IAuditLogService AuditLogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Activity Log</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.False" Class="px-0">
+    <MudStack Spacing="3">
+        <div class="page-header">
+            <MudText Typo="Typo.h4">Activity Log</MudText>
+            <MudText Typo="Typo.body2">Review important PawConnect user and system actions.</MudText>
+        </div>
+
+        <MudPaper Elevation="0" Class="section-surface pa-3">
+            <MudGrid Spacing="2">
+                <MudItem xs="12" md="4">
+                    <MudTextField Label="Search description, user, or entity id"
+                                  @bind-Value="_search"
+                                  Immediate="true"
+                                  Variant="Variant.Outlined"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Search" />
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudSelect T="string" Label="Action" @bind-Value="_actionFilter" Clearable="true" Variant="Variant.Outlined">
+                        @foreach (var action in AuditActions.All)
+                        {
+                            <MudSelectItem Value="@action">@action</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudSelect T="string" Label="Entity" @bind-Value="_entityFilter" Clearable="true" Variant="Variant.Outlined">
+                        @foreach (var entityName in EntityFilters)
+                        {
+                            <MudSelectItem Value="@entityName">@entityName</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" md="2">
+                    <MudStack Row="true" Spacing="1" Class="mt-2">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.FilterAlt" Disabled="_isLoading" OnClick="LoadLogsAsync">Apply</MudButton>
+                        <MudButton Variant="Variant.Text" Color="Color.Default" Disabled="_isLoading" OnClick="ClearFiltersAsync">Clear</MudButton>
+                    </MudStack>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+
+        @if (_isLoading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="py-8">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Loading activity...</MudText>
+            </MudStack>
+        }
+        else if (_logs.Count == 0)
+        {
+            <MudPaper Elevation="0" Class="empty-state pa-5">
+                <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.ManageSearch" Color="Color.Secondary" Size="Size.Large" />
+                    <MudText Typo="Typo.h6">No activity has been logged yet.</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Important user and system actions will appear here.</MudText>
+                </MudStack>
+            </MudPaper>
+        }
+        else
+        {
+            <MudTable Items="_logs" Dense="true" Hover="true" Class="table-shell" RowsPerPage="15">
+                <HeaderContent>
+                    <MudTh>Date/Time</MudTh>
+                    <MudTh>Action</MudTh>
+                    <MudTh>Entity</MudTh>
+                    <MudTh>Description</MudTh>
+                    <MudTh>User</MudTh>
+                    <MudTh>Role</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Date/Time">@context.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
+                    <MudTd DataLabel="Action">
+                        <MudChip T="string" Color="@GetActionColor(context.Action)" Size="Size.Small" Variant="Variant.Outlined">@context.Action</MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Entity">
+                        <MudText Typo="Typo.body2">@context.EntityName</MudText>
+                        @if (!string.IsNullOrWhiteSpace(context.EntityId))
+                        {
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">#@context.EntityId</MudText>
+                        }
+                    </MudTd>
+                    <MudTd DataLabel="Description">@context.Description</MudTd>
+                    <MudTd DataLabel="User">@(context.UserEmail ?? "-")</MudTd>
+                    <MudTd DataLabel="Role">@(context.UserRole ?? "-")</MudTd>
+                </RowTemplate>
+                <PagerContent>
+                    <MudTablePager />
+                </PagerContent>
+            </MudTable>
+        }
+    </MudStack>
+</MudContainer>
+
+@code {
+    private static readonly IReadOnlyList<string> EntityFilters =
+    [
+        "AdoptionRequest",
+        "ApplicationUser",
+        "Dog",
+        "DogImage",
+        "Export",
+        "MedicalRecord",
+        "ResourceStock",
+        "Shelter",
+        "ShelterRegistrationRequest"
+    ];
+
+    private List<AuditLog> _logs = [];
+    private bool _isLoading = true;
+    private string? _search;
+    private string? _actionFilter;
+    private string? _entityFilter;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadLogsAsync();
+    }
+
+    private async Task LoadLogsAsync()
+    {
+        _isLoading = true;
+
+        try
+        {
+            _logs = await AuditLogService.GetLogsAsync(_actionFilter, _entityFilter, _search, take: 300);
+        }
+        catch
+        {
+            Snackbar.Add("Activity log could not be loaded right now.", Severity.Error);
+            _logs = [];
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task ClearFiltersAsync()
+    {
+        _search = null;
+        _actionFilter = null;
+        _entityFilter = null;
+        await LoadLogsAsync();
+    }
+
+    private static Color GetActionColor(string action)
+    {
+        if (action.Contains("Deleted", StringComparison.OrdinalIgnoreCase) ||
+            action.Contains("Rejected", StringComparison.OrdinalIgnoreCase) ||
+            action.Contains("Cancelled", StringComparison.OrdinalIgnoreCase))
+        {
+            return Color.Error;
+        }
+
+        if (action.Contains("Created", StringComparison.OrdinalIgnoreCase) ||
+            action.Contains("Accepted", StringComparison.OrdinalIgnoreCase) ||
+            action.Contains("Submitted", StringComparison.OrdinalIgnoreCase))
+        {
+            return Color.Success;
+        }
+
+        if (action.Contains("Report", StringComparison.OrdinalIgnoreCase) ||
+            action.Contains("Export", StringComparison.OrdinalIgnoreCase))
+        {
+            return Color.Info;
+        }
+
+        return Color.Primary;
+    }
+}

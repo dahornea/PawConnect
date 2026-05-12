@@ -4,7 +4,12 @@ using PawConnect.Entities;
 
 namespace PawConnect.Services;
 
-public class ResourceStockService(ApplicationDbContext context, IEmailService emailService, IPdfReportService pdfReportService, ILogger<ResourceStockService> logger) : IResourceStockService
+public class ResourceStockService(
+    ApplicationDbContext context,
+    IEmailService emailService,
+    IPdfReportService pdfReportService,
+    ILogger<ResourceStockService> logger,
+    IAuditLogService? auditLogService = null) : IResourceStockService
 {
     public Task<List<ResourceStock>> GetAllAsync()
     {
@@ -102,6 +107,12 @@ public class ResourceStockService(ApplicationDbContext context, IEmailService em
 
         context.ResourceStocks.Add(resource);
         await context.SaveChangesAsync();
+        await LogAsync(
+            AuditActions.ResourceCreated,
+            "ResourceStock",
+            resource.Id.ToString(),
+            $"Resource {resource.Name} was created.",
+            additionalData: $"ShelterId={shelterId}");
         await NotifyShelterIfLowStockAsync(resource.Id, "created");
     }
 
@@ -124,6 +135,12 @@ public class ResourceStockService(ApplicationDbContext context, IEmailService em
         existingResource.LastUpdatedAt = DateTime.UtcNow;
 
         await context.SaveChangesAsync();
+        await LogAsync(
+            AuditActions.ResourceUpdated,
+            "ResourceStock",
+            existingResource.Id.ToString(),
+            $"Resource {existingResource.Name} was updated.",
+            additionalData: $"ShelterId={shelterId}");
         await NotifyShelterIfLowStockAsync(existingResource.Id, "updated");
     }
 
@@ -137,6 +154,12 @@ public class ResourceStockService(ApplicationDbContext context, IEmailService em
 
         context.ResourceStocks.Remove(resource);
         await context.SaveChangesAsync();
+        await LogAsync(
+            AuditActions.ResourceDeleted,
+            "ResourceStock",
+            resourceId.ToString(),
+            $"Resource {resource.Name} was deleted.",
+            additionalData: $"ShelterId={shelterId}");
     }
 
     private async Task PrepareResourceAsync(ResourceStock resource)
@@ -243,6 +266,15 @@ public class ResourceStockService(ApplicationDbContext context, IEmailService em
                 hasAttachment: attachments.Count > 0);
 
             await emailService.SendEmailAsync(shelterEmail ?? string.Empty, $"Low stock warning: {resource.Name}", body, attachments, htmlBody);
+            if (auditLogService is not null)
+            {
+                await auditLogService.LogSystemAsync(
+                    AuditActions.ReportGenerated,
+                    "ResourceStock",
+                    resource.Id.ToString(),
+                    $"Low-stock report was sent for resource {resource.Name}.",
+                    additionalData: $"ShelterId={resource.ShelterId}");
+            }
         }
         catch (Exception ex)
         {
@@ -270,5 +302,10 @@ public class ResourceStockService(ApplicationDbContext context, IEmailService em
             logger.LogWarning(ex, "PDF attachment {FileName} could not be generated.", fileName);
             return [];
         }
+    }
+
+    private Task LogAsync(string action, string entityName, string? entityId, string description, string? additionalData = null)
+    {
+        return auditLogService?.LogAsync(action, entityName, entityId, description, additionalData: additionalData) ?? Task.CompletedTask;
     }
 }

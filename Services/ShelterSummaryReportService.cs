@@ -10,7 +10,8 @@ public class ShelterSummaryReportService(
     IEmailService emailService,
     IPdfReportService pdfReportService,
     IOptions<ScheduledReportSettings> options,
-    ILogger<ShelterSummaryReportService> logger) : IShelterSummaryReportService
+    ILogger<ShelterSummaryReportService> logger,
+    IAuditLogService? auditLogService = null) : IShelterSummaryReportService
 {
     private readonly ScheduledReportSettings settings = options.Value;
 
@@ -126,6 +127,15 @@ public class ShelterSummaryReportService(
 
         cancellationToken.ThrowIfCancellationRequested();
         await emailService.SendEmailAsync(recipient, subject, body, attachments, htmlBody);
+        if (auditLogService is not null)
+        {
+            await auditLogService.LogSystemAsync(
+                AuditActions.ReportGenerated,
+                "Shelter",
+                shelter.Id.ToString(),
+                $"Shelter summary report was sent to {shelter.Name}.",
+                additionalData: $"Recipient={recipient};From={fromDate:O};To={toDate:O}");
+        }
         logger.LogInformation("Shelter summary report sent to shelter {ShelterId}.", shelter.Id);
     }
 }

@@ -1,0 +1,59 @@
+namespace PawConnect.Services;
+
+public static class AuditActions
+{
+    public const string DogCreated = nameof(DogCreated);
+    public const string DogUpdated = nameof(DogUpdated);
+    public const string DogDeleted = nameof(DogDeleted);
+    public const string DogStatusChanged = nameof(DogStatusChanged);
+    public const string DogImageAdded = nameof(DogImageAdded);
+    public const string DogImageDeleted = nameof(DogImageDeleted);
+    public const string MedicalRecordAdded = nameof(MedicalRecordAdded);
+    public const string MedicalRecordUpdated = nameof(MedicalRecordUpdated);
+    public const string MedicalRecordDeleted = nameof(MedicalRecordDeleted);
+    public const string AdoptionRequestSubmitted = nameof(AdoptionRequestSubmitted);
+    public const string AdoptionRequestAccepted = nameof(AdoptionRequestAccepted);
+    public const string AdoptionRequestRejected = nameof(AdoptionRequestRejected);
+    public const string AdoptionRequestCancelled = nameof(AdoptionRequestCancelled);
+    public const string ShelterRegistrationRequestSubmitted = nameof(ShelterRegistrationRequestSubmitted);
+    public const string ShelterRegistrationRequestAccepted = nameof(ShelterRegistrationRequestAccepted);
+    public const string ShelterRegistrationRequestRejected = nameof(ShelterRegistrationRequestRejected);
+    public const string ShelterCreated = nameof(ShelterCreated);
+    public const string ShelterUpdated = nameof(ShelterUpdated);
+    public const string ResourceCreated = nameof(ResourceCreated);
+    public const string ResourceUpdated = nameof(ResourceUpdated);
+    public const string ResourceDeleted = nameof(ResourceDeleted);
+    public const string UserUpdatedByAdmin = nameof(UserUpdatedByAdmin);
+    public const string ShelterUpdatedByAdmin = nameof(ShelterUpdatedByAdmin);
+    public const string ReportGenerated = nameof(ReportGenerated);
+    public const string ExportGenerated = nameof(ExportGenerated);
+
+    public static readonly IReadOnlyList<string> All =
+    [
+        DogCreated,
+        DogUpdated,
+        DogDeleted,
+        DogStatusChanged,
+        DogImageAdded,
+        DogImageDeleted,
+        MedicalRecordAdded,
+        MedicalRecordUpdated,
+        MedicalRecordDeleted,
+        AdoptionRequestSubmitted,
+        AdoptionRequestAccepted,
+        AdoptionRequestRejected,
+        AdoptionRequestCancelled,
+        ShelterRegistrationRequestSubmitted,
+        ShelterRegistrationRequestAccepted,
+        ShelterRegistrationRequestRejected,
+        ShelterCreated,
+        ShelterUpdated,
+        ResourceCreated,
+        ResourceUpdated,
+        ResourceDeleted,
+        UserUpdatedByAdmin,
+        ShelterUpdatedByAdmin,
+        ReportGenerated,
+        ExportGenerated
+    ];
+}

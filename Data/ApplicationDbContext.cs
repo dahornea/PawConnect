@@ -33,6 +33,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
     public DbSet<ShelterRegistrationRequest> ShelterRegistrationRequests => Set<ShelterRegistrationRequest>();
 
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -206,6 +208,19 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         builder.Entity<ShelterRegistrationRequest>()
             .Property(r => r.SubmittedAt)
             .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<AuditLog>()
+            .Property(log => log.CreatedAt)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<AuditLog>()
+            .HasIndex(log => log.CreatedAt);
+
+        builder.Entity<AuditLog>()
+            .HasIndex(log => log.Action);
+
+        builder.Entity<AuditLog>()
+            .HasIndex(log => log.EntityName);
 
         SeedLookupData(builder);
     }
