@@ -194,6 +194,85 @@ public class PdfReportService(ApplicationDbContext context, ILogger<PdfReportSer
             });
     }
 
+    public async Task<byte[]> GenerateShelterSummaryReportAsync(int shelterId, DateTime fromDate, DateTime toDate)
+    {
+        var shelter = await context.Shelters
+            .AsNoTracking()
+            .FirstOrDefaultAsync(s => s.Id == shelterId);
+
+        if (shelter is null)
+        {
+            throw new InvalidOperationException("Shelter was not found.");
+        }
+
+        var requests = await context.AdoptionRequests
+            .Where(r => r.Dog != null && r.Dog.ShelterId == shelterId)
+            .Select(r => new
+            {
+                r.Status,
+                r.CreatedAt
+            })
+            .AsNoTracking()
+            .ToListAsync();
+
+        var dogs = await context.Dogs
+            .Where(d => d.ShelterId == shelterId)
+            .Select(d => new ShelterSummaryDogRow(d.Name, d.Breed, d.Status, d.AdoptedAt))
+            .AsNoTracking()
+            .ToListAsync();
+
+        var lowStockResources = await context.ResourceStocks
+            .Include(r => r.ResourceCategory)
+            .Include(r => r.FoodType)
+            .Where(r => r.ShelterId == shelterId && r.Quantity <= r.LowStockThreshold)
+            .OrderBy(r => r.Quantity)
+            .ThenBy(r => r.Name)
+            .AsNoTracking()
+            .ToListAsync();
+
+        var recentlyAdoptedDogs = dogs
+            .Where(d => d.AdoptedAt.HasValue && d.AdoptedAt.Value >= fromDate && d.AdoptedAt.Value <= toDate)
+            .OrderByDescending(d => d.AdoptedAt)
+            .ToList();
+
+        return BuildReport(
+            "PawConnect - Shelter Summary Report",
+            content =>
+            {
+                AddSection(content, "Shelter Information", [
+                    ("Shelter name", shelter.Name),
+                    ("Shelter email", shelter.Email),
+                    ("City", shelter.City),
+                    ("Report generated", FormatDateTime(toDate)),
+                    ("Report period", $"{FormatDateTime(fromDate)} - {FormatDateTime(toDate)}")
+                ]);
+
+                AddSection(content, "Adoption Request Summary", [
+                    ("New requests in period", requests.Count(r => r.CreatedAt >= fromDate && r.CreatedAt <= toDate).ToString()),
+                    ("Pending requests", requests.Count(r => r.Status == AdoptionRequestStatus.Pending).ToString()),
+                    ("Accepted requests", requests.Count(r => r.Status == AdoptionRequestStatus.Accepted).ToString()),
+                    ("Rejected requests", requests.Count(r => r.Status == AdoptionRequestStatus.Rejected).ToString()),
+                    ("Cancelled requests", requests.Count(r => r.Status == AdoptionRequestStatus.Cancelled).ToString()),
+                    ("Total requests", requests.Count.ToString())
+                ]);
+
+                AddSection(content, "Dog Overview", [
+                    ("Total dogs", dogs.Count.ToString()),
+                    ("Available dogs", dogs.Count(d => d.Status == DogStatus.Available).ToString()),
+                    ("Reserved dogs", dogs.Count(d => d.Status == DogStatus.Reserved).ToString()),
+                    ("Adopted dogs", dogs.Count(d => d.Status == DogStatus.Adopted).ToString()),
+                    ("In treatment dogs", dogs.Count(d => d.Status == DogStatus.InTreatment).ToString()),
+                    ("Recently adopted dogs", recentlyAdoptedDogs.Count.ToString())
+                ]);
+
+                AddSection(content, "Recently Adopted Dogs", BuildRecentlyAdoptedRows(recentlyAdoptedDogs));
+                AddSection(content, "Low-Stock Resources", BuildLowStockRows(lowStockResources));
+                AddSection(content, "Report Note", [
+                    ("Note", "This report was generated automatically by PawConnect.")
+                ]);
+            });
+    }
+
     private byte[] BuildReport(string title, Action<ColumnDescriptor> buildContent)
     {
         try
@@ -252,7 +331,7 @@ public class PdfReportService(ApplicationDbContext context, ILogger<PdfReportSer
 
     private static void AddSection(ColumnDescriptor content, string heading, IEnumerable<(string Label, string? Value)> rows)
     {
-        content.Item().Column(section =>
+        content.Item().EnsureSpace(90).Column(section =>
         {
             section.Spacing(6);
             section.Item().Text(heading)
@@ -312,4 +391,35 @@ public class PdfReportService(ApplicationDbContext context, ILogger<PdfReportSer
             ? adopter?.Email ?? "there"
             : adopter.FullName;
     }
+
+    private static IEnumerable<(string Label, string? Value)> BuildRecentlyAdoptedRows(IEnumerable<ShelterSummaryDogRow> recentlyAdoptedDogs)
+    {
+        var rows = recentlyAdoptedDogs
+            .Select<ShelterSummaryDogRow, (string Label, string? Value)>(d => (d.Name, $"{d.Breed} | Adopted: {FormatDateTime(d.AdoptedAt!.Value)}"))
+            .ToList();
+
+        return rows.Count == 0
+            ? [("Status", "No dogs were adopted during this report period.")]
+            : rows;
+    }
+
+    private static IEnumerable<(string Label, string? Value)> BuildLowStockRows(IEnumerable<ResourceStock> resources)
+    {
+        var rows = resources
+            .Select<ResourceStock, (string Label, string? Value)>(resource =>
+            {
+                var category = resource.ResourceCategory?.Name ?? "Unknown category";
+                var foodType = resource.FoodType is null ? null : $" | Food type: {resource.FoodType.Name}";
+                return (
+                    resource.Name,
+                    $"{category}{foodType} | Current: {resource.Quantity} {resource.Unit} | Threshold: {resource.LowStockThreshold} {resource.Unit}");
+            })
+            .ToList();
+
+        return rows.Count == 0
+            ? [("Status", "No resources are currently at or below their low-stock threshold.")]
+            : rows;
+    }
+
+    private sealed record ShelterSummaryDogRow(string Name, string Breed, DogStatus Status, DateTime? AdoptedAt);
 }

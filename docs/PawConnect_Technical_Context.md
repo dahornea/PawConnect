@@ -25,9 +25,10 @@ The main user groups are:
 - **Leaflet**: Client-side JavaScript map library used to render read-only shelter maps inside Blazor pages.
 - **OpenStreetMap**: Public map tile provider used by the Leaflet shelter map integration. The map feature does not require a paid Google Maps API key.
 - **OpenStreetMap Nominatim**: Used through `NominatimGeocodingService` for manual address-to-coordinate lookup. The app does not call it on every keystroke and does not use it for route planning or nearby search.
-- **MailKit and MimeKit**: Used by `SmtpEmailService` for SMTP email sending with plain text bodies and optional attachments.
-- **Mailtrap SMTP**: The active SMTP-style testing target in configuration. Credentials are configuration-based and should be stored safely outside source control for real use.
-- **QuestPDF**: Used by `PdfReportService` to generate PDF reports for adoption requests, adoption status updates, and low-stock resources.
+- **MailKit and MimeKit**: Used by `SmtpEmailService` for provider-agnostic SMTP email sending with plain text bodies, branded HTML bodies, and optional attachments.
+- **Generic SMTP / local SMTP catcher**: Email delivery is configured through `EmailSettings`. Development can use a local SMTP catcher such as Mailpit or smtp4dev so emails are captured locally and are not delivered to real users.
+- **QuestPDF**: Used by `PdfReportService` to generate PDF reports for adoption requests, adoption status updates, low-stock resources, shelter registration requests, and shelter summary reports.
+- **Quartz.NET**: Used for in-process scheduled shelter summary report jobs. The implementation uses simple in-memory scheduling, not an external cron job, Hangfire, a Quartz dashboard, or a persistent Quartz job store.
 - **xUnit**: Test framework used by the `PawConnect.Tests` project.
 - **EF Core InMemory**: Test database provider used by service and integration-style tests.
 - **coverlet.collector**: Test coverage collector package included in the test project.
@@ -40,6 +41,7 @@ Important project package references in `PawConnect.csproj` include:
 - `Microsoft.EntityFrameworkCore.Tools`
 - `MudBlazor`
 - `QuestPDF`
+- `Quartz.Extensions.Hosting`
 
 ## 3. User Roles and Permissions
 
@@ -140,6 +142,7 @@ Admin pages are protected with `[Authorize(Roles = "Admin")]`. Advanced role edi
 - **Dog status history**: Status changes are recorded and displayed for shelter-owned dogs.
 - **Resource stock**: Shelters can manage resources, categories, optional food type, quantity, unit, and low-stock threshold.
 - **Low-stock warnings**: Resources with `Quantity <= LowStockThreshold` are shown as low stock and can trigger email/PDF notifications.
+- **Shelter summary reports**: Shelters can manually email themselves a PDF summary from `/shelter/dashboard`. Automatic scheduled sending is handled by Quartz.NET when enabled in configuration.
 - **Adoption request review**: Shelters can view adopter profile summaries, questionnaire answers, dog information, and internal notes.
 - **Accept/reject workflow**: Shelters can accept or reject pending requests for their own dogs.
 - **Internal notes**: Private notes are visible to shelters and admins, not adopters or public users.
@@ -447,6 +450,8 @@ Important fields:
 - `SenderEmail`
 - `SenderName`
 - `EnableSsl`
+- `OpenLocalInboxOnStartup`
+- `LocalInboxUrl`
 
 ## 6. Enums and Business States
 
@@ -601,6 +606,7 @@ Main folders:
 - `Data`: `ApplicationDbContext`, `ApplicationUser`, seed data, and EF Core migrations.
 - `Entities`: Domain entities and enums.
 - `Services`: Application service interfaces and implementations.
+- `Jobs`: Quartz.NET background job classes.
 - `Repositories`: Generic repository interface and EF implementation.
 - `wwwroot`: Static CSS, JavaScript, favicon, and Leaflet JavaScript interop helpers in `app.js`/`app.css`.
 - `docs`: Existing documentation such as database diagram and this technical context file.
@@ -631,6 +637,14 @@ Shelter onboarding/geocoding organization:
 - `Services/ShelterRegistrationRequestService.cs`: Handles application submission, duplicate pending email checks, admin notifications, accept/reject workflow, and creating approved shelter accounts/profiles.
 - `Services/NominatimGeocodingService.cs`: Performs manual address-based coordinate lookup through OpenStreetMap Nominatim.
 - `Services/IGeocodingService.cs`: Interface used by public/admin forms so geocoding can be faked in tests.
+
+Scheduled report organization:
+
+- `Jobs/ShelterSummaryReportJob.cs`: Thin Quartz job that calls the shelter summary report service.
+- `Services/IShelterSummaryReportService.cs` and `Services/ShelterSummaryReportService.cs`: Own scheduled report iteration, manual report sending, email body creation, and PDF attachment creation.
+- `Services/ScheduledReportSettings.cs`: Configuration model for enabling/disabling scheduled reports, startup behavior, minute interval, and delay between scheduled shelter emails.
+- `Services/IPdfReportService.cs` and `Services/PdfReportService.cs`: Generate `ShelterSummaryReport-{date}.pdf` content.
+- `Program.cs`: Registers Quartz, the hosted service, the job, and the minute-based trigger when `ScheduledReports:Enabled` is true.
 
 ## 9. Main Application Flows
 
@@ -741,6 +755,18 @@ The public map is read-only. Address lookup and explicit address updates from th
 5. `SmtpEmailService` builds a MimeKit email, adds attachments if provided, and sends through MailKit SMTP.
 6. Email or PDF failures are logged as warnings and do not roll back the main database action.
 
+### Scheduled Shelter Summary Report Flow
+
+1. Quartz.NET is registered in `Program.cs` with `AddQuartz` and `AddQuartzHostedService`.
+2. `ScheduledReports:Enabled` controls whether the automatic Quartz trigger is created. It is `false` by default to avoid development email spam.
+3. When enabled, Quartz runs `ShelterSummaryReportJob` using `ScheduledReports:ShelterReportIntervalMinutes`.
+4. The job stays thin and calls `IShelterSummaryReportService.SendScheduledShelterSummaryReportsAsync`.
+5. For each shelter with an email address, the service asks `IPdfReportService.GenerateShelterSummaryReportAsync` for a PDF.
+6. Scheduled summary reports are periodic overviews, not alert-only emails; immediate adoption request and low-stock notifications remain separate flows.
+7. The service emails `ShelterSummaryReport-{yyyy-MM-dd}.pdf` to the shelter using `IEmailService`.
+8. Failures for one shelter are logged and do not stop the job from processing other shelters.
+9. Shelter users can manually send the same report from `/shelter/dashboard`; this manual action works even when automatic scheduling is disabled.
+
 ### Admin Management Flow
 
 1. Admin users access `/admin/dashboard`.
@@ -780,6 +806,8 @@ The SMTP implementation:
 - Supports optional branded HTML bodies with plain text fallback.
 - Supports optional attachments.
 - Uses `SecureSocketOptions.StartTls` when `EnableSsl` is true.
+- Connects without SMTP authentication when `SmtpUser` and `SmtpPassword` are empty, which supports local SMTP catchers.
+- In Development, `Program.cs` can open the configured local email inbox URL automatically when `OpenLocalInboxOnStartup` is enabled.
 - Logs and returns if the recipient is empty.
 - Logs and returns if SMTP host or sender email is incomplete.
 - Catches exceptions and logs warnings instead of throwing them back to the business flow.
@@ -792,14 +820,17 @@ Configured email events:
 - Adoption request accepted: sends adopter notification.
 - Adoption request rejected: sends adopter notification.
 - Resource stock created/updated and low stock: sends shelter notification.
+- Shelter summary report manual/scheduled send: sends a PDF summary to the shelter email.
 
 `PawConnectEmailTemplate` provides a reusable branded HTML layout for important emails. The template uses inline CSS only, with a green/teal PawConnect header, centered white content card, optional primary action button, details section, fallback link area, PDF attachment notice, and footer text. It does not depend on external images or external CSS.
 
-For the password reset flow, the Forgot Password page generates an ASP.NET Core Identity reset token, encodes it with `WebEncoders.Base64UrlEncode`, builds an `/Account/ResetPassword` callback URL, and sends it through `PawConnectIdentityEmailSender`. The reset email includes a plain text fallback with the full URL on its own line for Mailtrap Text view/copy-paste use, and a branded HTML body with a clickable action button. The UI response remains generic so it does not reveal whether an email address belongs to a registered user.
+For the password reset flow, the Forgot Password page generates an ASP.NET Core Identity reset token, encodes it with `WebEncoders.Base64UrlEncode`, builds an `/Account/ResetPassword` callback URL, and sends it through `PawConnectIdentityEmailSender`. The reset email includes a plain text fallback with the full URL on its own line for local development inbox text views/copy-paste use, and a branded HTML body with a clickable action button. The UI response remains generic so it does not reveal whether an email address belongs to a registered user.
 
 Application notifications for adoption requests, low-stock resources, and shelter applications also use the branded HTML template where practical while preserving the existing plain text bodies and PDF attachments.
 
-The current `appsettings.json` uses Mailtrap-style sandbox settings with placeholder password text. Real credentials should be stored in `appsettings.Development.json`, .NET User Secrets, or environment variables.
+Scheduled shelter summary report emails also use the existing email infrastructure and attach a generated PDF. The scheduled job is disabled by default through `ScheduledReports:Enabled = false`; the Shelter Dashboard manual send action still works for demo/testing.
+
+The current `appsettings.json` uses safe local SMTP catcher defaults: `localhost:1025`, empty credentials, and `EnableSsl = false`. `appsettings.Development.json` enables automatic opening of the local inbox URL for convenience. Real external SMTP credentials should be stored in `appsettings.Development.json`, .NET User Secrets, or environment variables and should not be committed to source control.
 
 ## 11. PDF Report System
 
@@ -876,7 +907,38 @@ Includes:
 
 Attached when a public shelter application is submitted and admin notification email is sent.
 
-The reports use a clean text/table layout with PawConnect header, section headings, rows, and generated-date footer. The code does not implement charts, graphs, scheduled reports, or database storage of generated PDFs.
+### Shelter Summary Report
+
+Method:
+
+- `GenerateShelterSummaryReportAsync(int shelterId, DateTime fromDate, DateTime toDate)`
+
+Includes:
+
+- Shelter name, email, city, report generation date/time, and report period.
+- Adoption request summary: new requests in period, pending, accepted, rejected, cancelled, and total requests.
+- Dog overview: total dogs, available, reserved, adopted, in treatment, and recently adopted dogs.
+- Resource overview: low-stock resources with category, optional food type, quantity, unit, and threshold.
+- A note that the report was generated automatically by PawConnect.
+
+Attached when a shelter user clicks "Send Summary Report" from `/shelter/dashboard` or when the Quartz scheduler sends scheduled shelter summary reports.
+
+The reports use a clean text/table layout with PawConnect header, section headings, rows, and generated-date footer. The code does not implement charts, graphs, admin scheduled reports, or database storage of generated PDFs.
+
+## 11.1 Scheduled Report System
+
+Scheduled shelter reports are implemented with Quartz.NET.
+
+Important classes and configuration:
+
+- `ShelterSummaryReportJob`: Quartz job class.
+- `IShelterSummaryReportService` / `ShelterSummaryReportService`: Report eligibility, PDF attachment, and email sending logic.
+- `ScheduledReportSettings`: Options bound from `ScheduledReports`.
+- `ScheduledReports:Enabled`: Enables automatic Quartz scheduling. Default is `false`.
+- `ScheduledReports:RunOnStartupInDevelopment`: Runs once at startup only when explicitly true in development.
+- `ScheduledReports:ShelterReportIntervalMinutes`: Minute-based interval; invalid values fall back to a safe 5-minute interval.
+
+The scheduler uses Quartz's in-memory scheduling. The project does not include external cron, Hangfire, a Quartz dashboard, or a persistent Quartz job store. Admin scheduled reports are not implemented yet and remain a possible future extension.
 
 ## 11.5 Shelter Map Integration
 
@@ -982,6 +1044,7 @@ Error handling patterns:
 - Leaflet map initialization is handled through JavaScript interop with unique map element IDs, explicit map sizing, resize invalidation, marker drag/click callbacks in editable mode, and disposal to avoid broken map rendering during Blazor Server navigation.
 - Expected business rule violations use clear `InvalidOperationException` messages.
 - Email and PDF failures are logged and do not fail the main business action.
+- Scheduled shelter report failures are logged per shelter so one failed report does not stop the whole Quartz job.
 - Confirmation dialogs are used before important/destructive actions such as delete, cancel, accept, reject, and logout.
 - `UseStatusCodePagesWithReExecute("/not-found")` provides a friendly not-found route.
 - `AuthorizeRouteView` redirects unauthorized route access through the account redirect component.
@@ -1011,7 +1074,7 @@ Testing approach:
 - `TestDbContextFactory` creates fresh database contexts and seeds roles, users, shelters, lookup data, and helper dogs.
 - `TestEmailService` captures sent emails in memory.
 - `TestPdfReportService` returns fake PDF bytes for notification-flow tests.
-- Tests do not require SQL Server, Mailtrap, a running web server, or browser UI automation.
+- Tests do not require SQL Server, a real SMTP provider, a running web server, or browser UI automation.
 
 Current test organization:
 
@@ -1022,6 +1085,7 @@ Current test organization:
 - `ResourceStockServiceTests`
 - `ShelterRegistrationRequestServiceTests`
 - `NominatimGeocodingServiceTests`
+- `ShelterSummaryReportServiceTests`
 - `PdfReportServiceTests`
 - `Integration/ServiceFlowIntegrationTests`
 - `Helpers/TestDbContextFactory`
@@ -1061,6 +1125,10 @@ Current test coverage includes:
 - Nominatim geocoding response parsing and failure handling using fake HTTP responses.
 - Identity email sender behavior for password reset and account confirmation emails without sending real SMTP messages.
 - PDF report generation returns non-empty bytes.
+- Shelter summary report PDF generation returns non-empty bytes.
+- Manual shelter summary report sending creates an email with a PDF attachment for the current shelter.
+- Scheduled shelter report logic respects `ScheduledReports:Enabled = false`.
+- Scheduled shelter report logic sends reports to all shelters with an email when enabled.
 - Integration-style service flows for public visibility, favorites/deletion, adoption notifications, dog image/age, resources, and fake PDF/email attachment behavior.
 
 The README documents running tests with:
@@ -1069,7 +1137,7 @@ The README documents running tests with:
 dotnet test
 ```
 
-The previously observed test suite contained 42 passing tests. This document does not rerun tests; it records the current test setup found in the codebase.
+The test suite is expected to be run with `dotnet test` after code changes; this document describes the test setup found in the codebase rather than recording a permanent test count.
 
 ## 15. Security and Authorization
 
@@ -1090,6 +1158,7 @@ Role-based authorization:
 - Admin users review shelter applications from `/admin/shelter-requests` and are not allowed to submit public shelter applications.
 - Shelter users already have active shelter accounts and are not allowed to submit public shelter applications.
 - Accepting/rejecting shelter applications is enforced as an Admin-only service operation, not only hidden in the UI.
+- Shelter users can manually send only their own shelter summary report from `/shelter/dashboard`; the page resolves the shelter from the authenticated account.
 - Unauthorized route access is handled through `AuthorizeRouteView` and the account redirect component.
 
 Service-level security/ownership checks:
@@ -1124,6 +1193,7 @@ PawConnect is suitable for a bachelor thesis because it demonstrates:
 - Service-layer validation and ownership checks.
 - Email communication using SMTP.
 - PDF report generation with structured report content.
+- Quartz.NET scheduled shelter summary reports with manual dashboard sending.
 - MudBlazor UI with dashboards, forms, tables, dialogs, cards, snackbars, and empty/loading states.
 - Automated service/domain tests and integration-style flow tests.
 - Seed/demo data for presentation and testing.
@@ -1134,7 +1204,7 @@ Based on the current codebase, realistic future improvements include:
 
 - Real image file upload instead of URL-only dog images.
 - Cloud or local file storage for uploaded images.
-- Address-based geocoding from city/street/number to stored coordinates.
+- More advanced address search/geocoding suggestions beyond the current manual Nominatim lookup.
 - "Nearby shelters" search.
 - Route/directions integration.
 - Distance-based shelter or dog filtering.
@@ -1142,7 +1212,7 @@ Based on the current codebase, realistic future improvements include:
 - Map-based dog and shelter location search.
 - More advanced dog recommendations based on adopter profile and preferences.
 - Full shelter messaging/chat between adopters and shelters.
-- Scheduled reminder emails or scheduled reports.
+- Admin-level scheduled reports and richer report management UI.
 - More detailed medical record categories and vaccination schedules.
 - Adoption finalization workflow beyond `Reserved`.
 - Archive/inactive status for dogs instead of relying only on current statuses.
@@ -1157,8 +1227,8 @@ Features intentionally not present:
 - No external login providers.
 - No passkey-focused custom login flow beyond template account support.
 - No complex analytics/charts.
-- No scheduled background jobs.
-- No geocoding, route planning, distance search, or browser geolocation.
+- No admin scheduled reports.
+- No route planning, distance search, or browser geolocation.
 - No public comments, likes, or social features for success stories.
 - No complex role management from admin UI.
 
@@ -1192,7 +1262,7 @@ Use the entity descriptions and relationship notes from this document. Include d
 
 ### Implementation
 
-Discuss the Blazor pages, services, business rules, dashboards, dog management, adoption request flow, resource stock flow, shelter map integration, email notifications, and PDF reports.
+Discuss the Blazor pages, services, business rules, dashboards, dog management, adoption request flow, resource stock flow, shelter map integration, email notifications, PDF reports, and Quartz.NET scheduled shelter reports.
 
 ### Testing
 
@@ -1225,4 +1295,4 @@ Evaluate project outcomes and list future improvements such as real uploads, dep
 - The README currently still uses some "skeleton/planned features" wording even though many features are implemented; thesis writing should rely on the current code and this context document for accuracy.
 - The test suite is service/domain-focused, not browser UI-focused.
 - The generic repository exists, but core services mainly use `ApplicationDbContext` directly for richer business queries and ownership checks.
-- Real SMTP credentials should not be committed. Mailtrap sandbox configuration is suitable for development/testing.
+- Real SMTP credentials should not be committed. Local SMTP catcher configuration with Mailpit or smtp4dev is suitable for development/testing.

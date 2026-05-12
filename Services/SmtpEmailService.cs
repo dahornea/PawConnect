@@ -57,7 +57,7 @@ public class SmtpEmailService(IOptions<EmailSettings> options, ILogger<SmtpEmail
             var secureSocketOptions = settings.EnableSsl ? SecureSocketOptions.StartTls : SecureSocketOptions.None;
             await client.ConnectAsync(settings.SmtpHost, settings.SmtpPort, secureSocketOptions);
 
-            if (!string.IsNullOrWhiteSpace(settings.SmtpUser))
+            if (!string.IsNullOrWhiteSpace(settings.SmtpUser) && !string.IsNullOrWhiteSpace(settings.SmtpPassword))
             {
                 await client.AuthenticateAsync(settings.SmtpUser, settings.SmtpPassword);
             }

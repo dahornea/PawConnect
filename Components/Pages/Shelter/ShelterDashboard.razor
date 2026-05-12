@@ -6,8 +6,10 @@
 @inject IAdoptionRequestService AdoptionRequestService
 @inject IResourceStockService ResourceStockService
 @inject IShelterService ShelterService
+@inject IShelterSummaryReportService ShelterSummaryReportService
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject UserManager<ApplicationUser> UserManager
+@inject ISnackbar Snackbar
 
 <PageTitle>Shelter Dashboard</PageTitle>
 
@@ -109,6 +111,24 @@
             </MudPaper>
 
             <MudPaper Elevation="0" Class="section-surface pa-4">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Class="report-card-stack">
+                    <span class="stat-icon"><MudIcon Icon="@Icons.Material.Filled.PictureAsPdf" /></span>
+                    <div>
+                        <MudText Typo="Typo.h5" Class="section-title">Shelter Summary Report</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Generate and email a PDF summary of your adoption requests, dog statuses, and resource stock.</MudText>
+                    </div>
+                    <MudSpacer />
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Send"
+                               Disabled="@(_isSendingReport || _shelterId is null)"
+                               OnClick="SendSummaryReportAsync">
+                        @(_isSendingReport ? "Sending..." : "Send Summary Report")
+                    </MudButton>
+                </MudStack>
+            </MudPaper>
+
+            <MudPaper Elevation="0" Class="section-surface pa-4">
                 <MudStack Spacing="2">
                     <MudStack Row="true" AlignItems="AlignItems.Center">
                         <MudText Typo="Typo.h5" Class="section-title">Low-Stock Resources</MudText>
@@ -155,6 +175,8 @@
     private int _dogCount;
     private int _availableDogCount;
     private int _pendingRequestCount;
+    private int? _shelterId;
+    private bool _isSendingReport;
     private List<ResourceStock> _lowStockResources = [];
 
     protected override async Task OnInitializedAsync()
@@ -168,6 +190,7 @@
                 return;
             }
 
+            _shelterId = shelterId;
             var dogs = await DogService.GetDogsForShelterAsync(shelterId.Value);
             var requests = await AdoptionRequestService.GetRequestsForShelterAsync(shelterId.Value);
             _lowStockResources = await ResourceStockService.GetLowStockResourcesForShelterAsync(shelterId.Value);
@@ -197,5 +220,29 @@
 
         var shelter = await ShelterService.GetShelterForUserAsync(user.Id);
         return shelter?.Id;
+    }
+
+    private async Task SendSummaryReportAsync()
+    {
+        if (_shelterId is null)
+        {
+            Snackbar.Add("No shelter profile is linked to this account.", Severity.Error);
+            return;
+        }
+
+        try
+        {
+            _isSendingReport = true;
+            await ShelterSummaryReportService.SendShelterSummaryReportAsync(_shelterId.Value);
+            Snackbar.Add("Summary report sent to your shelter email.", Severity.Success);
+        }
+        catch
+        {
+            Snackbar.Add("Could not send summary report. Please try again.", Severity.Error);
+        }
+        finally
+        {
+            _isSendingReport = false;
+        }
     }
 }
