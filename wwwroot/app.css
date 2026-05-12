@@ -279,6 +279,56 @@ h1:focus {
     box-shadow: 0 14px 38px rgba(31, 47, 42, 0.075), 0 1px 0 rgba(255, 255, 255, 0.82) inset;
 }
 
+.records-action-card .mud-button-root {
+    white-space: nowrap;
+}
+
+.import-export-card .tool-section {
+    height: 100%;
+    border: 1px solid rgba(47, 111, 94, 0.12);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.58);
+    padding: 14px;
+}
+
+.tool-section-title {
+    color: #294139 !important;
+    font-weight: 700 !important;
+    letter-spacing: 0;
+}
+
+.tool-actions {
+    flex-wrap: wrap;
+}
+
+.file-picker-shell {
+    max-width: 310px;
+    min-height: 36px;
+    border: 1px solid rgba(47, 111, 94, 0.16);
+    border-radius: 10px;
+    background: #ffffff;
+    padding: 6px 10px;
+}
+
+.file-picker-shell input[type="file"] {
+    max-width: 100%;
+    color: #40564f;
+    font-size: 0.875rem;
+}
+
+@media (max-width: 700px) {
+    .tool-actions {
+        align-items: stretch !important;
+        flex-direction: column !important;
+    }
+
+    .file-picker-shell,
+    .tool-actions .mud-button-root {
+        width: 100%;
+        max-width: none;
+    }
+}
+
 .metric-card {
     background: linear-gradient(180deg, #fffefb, #fbfcfa);
 }

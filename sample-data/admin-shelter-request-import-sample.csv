@@ -1,0 +1,2 @@
+ShelterName,ContactPersonName,Email,PhoneNumber,City,Address,Description,Website,OpeningHours,ReasonForJoining,Latitude,Longitude
+Cluj Paws Rescue,Maria Ionescu,cluj-paws-import@example.com,+40 700 000 120,Cluj-Napoca,Strada Observatorului 12,Demo shelter request for testing PawConnect CSV import,https://example.com,Mon-Fri 09:00-17:00,We want to manage adoptable dogs through PawConnect,46.7556,23.5804

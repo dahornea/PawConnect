@@ -66,6 +66,7 @@ builder.Services.AddScoped<IPdfReportService, PdfReportService>();
 builder.Services.AddScoped<IShelterRegistrationRequestService, ShelterRegistrationRequestService>();
 builder.Services.AddScoped<IShelterSummaryReportService, ShelterSummaryReportService>();
 builder.Services.AddScoped<IExportService, ExportService>();
+builder.Services.AddScoped<ICsvImportService, CsvImportService>();
 builder.Services.AddScoped<IBrowserFileDownloadService, BrowserFileDownloadService>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();

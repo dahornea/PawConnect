@@ -40,6 +40,7 @@ PawConnect is a beginner-friendly ASP.NET Core Blazor Server skeleton for a stra
 - Admin shelter application review at `/admin/shelter-requests`
 - Admin CSV/PDF exports for platform management pages
 - Shelter CSV/PDF exports for shelter-owned operational pages
+- CSV imports for shelter-owned resource/dog records and Admin shelter request imports with preview/validation
 - Admin Activity Log for important user and system actions
 - Role-based in-app notifications with categorized notification bell and `/notifications` page
 - Optional address-based coordinate lookup using OpenStreetMap Nominatim
@@ -152,6 +153,7 @@ Examples of role-based notifications:
 - Adopters receive notifications when their adoption requests are accepted or rejected.
 - Shelters receive notifications for new adoption requests, cancelled adopter requests, low-stock resources, and sent summary reports.
 - Admins receive notifications when a new shelter application is submitted.
+- Admins receive one summary notification when shelter application requests are imported from CSV.
 
 Scheduled shelter summary report notifications also use a simple duplicate guard so an enabled short demo interval does not create the same in-app report notification every minute. The report emails/PDF attachments are still sent according to the scheduler; only duplicate in-app notification clutter is reduced.
 
@@ -346,6 +348,61 @@ PDF exports are available where a formatted report is useful:
 
 CSV files are UTF-8 encoded with a header row and can be opened in Excel. PDF files use a clean PawConnect report layout generated with QuestPDF. Shelter exports are scoped by the current shelter profile, so a shelter user can export only their own dogs, adoption requests, and resource stock.
 
+## CSV Imports
+
+PawConnect supports CSV import for shelter-owned operational data. Imports use a preview-and-validate workflow:
+
+1. The Shelter user chooses a `.csv` file.
+2. PawConnect parses the header row and validates every row.
+3. The page shows total, valid, and invalid rows with row-level errors.
+4. The user confirms the import only after the preview is valid.
+5. Rows are saved for the current shelter only.
+
+The workflow is intentionally all-or-nothing: invalid rows are not imported silently. The user fixes the CSV and previews it again before confirming. Uploaded files are processed in memory, limited to small `.csv` files, and are not stored permanently.
+
+Supported imports:
+
+- `/shelter/resources`: Resource stock import
+- `/shelter/dogs`: Dog profile import
+- `/admin/shelters`: Shelter registration request import for Admin users
+
+Resource CSV template columns:
+
+```csv
+Name,Category,FoodType,Quantity,Unit,LowStockThreshold
+Adult dry food,Food,Adult dry food,25,kg,10
+Blankets,Blankets,,12,pieces,5
+Cleaning spray,Cleaning Supplies,,8,bottles,3
+```
+
+Dog CSV template columns:
+
+```csv
+Name,Breed,AgeYears,AgeMonths,Size,Status,Location,Description,PreferredFoodType,DailyFoodAmount,ImageUrls
+Buddy,Labrador Mix,2,6,Large,Available,Cluj-Napoca,Friendly dog,Adult dry food,480,"https://example.com/dog1.jpg;https://example.com/dog2.jpg"
+```
+
+Template download buttons are available on the import pages:
+
+- `pawconnect-resource-import-template.csv`
+- `pawconnect-dog-import-template.csv`
+- `pawconnect-shelter-requests-import-template.csv`
+
+Validation rules include required names/categories/units, non-negative quantities and thresholds, dog age validation, enum validation for dog size/status, optional semicolon-separated dog image URLs, duplicate row detection, and shelter ownership scoping. Existing resource stock items for the same shelter/name/category/food type are updated; new resource rows are created.
+
+Successful imports are recorded in the Activity Log with row counts, without storing full CSV content.
+
+Admin Shelter CSV import preserves the approval-based onboarding flow. Rows are imported as pending `ShelterRegistrationRequest` records, not as direct shelter accounts. Admins still review imported requests at `/admin/shelter-requests`; accepting a request uses the existing approval flow to create the `ApplicationUser`, assign the `Shelter` role, and create the linked `Shelter` profile.
+
+Admin shelter request template columns:
+
+```csv
+ShelterName,ContactPersonName,Email,PhoneNumber,City,Address,Description,Website,OpeningHours,ReasonForJoining,Latitude,Longitude
+Happy Tails Rescue,Alex Popescu,happytails@example.com,+40 700 000 100,Cluj-Napoca,Strada Exemplu 10,Fictional demo shelter for PawConnect testing,https://example.com,Mon-Fri 09:00-17:00,We want to list adoptable dogs,46.7712,23.6236
+```
+
+Duplicate pending shelter request emails and existing shelter/user emails are blocked case-insensitively. Latitude and longitude are optional but range-checked when present. Address and city are normalized separately so imported seed/demo-style rows do not duplicate the city inside the address.
+
 ## Audit Log / Activity Log
 
 PawConnect records important activity in the `AuditLogs` table for traceability and administrative monitoring. The Admin-only page is:
@@ -392,7 +449,7 @@ Run the service/domain test suite with:
 dotnet test
 ```
 
-The `PawConnect.Tests` project covers key business rules for dog management, dog image handling, adoption requests, favorites, shelter resources, shelter registration requests, Nominatim geocoding behavior, scheduled shelter summary reports, PDF report generation, admin export generation, shelter export generation, report history metadata tracking, audit log behavior, and in-app notification ownership/triggers. It also includes service-flow integration tests for public dog visibility, favorite deletion behavior, adoption request status changes, dog image/age behavior, resource stock rules, and email/PDF notification triggers.
+The `PawConnect.Tests` project covers key business rules for dog management, dog image handling, adoption requests, favorites, shelter resources, shelter registration requests, Nominatim geocoding behavior, scheduled shelter summary reports, PDF report generation, admin export generation, shelter export generation, CSV import validation/import behavior, report history metadata tracking, audit log behavior, and in-app notification ownership/triggers. It also includes service-flow integration tests for public dog visibility, favorite deletion behavior, adoption request status changes, dog image/age behavior, resource stock rules, and email/PDF notification triggers.
 
 Tests use isolated in-memory databases and fake email/PDF services. They do not require SQL Server, a real SMTP provider, a running web server, or browser UI automation.
 
