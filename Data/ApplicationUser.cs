@@ -17,6 +17,8 @@ public class ApplicationUser : IdentityUser
 
     public ICollection<ShelterRegistrationRequest> ReviewedShelterRegistrationRequests { get; set; } = new List<ShelterRegistrationRequest>();
 
+    public ICollection<Notification> Notifications { get; set; } = new List<Notification>();
+
     public Shelter? Shelter { get; set; }
 
     public AdopterProfile? AdopterProfile { get; set; }

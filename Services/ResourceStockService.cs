@@ -9,7 +9,8 @@ public class ResourceStockService(
     IEmailService emailService,
     IPdfReportService pdfReportService,
     ILogger<ResourceStockService> logger,
-    IAuditLogService? auditLogService = null) : IResourceStockService
+    IAuditLogService? auditLogService = null,
+    INotificationService? notificationService = null) : IResourceStockService
 {
     public Task<List<ResourceStock>> GetAllAsync()
     {
@@ -235,6 +236,19 @@ public class ResourceStockService(
             }
 
             var shelterEmail = resource.Shelter?.ApplicationUser?.Email ?? resource.Shelter?.Email;
+            if (resource.Shelter?.ApplicationUserId is not null && notificationService is not null)
+            {
+                await notificationService.CreateNotificationAsync(
+                    resource.Shelter.ApplicationUserId,
+                    "Low stock resource",
+                    $"{resource.Name} is at or below the low-stock threshold.",
+                    NotificationCategory.Resource,
+                    NotificationType.Warning,
+                    "/shelter/resources",
+                    "ResourceStock",
+                    resource.Id.ToString());
+            }
+
             var body = $"""
                 Hello,
 

@@ -2,7 +2,7 @@
 
 ## 1. Application Overview
 
-PawConnect is a C# ASP.NET Core Blazor Server web application for stray dog adoption and shelter management. The application connects public visitors and adopter users with shelter dogs, while also giving shelters operational tools for managing dog profiles, adoption requests, medical records, dog images, resource stock, and low-stock warnings.
+PawConnect is a C# ASP.NET Core Blazor Server web application for stray dog adoption and shelter management. The application connects public visitors and adopter users with shelter dogs, while also giving shelters operational tools for managing dog profiles, adoption requests, medical records, dog images, resource stock, and low-stock warnings. It also includes persistent in-app notifications so important events are visible inside the platform as well as through email/snackbar feedback.
 
 The project is designed as a multi-role, database-backed web system suitable for a bachelor thesis. It demonstrates real application concerns such as authentication, authorization, entity relationships, business rules, email communication, PDF report generation, UI feedback, and automated tests.
 
@@ -78,6 +78,7 @@ Adopter users can:
 - Track recently viewed public-safe dogs.
 - Submit adoption requests for available or reserved dogs.
 - View and cancel their own pending adoption requests at `/my-adoption-requests`.
+- View private in-app notifications for adoption request updates.
 
 The favorite and adoption request services validate that the current user is in the `Adopter` role before allowing adopter-only actions.
 
@@ -95,6 +96,7 @@ Shelter users can:
 - Accept or reject pending adoption requests.
 - Edit private internal shelter notes on adoption requests.
 - Export their own shelter dogs, adoption requests, and resource stock as CSV/PDF where available.
+- View private in-app notifications for new adoption requests, cancelled requests, low-stock resources, and sent shelter summary reports.
 
 Shelter services check the `ShelterId` before changing dog, resource, image, medical record, and adoption request data.
 
@@ -109,6 +111,7 @@ Admin users can:
 - View dog status history and success story summaries from admin dog pages.
 - Delete dogs when deletion is allowed by business rules.
 - View all adoption requests at `/admin/adoption-requests`.
+- View private admin notifications such as newly submitted shelter applications.
 
 Admin pages are protected with `[Authorize(Roles = "Admin")]`. Advanced role editing, password management, and account deletion are intentionally not implemented in the admin UI.
 
@@ -131,6 +134,7 @@ Admin pages are protected with `[Authorize(Roles = "Admin")]`. Advanced role edi
 - **Recently viewed dogs**: When an adopter opens a public-safe dog details page, the app tracks or updates a `RecentlyViewedDog` record.
 - **Adoption request questionnaire**: Adoption requests include request-specific fields: reason for adoption, hours alone per day, and additional information.
 - **Request tracking**: Adopters can view their own requests and cancel pending requests.
+- **In-app notifications**: Adopters receive persistent notifications when their adoption requests are accepted or rejected.
 - **Adopter dashboard**: Shows adopter profile context, summary cards, recent adoption requests, favorites preview, and recently viewed dogs.
 
 ### Shelter Features
@@ -152,6 +156,7 @@ Admin pages are protected with `[Authorize(Roles = "Admin")]`. Advanced role edi
 - **Address-based coordinate lookup**: Shelter application and admin shelter edit forms can use manual Nominatim lookup to fill optional coordinates from city/address.
 - **Editable coordinate map**: The public shelter application and admin shelter edit forms hide raw latitude/longitude inputs in normal use and use the editable map marker as the location editor.
 - **Address update from pin**: When a marker location exists, users can explicitly update the address/city fields from the selected pin. Moving the marker alone does not overwrite address fields.
+- **In-app notifications**: Shelter users receive notifications for new/cancelled adoption requests, low-stock resources, and shelter summary reports.
 
 ### Admin Features
 
@@ -164,6 +169,7 @@ Admin pages are protected with `[Authorize(Roles = "Admin")]`. Advanced role edi
 - **Adoption requests page**: Lists all adoption requests and request/profile details for admin review.
 - **Admin exports**: Admin pages provide CSV downloads for users, shelters, dogs, adoption requests, and shelter applications. Adoption request and shelter application pages also provide formatted PDF summary exports.
 - **Activity log**: Admins can review important user and system actions at `/admin/activity-log`.
+- **In-app notifications**: Admins receive private notifications for important admin-facing events such as new shelter applications.
 
 ## 5. Domain Model / Entities
 
@@ -178,6 +184,7 @@ Important fields and relationships:
 - `RecentlyViewedDogs`: Recently viewed dog records linked to this adopter.
 - `AdoptionRequests`: Requests submitted by this adopter.
 - `DogStatusHistories`: Status history records where this user is the changer.
+- `Notifications`: Private in-app notifications belonging to this user.
 - `Shelter`: Optional one-to-one shelter profile for shelter accounts.
 - `AdopterProfile`: Optional one-to-one adopter profile.
 
@@ -480,6 +487,32 @@ Business role:
 - Stores only useful accountability metadata, not full entity snapshots or sensitive security values.
 - Background actions can be logged with `UserEmail = "System"` and `UserRole = "System"`.
 
+### Notification
+
+Represents a private in-app notification for a single authenticated user.
+
+Important fields:
+
+- `UserId`
+- `Title`
+- `Message`
+- `Category`
+- `Type`
+- `RelatedEntityName`
+- `RelatedEntityId`
+- `Link`
+- `IsRead`
+- `CreatedAt`
+- `ReadAt`
+
+Business role:
+
+- Stores important user-facing events that should remain visible after snackbar messages disappear.
+- Complements email notifications without replacing them.
+- Supports role-relevant categories such as adoption updates, shelter applications, resources, reports, and system messages.
+- Enforces ownership through `NotificationService`, so users can only view, mark, or delete their own notifications.
+- Avoids sensitive data such as passwords, reset tokens, security stamps, SMTP credentials, and private system secrets.
+
 ## 6. Enums and Business States
 
 ### DogStatus
@@ -567,6 +600,36 @@ Behavior:
 - Accepting a request creates the shelter user account, assigns the `Shelter` role, and creates the linked `Shelter` profile.
 - Rejecting a request does not create a user or shelter.
 
+### NotificationCategory
+
+Values:
+
+- `Adoption`
+- `ShelterApplication`
+- `Resource`
+- `Report`
+- `System`
+
+Behavior:
+
+- Groups notifications in the top-bar dropdown and `/notifications` page.
+- Category labels are displayed in user-friendly form, for example `ShelterApplication` is shown as "Shelter Applications".
+- Empty categories are not shown in the dropdown because notifications are grouped from the current user's own records.
+
+### NotificationType
+
+Values:
+
+- `Info`
+- `Success`
+- `Warning`
+- `Error`
+
+Behavior:
+
+- Controls notification emphasis and icon/color choices in the UI.
+- Examples include success notifications for accepted adoption requests or sent reports, warning notifications for rejected requests or low-stock resources, and info notifications for new shelter applications.
+
 ## 7. Database and Entity Relationships
 
 `ApplicationDbContext` extends `IdentityDbContext<ApplicationUser, IdentityRole, string>`, so Identity tables and PawConnect domain tables share one EF Core context.
@@ -588,6 +651,7 @@ Important relationships:
 - One `ApplicationUser` can have many `RecentlyViewedDogs`.
 - One `ApplicationUser` can be referenced by many `DogStatusHistory` records as `ChangedByUser`.
 - One `ApplicationUser` can review many `ShelterRegistrationRequest` records as an admin reviewer.
+- One `ApplicationUser` has many private `Notification` records.
 - `AuditLog` stores user identifiers and emails as denormalized text metadata instead of a required foreign key, so historical activity remains readable even if account details later change.
 - One `ResourceCategory` has many `ResourceStocks`.
 - One `FoodType` has many `ResourceStocks`.
@@ -607,6 +671,7 @@ Important delete behavior:
 - `FavoriteDog` to dog and adopter uses restricted delete.
 - `RecentlyViewedDog` to dog and adopter uses restricted delete.
 - `DogStatusHistory.ChangedByUser` uses `SetNull` if the user is deleted.
+- `Notification` cascades when the owning Identity user is deleted.
 - Resource relationships use restricted delete.
 
 Important indexes:
@@ -615,6 +680,7 @@ Important indexes:
 - `RecentlyViewedDog` has a unique index on `AdopterId + DogId`.
 - `AdoptionRequest` has a filtered unique index on `AdopterId + DogId` for pending requests (`Status = 0`).
 - `AdopterProfile` has a unique index on `ApplicationUserId`.
+- `Notification` has an index on `UserId + IsRead + CreatedAt` to support unread count and recent notification queries.
 
 ## 8. Architecture and Code Organization
 
@@ -683,6 +749,15 @@ Export organization:
 - `Components/Pages/Admin/*.razor`: Existing Admin pages expose compact export buttons near the page header/table area.
 - `Components/Pages/Admin/AdminActivityLog.razor`: Admin-only activity log page with action/entity/search filters.
 - `Components/Pages/Shelter/ManageDogs.razor`, `Components/Pages/Shelter/ShelterAdoptionRequests.razor`, and `Components/Pages/Shelter/Resources.razor`: Shelter pages expose compact export buttons scoped to the authenticated shelter.
+
+Notification organization:
+
+- `Entities/Notification.cs`: Stores private in-app notification records.
+- `Entities/NotificationCategory.cs` and `Entities/NotificationType.cs`: Categorize notification grouping and visual emphasis.
+- `Services/INotificationService.cs` and `Services/NotificationService.cs`: Create notifications, query notifications for a user, count unread items, mark as read, mark all as read, and delete notifications with ownership checks.
+- `Components/Shared/NotificationBell.razor`: Top-bar notification bell for authenticated users, including unread count, compact grouped recent notifications, and UI-only collapsing of repeated same-day notifications.
+- `Components/Pages/Notifications.razor`: Authenticated page at `/notifications` for viewing, filtering, marking, opening, and deleting the current user's notifications.
+- Notification triggers are added inside existing business services such as `AdoptionRequestService`, `ResourceStockService`, `ShelterRegistrationRequestService`, and `ShelterSummaryReportService`.
 
 ## 9. Main Application Flows
 
@@ -802,8 +877,9 @@ The public map is read-only. Address lookup and explicit address updates from th
 5. For each shelter with an email address, the service asks `IPdfReportService.GenerateShelterSummaryReportAsync` for a PDF.
 6. Scheduled summary reports are periodic overviews, not alert-only emails; immediate adoption request and low-stock notifications remain separate flows.
 7. The service emails `ShelterSummaryReport-{yyyy-MM-dd}.pdf` to the shelter using `IEmailService`.
-8. Failures for one shelter are logged and do not stop the job from processing other shelters.
-9. Shelter users can manually send the same report from `/shelter/dashboard`; this manual action works even when automatic scheduling is disabled.
+8. Scheduled report notification creation uses a simple duplicate guard for the in-app "Summary report sent" notification, so very short demo intervals do not flood the notification dropdown with identical report entries. Email/PDF sending is not suppressed by this guard.
+9. Failures for one shelter are logged and do not stop the job from processing other shelters.
+10. Shelter users can manually send the same report from `/shelter/dashboard`; this manual action works even when automatic scheduling is disabled and can still create a notification.
 
 ### Admin Management Flow
 
@@ -841,6 +917,18 @@ The public map is read-only. Address lookup and explicit address updates from th
 7. Shelter resource exports return only resource stock rows for that shelter and include low-stock status.
 8. CSV exports are table-style UTF-8 files suitable for Excel; adoption requests and resources also support QuestPDF-formatted PDFs.
 9. `IBrowserFileDownloadService` downloads the generated file in the browser without storing it in the database.
+
+### In-App Notification Flow
+
+1. A successful business action occurs in an existing service, such as a new adoption request, an accepted/rejected adoption request, a low-stock resource update, a shelter application submission, or a shelter summary report send.
+2. The service keeps existing email/snackbar behavior and additionally calls `INotificationService`.
+3. `NotificationService` creates a `Notification` row for the intended `ApplicationUser`.
+4. The top-bar `NotificationBell` loads the current user's unread count and recent notifications.
+5. Notifications are grouped by category in the dropdown: Adoption, Shelter Applications, Resources, Reports, and System.
+6. The dropdown stays compact by limiting the displayed items and collapsing repeated notifications that share category, title, message, and local day. For example, multiple same-day "Summary report sent" notifications can appear as one item with a "+N similar today" indicator.
+7. The `/notifications` page loads only the current user's notifications and supports all/unread/category filters. It remains the place for full notification history.
+8. Mark-as-read, mark-all-as-read, and delete actions filter by `UserId`, so one user cannot alter another user's notifications.
+9. When a notification has a link, opening it marks the notification as read and navigates to the relevant page, such as `/my-adoption-requests`, `/shelter/adoption-requests`, `/shelter/resources`, `/shelter/dashboard`, or `/admin/shelter-requests`.
 
 ### Audit Log Flow
 
@@ -1070,6 +1158,7 @@ Navigation:
 Top bar:
 
 - Brand icon/text links to home.
+- Authenticated users see a notification bell with unread count. The dropdown groups recent notifications by category, collapses repeated same-day items, and links to `/notifications`.
 - Logged-in users show a compact display with role/profile-aware name and optional email.
 - Logout uses a confirmation dialog before submitting the existing Identity logout form.
 
@@ -1082,6 +1171,7 @@ Common UI patterns:
 - MudSnackbar for user feedback.
 - MudAlert for empty, warning, and error states.
 - Status chips for dog and adoption request states.
+- Notification chips/dots and category group headings distinguish unread items and categories without exposing notifications across users.
 - Shelter profile pages include a Location card that displays a responsive read-only Leaflet/OpenStreetMap map with rounded corners when coordinates are available, plus an external Google Maps navigation link when coordinates or address/city information are available.
 - Shelter application and admin shelter edit forms use editable map mode so users can click to place the pin or drag the marker to refine coordinates. The forms keep raw coordinate values internal and show friendly location status messages instead.
 - Shelter map fallback states use MudBlazor alerts/messages when coordinates are unavailable, keeping the page usable instead of showing an empty or broken map.
@@ -1118,6 +1208,8 @@ Error handling patterns:
 - Scheduled shelter report failures are logged per shelter so one failed report does not stop the whole Quartz job.
 - Confirmation dialogs are used before important/destructive actions such as delete, cancel, accept, reject, and logout.
 - Audit logging is best-effort: audit failures are logged as warnings and do not fail the main user action.
+- Notification creation is best-effort: notification failures are logged and do not fail the original business action.
+- Notification read/delete methods include the current `UserId`, so a user cannot mark or delete another user's notification.
 - `UseStatusCodePagesWithReExecute("/not-found")` provides a friendly not-found route.
 - `AuthorizeRouteView` redirects unauthorized route access through the account redirect component.
 
@@ -1161,6 +1253,7 @@ Current test organization:
 - `PdfReportServiceTests`
 - `ExportServiceTests`
 - `AuditLogServiceTests`
+- `NotificationServiceTests`
 - `Integration/ServiceFlowIntegrationTests`
 - `Helpers/TestDbContextFactory`
 - `Helpers/TestDoubles`
@@ -1214,6 +1307,8 @@ Current test coverage includes:
 - Audit logs are created for selected dog, adoption request, and resource actions.
 - Recent audit log queries return newest records first.
 - Audit descriptions tested do not include sensitive Identity field names such as password hash or security stamp.
+- Notification records are created for selected adoption, shelter application, resource, and report events.
+- Notification unread counts, newest-first ordering, category filtering, and owner-only mark-as-read behavior are tested.
 - Integration-style service flows for public visibility, favorites/deletion, adoption notifications, dog image/age, resources, and fake PDF/email attachment behavior.
 
 The README documents running tests with:
@@ -1262,6 +1357,7 @@ Service-level security/ownership checks:
 - Admin export actions are exposed only on Admin pages, and user exports intentionally exclude sensitive Identity security fields.
 - Shelter export actions are exposed only on Shelter pages and are scoped to the authenticated shelter account.
 - Audit logging excludes passwords, reset tokens, security stamps, SMTP credentials, and full change snapshots.
+- Notifications are private to the owning `ApplicationUser`; query, mark-as-read, mark-all-as-read, and delete operations enforce ownership through `NotificationService`.
 
 Sensitive operations:
 
@@ -1282,6 +1378,7 @@ PawConnect is suitable for a bachelor thesis because it demonstrates:
 - Third-party map/location integration using Leaflet, OpenStreetMap, and manual Nominatim geocoding.
 - Service-layer validation and ownership checks.
 - Email communication using SMTP.
+- Persistent role-based in-app notifications grouped by adoption, shelter application, resource, report, and system categories.
 - PDF report generation with structured report content.
 - Quartz.NET scheduled shelter summary reports with manual dashboard sending.
 - Lightweight audit/activity logging for traceability and accountability.

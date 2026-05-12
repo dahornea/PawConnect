@@ -99,6 +99,18 @@ erDiagram
         string Description
     }
 
+    NOTIFICATIONS {
+        int Id PK
+        string UserId FK
+        string Title
+        string Message
+        int Category
+        int Type
+        bool IsRead
+        datetime CreatedAt
+        datetime ReadAt
+    }
+
     FOOD_TYPES {
         int Id PK
         string Name
@@ -122,6 +134,7 @@ erDiagram
 
     ASP_NET_USERS ||--o{ ADOPTION_REQUESTS : submits
     ASP_NET_USERS ||--o{ FAVORITE_DOGS : saves
+    ASP_NET_USERS ||--o{ NOTIFICATIONS : receives
 ```
 
 ## Relationship Summary
@@ -138,4 +151,4 @@ erDiagram
 - One adopter user can submit many adoption requests.
 - Favorite dogs are stored through `FavoriteDogs`, which connects users and dogs.
 - `FavoriteDogs` has a unique rule for `AdopterId + DogId`, so a user cannot favorite the same dog twice.
-
+- In-app notifications are stored in `Notifications` and belong to one Identity user.

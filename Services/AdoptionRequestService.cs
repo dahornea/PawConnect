@@ -11,6 +11,7 @@ public class AdoptionRequestService(
     IPdfReportService pdfReportService,
     ILogger<AdoptionRequestService> logger,
     UserManager<ApplicationUser> userManager,
+    INotificationService? notificationService = null,
     IAuditLogService? auditLogService = null) : IAdoptionRequestService
 {
     public Task<List<AdoptionRequest>> GetAllAsync()
@@ -124,6 +125,18 @@ public class AdoptionRequestService(
             userId: adopterId,
             additionalData: $"DogId={dogId};ShelterId={dog.ShelterId}");
         await NotifyShelterAboutNewRequestAsync(adoptionRequest.Id, dog, adopter, questionnaire, now);
+        if (dog.Shelter?.ApplicationUserId is not null)
+        {
+            await CreateNotificationAsync(
+                dog.Shelter.ApplicationUserId,
+                "New adoption request",
+                $"A new adoption request was submitted for {dog.Name}.",
+                NotificationCategory.Adoption,
+                NotificationType.Info,
+                "/shelter/adoption-requests",
+                "AdoptionRequest",
+                adoptionRequest.Id.ToString());
+        }
     }
 
     public Task<List<AdoptionRequest>> GetRequestsForAdopterAsync(string adopterId)
@@ -244,6 +257,15 @@ public class AdoptionRequestService(
                 additionalData: $"RequestId={request.Id};ShelterId={shelterId}");
         }
         await NotifyAdopterAboutRequestStatusAsync(request, AdoptionRequestStatus.Accepted);
+        await CreateNotificationAsync(
+            request.AdopterId,
+            "Adoption request accepted",
+            $"Your request for {request.Dog.Name} was accepted.",
+            NotificationCategory.Adoption,
+            NotificationType.Success,
+            "/my-adoption-requests",
+            "AdoptionRequest",
+            request.Id.ToString());
     }
 
     public async Task RejectRequestAsync(int requestId, int shelterId)
@@ -268,11 +290,23 @@ public class AdoptionRequestService(
             $"Adoption request for dog {request.Dog?.Name ?? "Unknown dog"} was rejected.",
             additionalData: $"DogId={request.DogId};ShelterId={shelterId}");
         await NotifyAdopterAboutRequestStatusAsync(request, AdoptionRequestStatus.Rejected);
+        await CreateNotificationAsync(
+            request.AdopterId,
+            "Adoption request rejected",
+            $"Your request for {request.Dog?.Name ?? "the selected dog"} was rejected.",
+            NotificationCategory.Adoption,
+            NotificationType.Warning,
+            "/my-adoption-requests",
+            "AdoptionRequest",
+            request.Id.ToString());
     }
 
     public async Task CancelRequestAsync(int requestId, string adopterId)
     {
-        var request = await context.AdoptionRequests.FirstOrDefaultAsync(r => r.Id == requestId);
+        var request = await context.AdoptionRequests
+            .Include(r => r.Dog)
+            .ThenInclude(d => d!.Shelter)
+            .FirstOrDefaultAsync(r => r.Id == requestId);
         if (request is null || request.AdopterId != adopterId)
         {
             throw new InvalidOperationException("Adoption request was not found.");
@@ -291,6 +325,18 @@ public class AdoptionRequestService(
             "Adoption request was cancelled by the adopter.",
             userId: adopterId,
             additionalData: $"DogId={request.DogId}");
+        if (request.Dog?.Shelter?.ApplicationUserId is not null)
+        {
+            await CreateNotificationAsync(
+                request.Dog.Shelter.ApplicationUserId,
+                "Adoption request cancelled",
+                $"An adopter cancelled a request for {request.Dog.Name}.",
+                NotificationCategory.Adoption,
+                NotificationType.Info,
+                "/shelter/adoption-requests",
+                "AdoptionRequest",
+                request.Id.ToString());
+        }
     }
 
     public async Task UpdateShelterInternalNotesAsync(int requestId, int shelterId, string? notes)
@@ -530,5 +576,26 @@ public class AdoptionRequestService(
         string? additionalData = null)
     {
         return auditLogService?.LogAsync(action, entityName, entityId, description, userId: userId, additionalData: additionalData) ?? Task.CompletedTask;
+    }
+
+    private Task CreateNotificationAsync(
+        string userId,
+        string title,
+        string message,
+        NotificationCategory category,
+        NotificationType type,
+        string link,
+        string relatedEntityName,
+        string relatedEntityId)
+    {
+        return notificationService?.CreateNotificationAsync(
+            userId,
+            title,
+            message,
+            category,
+            type,
+            link,
+            relatedEntityName,
+            relatedEntityId) ?? Task.CompletedTask;
     }
 }

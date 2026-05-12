@@ -68,6 +68,7 @@ builder.Services.AddScoped<IShelterSummaryReportService, ShelterSummaryReportSer
 builder.Services.AddScoped<IExportService, ExportService>();
 builder.Services.AddScoped<IBrowserFileDownloadService, BrowserFileDownloadService>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.Configure<ScheduledReportSettings>(builder.Configuration.GetSection("ScheduledReports"));
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();

@@ -41,6 +41,7 @@ PawConnect is a beginner-friendly ASP.NET Core Blazor Server skeleton for a stra
 - Admin CSV/PDF exports for platform management pages
 - Shelter CSV/PDF exports for shelter-owned operational pages
 - Admin Activity Log for important user and system actions
+- Role-based in-app notifications with categorized notification bell and `/notifications` page
 - Optional address-based coordinate lookup using OpenStreetMap Nominatim
 
 ## Planned Features
@@ -104,6 +105,36 @@ The reports are generated without charts. They use a clean PawConnect-style text
 Email or PDF generation failures are logged and do not cancel the main database action. For example, an adoption request can still be submitted even if SMTP credentials are missing or invalid.
 
 Forgot Password and other ASP.NET Core Identity emails use `PawConnectIdentityEmailSender`, which reuses the same configured `IEmailService` SMTP settings as the rest of the application. Password reset emails include a clean plain text body with the reset URL on its own line for easy copying from a local development inbox, plus a branded HTML body with a clickable action button when HTML preview is available. Demo users are seeded with confirmed email addresses so password reset emails can be sent during development/testing.
+
+## In-App Notifications
+
+PawConnect also stores important user-facing events as private in-app notifications. These complement email notifications and snackbar feedback; they do not replace either one.
+
+Authenticated users see a notification bell in the top app bar with an unread count. The dropdown groups recent notifications by category and links to the full notifications page:
+
+```text
+/notifications
+```
+
+Notification categories are:
+
+- Adoption
+- Shelter Applications
+- Resources
+- Reports
+- System
+
+The bell dropdown is intentionally compact: it shows a limited set of recent notifications, groups them by category, and collapses repeated same-day notifications with the same title/message, such as frequent scheduled "Summary report sent" notifications. The full notification history remains available on `/notifications`.
+
+Examples of role-based notifications:
+
+- Adopters receive notifications when their adoption requests are accepted or rejected.
+- Shelters receive notifications for new adoption requests, cancelled adopter requests, low-stock resources, and sent summary reports.
+- Admins receive notifications when a new shelter application is submitted.
+
+Scheduled shelter summary report notifications also use a simple duplicate guard so an enabled short demo interval does not create the same in-app report notification every minute. The report emails/PDF attachments are still sent according to the scheduler; only duplicate in-app notification clutter is reduced.
+
+Notifications belong to a single `ApplicationUser`. Users can view, mark as read, mark all as read, and delete only their own notifications. Notification text avoids sensitive values such as passwords, reset tokens, security stamps, and SMTP credentials.
 
 SMTP settings are configured in `appsettings.json` under:
 
@@ -312,7 +343,7 @@ Run the service/domain test suite with:
 dotnet test
 ```
 
-The `PawConnect.Tests` project covers key business rules for dog management, dog image handling, adoption requests, favorites, shelter resources, shelter registration requests, Nominatim geocoding behavior, scheduled shelter summary reports, PDF report generation, admin export generation, shelter export generation, and audit log behavior. It also includes service-flow integration tests for public dog visibility, favorite deletion behavior, adoption request status changes, dog image/age behavior, resource stock rules, and email/PDF notification triggers.
+The `PawConnect.Tests` project covers key business rules for dog management, dog image handling, adoption requests, favorites, shelter resources, shelter registration requests, Nominatim geocoding behavior, scheduled shelter summary reports, PDF report generation, admin export generation, shelter export generation, audit log behavior, and in-app notification ownership/triggers. It also includes service-flow integration tests for public dog visibility, favorite deletion behavior, adoption request status changes, dog image/age behavior, resource stock rules, and email/PDF notification triggers.
 
 Tests use isolated in-memory databases and fake email/PDF services. They do not require SQL Server, a real SMTP provider, a running web server, or browser UI automation.
 
@@ -330,10 +361,11 @@ Apply migrations to the `PawConnect` database:
 dotnet tool run dotnet-ef database update
 ```
 
-The latest map coordinate migration is:
+Recent feature migrations include:
 
 ```text
-20260511184208_AddShelterRegistrationRequests
+20260512203656_AddAuditLogs
+20260512210309_AddNotifications
 ```
 
 If `dotnet ef database update` cannot connect from your terminal, check that SQL Server/LocalDB is running and that the `DefaultConnection` server name matches the `PawConnect` database you created in SSMS.

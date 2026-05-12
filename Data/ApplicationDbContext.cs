@@ -35,6 +35,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
+    public DbSet<Notification> Notifications => Set<Notification>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -221,6 +223,19 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
         builder.Entity<AuditLog>()
             .HasIndex(log => log.EntityName);
+
+        builder.Entity<Notification>()
+            .HasOne(notification => notification.User)
+            .WithMany(user => user.Notifications)
+            .HasForeignKey(notification => notification.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<Notification>()
+            .Property(notification => notification.CreatedAt)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<Notification>()
+            .HasIndex(notification => new { notification.UserId, notification.IsRead, notification.CreatedAt });
 
         SeedLookupData(builder);
     }
