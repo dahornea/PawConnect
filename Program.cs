@@ -20,6 +20,7 @@ builder.Logging.AddDebug();
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 builder.Services.AddMudServices();
+builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<IdentityRedirectManager>();
@@ -66,6 +67,7 @@ builder.Services.AddScoped<IShelterRegistrationRequestService, ShelterRegistrati
 builder.Services.AddScoped<IShelterSummaryReportService, ShelterSummaryReportService>();
 builder.Services.AddScoped<IExportService, ExportService>();
 builder.Services.AddScoped<IBrowserFileDownloadService, BrowserFileDownloadService>();
+builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.Configure<ScheduledReportSettings>(builder.Configuration.GetSection("ScheduledReports"));
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();

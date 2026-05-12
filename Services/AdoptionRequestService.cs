@@ -5,7 +5,13 @@ using PawConnect.Entities;
 
 namespace PawConnect.Services;
 
-public class AdoptionRequestService(ApplicationDbContext context, IEmailService emailService, IPdfReportService pdfReportService, ILogger<AdoptionRequestService> logger, UserManager<ApplicationUser> userManager) : IAdoptionRequestService
+public class AdoptionRequestService(
+    ApplicationDbContext context,
+    IEmailService emailService,
+    IPdfReportService pdfReportService,
+    ILogger<AdoptionRequestService> logger,
+    UserManager<ApplicationUser> userManager,
+    IAuditLogService? auditLogService = null) : IAdoptionRequestService
 {
     public Task<List<AdoptionRequest>> GetAllAsync()
     {
@@ -110,6 +116,13 @@ public class AdoptionRequestService(ApplicationDbContext context, IEmailService 
 
         context.AdoptionRequests.Add(adoptionRequest);
         await context.SaveChangesAsync();
+        await LogAsync(
+            AuditActions.AdoptionRequestSubmitted,
+            "AdoptionRequest",
+            adoptionRequest.Id.ToString(),
+            $"Adoption request for dog {dog.Name} was submitted.",
+            userId: adopterId,
+            additionalData: $"DogId={dogId};ShelterId={dog.ShelterId}");
         await NotifyShelterAboutNewRequestAsync(adoptionRequest.Id, dog, adopter, questionnaire, now);
     }
 
@@ -212,6 +225,24 @@ public class AdoptionRequestService(ApplicationDbContext context, IEmailService 
         }
 
         await context.SaveChangesAsync();
+        await LogAsync(
+            AuditActions.AdoptionRequestAccepted,
+            "AdoptionRequest",
+            request.Id.ToString(),
+            $"Adoption request for dog {request.Dog.Name} was accepted.",
+            userId: changedByUserId,
+            additionalData: $"DogId={request.DogId};ShelterId={shelterId}");
+
+        if (oldDogStatus != request.Dog.Status)
+        {
+            await LogAsync(
+                AuditActions.DogStatusChanged,
+                "Dog",
+                request.Dog.Id.ToString(),
+                $"Dog {request.Dog.Name} status changed from {oldDogStatus} to {request.Dog.Status} after adoption request acceptance.",
+                userId: changedByUserId,
+                additionalData: $"RequestId={request.Id};ShelterId={shelterId}");
+        }
         await NotifyAdopterAboutRequestStatusAsync(request, AdoptionRequestStatus.Accepted);
     }
 
@@ -230,6 +261,12 @@ public class AdoptionRequestService(ApplicationDbContext context, IEmailService 
         request.UpdatedAt = DateTime.UtcNow;
 
         await context.SaveChangesAsync();
+        await LogAsync(
+            AuditActions.AdoptionRequestRejected,
+            "AdoptionRequest",
+            request.Id.ToString(),
+            $"Adoption request for dog {request.Dog?.Name ?? "Unknown dog"} was rejected.",
+            additionalData: $"DogId={request.DogId};ShelterId={shelterId}");
         await NotifyAdopterAboutRequestStatusAsync(request, AdoptionRequestStatus.Rejected);
     }
 
@@ -247,6 +284,13 @@ public class AdoptionRequestService(ApplicationDbContext context, IEmailService 
         request.UpdatedAt = DateTime.UtcNow;
 
         await context.SaveChangesAsync();
+        await LogAsync(
+            AuditActions.AdoptionRequestCancelled,
+            "AdoptionRequest",
+            request.Id.ToString(),
+            "Adoption request was cancelled by the adopter.",
+            userId: adopterId,
+            additionalData: $"DogId={request.DogId}");
     }
 
     public async Task UpdateShelterInternalNotesAsync(int requestId, int shelterId, string? notes)
@@ -475,5 +519,16 @@ public class AdoptionRequestService(ApplicationDbContext context, IEmailService 
             logger.LogWarning(ex, "PDF attachment {FileName} could not be generated.", fileName);
             return [];
         }
+    }
+
+    private Task LogAsync(
+        string action,
+        string entityName,
+        string? entityId,
+        string description,
+        string? userId = null,
+        string? additionalData = null)
+    {
+        return auditLogService?.LogAsync(action, entityName, entityId, description, userId: userId, additionalData: additionalData) ?? Task.CompletedTask;
     }
 }

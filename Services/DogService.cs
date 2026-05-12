@@ -4,7 +4,7 @@ using PawConnect.Entities;
 
 namespace PawConnect.Services;
 
-public class DogService(ApplicationDbContext context) : IDogService
+public class DogService(ApplicationDbContext context, IAuditLogService? auditLogService = null) : IDogService
 {
     public Task<List<Dog>> GetAllAsync()
     {
@@ -26,6 +26,7 @@ public class DogService(ApplicationDbContext context) : IDogService
         NormalizeDogAge(dog);
         context.Dogs.Update(dog);
         await context.SaveChangesAsync();
+        await LogAsync(AuditActions.DogUpdated, "Dog", dog.Id.ToString(), $"Dog {dog.Name} was updated.");
     }
 
     public async Task DeleteAsync(int id)
@@ -38,6 +39,7 @@ public class DogService(ApplicationDbContext context) : IDogService
 
         context.Dogs.Remove(dog);
         await context.SaveChangesAsync();
+        await LogAsync(AuditActions.DogDeleted, "Dog", dog.Id.ToString(), $"Dog {dog.Name} was deleted.");
     }
 
     public Task<List<Dog>> GetAvailableDogsAsync()
@@ -138,6 +140,7 @@ public class DogService(ApplicationDbContext context) : IDogService
         NormalizeDogAge(dog);
         context.Dogs.Add(dog);
         await context.SaveChangesAsync();
+        await LogAsync(AuditActions.DogCreated, "Dog", dog.Id.ToString(), $"Dog {dog.Name} was created.");
     }
 
     public async Task UpdateSuccessStoryAsync(int dogId, int shelterId, string? successStoryText, DateTime? adoptedAt)
@@ -157,6 +160,7 @@ public class DogService(ApplicationDbContext context) : IDogService
         dog.AdoptedAt = adoptedAt;
 
         await context.SaveChangesAsync();
+        await LogAsync(AuditActions.DogUpdated, "Dog", dog.Id.ToString(), $"Success story information was updated for dog {dog.Name}.");
     }
 
     public Task<List<Dog>> GetDogsForShelterAsync(int shelterId)
@@ -190,6 +194,12 @@ public class DogService(ApplicationDbContext context) : IDogService
 
         context.Dogs.Add(dog);
         await context.SaveChangesAsync();
+        await LogAsync(
+            AuditActions.DogCreated,
+            "Dog",
+            dog.Id.ToString(),
+            $"Dog {dog.Name} was created by a shelter.",
+            additionalData: $"ShelterId={shelterId}");
     }
 
     public async Task UpdateDogAsync(Dog dog, int shelterId, string? changedByUserId = null)
@@ -225,6 +235,24 @@ public class DogService(ApplicationDbContext context) : IDogService
         AddStatusHistoryIfChanged(existingDog.Id, oldStatus, existingDog.Status, changedByUserId, "Status updated by shelter.");
 
         await context.SaveChangesAsync();
+        await LogAsync(
+            AuditActions.DogUpdated,
+            "Dog",
+            existingDog.Id.ToString(),
+            $"Dog {existingDog.Name} was updated by a shelter.",
+            userId: changedByUserId,
+            additionalData: $"ShelterId={shelterId}");
+
+        if (oldStatus != existingDog.Status)
+        {
+            await LogAsync(
+                AuditActions.DogStatusChanged,
+                "Dog",
+                existingDog.Id.ToString(),
+                $"Dog {existingDog.Name} status changed from {oldStatus} to {existingDog.Status}.",
+                userId: changedByUserId,
+                additionalData: $"ShelterId={shelterId}");
+        }
     }
 
     public async Task DeleteDogAsync(int dogId, int shelterId)
@@ -248,6 +276,12 @@ public class DogService(ApplicationDbContext context) : IDogService
 
         context.Dogs.Remove(dog);
         await context.SaveChangesAsync();
+        await LogAsync(
+            AuditActions.DogDeleted,
+            "Dog",
+            dog.Id.ToString(),
+            $"Dog {dog.Name} was deleted by a shelter.",
+            additionalData: $"ShelterId={shelterId}");
     }
 
     public Task<List<Dog>> GetAllDogsForAdminAsync()
@@ -282,6 +316,7 @@ public class DogService(ApplicationDbContext context) : IDogService
 
         context.Dogs.Remove(dog);
         await context.SaveChangesAsync();
+        await LogAsync(AuditActions.DogDeleted, "Dog", dog.Id.ToString(), $"Dog {dog.Name} was deleted by an admin.");
     }
 
     public Task<List<DogStatusHistory>> GetStatusHistoryForDogAsync(int dogId)
@@ -309,6 +344,15 @@ public class DogService(ApplicationDbContext context) : IDogService
     {
         AddStatusHistoryIfChanged(dogId, oldStatus, newStatus, changedByUserId, notes);
         await context.SaveChangesAsync();
+        if (oldStatus != newStatus)
+        {
+            await LogAsync(
+                AuditActions.DogStatusChanged,
+                "Dog",
+                dogId.ToString(),
+                $"Dog status changed from {oldStatus} to {newStatus}.",
+                userId: changedByUserId);
+        }
     }
 
     private void AddStatusHistoryIfChanged(int dogId, DogStatus oldStatus, DogStatus newStatus, string? changedByUserId, string? notes = null)
@@ -411,5 +455,16 @@ public class DogService(ApplicationDbContext context) : IDogService
 
         context.FavoriteDogs.RemoveRange(favorites);
         context.RecentlyViewedDogs.RemoveRange(recentViews);
+    }
+
+    private Task LogAsync(
+        string action,
+        string entityName,
+        string? entityId,
+        string description,
+        string? userId = null,
+        string? additionalData = null)
+    {
+        return auditLogService?.LogAsync(action, entityName, entityId, description, userId: userId, additionalData: additionalData) ?? Task.CompletedTask;
     }
 }

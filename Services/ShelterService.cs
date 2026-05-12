@@ -4,7 +4,7 @@ using PawConnect.Entities;
 
 namespace PawConnect.Services;
 
-public class ShelterService(IDbContextFactory<ApplicationDbContext> contextFactory) : IShelterService
+public class ShelterService(IDbContextFactory<ApplicationDbContext> contextFactory, IAuditLogService? auditLogService = null) : IShelterService
 {
     public Task<List<Shelter>> GetAllAsync()
     {
@@ -41,6 +41,7 @@ public class ShelterService(IDbContextFactory<ApplicationDbContext> contextFacto
 
         context.Shelters.Add(shelter);
         await context.SaveChangesAsync();
+        await LogAsync(AuditActions.ShelterCreated, "Shelter", shelter.Id.ToString(), $"Shelter {shelter.Name} was created.");
     }
 
     public async Task UpdateAsync(Shelter shelter)
@@ -49,6 +50,7 @@ public class ShelterService(IDbContextFactory<ApplicationDbContext> contextFacto
 
         context.Shelters.Update(shelter);
         await context.SaveChangesAsync();
+        await LogAsync(AuditActions.ShelterUpdated, "Shelter", shelter.Id.ToString(), $"Shelter {shelter.Name} was updated.");
     }
 
     public async Task DeleteAsync(int id)
@@ -63,6 +65,7 @@ public class ShelterService(IDbContextFactory<ApplicationDbContext> contextFacto
 
         context.Shelters.Remove(shelter);
         await context.SaveChangesAsync();
+        await LogAsync(AuditActions.ShelterUpdated, "Shelter", shelter.Id.ToString(), $"Shelter {shelter.Name} was deleted.");
     }
 
     public async Task<List<Shelter>> GetAllSheltersAsync()
@@ -120,6 +123,11 @@ public class ShelterService(IDbContextFactory<ApplicationDbContext> contextFacto
         existingShelter.Longitude = shelter.Longitude;
 
         await context.SaveChangesAsync();
+        await LogAsync(
+            AuditActions.ShelterUpdated,
+            "Shelter",
+            existingShelter.Id.ToString(),
+            $"Shelter {existingShelter.Name} profile was updated.");
     }
 
     private static void ValidateShelterProfile(Shelter shelter)
@@ -158,5 +166,10 @@ public class ShelterService(IDbContextFactory<ApplicationDbContext> contextFacto
         {
             throw new InvalidOperationException("Longitude must be between -180 and 180.");
         }
+    }
+
+    private Task LogAsync(string action, string entityName, string? entityId, string description)
+    {
+        return auditLogService?.LogAsync(action, entityName, entityId, description) ?? Task.CompletedTask;
     }
 }

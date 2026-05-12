@@ -4,7 +4,7 @@ using PawConnect.Entities;
 
 namespace PawConnect.Services;
 
-public class DogImageService(ApplicationDbContext context) : IDogImageService
+public class DogImageService(ApplicationDbContext context, IAuditLogService? auditLogService = null) : IDogImageService
 {
     public Task<List<DogImage>> GetAllAsync()
     {
@@ -58,7 +58,7 @@ public class DogImageService(ApplicationDbContext context) : IDogImageService
 
     public async Task AddDogImageAsync(int dogId, int shelterId, DogImage image)
     {
-        await EnsureDogCanBeManagedAsync(dogId, shelterId);
+        var dog = await EnsureDogCanBeManagedAsync(dogId, shelterId);
         ValidateDogImage(image);
 
         if (image.IsMainImage)
@@ -73,6 +73,12 @@ public class DogImageService(ApplicationDbContext context) : IDogImageService
 
         context.DogImages.Add(image);
         await context.SaveChangesAsync();
+        await LogAsync(
+            AuditActions.DogImageAdded,
+            "DogImage",
+            image.Id.ToString(),
+            $"Image was added for dog {dog.Name}.",
+            additionalData: $"DogId={dogId};ShelterId={shelterId}");
     }
 
     public async Task SetMainImageAsync(int imageId, int shelterId)
@@ -108,9 +114,15 @@ public class DogImageService(ApplicationDbContext context) : IDogImageService
 
         context.DogImages.Remove(image);
         await context.SaveChangesAsync();
+        await LogAsync(
+            AuditActions.DogImageDeleted,
+            "DogImage",
+            imageId.ToString(),
+            $"Image was deleted for dog {image.Dog.Name}.",
+            additionalData: $"DogId={image.DogId};ShelterId={shelterId}");
     }
 
-    private async Task EnsureDogCanBeManagedAsync(int dogId, int shelterId)
+    private async Task<Dog> EnsureDogCanBeManagedAsync(int dogId, int shelterId)
     {
         var dog = await context.Dogs.FirstOrDefaultAsync(d => d.Id == dogId && d.ShelterId == shelterId);
         if (dog is null)
@@ -119,6 +131,7 @@ public class DogImageService(ApplicationDbContext context) : IDogImageService
         }
 
         EnsureDogIsNotAdopted(dog);
+        return dog;
     }
 
     private static void EnsureDogIsNotAdopted(Dog dog)
@@ -153,5 +166,10 @@ public class DogImageService(ApplicationDbContext context) : IDogImageService
         {
             throw new InvalidOperationException("Image URL must be a valid web address.");
         }
+    }
+
+    private Task LogAsync(string action, string entityName, string? entityId, string description, string? additionalData = null)
+    {
+        return auditLogService?.LogAsync(action, entityName, entityId, description, additionalData: additionalData) ?? Task.CompletedTask;
     }
 }

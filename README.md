@@ -39,6 +39,8 @@ PawConnect is a beginner-friendly ASP.NET Core Blazor Server skeleton for a stra
 - Approval-based shelter registration requests at `/shelters/apply`
 - Admin shelter application review at `/admin/shelter-requests`
 - Admin CSV/PDF exports for platform management pages
+- Shelter CSV/PDF exports for shelter-owned operational pages
+- Admin Activity Log for important user and system actions
 - Optional address-based coordinate lookup using OpenStreetMap Nominatim
 
 ## Planned Features
@@ -264,6 +266,18 @@ PDF exports are available where a formatted report is useful:
 
 CSV files are UTF-8 encoded with a header row and can be opened in Excel. PDF files use a clean PawConnect report layout generated with QuestPDF. Shelter exports are scoped by the current shelter profile, so a shelter user can export only their own dogs, adoption requests, and resource stock.
 
+## Audit Log / Activity Log
+
+PawConnect records important activity in the `AuditLogs` table for traceability and administrative monitoring. The Admin-only page is:
+
+```text
+/admin/activity-log
+```
+
+Tracked actions include important dog management, dog image, medical record, adoption request, shelter registration request, shelter/resource update, report, and export events. Background actions are logged as `System` when no user is involved.
+
+The activity log intentionally does not store passwords, reset tokens, security stamps, SMTP credentials, or other sensitive Identity/security values. It is a lightweight activity log for accountability, not full event sourcing, rollback, or historical data restoration.
+
 ## Database
 
 The connection string points to a SQL Server database named `PawConnect`:
@@ -298,7 +312,7 @@ Run the service/domain test suite with:
 dotnet test
 ```
 
-The `PawConnect.Tests` project covers key business rules for dog management, dog image handling, adoption requests, favorites, shelter resources, shelter registration requests, Nominatim geocoding behavior, scheduled shelter summary reports, PDF report generation, admin export generation, and shelter export generation. It also includes service-flow integration tests for public dog visibility, favorite deletion behavior, adoption request status changes, dog image/age behavior, resource stock rules, and email/PDF notification triggers.
+The `PawConnect.Tests` project covers key business rules for dog management, dog image handling, adoption requests, favorites, shelter resources, shelter registration requests, Nominatim geocoding behavior, scheduled shelter summary reports, PDF report generation, admin export generation, shelter export generation, and audit log behavior. It also includes service-flow integration tests for public dog visibility, favorite deletion behavior, adoption request status changes, dog image/age behavior, resource stock rules, and email/PDF notification triggers.
 
 Tests use isolated in-memory databases and fake email/PDF services. They do not require SQL Server, a real SMTP provider, a running web server, or browser UI automation.
 

@@ -10,7 +10,8 @@ public class ShelterRegistrationRequestService(
     UserManager<ApplicationUser> userManager,
     IEmailService emailService,
     IPdfReportService pdfReportService,
-    ILogger<ShelterRegistrationRequestService> logger) : IShelterRegistrationRequestService
+    ILogger<ShelterRegistrationRequestService> logger,
+    IAuditLogService? auditLogService = null) : IShelterRegistrationRequestService
 {
     public async Task<ShelterRegistrationRequest> SubmitRequestAsync(ShelterRegistrationRequest request, string? currentUserId = null)
     {
@@ -41,6 +42,13 @@ public class ShelterRegistrationRequestService(
 
         context.ShelterRegistrationRequests.Add(request);
         await context.SaveChangesAsync();
+        await LogAsync(
+            AuditActions.ShelterRegistrationRequestSubmitted,
+            "ShelterRegistrationRequest",
+            request.Id.ToString(),
+            $"Shelter application for {request.ShelterName} was submitted.",
+            userId: currentUserId,
+            additionalData: $"Email={request.Email}");
 
         await TryNotifyAdminsAsync(request);
         return request;
@@ -130,6 +138,20 @@ public class ShelterRegistrationRequestService(
 
         request.CreatedShelterId = shelter.Id;
         await context.SaveChangesAsync();
+        await LogAsync(
+            AuditActions.ShelterRegistrationRequestAccepted,
+            "ShelterRegistrationRequest",
+            request.Id.ToString(),
+            $"Shelter application for {request.ShelterName} was accepted.",
+            userId: adminUserId,
+            additionalData: $"CreatedShelterId={shelter.Id};CreatedUserId={user.Id}");
+        await LogAsync(
+            AuditActions.ShelterCreated,
+            "Shelter",
+            shelter.Id.ToString(),
+            $"Shelter {shelter.Name} was created from an approved application.",
+            userId: adminUserId,
+            additionalData: $"RequestId={request.Id}");
 
         return request;
     }
@@ -154,6 +176,12 @@ public class ShelterRegistrationRequestService(
         request.ReviewedByUserId = adminUserId;
 
         await context.SaveChangesAsync();
+        await LogAsync(
+            AuditActions.ShelterRegistrationRequestRejected,
+            "ShelterRegistrationRequest",
+            request.Id.ToString(),
+            $"Shelter application for {request.ShelterName} was rejected.",
+            userId: adminUserId);
         return request;
     }
 
@@ -330,5 +358,16 @@ public class ShelterRegistrationRequestService(
     private static string GenerateTemporaryPassword()
     {
         return $"Shelter-{Guid.NewGuid():N}aA1!";
+    }
+
+    private Task LogAsync(
+        string action,
+        string entityName,
+        string? entityId,
+        string description,
+        string? userId = null,
+        string? additionalData = null)
+    {
+        return auditLogService?.LogAsync(action, entityName, entityId, description, userId: userId, additionalData: additionalData) ?? Task.CompletedTask;
     }
 }

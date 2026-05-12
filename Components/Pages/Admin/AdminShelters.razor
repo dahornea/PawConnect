@@ -4,6 +4,7 @@
 @inject IGeocodingService GeocodingService
 @inject IExportService ExportService
 @inject IBrowserFileDownloadService FileDownloadService
+@inject IAuditLogService AuditLogService
 @inject ISnackbar Snackbar
 
 <PageTitle>Shelters</PageTitle>
@@ -287,6 +288,11 @@
         try
         {
             await ShelterService.UpdateShelterProfileAsync(_editShelter);
+            await AuditLogService.LogAsync(
+                AuditActions.ShelterUpdatedByAdmin,
+                "Shelter",
+                _editShelter.Id.ToString(),
+                $"Shelter profile/contact information was updated by an admin for {_editShelter.Name}.");
             Snackbar.Add("Shelter profile saved.", Severity.Success);
             _editShelter = null;
             _savedLatitude = null;
