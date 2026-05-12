@@ -135,6 +135,8 @@ PawConnect uses OpenStreetMap with Leaflet for shelter location maps and editabl
 
 Shelter coordinates are stored directly on the `Shelter` entity as optional `Latitude` and `Longitude` values. Shelters without coordinates still work normally and show a friendly fallback message instead of a broken map.
 
+Public shelter details keep the embedded Leaflet/OpenStreetMap map and also include an external "Open in Google Maps" link for navigation. The link opens in a new tab, uses stored coordinates when available, and falls back to the public address/city query when coordinates are missing. This external link does not require a Google Maps API key.
+
 Shelter applications and admin shelter editing use address information as the primary input. Latitude/Longitude are optional derived fields. Public applicants do not manually type coordinates; they can click "Find location" to perform a manual OpenStreetMap Nominatim lookup from address + city + Romania. The app does not geocode while typing, and applicants can still submit without coordinates if lookup fails.
 
 The public shelter application form uses an editable map as the user-facing coordinate editor. After address lookup, applicants can drag the marker or click the map to adjust the shelter location. Latitude and Longitude are stored internally, remain optional, and are not shown as raw numeric fields to public applicants or normal shelter location edit forms. Public shelter details maps remain read-only.

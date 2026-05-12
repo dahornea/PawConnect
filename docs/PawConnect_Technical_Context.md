@@ -116,7 +116,7 @@ Admin pages are protected with `[Authorize(Roles = "Admin")]`. Advanced role edi
 - **Home page**: Presents the platform, how adoption works, featured public dogs, and shelter-oriented features.
 - **Dog browsing**: Public users can browse dogs with public-safe statuses: `Available` and `Reserved`.
 - **Dog details**: Public users can view dog information, images, shelter information, medical summary, and food information where available.
-- **Shelter listing and details**: Public users can view shelter cards and shelter profile/details pages. Shelter details include address/city information and, when coordinates exist, a read-only Leaflet map using OpenStreetMap tiles. If coordinates are missing, the UI shows a friendly fallback message instead of a broken map.
+- **Shelter listing and details**: Public users can view shelter cards and shelter profile/details pages. Shelter details include address/city information and, when coordinates exist, a read-only Leaflet map using OpenStreetMap tiles. If coordinates are missing, the UI shows a friendly fallback message instead of a broken map. The Location card also includes an external "Open in Google Maps" link for easier navigation.
 - **Success stories**: Public page showing adopted dogs, success story text, adoption dates, and shelter information.
 - **Authentication**: Users can register and log in through Identity account pages. New registrations are assigned the `Adopter` role by default in the register flow.
 - **Shelter applications**: Shelter representatives apply through `/shelters/apply`. Public registration remains adopter-only. Admin and Shelter users are not prompted to apply from public CTAs and cannot submit public shelter applications.
@@ -655,8 +655,9 @@ Shelter onboarding/geocoding organization:
 7. A marker is placed at the shelter latitude/longitude.
 8. The marker popup shows the shelter name and address/city when available.
 9. If coordinates are missing, the map component shows a friendly "Map location is not available for this shelter" fallback instead of trying to initialize Leaflet.
+10. The Location card shows an "Open in Google Maps" link when coordinates or address/city information are available. The link uses coordinates first and falls back to an encoded address query.
 
-The public map is read-only. Address lookup and explicit address updates from the selected pin are limited to editable shelter location forms; the app does not implement route planning, distance search, browser geolocation, or automatic typing autocomplete.
+The public map is read-only. Address lookup and explicit address updates from the selected pin are limited to editable shelter location forms; the app does not implement route planning, distance search, browser geolocation, or automatic typing autocomplete. Google Maps is only used as an external new-tab link from shelter details and does not require an API key.
 
 ### Shelter Registration Request Flow
 
@@ -885,7 +886,7 @@ Implemented behavior:
 
 - Leaflet handles client-side interactive map rendering.
 - OpenStreetMap provides the map tiles.
-- No Google Maps API key or paid maps API is required.
+- No Google Maps API key or paid maps API is required. Google Maps is used only as an optional external link from public shelter details, not as the embedded map provider.
 - Public shelter maps are read-only. Shelter application/admin coordinate forms use an editable mode for coordinate adjustment.
 - Shelter coordinates are stored in the database as optional `Latitude` and `Longitude` fields on the `Shelter` entity.
 - Address information is the primary location input; coordinates can be derived through a manual OpenStreetMap Nominatim lookup or adjusted through the editable map marker. Raw coordinate inputs are hidden from public shelter applicants and normal admin shelter edit forms.
@@ -894,6 +895,7 @@ Implemented behavior:
 - In editable form mode, `ShelterMap.razor` exposes latitude/longitude callbacks so marker dragging and map clicks update the bound coordinate fields internally.
 - Marker popups show the shelter name and address/city when available.
 - The map uses a custom inline SVG-style marker, so it does not depend on Leaflet marker PNG files loading correctly.
+- Public shelter details include an external "Open in Google Maps" link that uses coordinates first and falls back to the public address/city query.
 
 Not implemented:
 
@@ -947,7 +949,7 @@ Common UI patterns:
 - MudSnackbar for user feedback.
 - MudAlert for empty, warning, and error states.
 - Status chips for dog and adoption request states.
-- Shelter profile pages include a Location card that displays a responsive read-only Leaflet/OpenStreetMap map with rounded corners when coordinates are available.
+- Shelter profile pages include a Location card that displays a responsive read-only Leaflet/OpenStreetMap map with rounded corners when coordinates are available, plus an external Google Maps navigation link when coordinates or address/city information are available.
 - Shelter application and admin shelter edit forms use editable map mode so users can click to place the pin or drag the marker to refine coordinates. The forms keep raw coordinate values internal and show friendly location status messages instead.
 - Shelter map fallback states use MudBlazor alerts/messages when coordinates are unavailable, keeping the page usable instead of showing an empty or broken map.
 
