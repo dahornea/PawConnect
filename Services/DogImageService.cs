@@ -59,7 +59,18 @@ public class DogImageService(ApplicationDbContext context, IAuditLogService? aud
     public async Task AddDogImageAsync(int dogId, int shelterId, DogImage image)
     {
         var dog = await EnsureDogCanBeManagedAsync(dogId, shelterId);
+        image.ImageUrl = image.ImageUrl?.Trim() ?? string.Empty;
         ValidateDogImage(image);
+
+        var normalizedImageUrl = image.ImageUrl.ToUpperInvariant();
+        var duplicateExists = await context.DogImages.AnyAsync(i =>
+            i.DogId == dogId &&
+            i.ImageUrl.Trim().ToUpper() == normalizedImageUrl);
+
+        if (duplicateExists)
+        {
+            throw new InvalidOperationException("This image has already been added for this dog.");
+        }
 
         if (image.IsMainImage)
         {
@@ -69,7 +80,6 @@ public class DogImageService(ApplicationDbContext context, IAuditLogService? aud
         image.Id = 0;
         image.DogId = dogId;
         image.Dog = null;
-        image.ImageUrl = image.ImageUrl.Trim();
 
         context.DogImages.Add(image);
         await context.SaveChangesAsync();

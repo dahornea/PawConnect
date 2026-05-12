@@ -37,7 +37,11 @@ public class ShelterService(IDbContextFactory<ApplicationDbContext> contextFacto
 
     public async Task CreateAsync(Shelter shelter)
     {
+        ValidateShelterProfile(shelter);
+
         await using var context = await contextFactory.CreateDbContextAsync();
+        await EnsureShelterEmailIsAvailableAsync(context, shelter.Email, shelter.Id);
+        NormalizeShelterProfile(shelter);
 
         context.Shelters.Add(shelter);
         await context.SaveChangesAsync();
@@ -46,7 +50,11 @@ public class ShelterService(IDbContextFactory<ApplicationDbContext> contextFacto
 
     public async Task UpdateAsync(Shelter shelter)
     {
+        ValidateShelterProfile(shelter);
+
         await using var context = await contextFactory.CreateDbContextAsync();
+        await EnsureShelterEmailIsAvailableAsync(context, shelter.Email, shelter.Id);
+        NormalizeShelterProfile(shelter);
 
         context.Shelters.Update(shelter);
         await context.SaveChangesAsync();
@@ -105,20 +113,15 @@ public class ShelterService(IDbContextFactory<ApplicationDbContext> contextFacto
             throw new InvalidOperationException("Shelter was not found.");
         }
 
-        var duplicateEmailExists = !string.IsNullOrWhiteSpace(shelter.Email) &&
-            await context.Shelters.AnyAsync(s => s.Id != shelter.Id && s.Email == shelter.Email);
+        await EnsureShelterEmailIsAvailableAsync(context, shelter.Email, shelter.Id);
+        NormalizeShelterProfile(shelter);
 
-        if (duplicateEmailExists)
-        {
-            throw new InvalidOperationException("Another shelter already uses this email address.");
-        }
-
-        existingShelter.Name = shelter.Name.Trim();
-        existingShelter.Description = string.IsNullOrWhiteSpace(shelter.Description) ? null : shelter.Description.Trim();
-        existingShelter.Address = shelter.Address.Trim();
-        existingShelter.City = shelter.City.Trim();
-        existingShelter.PhoneNumber = string.IsNullOrWhiteSpace(shelter.PhoneNumber) ? null : shelter.PhoneNumber.Trim();
-        existingShelter.Email = string.IsNullOrWhiteSpace(shelter.Email) ? null : shelter.Email.Trim();
+        existingShelter.Name = shelter.Name;
+        existingShelter.Description = shelter.Description;
+        existingShelter.Address = shelter.Address;
+        existingShelter.City = shelter.City;
+        existingShelter.PhoneNumber = shelter.PhoneNumber;
+        existingShelter.Email = shelter.Email;
         existingShelter.Latitude = shelter.Latitude;
         existingShelter.Longitude = shelter.Longitude;
 
@@ -166,6 +169,51 @@ public class ShelterService(IDbContextFactory<ApplicationDbContext> contextFacto
         {
             throw new InvalidOperationException("Longitude must be between -180 and 180.");
         }
+    }
+
+    private static async Task EnsureShelterEmailIsAvailableAsync(ApplicationDbContext context, string? email, int shelterId)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return;
+        }
+
+        var normalizedEmail = email.Trim().ToUpperInvariant();
+        var duplicateEmailExists = await context.Shelters.AnyAsync(s =>
+            s.Id != shelterId &&
+            s.Email != null &&
+            s.Email.Trim().ToUpper() == normalizedEmail);
+
+        if (duplicateEmailExists)
+        {
+            throw new InvalidOperationException("Another shelter already uses this email address.");
+        }
+    }
+
+    private static void NormalizeShelterProfile(Shelter shelter)
+    {
+        shelter.Name = shelter.Name.Trim();
+        shelter.City = shelter.City.Trim();
+        shelter.Address = NormalizeAddressWithoutCity(shelter.Address, shelter.City);
+        shelter.Description = string.IsNullOrWhiteSpace(shelter.Description) ? null : shelter.Description.Trim();
+        shelter.PhoneNumber = string.IsNullOrWhiteSpace(shelter.PhoneNumber) ? null : shelter.PhoneNumber.Trim();
+        shelter.Email = string.IsNullOrWhiteSpace(shelter.Email) ? null : shelter.Email.Trim();
+    }
+
+    private static string NormalizeAddressWithoutCity(string address, string city)
+    {
+        var normalizedAddress = address.Trim();
+        var normalizedCity = city.Trim();
+
+        if (string.IsNullOrWhiteSpace(normalizedCity))
+        {
+            return normalizedAddress;
+        }
+
+        var citySuffix = $", {normalizedCity}";
+        return normalizedAddress.EndsWith(citySuffix, StringComparison.OrdinalIgnoreCase)
+            ? normalizedAddress[..^citySuffix.Length].Trim()
+            : normalizedAddress;
     }
 
     private Task LogAsync(string action, string entityName, string? entityId, string description)

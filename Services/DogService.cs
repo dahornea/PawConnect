@@ -422,9 +422,9 @@ public class DogService(ApplicationDbContext context, IAuditLogService? auditLog
             throw new InvalidOperationException("Location is required.");
         }
 
-        if (dog.DailyFoodAmountGrams.HasValue && dog.DailyFoodAmountGrams.Value <= 0)
+        if (dog.DailyFoodAmountGrams.HasValue && dog.DailyFoodAmountGrams.Value < 0)
         {
-            throw new InvalidOperationException("Daily food amount must be positive when provided.");
+            throw new InvalidOperationException("Daily food amount must be zero or greater when provided.");
         }
 
         dog.Name = dog.Name.Trim();

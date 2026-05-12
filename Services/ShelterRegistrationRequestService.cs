@@ -19,21 +19,24 @@ public class ShelterRegistrationRequestService(
         await EnsureCanSubmitApplicationAsync(currentUserId);
         ValidateRequest(request);
 
-        var normalizedEmail = request.Email.Trim().ToUpperInvariant();
+        request.Email = request.Email.Trim();
+        var normalizedEmail = NormalizeEmail(request.Email);
+
+        await EnsureNoExistingShelterAccountForEmailAsync(normalizedEmail);
+
         var duplicatePending = await context.ShelterRegistrationRequests
-            .AnyAsync(r => r.Status == ShelterRegistrationRequestStatus.Pending && r.Email.ToUpper() == normalizedEmail);
+            .AnyAsync(r => r.Status == ShelterRegistrationRequestStatus.Pending && r.Email.Trim().ToUpper() == normalizedEmail);
 
         if (duplicatePending)
         {
-            throw new InvalidOperationException("A pending shelter application already exists for this email address.");
+            throw new InvalidOperationException("A shelter application with this email is already pending review.");
         }
 
         request.ShelterName = request.ShelterName.Trim();
         request.ContactPersonName = request.ContactPersonName.Trim();
-        request.Email = request.Email.Trim();
         request.PhoneNumber = request.PhoneNumber.Trim();
         request.City = request.City.Trim();
-        request.Address = request.Address.Trim();
+        request.Address = NormalizeAddressWithoutCity(request.Address, request.City);
         request.Description = request.Description.Trim();
         request.Website = NormalizeOptional(request.Website);
         request.OpeningHours = NormalizeOptional(request.OpeningHours);
@@ -89,11 +92,12 @@ public class ShelterRegistrationRequestService(
             throw new InvalidOperationException("Only pending shelter applications can be accepted.");
         }
 
-        var existingUser = await userManager.FindByEmailAsync(request.Email);
-        if (existingUser is not null)
-        {
-            throw new InvalidOperationException("A user account already exists for this shelter email address.");
-        }
+        request.Email = request.Email.Trim();
+        request.City = request.City.Trim();
+        request.Address = NormalizeAddressWithoutCity(request.Address, request.City);
+
+        var normalizedEmail = NormalizeEmail(request.Email);
+        await EnsureNoExistingShelterAccountForEmailAsync(normalizedEmail);
 
         var user = new ApplicationUser
         {
@@ -365,6 +369,45 @@ public class ShelterRegistrationRequestService(
         {
             throw new InvalidOperationException("Longitude must be between -180 and 180.");
         }
+    }
+
+    private async Task EnsureNoExistingShelterAccountForEmailAsync(string normalizedEmail)
+    {
+        var existingUser = await userManager.FindByEmailAsync(normalizedEmail);
+        if (existingUser is not null)
+        {
+            throw new InvalidOperationException("A shelter account with this email already exists.");
+        }
+
+        var existingShelter = await context.Shelters.AnyAsync(s =>
+            s.Email != null &&
+            s.Email.Trim().ToUpper() == normalizedEmail);
+
+        if (existingShelter)
+        {
+            throw new InvalidOperationException("A shelter account with this email already exists.");
+        }
+    }
+
+    private static string NormalizeEmail(string email)
+    {
+        return email.Trim().ToUpperInvariant();
+    }
+
+    private static string NormalizeAddressWithoutCity(string address, string city)
+    {
+        var normalizedAddress = address.Trim();
+        var normalizedCity = city.Trim();
+
+        if (string.IsNullOrWhiteSpace(normalizedCity))
+        {
+            return normalizedAddress;
+        }
+
+        var citySuffix = $", {normalizedCity}";
+        return normalizedAddress.EndsWith(citySuffix, StringComparison.OrdinalIgnoreCase)
+            ? normalizedAddress[..^citySuffix.Length].Trim()
+            : normalizedAddress;
     }
 
     private static string? NormalizeOptional(string? value)

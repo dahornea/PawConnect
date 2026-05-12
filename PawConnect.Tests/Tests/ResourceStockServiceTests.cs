@@ -31,6 +31,67 @@ public class ResourceStockServiceTests
     }
 
     [Fact]
+    public async Task CreateResourceAsync_BlocksNegativeQuantity()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        var service = CreateService(context);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.CreateResourceAsync(new ResourceStock
+            {
+                Name = "Invalid Food",
+                ResourceCategoryId = TestDbContextFactory.FoodCategoryId,
+                FoodTypeId = TestDbContextFactory.AdultFoodTypeId,
+                Quantity = -1,
+                Unit = "kg",
+                LowStockThreshold = 5
+            }, TestDbContextFactory.ShelterId));
+
+        Assert.Equal("Quantity must be zero or greater.", exception.Message);
+    }
+
+    [Fact]
+    public async Task CreateResourceAsync_BlocksDuplicateShelterResource()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        SeedResource(context, TestDbContextFactory.ShelterId);
+        var service = CreateService(context);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.CreateResourceAsync(new ResourceStock
+            {
+                Name = " adult food ",
+                ResourceCategoryId = TestDbContextFactory.FoodCategoryId,
+                FoodTypeId = TestDbContextFactory.AdultFoodTypeId,
+                Quantity = 8,
+                Unit = "kg",
+                LowStockThreshold = 5
+            }, TestDbContextFactory.ShelterId));
+
+        Assert.Equal("This resource already exists in your shelter stock.", exception.Message);
+        Assert.Equal(1, await context.ResourceStocks.CountAsync());
+    }
+
+    [Fact]
+    public async Task CreateResourceAsync_RequiresFoodTypeForFoodResources()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        var service = CreateService(context);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.CreateResourceAsync(new ResourceStock
+            {
+                Name = "Food Without Type",
+                ResourceCategoryId = TestDbContextFactory.FoodCategoryId,
+                Quantity = 10,
+                Unit = "kg",
+                LowStockThreshold = 5
+            }, TestDbContextFactory.ShelterId));
+
+        Assert.Equal("Food type is required for food resources.", exception.Message);
+    }
+
+    [Fact]
     public async Task UpdateResourceAsync_BlocksAnotherSheltersResource()
     {
         await using var context = TestDbContextFactory.CreateContext();

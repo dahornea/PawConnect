@@ -86,14 +86,14 @@ public class AdoptionRequestService(
             throw new InvalidOperationException("Dog was not found.");
         }
 
-        if (dog.Status is DogStatus.Adopted or DogStatus.InTreatment)
+        if (dog.Status is not (DogStatus.Available or DogStatus.Reserved))
         {
             throw new InvalidOperationException("Adoption requests can only be submitted for available or reserved dogs.");
         }
 
         if (await HasPendingRequestAsync(adopterId, dogId))
         {
-            throw new InvalidOperationException("You already have a pending adoption request for this dog.");
+            throw new InvalidOperationException("You already have a pending request for this dog.");
         }
 
         var adopter = await context.Users
@@ -213,10 +213,20 @@ public class AdoptionRequestService(
             .FirstOrDefaultAsync(r => r.Id == requestId);
 
         EnsureShelterCanManageRequest(request, shelterId);
-        EnsurePending(request!);
+        EnsurePending(request!, "accepted");
+
+        if (request!.Dog!.Status == DogStatus.Adopted)
+        {
+            throw new InvalidOperationException("This dog has already been adopted.");
+        }
+
+        if (request.Dog.Status is not (DogStatus.Available or DogStatus.Reserved))
+        {
+            throw new InvalidOperationException("Only requests for available or reserved dogs can be accepted.");
+        }
 
         var now = DateTime.UtcNow;
-        request!.Status = AdoptionRequestStatus.Accepted;
+        request.Status = AdoptionRequestStatus.Accepted;
         request.UpdatedAt = now;
         var oldDogStatus = request.Dog!.Status;
         request.Dog!.Status = DogStatus.Reserved;
@@ -277,7 +287,7 @@ public class AdoptionRequestService(
             .FirstOrDefaultAsync(r => r.Id == requestId);
 
         EnsureShelterCanManageRequest(request, shelterId);
-        EnsurePending(request!);
+        EnsurePending(request!, "rejected");
 
         request!.Status = AdoptionRequestStatus.Rejected;
         request.UpdatedAt = DateTime.UtcNow;
@@ -307,12 +317,17 @@ public class AdoptionRequestService(
             .Include(r => r.Dog)
             .ThenInclude(d => d!.Shelter)
             .FirstOrDefaultAsync(r => r.Id == requestId);
-        if (request is null || request.AdopterId != adopterId)
+        if (request is null)
         {
             throw new InvalidOperationException("Adoption request was not found.");
         }
 
-        EnsurePending(request);
+        if (request.AdopterId != adopterId)
+        {
+            throw new InvalidOperationException("You can only cancel your own adoption requests.");
+        }
+
+        EnsurePending(request, "cancelled");
 
         request.Status = AdoptionRequestStatus.Cancelled;
         request.UpdatedAt = DateTime.UtcNow;
@@ -362,15 +377,15 @@ public class AdoptionRequestService(
     {
         if (request?.Dog is null || request.Dog.ShelterId != shelterId)
         {
-            throw new InvalidOperationException("This adoption request does not belong to your shelter.");
+            throw new InvalidOperationException("You cannot manage requests for another shelter's dog.");
         }
     }
 
-    private static void EnsurePending(AdoptionRequest request)
+    private static void EnsurePending(AdoptionRequest request, string action)
     {
         if (request.Status != AdoptionRequestStatus.Pending)
         {
-            throw new InvalidOperationException("Only pending adoption requests can be updated.");
+            throw new InvalidOperationException($"Only pending requests can be {action}.");
         }
     }
 

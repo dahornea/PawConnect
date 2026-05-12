@@ -95,6 +95,19 @@ public class DogServiceTests
     }
 
     [Fact]
+    public async Task CreateDogAsync_AllowsZeroDailyFoodAmountWhenProvided()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        var service = new DogService(context);
+        var dog = TestDbContextFactory.CreateDog("Zero Food Amount");
+        dog.DailyFoodAmountGrams = 0;
+
+        await service.CreateDogAsync(dog, TestDbContextFactory.ShelterId);
+
+        Assert.Equal(0, (await context.Dogs.SingleAsync(d => d.Name == "Zero Food Amount")).DailyFoodAmountGrams);
+    }
+
+    [Fact]
     public async Task GetAvailableDogsAsync_ReturnsOnlyAvailableAndReservedDogs()
     {
         await using var context = TestDbContextFactory.CreateContext();

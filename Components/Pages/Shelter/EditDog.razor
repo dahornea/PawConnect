@@ -87,7 +87,7 @@
                                 </MudSelect>
                             </MudItem>
                             <MudItem xs="12" md="6">
-                                <MudNumericField T="int?" Label="Daily Food Amount (grams)" @bind-Value="_model.DailyFoodAmountGrams" Min="1" Max="10000" Variant="Variant.Outlined" Disabled="@IsReadOnly" />
+                                <MudNumericField T="int?" Label="Daily Food Amount (grams)" @bind-Value="_model.DailyFoodAmountGrams" Min="0" Max="10000" Variant="Variant.Outlined" Disabled="@IsReadOnly" />
                             </MudItem>
                             <MudItem xs="12">
                                 <MudTextField Label="Description" @bind-Value="_model.Description" Lines="4" Variant="Variant.Outlined" Disabled="@IsReadOnly" />
