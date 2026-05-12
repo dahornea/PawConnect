@@ -64,6 +64,8 @@ builder.Services.AddScoped<IRecentlyViewedDogService, RecentlyViewedDogService>(
 builder.Services.AddScoped<IPdfReportService, PdfReportService>();
 builder.Services.AddScoped<IShelterRegistrationRequestService, ShelterRegistrationRequestService>();
 builder.Services.AddScoped<IShelterSummaryReportService, ShelterSummaryReportService>();
+builder.Services.AddScoped<IExportService, ExportService>();
+builder.Services.AddScoped<IBrowserFileDownloadService, BrowserFileDownloadService>();
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.Configure<ScheduledReportSettings>(builder.Configuration.GetSection("ScheduledReports"));
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();

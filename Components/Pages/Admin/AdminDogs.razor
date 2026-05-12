@@ -1,6 +1,8 @@
 @page "/admin/dogs"
 @attribute [Authorize(Roles = "Admin")]
 @inject IDogService DogService
+@inject IExportService ExportService
+@inject IBrowserFileDownloadService FileDownloadService
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 
@@ -12,6 +14,20 @@
             <MudText Typo="Typo.h4">Dogs</MudText>
             <MudText Typo="Typo.body2">View dogs from all shelters and safely remove unused records.</MudText>
         </div>
+
+        <MudPaper Elevation="0" Class="section-surface pa-3">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Spacing="2" Class="flex-wrap">
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Export all dog records with shelter, status, age, food, and success story summary fields.</MudText>
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Primary"
+                           Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.FileDownload"
+                           Disabled="_isLoading || _isExporting"
+                           OnClick="ExportDogsCsvAsync">
+                    Export CSV
+                </MudButton>
+            </MudStack>
+        </MudPaper>
 
         @if (_isLoading)
         {
@@ -173,6 +189,7 @@
     private bool _isLoading = true;
     private bool _isDeleting;
     private bool _isHistoryLoading;
+    private bool _isExporting;
     private string? _error;
     private string? _historyError;
     private Dog? _selectedHistoryDog;
@@ -191,6 +208,31 @@
         finally
         {
             _isLoading = false;
+        }
+    }
+
+    private async Task ExportDogsCsvAsync()
+    {
+        await ExportAsync(() => ExportService.GenerateDogsCsvAsync());
+    }
+
+    private async Task ExportAsync(Func<Task<ExportFile>> exportAction)
+    {
+        _isExporting = true;
+
+        try
+        {
+            var file = await exportAction();
+            await FileDownloadService.DownloadAsync(file);
+            Snackbar.Add("Export generated successfully.", Severity.Success);
+        }
+        catch
+        {
+            Snackbar.Add("Could not generate export. Please try again.", Severity.Error);
+        }
+        finally
+        {
+            _isExporting = false;
         }
     }
 

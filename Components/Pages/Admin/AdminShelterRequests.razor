@@ -5,6 +5,8 @@
 @inject IShelterRegistrationRequestService ShelterRegistrationRequestService
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject UserManager<ApplicationUser> UserManager
+@inject IExportService ExportService
+@inject IBrowserFileDownloadService FileDownloadService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 
@@ -16,6 +18,30 @@
             <MudText Typo="Typo.h4">Shelter Requests</MudText>
             <MudText Typo="Typo.body2">Review public shelter applications before creating shelter accounts.</MudText>
         </div>
+
+        <MudPaper Elevation="0" Class="section-surface pa-3">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Spacing="2" Class="flex-wrap">
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Export all shelter applications as CSV or a formatted PDF summary.</MudText>
+                <MudStack Row="true" Spacing="1" Class="flex-wrap">
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Primary"
+                               Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.FileDownload"
+                               Disabled="_isLoading || _isExporting"
+                               OnClick="ExportShelterRequestsCsvAsync">
+                        Export CSV
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Secondary"
+                               Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.PictureAsPdf"
+                               Disabled="_isLoading || _isExporting"
+                               OnClick="ExportShelterRequestsPdfAsync">
+                        Export PDF
+                    </MudButton>
+                </MudStack>
+            </MudStack>
+        </MudPaper>
 
         @if (_isLoading)
         {
@@ -109,6 +135,7 @@
 @code {
     private List<ShelterRegistrationRequest> _requests = [];
     private bool _isLoading = true;
+    private bool _isExporting;
     private string? _error;
 
     protected override async Task OnInitializedAsync()
@@ -129,6 +156,36 @@
         finally
         {
             _isLoading = false;
+        }
+    }
+
+    private async Task ExportShelterRequestsCsvAsync()
+    {
+        await ExportAsync(() => ExportService.GenerateShelterRequestsCsvAsync());
+    }
+
+    private async Task ExportShelterRequestsPdfAsync()
+    {
+        await ExportAsync(() => ExportService.GenerateShelterRequestsPdfAsync());
+    }
+
+    private async Task ExportAsync(Func<Task<ExportFile>> exportAction)
+    {
+        _isExporting = true;
+
+        try
+        {
+            var file = await exportAction();
+            await FileDownloadService.DownloadAsync(file);
+            Snackbar.Add("Export generated successfully.", Severity.Success);
+        }
+        catch
+        {
+            Snackbar.Add("Could not generate export. Please try again.", Severity.Error);
+        }
+        finally
+        {
+            _isExporting = false;
         }
     }
 

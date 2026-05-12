@@ -15,6 +15,28 @@ window.pawConnect.submitForm = (formId) => {
     form.submit();
 };
 
+window.pawConnect.downloadFileFromBase64 = (fileName, contentType, base64Data) => {
+    const binary = atob(base64Data);
+    const bytes = new Uint8Array(binary.length);
+
+    for (let index = 0; index < binary.length; index += 1) {
+        bytes[index] = binary.charCodeAt(index);
+    }
+
+    const blob = new Blob([bytes], { type: contentType || "application/octet-stream" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName || "pawconnect-export";
+    link.style.display = "none";
+
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
 window.pawConnect.maps = window.pawConnect.maps || {};
 
 window.pawConnect.renderShelterMap = (elementId, latitude, longitude, shelterName, addressText, editable = false, dotNetReference = null) => {

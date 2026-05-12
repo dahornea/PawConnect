@@ -2,6 +2,9 @@
 @using PawConnect.Data
 @attribute [Authorize(Roles = "Admin")]
 @inject IAdoptionRequestService AdoptionRequestService
+@inject IExportService ExportService
+@inject IBrowserFileDownloadService FileDownloadService
+@inject ISnackbar Snackbar
 
 <PageTitle>Admin Adoption Requests</PageTitle>
 
@@ -11,6 +14,30 @@
             <MudText Typo="Typo.h4">Adoption Requests</MudText>
             <MudText Typo="Typo.body2">View adoption request activity across all shelters.</MudText>
         </div>
+
+        <MudPaper Elevation="0" Class="section-surface pa-3">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Spacing="2" Class="flex-wrap">
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Export all adoption request records as CSV or a formatted PDF summary.</MudText>
+                <MudStack Row="true" Spacing="1" Class="flex-wrap">
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Primary"
+                               Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.FileDownload"
+                               Disabled="_isLoading || _isExporting"
+                               OnClick="ExportAdoptionRequestsCsvAsync">
+                        Export CSV
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Secondary"
+                               Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.PictureAsPdf"
+                               Disabled="_isLoading || _isExporting"
+                               OnClick="ExportAdoptionRequestsPdfAsync">
+                        Export PDF
+                    </MudButton>
+                </MudStack>
+            </MudStack>
+        </MudPaper>
 
         @if (_isLoading)
         {
@@ -106,6 +133,7 @@
 @code {
     private List<AdoptionRequest> _requests = [];
     private bool _isLoading = true;
+    private bool _isExporting;
     private string? _error;
 
     protected override async Task OnInitializedAsync()
@@ -121,6 +149,36 @@
         finally
         {
             _isLoading = false;
+        }
+    }
+
+    private async Task ExportAdoptionRequestsCsvAsync()
+    {
+        await ExportAsync(() => ExportService.GenerateAdoptionRequestsCsvAsync());
+    }
+
+    private async Task ExportAdoptionRequestsPdfAsync()
+    {
+        await ExportAsync(() => ExportService.GenerateAdoptionRequestsPdfAsync());
+    }
+
+    private async Task ExportAsync(Func<Task<ExportFile>> exportAction)
+    {
+        _isExporting = true;
+
+        try
+        {
+            var file = await exportAction();
+            await FileDownloadService.DownloadAsync(file);
+            Snackbar.Add("Export generated successfully.", Severity.Success);
+        }
+        catch
+        {
+            Snackbar.Add("Could not generate export. Please try again.", Severity.Error);
+        }
+        finally
+        {
+            _isExporting = false;
         }
     }
 

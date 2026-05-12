@@ -1,0 +1,472 @@
+using System.Globalization;
+using System.Text;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using PawConnect.Data;
+using PawConnect.Entities;
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
+
+namespace PawConnect.Services;
+
+public class ExportService(ApplicationDbContext context, UserManager<ApplicationUser> userManager, ILogger<ExportService> logger) : IExportService
+{
+    private const string CsvContentType = "text/csv;charset=utf-8";
+    private const string PdfContentType = "application/pdf";
+    private static readonly Encoding CsvEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: true);
+
+    static ExportService()
+    {
+        QuestPDF.Settings.License = LicenseType.Community;
+    }
+
+    public async Task<ExportFile> GenerateUsersCsvAsync()
+    {
+        var users = await userManager.Users
+            .OrderBy(u => u.Email)
+            .AsNoTracking()
+            .ToListAsync();
+
+        var rows = new List<IReadOnlyList<string?>>();
+        foreach (var user in users)
+        {
+            var roles = await userManager.GetRolesAsync(user);
+            rows.Add([
+                user.Id,
+                user.Email,
+                user.UserName,
+                user.FullName,
+                user.PhoneNumber,
+                string.Join("; ", roles),
+                FormatYesNo(user.EmailConfirmed)
+            ]);
+        }
+
+        return BuildCsv(
+            "pawconnect-users",
+            ["User Id", "Email", "UserName", "Full Name", "PhoneNumber", "Roles", "EmailConfirmed"],
+            rows);
+    }
+
+    public async Task<ExportFile> GenerateSheltersCsvAsync()
+    {
+        var shelters = await context.Shelters
+            .Include(s => s.Dogs)
+            .OrderBy(s => s.Name)
+            .AsNoTracking()
+            .ToListAsync();
+
+        var rows = shelters.Select(s => new[]
+        {
+            s.Id.ToString(CultureInfo.InvariantCulture),
+            s.Name,
+            s.Email,
+            s.PhoneNumber,
+            s.City,
+            s.Address,
+            s.Description,
+            FormatCoordinate(s.Latitude),
+            FormatCoordinate(s.Longitude),
+            s.Dogs.Count.ToString(CultureInfo.InvariantCulture)
+        });
+
+        return BuildCsv(
+            "pawconnect-shelters",
+            ["Shelter Id", "Shelter Name", "Email", "Phone Number", "City", "Address", "Description", "Latitude", "Longitude", "Number of Dogs"],
+            rows);
+    }
+
+    public async Task<ExportFile> GenerateDogsCsvAsync()
+    {
+        var dogs = await context.Dogs
+            .Include(d => d.Shelter)
+            .Include(d => d.PreferredFoodType)
+            .OrderBy(d => d.Name)
+            .AsNoTracking()
+            .ToListAsync();
+
+        var rows = dogs.Select(d => new[]
+        {
+            d.Id.ToString(CultureInfo.InvariantCulture),
+            d.Name,
+            d.Breed,
+            DogAgeFormatter.Format(d),
+            d.Size.ToString(),
+            d.Location,
+            d.Shelter?.Name,
+            d.Status.ToString(),
+            d.PreferredFoodType?.Name,
+            d.DailyFoodAmountGrams?.ToString(CultureInfo.InvariantCulture),
+            HasSuccessStory(d) ? "Has story" : "No story",
+            FormatDate(d.AdoptedAt)
+        });
+
+        return BuildCsv(
+            "pawconnect-dogs",
+            ["Dog Id", "Name", "Breed", "Age", "Size", "Location", "Shelter Name", "Status", "Preferred Food Type", "Daily Food Amount Grams", "Success Story", "AdoptedAt"],
+            rows);
+    }
+
+    public async Task<ExportFile> GenerateAdoptionRequestsCsvAsync()
+    {
+        var requests = await GetAdoptionRequestsAsync();
+        var rows = requests.Select(r => new[]
+        {
+            r.Id.ToString(CultureInfo.InvariantCulture),
+            r.Dog?.Name,
+            r.Dog?.Shelter?.Name,
+            r.Adopter?.Email,
+            r.Status.ToString(),
+            FormatDateTime(r.CreatedAt),
+            FormatDateTime(r.UpdatedAt),
+            r.ReasonForAdoption,
+            r.HoursAlonePerDay?.ToString(CultureInfo.InvariantCulture),
+            r.AdditionalInformation
+        });
+
+        return BuildCsv(
+            "pawconnect-adoption-requests",
+            ["Request Id", "Dog Name", "Shelter Name", "Adopter Email", "Status", "CreatedAt", "UpdatedAt", "ReasonForAdoption", "HoursAlonePerDay", "AdditionalInformation"],
+            rows);
+    }
+
+    public async Task<ExportFile> GenerateShelterRequestsCsvAsync()
+    {
+        var requests = await GetShelterRequestsAsync();
+        var rows = requests.Select(r => new[]
+        {
+            r.Id.ToString(CultureInfo.InvariantCulture),
+            r.ShelterName,
+            r.ContactPersonName,
+            r.Email,
+            r.PhoneNumber,
+            r.City,
+            r.Address,
+            r.Status.ToString(),
+            FormatDateTime(r.SubmittedAt),
+            FormatDateTime(r.ReviewedAt),
+            r.ReviewedByUser?.Email
+        });
+
+        return BuildCsv(
+            "pawconnect-shelter-requests",
+            ["Request Id", "Shelter Name", "Contact Person", "Email", "Phone", "City", "Address", "Status", "CreatedAt", "ReviewedAt", "ReviewedBy"],
+            rows);
+    }
+
+    public async Task<ExportFile> GenerateAdoptionRequestsPdfAsync()
+    {
+        var requests = await GetAdoptionRequestsAsync();
+
+        var bytes = BuildPdf(
+            "PawConnect - Adoption Requests Export",
+            content =>
+            {
+                AddSummary(content, [
+                    ("Total requests", requests.Count.ToString(CultureInfo.InvariantCulture)),
+                    ("Pending", CountAdoptionStatus(requests, AdoptionRequestStatus.Pending)),
+                    ("Accepted", CountAdoptionStatus(requests, AdoptionRequestStatus.Accepted)),
+                    ("Rejected", CountAdoptionStatus(requests, AdoptionRequestStatus.Rejected)),
+                    ("Cancelled", CountAdoptionStatus(requests, AdoptionRequestStatus.Cancelled))
+                ]);
+
+                AddTable(
+                    content,
+                    ["Dog", "Shelter", "Adopter", "Status", "Created", "Updated"],
+                    requests.Select(r => new[]
+                    {
+                        r.Dog?.Name ?? "-",
+                        r.Dog?.Shelter?.Name ?? "-",
+                        GetAdopterDisplay(r.Adopter),
+                        r.Status.ToString(),
+                        FormatDateTime(r.CreatedAt),
+                        FormatDateTime(r.UpdatedAt)
+                    }));
+            });
+
+        return BuildPdfExport("pawconnect-adoption-requests", bytes);
+    }
+
+    public async Task<ExportFile> GenerateShelterRequestsPdfAsync()
+    {
+        var requests = await GetShelterRequestsAsync();
+
+        var bytes = BuildPdf(
+            "PawConnect - Shelter Registration Requests Export",
+            content =>
+            {
+                AddSummary(content, [
+                    ("Total requests", requests.Count.ToString(CultureInfo.InvariantCulture)),
+                    ("Pending", CountShelterStatus(requests, ShelterRegistrationRequestStatus.Pending)),
+                    ("Accepted", CountShelterStatus(requests, ShelterRegistrationRequestStatus.Accepted)),
+                    ("Rejected", CountShelterStatus(requests, ShelterRegistrationRequestStatus.Rejected))
+                ]);
+
+                AddTable(
+                    content,
+                    ["Shelter", "Contact", "Email", "City", "Status", "Submitted", "Reviewed"],
+                    requests.Select(r => new[]
+                    {
+                        r.ShelterName,
+                        r.ContactPersonName,
+                        r.Email,
+                        r.City,
+                        r.Status.ToString(),
+                        FormatDateTime(r.SubmittedAt),
+                        FormatDateTime(r.ReviewedAt)
+                    }));
+            });
+
+        return BuildPdfExport("pawconnect-shelter-requests", bytes);
+    }
+
+    private Task<List<AdoptionRequest>> GetAdoptionRequestsAsync()
+    {
+        return context.AdoptionRequests
+            .Include(r => r.Dog)
+            .ThenInclude(d => d!.Shelter)
+            .Include(r => r.Adopter)
+            .OrderByDescending(r => r.CreatedAt)
+            .AsNoTracking()
+            .ToListAsync();
+    }
+
+    private Task<List<ShelterRegistrationRequest>> GetShelterRequestsAsync()
+    {
+        return context.ShelterRegistrationRequests
+            .Include(r => r.ReviewedByUser)
+            .OrderByDescending(r => r.SubmittedAt)
+            .AsNoTracking()
+            .ToListAsync();
+    }
+
+    private static ExportFile BuildCsv(string filePrefix, IReadOnlyList<string> headers, IEnumerable<IReadOnlyList<string?>> rows)
+    {
+        var builder = new StringBuilder();
+        AppendCsvRow(builder, headers);
+
+        foreach (var row in rows)
+        {
+            AppendCsvRow(builder, row);
+        }
+
+        return new ExportFile(BuildFileName(filePrefix, "csv"), CsvContentType, CsvEncoding.GetBytes(builder.ToString()));
+    }
+
+    private static ExportFile BuildPdfExport(string filePrefix, byte[] content)
+    {
+        return new ExportFile(BuildFileName(filePrefix, "pdf"), PdfContentType, content);
+    }
+
+    private static string BuildFileName(string filePrefix, string extension)
+    {
+        return $"{filePrefix}-{DateTime.Today:yyyy-MM-dd}.{extension}";
+    }
+
+    private static void AppendCsvRow(StringBuilder builder, IReadOnlyList<string?> values)
+    {
+        builder.AppendLine(string.Join(",", values.Select(EscapeCsvValue)));
+    }
+
+    private static string EscapeCsvValue(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return string.Empty;
+        }
+
+        var normalized = value.ReplaceLineEndings(" ").Trim();
+        if (normalized.Contains('"') || normalized.Contains(',') || normalized.Contains('\n') || normalized.Contains('\r'))
+        {
+            return $"\"{normalized.Replace("\"", "\"\"")}\"";
+        }
+
+        return normalized;
+    }
+
+    private byte[] BuildPdf(string title, Action<ColumnDescriptor> buildContent)
+    {
+        try
+        {
+            return Document.Create(document =>
+            {
+                document.Page(page =>
+                {
+                    page.Size(PageSizes.A4.Landscape());
+                    page.Margin(36);
+                    page.DefaultTextStyle(text => text.FontSize(9).FontColor(Colors.Grey.Darken3));
+
+                    page.Header().Element(container => ComposeHeader(container, title));
+                    page.Content().PaddingTop(16).Column(column =>
+                    {
+                        column.Spacing(14);
+                        buildContent(column);
+                    });
+                    page.Footer().Element(ComposeFooter);
+                });
+            }).GeneratePdf();
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Admin export PDF generation failed for {Title}.", title);
+            throw;
+        }
+    }
+
+    private static void ComposeHeader(IContainer container, string title)
+    {
+        container.Column(column =>
+        {
+            column.Item().Text("PawConnect")
+                .FontSize(22)
+                .Bold()
+                .FontColor(Colors.Green.Darken3);
+
+            column.Item().PaddingTop(4).Text(title)
+                .FontSize(15)
+                .SemiBold()
+                .FontColor(Colors.Grey.Darken4);
+
+            column.Item().PaddingTop(6).Text($"Generated: {DateTime.Now:dd MMM yyyy HH:mm}")
+                .FontSize(9)
+                .FontColor(Colors.Grey.Darken1);
+
+            column.Item().PaddingTop(10).LineHorizontal(1).LineColor(Colors.Green.Lighten1);
+        });
+    }
+
+    private static void ComposeFooter(IContainer container)
+    {
+        container.AlignCenter().Text("Admin export generated by PawConnect.")
+            .FontSize(8)
+            .FontColor(Colors.Grey.Darken1);
+    }
+
+    private static void AddSummary(ColumnDescriptor content, IReadOnlyList<(string Label, string Value)> rows)
+    {
+        content.Item().Text("Summary")
+            .FontSize(13)
+            .Bold()
+            .FontColor(Colors.Green.Darken3);
+
+        content.Item().Table(table =>
+        {
+            table.ColumnsDefinition(columns =>
+            {
+                foreach (var _ in rows)
+                {
+                    columns.RelativeColumn();
+                }
+            });
+
+            foreach (var (label, _) in rows)
+            {
+                table.Cell().Element(HeaderCell).Text(label);
+            }
+
+            foreach (var (_, value) in rows)
+            {
+                table.Cell().Element(ValueCell).Text(value);
+            }
+        });
+    }
+
+    private static void AddTable(ColumnDescriptor content, IReadOnlyList<string> headers, IEnumerable<IReadOnlyList<string?>> rows)
+    {
+        content.Item().Text("Records")
+            .FontSize(13)
+            .Bold()
+            .FontColor(Colors.Green.Darken3);
+
+        content.Item().Table(table =>
+        {
+            table.ColumnsDefinition(columns =>
+            {
+                foreach (var _ in headers)
+                {
+                    columns.RelativeColumn();
+                }
+            });
+
+            foreach (var header in headers)
+            {
+                table.Cell().Element(HeaderCell).Text(header);
+            }
+
+            foreach (var row in rows)
+            {
+                foreach (var value in row)
+                {
+                    table.Cell().Element(ValueCell).Text(string.IsNullOrWhiteSpace(value) ? "-" : value);
+                }
+            }
+        });
+    }
+
+    private static IContainer HeaderCell(IContainer container)
+    {
+        return container
+            .Background(Colors.Green.Lighten4)
+            .BorderBottom(1)
+            .BorderColor(Colors.Green.Lighten2)
+            .PaddingVertical(6)
+            .PaddingHorizontal(6);
+    }
+
+    private static IContainer ValueCell(IContainer container)
+    {
+        return container
+            .BorderBottom(1)
+            .BorderColor(Colors.Grey.Lighten2)
+            .PaddingVertical(5)
+            .PaddingHorizontal(6);
+    }
+
+    private static string CountAdoptionStatus(IEnumerable<AdoptionRequest> requests, AdoptionRequestStatus status)
+    {
+        return requests.Count(r => r.Status == status).ToString(CultureInfo.InvariantCulture);
+    }
+
+    private static string CountShelterStatus(IEnumerable<ShelterRegistrationRequest> requests, ShelterRegistrationRequestStatus status)
+    {
+        return requests.Count(r => r.Status == status).ToString(CultureInfo.InvariantCulture);
+    }
+
+    private static string GetAdopterDisplay(ApplicationUser? adopter)
+    {
+        return string.IsNullOrWhiteSpace(adopter?.FullName)
+            ? adopter?.Email ?? "-"
+            : $"{adopter.FullName} ({adopter.Email})";
+    }
+
+    private static bool HasSuccessStory(Dog dog)
+    {
+        return !string.IsNullOrWhiteSpace(dog.SuccessStoryText) || dog.AdoptedAt.HasValue;
+    }
+
+    private static string FormatYesNo(bool value)
+    {
+        return value ? "Yes" : "No";
+    }
+
+    private static string? FormatDate(DateTime? value)
+    {
+        return value?.ToLocalTime().ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+    }
+
+    private static string? FormatDateTime(DateTime? value)
+    {
+        return value?.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
+    }
+
+    private static string FormatDateTime(DateTime value)
+    {
+        return value.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
+    }
+
+    private static string? FormatCoordinate(double? value)
+    {
+        return value?.ToString("0.######", CultureInfo.InvariantCulture);
+    }
+}
