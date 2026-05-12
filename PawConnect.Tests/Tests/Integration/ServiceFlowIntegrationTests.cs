@@ -92,6 +92,11 @@ public class ServiceFlowIntegrationTests
         Assert.Equal(2, emailService.SentEmails.Count);
         Assert.Contains(emailService.SentEmails, email => email.To == "shelter@test.com" && HasPdfAttachment(email.Attachments, "AdoptionRequestReport.pdf"));
         Assert.Contains(emailService.SentEmails, email => email.To == "adopter@test.com" && HasPdfAttachment(email.Attachments, "AdoptionStatusReport.pdf"));
+        Assert.All(emailService.SentEmails, email =>
+        {
+            Assert.NotNull(email.HtmlBody);
+            Assert.Contains("PawConnect", email.HtmlBody!);
+        });
     }
 
     [Fact]
@@ -179,6 +184,7 @@ public class ServiceFlowIntegrationTests
         Assert.DoesNotContain(nonLowStock, item => item.Id == resource.Id);
         Assert.Null((await context.ResourceStocks.FindAsync(resource.Id))!.FoodTypeId);
         Assert.Contains(emailService.SentEmails, email => email.To == "shelter@test.com" && HasPdfAttachment(email.Attachments, "LowStockResourceReport.pdf"));
+        Assert.Contains(emailService.SentEmails, email => email.HtmlBody?.Contains("Low stock warning") == true);
     }
 
     private static AdoptionRequestService CreateAdoptionRequestService(ApplicationDbContext context, TestEmailService emailService)

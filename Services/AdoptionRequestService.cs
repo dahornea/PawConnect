@@ -357,7 +357,29 @@ public class AdoptionRequestService(ApplicationDbContext context, IEmailService 
                 "AdoptionRequestReport.pdf",
                 () => pdfReportService.GenerateAdoptionRequestReportAsync(adoptionRequestId));
 
-            await emailService.SendEmailAsync(shelterEmail ?? string.Empty, $"New adoption request for {dog.Name}", body, attachments);
+            var htmlBody = PawConnectEmailTemplate.BuildHtml(
+                $"New adoption request for {dog.Name}",
+                "Hello,",
+                [
+                    "A new adoption request was submitted in PawConnect.",
+                    $"Reason for adoption: {questionnaire.ReasonForAdoption.Trim()}",
+                    string.IsNullOrWhiteSpace(questionnaire.AdditionalInformation)
+                        ? "Additional information: Not provided."
+                        : $"Additional information: {questionnaire.AdditionalInformation.Trim()}",
+                    "Please review the request in PawConnect."
+                ],
+                details:
+                [
+                    new("Dog", dog.Name),
+                    new("Shelter", dog.Shelter?.Name ?? "Your shelter"),
+                    new("Adopter", adopterName),
+                    new("Request status", AdoptionRequestStatus.Pending.ToString()),
+                    new("Created", createdAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")),
+                    new("Hours alone per day", questionnaire.HoursAlonePerDay.HasValue ? questionnaire.HoursAlonePerDay.Value.ToString() : "Not provided")
+                ],
+                hasAttachment: attachments.Count > 0);
+
+            await emailService.SendEmailAsync(shelterEmail ?? string.Empty, $"New adoption request for {dog.Name}", body, attachments, htmlBody);
         }
         catch (Exception ex)
         {
@@ -410,7 +432,22 @@ public class AdoptionRequestService(ApplicationDbContext context, IEmailService 
                 "AdoptionStatusReport.pdf",
                 () => pdfReportService.GenerateAdoptionStatusReportAsync(request.Id));
 
-            await emailService.SendEmailAsync(adopterEmail ?? string.Empty, $"Adoption request {status}: {dogName}", body, attachments);
+            var htmlBody = PawConnectEmailTemplate.BuildHtml(
+                $"Adoption request {status.ToString().ToLowerInvariant()}",
+                "Hello,",
+                [
+                    $"Your adoption request for {dogName} has been {status.ToString().ToLowerInvariant()}.",
+                    "Thank you for using PawConnect."
+                ],
+                details:
+                [
+                    new("Dog", dogName),
+                    new("Shelter", shelterName),
+                    new("Request status", status.ToString())
+                ],
+                hasAttachment: attachments.Count > 0);
+
+            await emailService.SendEmailAsync(adopterEmail ?? string.Empty, $"Adoption request {status}: {dogName}", body, attachments, htmlBody);
         }
         catch (Exception ex)
         {

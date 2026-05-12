@@ -187,9 +187,26 @@ public class ShelterRegistrationRequestService(
                 Submitted: {request.SubmittedAt:g}
                 """;
 
+            var htmlBody = PawConnectEmailTemplate.BuildHtml(
+                "New shelter application submitted",
+                "Hello,",
+                ["A new shelter application was submitted and is ready for admin review."],
+                details:
+                [
+                    new("Shelter", request.ShelterName),
+                    new("Contact person", request.ContactPersonName),
+                    new("Email", request.Email),
+                    new("Phone", request.PhoneNumber),
+                    new("City", request.City),
+                    new("Address", request.Address),
+                    new("Map location", request.Latitude.HasValue && request.Longitude.HasValue ? "Map location selected" : "No map location provided"),
+                    new("Submitted", request.SubmittedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm"))
+                ],
+                hasAttachment: attachments.Count > 0);
+
             foreach (var recipient in recipients)
             {
-                await emailService.SendEmailAsync(recipient!, "New shelter application submitted", body, attachments);
+                await emailService.SendEmailAsync(recipient!, "New shelter application submitted", body, attachments, htmlBody);
             }
         }
         catch (Exception ex)

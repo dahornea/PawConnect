@@ -77,7 +77,7 @@ Submitting a shelter request attempts to notify admins by email and attach a PDF
 
 ## Email Notifications
 
-PawConnect uses `IEmailService` with `SmtpEmailService` as the active implementation. The service sends plain text emails through SMTP using MailKit.
+PawConnect uses `IEmailService` with `SmtpEmailService` as the active implementation. The service sends email through SMTP using MailKit. Important notifications include a branded PawConnect HTML layout with a plain text fallback, so Mailtrap can be used to inspect both readable text bodies and richer HTML previews.
 
 Email notifications are triggered when:
 
@@ -97,7 +97,7 @@ The reports are generated without charts. They use a clean PawConnect-style text
 
 Email or PDF generation failures are logged and do not cancel the main database action. For example, an adoption request can still be submitted even if SMTP credentials are missing or invalid.
 
-Forgot Password and other ASP.NET Core Identity emails use `PawConnectIdentityEmailSender`, which reuses the same configured `IEmailService`/Mailtrap SMTP settings as the rest of the application. Password reset emails include a clean plain text body with the reset URL on its own line for easy copying from Mailtrap's Text view, plus an HTML body with a clickable action button when HTML preview is available. Demo users are seeded with confirmed email addresses so password reset emails can be sent during development/testing.
+Forgot Password and other ASP.NET Core Identity emails use `PawConnectIdentityEmailSender`, which reuses the same configured `IEmailService`/Mailtrap SMTP settings as the rest of the application. Password reset emails include a clean plain text body with the reset URL on its own line for easy copying from Mailtrap's Text view, plus a branded HTML body with a clickable action button when HTML preview is available. Demo users are seeded with confirmed email addresses so password reset emails can be sent during development/testing.
 
 SMTP settings are configured in `appsettings.json` under:
 

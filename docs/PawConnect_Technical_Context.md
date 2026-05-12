@@ -761,6 +761,7 @@ Email abstractions:
 - `SmtpEmailService`
 - `MockEmailService`
 - `PawConnectIdentityEmailSender`
+- `PawConnectEmailTemplate`
 - `EmailSettings`
 - `EmailAttachment`
 
@@ -775,6 +776,7 @@ The SMTP implementation:
 - Uses MailKit `SmtpClient`.
 - Uses MimeKit `MimeMessage`, `TextPart`, and `BodyBuilder`.
 - Sends plain text email bodies.
+- Supports optional branded HTML bodies with plain text fallback.
 - Supports optional attachments.
 - Uses `SecureSocketOptions.StartTls` when `EnableSsl` is true.
 - Logs and returns if the recipient is empty.
@@ -790,7 +792,11 @@ Configured email events:
 - Adoption request rejected: sends adopter notification.
 - Resource stock created/updated and low stock: sends shelter notification.
 
-For the password reset flow, the Forgot Password page generates an ASP.NET Core Identity reset token, encodes it with `WebEncoders.Base64UrlEncode`, builds an `/Account/ResetPassword` callback URL, and sends it through `PawConnectIdentityEmailSender`. The reset email includes a plain text fallback with the full URL on its own line for Mailtrap Text view/copy-paste use, and an optional HTML body with a clickable action button. The UI response remains generic so it does not reveal whether an email address belongs to a registered user.
+`PawConnectEmailTemplate` provides a reusable branded HTML layout for important emails. The template uses inline CSS only, with a green/teal PawConnect header, centered white content card, optional primary action button, details section, fallback link area, PDF attachment notice, and footer text. It does not depend on external images or external CSS.
+
+For the password reset flow, the Forgot Password page generates an ASP.NET Core Identity reset token, encodes it with `WebEncoders.Base64UrlEncode`, builds an `/Account/ResetPassword` callback URL, and sends it through `PawConnectIdentityEmailSender`. The reset email includes a plain text fallback with the full URL on its own line for Mailtrap Text view/copy-paste use, and a branded HTML body with a clickable action button. The UI response remains generic so it does not reveal whether an email address belongs to a registered user.
+
+Application notifications for adoption requests, low-stock resources, and shelter applications also use the branded HTML template where practical while preserving the existing plain text bodies and PDF attachments.
 
 The current `appsettings.json` uses Mailtrap-style sandbox settings with placeholder password text. Real credentials should be stored in `appsettings.Development.json`, .NET User Secrets, or environment variables.
 
