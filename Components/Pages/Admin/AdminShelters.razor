@@ -3,6 +3,7 @@
 @inject IShelterService ShelterService
 @inject IGeocodingService GeocodingService
 @inject IExportService ExportService
+@inject ICsvImportService CsvImportService
 @inject IBrowserFileDownloadService FileDownloadService
 @inject IAuditLogService AuditLogService
 @inject ISnackbar Snackbar
@@ -16,17 +17,60 @@
             <MudText Typo="Typo.body2">View registered shelter profiles and their dog counts.</MudText>
         </div>
 
-        <MudPaper Elevation="0" Class="section-surface pa-3">
-            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Spacing="2" Class="flex-wrap">
-                <MudText Typo="Typo.body2" Color="Color.Secondary">Export all approved shelter profiles and dog counts.</MudText>
-                <MudButton Variant="Variant.Outlined"
-                           Color="Color.Primary"
-                           Size="Size.Small"
-                           StartIcon="@Icons.Material.Filled.FileDownload"
-                           Disabled="_isLoading || _isExporting"
-                           OnClick="ExportSheltersCsvAsync">
-                    Export CSV
-                </MudButton>
+        <MudPaper Elevation="0" Class="section-surface import-export-card pa-4">
+            <MudStack Spacing="3">
+                <div>
+                    <MudText Typo="Typo.h6" Class="content-title">Shelter records</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Import shelter applications as pending requests, or export approved shelter profiles.</MudText>
+                </div>
+                <MudGrid Spacing="3">
+                    <MudItem xs="12" md="7">
+                        <MudStack Spacing="2" Class="tool-section">
+                            <div>
+                                <MudText Typo="Typo.subtitle2" Class="tool-section-title">Import CSV</MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">Preview shelter rows and create pending registration requests for admin approval.</MudText>
+                            </div>
+                            <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Class="tool-actions">
+                                <div class="file-picker-shell">
+                                    <InputFile @key="_shelterRequestImportInputKey" OnChange="OnShelterRequestCsvSelectedAsync" accept=".csv" />
+                                </div>
+                                <MudButton Variant="Variant.Outlined"
+                                           Color="Color.Primary"
+                                           Size="Size.Small"
+                                           StartIcon="@Icons.Material.Filled.FileUpload"
+                                           Disabled="@(_isLoading || _isImporting)"
+                                           OnClick="PreviewSelectedShelterRequestFileAsync">
+                                    Preview Import
+                                </MudButton>
+                                <MudButton Variant="Variant.Text"
+                                           Color="Color.Primary"
+                                           Size="Size.Small"
+                                           StartIcon="@Icons.Material.Filled.Download"
+                                           OnClick="DownloadShelterRequestsTemplateAsync">
+                                    Download Template
+                                </MudButton>
+                            </MudStack>
+                        </MudStack>
+                    </MudItem>
+                    <MudItem xs="12" md="5">
+                        <MudStack Spacing="2" Class="tool-section">
+                            <div>
+                                <MudText Typo="Typo.subtitle2" Class="tool-section-title">Export</MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">Download approved shelter profiles and dog counts.</MudText>
+                            </div>
+                            <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Class="tool-actions">
+                                <MudButton Variant="Variant.Outlined"
+                                           Color="Color.Primary"
+                                           Size="Size.Small"
+                                           StartIcon="@Icons.Material.Filled.FileDownload"
+                                           Disabled="_isLoading || _isExporting"
+                                           OnClick="ExportSheltersCsvAsync">
+                                    Export CSV
+                                </MudButton>
+                            </MudStack>
+                        </MudStack>
+                    </MudItem>
+                </MudGrid>
             </MudStack>
         </MudPaper>
 
@@ -41,51 +85,120 @@
         {
             <MudAlert Severity="Severity.Error">@_error</MudAlert>
         }
-        else if (_shelters.Count == 0)
-        {
-            <MudPaper Elevation="0" Class="empty-state pa-5">
-                <MudStack AlignItems="AlignItems.Center" Spacing="2">
-                    <MudIcon Icon="@Icons.Material.Filled.Business" Color="Color.Secondary" Size="Size.Large" />
-                    <MudText Typo="Typo.h6">No shelters found</MudText>
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">Shelter profiles will appear here when they are created.</MudText>
-                </MudStack>
-            </MudPaper>
-        }
         else
         {
-            <MudTable Items="_shelters" Dense="true" Hover="true" Class="table-shell">
-                <HeaderContent>
-                    <MudTh>Name</MudTh>
-                    <MudTh>City</MudTh>
-                    <MudTh>Address</MudTh>
-                    <MudTh>Email</MudTh>
-                    <MudTh>Phone</MudTh>
-                    <MudTh>Map</MudTh>
-                    <MudTh>Dogs</MudTh>
-                    <MudTh></MudTh>
-                </HeaderContent>
-                <RowTemplate>
-                    <MudTd DataLabel="Name">@context.Name</MudTd>
-                    <MudTd DataLabel="City">@context.City</MudTd>
-                    <MudTd DataLabel="Address">@context.Address</MudTd>
-                    <MudTd DataLabel="Email">@context.Email</MudTd>
-                    <MudTd DataLabel="Phone">@(string.IsNullOrWhiteSpace(context.PhoneNumber) ? "-" : context.PhoneNumber)</MudTd>
-                    <MudTd DataLabel="Map">
-                        @if (context.Latitude.HasValue && context.Longitude.HasValue)
+            @if (_importResult is not null)
+            {
+                <MudPaper Elevation="0" Class="section-surface pa-4">
+                    <MudStack Spacing="2">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Class="flex-wrap">
+                            <div>
+                                <MudText Typo="Typo.h6">Shelter Request CSV Preview</MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                    @_importResult.TotalRows rows found, @_importResult.ValidRows valid, @_importResult.InvalidRows invalid.
+                                </MudText>
+                            </div>
+                            <MudSpacer />
+                            <MudButton Variant="Variant.Filled"
+                                       Color="Color.Primary"
+                                       StartIcon="@Icons.Material.Filled.Check"
+                                       Disabled="@(_isImporting || _importResult.HasErrors || _importResult.ValidRows == 0 || _shelterRequestImportFile is null)"
+                                       OnClick="ConfirmShelterRequestImportAsync">
+                                Confirm Import
+                            </MudButton>
+                            <MudButton Variant="Variant.Text" Color="Color.Default" Disabled="_isImporting" OnClick="ClearShelterRequestImportPreview">
+                                Clear
+                            </MudButton>
+                        </MudStack>
+
+                        @if (_importResult.HasErrors)
                         {
-                            <MudChip T="string" Color="Color.Info" Variant="Variant.Outlined" Size="Size.Small">Map location selected</MudChip>
+                            <MudAlert Severity="Severity.Warning">CSV contains validation errors. Please review the rows below.</MudAlert>
                         }
                         else
                         {
-                            <MudChip T="string" Color="Color.Default" Variant="Variant.Outlined" Size="Size.Small">No map location</MudChip>
+                            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">Valid rows will be created as pending shelter registration requests. No user accounts or shelter profiles are created until an admin approves them.</MudAlert>
                         }
-                    </MudTd>
-                    <MudTd DataLabel="Dogs">@context.Dogs.Count</MudTd>
-                    <MudTd>
-                        <MudButton Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Edit" OnClick="@(() => EditShelter(context))">Edit</MudButton>
-                    </MudTd>
-                </RowTemplate>
-            </MudTable>
+
+                        <MudTable Items="_importResult.RowResults" Dense="true" Hover="true" Class="table-shell">
+                            <HeaderContent>
+                                <MudTh>Row</MudTh>
+                                <MudTh>Shelter</MudTh>
+                                <MudTh>Email</MudTh>
+                                <MudTh>City</MudTh>
+                                <MudTh>Action</MudTh>
+                                <MudTh>Status</MudTh>
+                            </HeaderContent>
+                            <RowTemplate Context="row">
+                                <MudTd DataLabel="Row">@row.RowNumber</MudTd>
+                                <MudTd DataLabel="Shelter">@GetImportValue(row, "ShelterName")</MudTd>
+                                <MudTd DataLabel="Email">@GetImportValue(row, "Email")</MudTd>
+                                <MudTd DataLabel="City">@GetImportValue(row, "City")</MudTd>
+                                <MudTd DataLabel="Action">@row.Action</MudTd>
+                                <MudTd DataLabel="Status">
+                                    @if (row.IsValid)
+                                    {
+                                        <MudChip T="string" Color="Color.Success" Size="Size.Small">Valid</MudChip>
+                                    }
+                                    else
+                                    {
+                                        <MudTooltip Text="@FormatImportErrors(row)">
+                                            <MudChip T="string" Color="Color.Error" Size="Size.Small">Invalid</MudChip>
+                                        </MudTooltip>
+                                    }
+                                </MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    </MudStack>
+                </MudPaper>
+            }
+
+            @if (_shelters.Count == 0)
+            {
+                <MudPaper Elevation="0" Class="empty-state pa-5">
+                    <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                        <MudIcon Icon="@Icons.Material.Filled.Business" Color="Color.Secondary" Size="Size.Large" />
+                        <MudText Typo="Typo.h6">No shelters found</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Shelter profiles will appear here when they are created.</MudText>
+                    </MudStack>
+                </MudPaper>
+            }
+            else
+            {
+                <MudTable Items="_shelters" Dense="true" Hover="true" Class="table-shell">
+                    <HeaderContent>
+                        <MudTh>Name</MudTh>
+                        <MudTh>City</MudTh>
+                        <MudTh>Address</MudTh>
+                        <MudTh>Email</MudTh>
+                        <MudTh>Phone</MudTh>
+                        <MudTh>Map</MudTh>
+                        <MudTh>Dogs</MudTh>
+                        <MudTh></MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Name">@context.Name</MudTd>
+                        <MudTd DataLabel="City">@context.City</MudTd>
+                        <MudTd DataLabel="Address">@context.Address</MudTd>
+                        <MudTd DataLabel="Email">@context.Email</MudTd>
+                        <MudTd DataLabel="Phone">@(string.IsNullOrWhiteSpace(context.PhoneNumber) ? "-" : context.PhoneNumber)</MudTd>
+                        <MudTd DataLabel="Map">
+                            @if (context.Latitude.HasValue && context.Longitude.HasValue)
+                            {
+                                <MudChip T="string" Color="Color.Info" Variant="Variant.Outlined" Size="Size.Small">Map location selected</MudChip>
+                            }
+                            else
+                            {
+                                <MudChip T="string" Color="Color.Default" Variant="Variant.Outlined" Size="Size.Small">No map location</MudChip>
+                            }
+                        </MudTd>
+                        <MudTd DataLabel="Dogs">@context.Dogs.Count</MudTd>
+                        <MudTd>
+                            <MudButton Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Edit" OnClick="@(() => EditShelter(context))">Edit</MudButton>
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            }
 
             @if (_editShelter is not null)
             {
@@ -175,8 +288,12 @@
     private bool _isSaving;
     private bool _isReverseGeocoding;
     private bool _isExporting;
+    private bool _isImporting;
     private string? _error;
     private Shelter? _editShelter;
+    private IBrowserFile? _shelterRequestImportFile;
+    private CsvImportResult? _importResult;
+    private int _shelterRequestImportInputKey;
     private double? _savedLatitude;
     private double? _savedLongitude;
     private string _savedAddress = string.Empty;
@@ -185,6 +302,7 @@
     private bool _suggestedAddressUnavailable;
     private int _suggestedAddressRequestVersion;
     private MudForm? _shelterForm;
+    private const long MaxCsvFileSize = 2 * 1024 * 1024;
 
     protected override async Task OnInitializedAsync()
     {
@@ -245,6 +363,115 @@
     private async Task ExportSheltersCsvAsync()
     {
         await ExportAsync(() => ExportService.GenerateSheltersCsvAsync());
+    }
+
+    private async Task OnShelterRequestCsvSelectedAsync(InputFileChangeEventArgs args)
+    {
+        _shelterRequestImportFile = args.File;
+        _importResult = null;
+
+        if (!IsCsvFile(_shelterRequestImportFile))
+        {
+            Snackbar.Add("Please choose a .csv file.", Severity.Warning);
+            ClearShelterRequestImportPreview();
+            return;
+        }
+
+        if (_shelterRequestImportFile.Size > MaxCsvFileSize)
+        {
+            Snackbar.Add("CSV file is too large. Please use a file under 2 MB.", Severity.Warning);
+            ClearShelterRequestImportPreview();
+            return;
+        }
+
+        Snackbar.Add("CSV selected. Click Preview Import to validate it.", Severity.Info);
+        await Task.CompletedTask;
+    }
+
+    private async Task PreviewSelectedShelterRequestFileAsync()
+    {
+        if (_shelterRequestImportFile is null)
+        {
+            Snackbar.Add("Choose a shelter request CSV file first.", Severity.Info);
+            return;
+        }
+
+        if (!IsCsvFile(_shelterRequestImportFile))
+        {
+            Snackbar.Add("Please choose a .csv file.", Severity.Warning);
+            return;
+        }
+
+        if (_shelterRequestImportFile.Size > MaxCsvFileSize)
+        {
+            Snackbar.Add("CSV file is too large. Please use a file under 2 MB.", Severity.Warning);
+            return;
+        }
+
+        _isImporting = true;
+
+        try
+        {
+            await using var stream = _shelterRequestImportFile.OpenReadStream(MaxCsvFileSize);
+            _importResult = await CsvImportService.PreviewAdminShelterRequestsImportAsync(stream);
+            Snackbar.Add(_importResult.HasErrors
+                ? "CSV contains validation errors. Please review the rows below."
+                : "Shelter request CSV preview is ready.",
+                _importResult.HasErrors ? Severity.Warning : Severity.Success);
+        }
+        catch
+        {
+            Snackbar.Add("CSV could not be previewed. Please check the file and try again.", Severity.Error);
+        }
+        finally
+        {
+            _isImporting = false;
+        }
+    }
+
+    private async Task ConfirmShelterRequestImportAsync()
+    {
+        if (_shelterRequestImportFile is null)
+        {
+            Snackbar.Add("Choose a shelter request CSV file first.", Severity.Info);
+            return;
+        }
+
+        _isImporting = true;
+
+        try
+        {
+            await using var stream = _shelterRequestImportFile.OpenReadStream(MaxCsvFileSize);
+            _importResult = await CsvImportService.ImportAdminShelterRequestsAsync(stream);
+            if (_importResult.HasErrors)
+            {
+                Snackbar.Add("CSV contains validation errors. Please review the rows below.", Severity.Warning);
+                return;
+            }
+
+            Snackbar.Add("Shelter requests imported successfully.", Severity.Success);
+            ClearShelterRequestImportPreview();
+        }
+        catch
+        {
+            Snackbar.Add("CSV could not be imported. Please review the validation errors.", Severity.Error);
+        }
+        finally
+        {
+            _isImporting = false;
+        }
+    }
+
+    private async Task DownloadShelterRequestsTemplateAsync()
+    {
+        await FileDownloadService.DownloadAsync(CsvImportService.GenerateAdminShelterRequestsTemplate());
+    }
+
+    private void ClearShelterRequestImportPreview()
+    {
+        _importResult = null;
+        _shelterRequestImportFile = null;
+        _shelterRequestImportInputKey++;
     }
 
     private async Task ExportAsync(Func<Task<ExportFile>> exportAction)
@@ -423,5 +650,20 @@
         return string.Join(", ", new[] { result.SuggestedAddress, result.City }
             .Where(value => !string.IsNullOrWhiteSpace(value))
             .Distinct());
+    }
+
+    private static bool IsCsvFile(IBrowserFile file)
+    {
+        return Path.GetExtension(file.Name).Equals(".csv", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string? GetImportValue(CsvImportRowResult row, string key)
+    {
+        return row.PreviewData.TryGetValue(key, out var value) ? value : null;
+    }
+
+    private static string FormatImportErrors(CsvImportRowResult row)
+    {
+        return string.Join(Environment.NewLine, row.Errors.Select(error => $"{error.Field}: {error.Message}"));
     }
 }

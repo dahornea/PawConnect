@@ -7,6 +7,7 @@
 @inject IFoodTypeService FoodTypeService
 @inject IShelterService ShelterService
 @inject IExportService ExportService
+@inject ICsvImportService CsvImportService
 @inject IBrowserFileDownloadService FileDownloadService
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject UserManager<ApplicationUser> UserManager
@@ -22,27 +23,68 @@
             <MudText Typo="Typo.body2">Manage shelter stock, categories, food types, and low-stock thresholds.</MudText>
         </div>
 
-        <MudPaper Elevation="0" Class="section-surface pa-3">
-            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Spacing="2" Class="flex-wrap">
-                <MudText Typo="Typo.body2" Color="Color.Secondary">Export resource stock records for your shelter only.</MudText>
-                <MudStack Row="true" Spacing="1" Class="flex-wrap">
-                    <MudButton Variant="Variant.Outlined"
-                               Color="Color.Primary"
-                               Size="Size.Small"
-                               StartIcon="@Icons.Material.Filled.FileDownload"
-                               Disabled="@(_isLoading || _isExporting || _shelterId is null)"
-                               OnClick="ExportResourcesCsvAsync">
-                        Export CSV
-                    </MudButton>
-                    <MudButton Variant="Variant.Outlined"
-                               Color="Color.Secondary"
-                               Size="Size.Small"
-                               StartIcon="@Icons.Material.Filled.PictureAsPdf"
-                               Disabled="@(_isLoading || _isExporting || _shelterId is null)"
-                               OnClick="ExportResourcesPdfAsync">
-                        Export PDF
-                    </MudButton>
-                </MudStack>
+        <MudPaper Elevation="0" Class="section-surface import-export-card pa-4">
+            <MudStack Spacing="3">
+                <div>
+                    <MudText Typo="Typo.h6" Class="content-title">Resource records</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Import or export resource stock records for your shelter only.</MudText>
+                </div>
+                <MudGrid Spacing="3">
+                    <MudItem xs="12" md="7">
+                        <MudStack Spacing="2" Class="tool-section">
+                            <div>
+                                <MudText Typo="Typo.subtitle2" Class="tool-section-title">Import CSV</MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">Preview and validate stock records before importing.</MudText>
+                            </div>
+                            <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Class="tool-actions">
+                                <div class="file-picker-shell">
+                                    <InputFile @key="_resourceImportInputKey" OnChange="OnResourceCsvSelectedAsync" accept=".csv" />
+                                </div>
+                                <MudButton Variant="Variant.Outlined"
+                                           Color="Color.Primary"
+                                           Size="Size.Small"
+                                           StartIcon="@Icons.Material.Filled.FileUpload"
+                                           Disabled="@(_isLoading || _isImporting || _shelterId is null)"
+                                           OnClick="PreviewSelectedResourceFileAsync">
+                                    Preview Import
+                                </MudButton>
+                                <MudButton Variant="Variant.Text"
+                                           Color="Color.Primary"
+                                           Size="Size.Small"
+                                           StartIcon="@Icons.Material.Filled.Download"
+                                           OnClick="DownloadResourceTemplateAsync">
+                                    Download Template
+                                </MudButton>
+                            </MudStack>
+                        </MudStack>
+                    </MudItem>
+                    <MudItem xs="12" md="5">
+                        <MudStack Spacing="2" Class="tool-section">
+                            <div>
+                                <MudText Typo="Typo.subtitle2" Class="tool-section-title">Export</MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">Download stock records as CSV or a formatted PDF.</MudText>
+                            </div>
+                            <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Class="tool-actions">
+                                <MudButton Variant="Variant.Outlined"
+                                           Color="Color.Primary"
+                                           Size="Size.Small"
+                                           StartIcon="@Icons.Material.Filled.FileDownload"
+                                           Disabled="@(_isLoading || _isExporting || _shelterId is null)"
+                                           OnClick="ExportResourcesCsvAsync">
+                                    Export CSV
+                                </MudButton>
+                                <MudButton Variant="Variant.Outlined"
+                                           Color="Color.Secondary"
+                                           Size="Size.Small"
+                                           StartIcon="@Icons.Material.Filled.PictureAsPdf"
+                                           Disabled="@(_isLoading || _isExporting || _shelterId is null)"
+                                           OnClick="ExportResourcesPdfAsync">
+                                    Export PDF
+                                </MudButton>
+                            </MudStack>
+                        </MudStack>
+                    </MudItem>
+                </MudGrid>
             </MudStack>
         </MudPaper>
 
@@ -59,6 +101,68 @@
         }
         else
         {
+            @if (_importResult is not null)
+            {
+                <MudPaper Elevation="0" Class="section-surface pa-4">
+                    <MudStack Spacing="2">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Class="flex-wrap">
+                            <div>
+                                <MudText Typo="Typo.h6">Resource CSV Preview</MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                    @_importResult.TotalRows rows found, @_importResult.ValidRows valid, @_importResult.InvalidRows invalid.
+                                </MudText>
+                            </div>
+                            <MudSpacer />
+                            <MudButton Variant="Variant.Filled"
+                                       Color="Color.Primary"
+                                       StartIcon="@Icons.Material.Filled.Check"
+                                       Disabled="@(_isImporting || _importResult.HasErrors || _importResult.ValidRows == 0 || _resourceImportFile is null)"
+                                       OnClick="ConfirmResourceImportAsync">
+                                Confirm Import
+                            </MudButton>
+                            <MudButton Variant="Variant.Text" Color="Color.Default" Disabled="_isImporting" OnClick="ClearResourceImportPreview">
+                                Clear
+                            </MudButton>
+                        </MudStack>
+
+                        @if (_importResult.HasErrors)
+                        {
+                            <MudAlert Severity="Severity.Warning">CSV contains validation errors. Please fix them and try again.</MudAlert>
+                        }
+
+                        <MudTable Items="_importResult.RowResults" Dense="true" Hover="true" Class="table-shell">
+                            <HeaderContent>
+                                <MudTh>Row</MudTh>
+                                <MudTh>Action</MudTh>
+                                <MudTh>Name</MudTh>
+                                <MudTh>Category</MudTh>
+                                <MudTh>Quantity</MudTh>
+                                <MudTh>Status</MudTh>
+                            </HeaderContent>
+                            <RowTemplate Context="row">
+                                <MudTd DataLabel="Row">@row.RowNumber</MudTd>
+                                <MudTd DataLabel="Action">@row.Action</MudTd>
+                                <MudTd DataLabel="Name">@GetImportValue(row, "Name")</MudTd>
+                                <MudTd DataLabel="Category">@GetImportValue(row, "Category")</MudTd>
+                                <MudTd DataLabel="Quantity">@GetImportValue(row, "Quantity") @GetImportValue(row, "Unit")</MudTd>
+                                <MudTd DataLabel="Status">
+                                    @if (row.IsValid)
+                                    {
+                                        <MudChip T="string" Color="Color.Success" Size="Size.Small">Valid</MudChip>
+                                    }
+                                    else
+                                    {
+                                        <MudTooltip Text="@FormatImportErrors(row)">
+                                            <MudChip T="string" Color="Color.Error" Size="Size.Small">Invalid</MudChip>
+                                        </MudTooltip>
+                                    }
+                                </MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    </MudStack>
+                </MudPaper>
+            }
+
             <MudPaper Elevation="0" Class="section-surface resource-form pa-4">
                 <MudStack Spacing="2">
                     <MudText Typo="Typo.h6">@(_model.Id == 0 ? "Add Resource" : "Edit Resource")</MudText>
@@ -167,8 +271,13 @@
     private bool _isLoading = true;
     private bool _isSaving;
     private bool _isExporting;
+    private bool _isImporting;
     private string? _error;
     private int? _shelterId;
+    private IBrowserFile? _resourceImportFile;
+    private CsvImportResult? _importResult;
+    private int _resourceImportInputKey;
+    private const long MaxCsvFileSize = 2 * 1024 * 1024;
 
     private bool IsFoodCategorySelected =>
         _categories.FirstOrDefault(c => c.Id == _model.ResourceCategoryId)?.Name.Equals("Food", StringComparison.OrdinalIgnoreCase) == true;
@@ -261,6 +370,104 @@
         }
 
         await ExportAsync(() => ExportService.GenerateShelterResourcesCsvAsync(_shelterId.Value));
+    }
+
+    private async Task OnResourceCsvSelectedAsync(InputFileChangeEventArgs args)
+    {
+        _resourceImportFile = args.File;
+        await PreviewSelectedResourceFileAsync();
+    }
+
+    private async Task PreviewSelectedResourceFileAsync()
+    {
+        if (_shelterId is null)
+        {
+            Snackbar.Add("Current shelter profile could not be found.", Severity.Error);
+            return;
+        }
+
+        if (_resourceImportFile is null)
+        {
+            Snackbar.Add("Choose a CSV file first.", Severity.Info);
+            return;
+        }
+
+        if (!IsCsvFile(_resourceImportFile))
+        {
+            Snackbar.Add("Please choose a .csv file.", Severity.Warning);
+            ClearResourceImportPreview();
+            return;
+        }
+
+        if (_resourceImportFile.Size > MaxCsvFileSize)
+        {
+            Snackbar.Add("CSV file is too large. Please use a file under 2 MB.", Severity.Warning);
+            ClearResourceImportPreview();
+            return;
+        }
+
+        _isImporting = true;
+
+        try
+        {
+            await using var stream = _resourceImportFile.OpenReadStream(MaxCsvFileSize);
+            _importResult = await CsvImportService.PreviewShelterResourcesImportAsync(stream, _shelterId.Value);
+            Snackbar.Add(_importResult.HasErrors ? "CSV contains validation errors. Please review the preview." : "CSV preview is ready.", _importResult.HasErrors ? Severity.Warning : Severity.Success);
+        }
+        catch
+        {
+            Snackbar.Add("CSV could not be imported. Please review the validation errors.", Severity.Error);
+        }
+        finally
+        {
+            _isImporting = false;
+        }
+    }
+
+    private async Task ConfirmResourceImportAsync()
+    {
+        if (_shelterId is null || _resourceImportFile is null)
+        {
+            Snackbar.Add("Choose a CSV file first.", Severity.Warning);
+            return;
+        }
+
+        _isImporting = true;
+
+        try
+        {
+            await using var stream = _resourceImportFile.OpenReadStream(MaxCsvFileSize);
+            _importResult = await CsvImportService.ImportShelterResourcesAsync(stream, _shelterId.Value);
+            if (_importResult.HasErrors)
+            {
+                Snackbar.Add("CSV contains validation errors. Please fix them and try again.", Severity.Warning);
+                return;
+            }
+
+            await LoadResourcesAsync();
+            Snackbar.Add("Resources imported successfully.", Severity.Success);
+            ClearResourceImportPreview();
+        }
+        catch
+        {
+            Snackbar.Add("CSV could not be imported. Please review the validation errors.", Severity.Error);
+        }
+        finally
+        {
+            _isImporting = false;
+        }
+    }
+
+    private async Task DownloadResourceTemplateAsync()
+    {
+        await FileDownloadService.DownloadAsync(CsvImportService.GenerateShelterResourcesTemplate());
+    }
+
+    private void ClearResourceImportPreview()
+    {
+        _importResult = null;
+        _resourceImportFile = null;
+        _resourceImportInputKey++;
     }
 
     private async Task ExportResourcesPdfAsync()
@@ -395,6 +602,21 @@
     private static bool IsLowStock(ResourceStock resource)
     {
         return resource.Quantity <= resource.LowStockThreshold;
+    }
+
+    private static bool IsCsvFile(IBrowserFile file)
+    {
+        return Path.GetExtension(file.Name).Equals(".csv", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string? GetImportValue(CsvImportRowResult row, string key)
+    {
+        return row.PreviewData.TryGetValue(key, out var value) ? value : null;
+    }
+
+    private static string FormatImportErrors(CsvImportRowResult row)
+    {
+        return string.Join(" ", row.Errors.Select(error => error.Message));
     }
 
     private async Task<bool> ConfirmAsync(string title, string message, string confirmText, Color confirmColor, string icon)

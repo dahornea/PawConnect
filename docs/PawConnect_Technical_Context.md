@@ -153,6 +153,7 @@ Admin pages are protected with `[Authorize(Roles = "Admin")]`. Advanced role edi
 - **Accept/reject workflow**: Shelters can accept or reject pending requests for their own dogs.
 - **Internal notes**: Private notes are visible to shelters and admins, not adopters or public users.
 - **Shelter exports**: Shelter users can export only their own operational data. `/shelter/dogs` provides CSV export, while `/shelter/adoption-requests` and `/shelter/resources` provide CSV and formatted PDF exports.
+- **Shelter CSV imports**: Shelter users can import resource stock and dog records from `.csv` files through a preview-and-validate workflow. Imported rows are scoped to the authenticated shelter.
 - **Location coordinates**: Shelter records can store optional latitude and longitude coordinates. These coordinates are used to display the shelter location on the public shelter profile page.
 - **Address-based coordinate lookup**: Shelter application and admin shelter edit forms can use manual Nominatim lookup to fill optional coordinates from city/address.
 - **Editable coordinate map**: The public shelter application and admin shelter edit forms hide raw latitude/longitude inputs in normal use and use the editable map marker as the location editor.
@@ -166,12 +167,13 @@ Admin pages are protected with `[Authorize(Roles = "Admin")]`. Advanced role edi
 - **Shelters page**: Lists shelters and dog counts. Allows editing shelter profile/contact fields.
 - **Shelter coordinates**: Admin shelter editing stores optional latitude and longitude values internally so public shelter profile maps can be displayed.
 - **Shelter request review**: Admins review pending shelter applications at `/admin/shelter-requests`. Accepting a request creates an `ApplicationUser`, assigns the `Shelter` role, and creates a linked `Shelter` profile. Rejecting a request does not create a user or shelter. Accept/reject actions are restricted to Admin users.
+- **Admin shelter request import**: Admins can import shelter application CSV rows from `/admin/shelters`. Imported rows become pending `ShelterRegistrationRequest` records and still require approval before any user account or shelter profile is created.
 - **Dogs page**: Lists all dogs across shelters, including status, shelter, success story indicator, status history access, and allowed delete action.
 - **Adoption requests page**: Lists all adoption requests and request/profile details for admin review.
 - **Admin exports**: Admin pages provide CSV downloads for users, shelters, dogs, adoption requests, and shelter applications. Adoption request and shelter application pages also provide formatted PDF summary exports.
 - **Report history**: Admins review generated/sent report and export metadata at `/admin/report-history`.
 - **Activity log**: Admins can review important user and system actions at `/admin/activity-log`.
-- **In-app notifications**: Admins receive private notifications for important admin-facing events such as new shelter applications.
+- **In-app notifications**: Admins receive private notifications for important admin-facing events such as new shelter applications and successful shelter request CSV imports.
 
 ## 5. Domain Model / Entities
 
@@ -791,6 +793,15 @@ Export organization:
 - `Components/Pages/Shelter/ManageDogs.razor`, `Components/Pages/Shelter/ShelterAdoptionRequests.razor`, and `Components/Pages/Shelter/Resources.razor`: Shelter pages expose compact export buttons scoped to the authenticated shelter.
 - `Components/Pages/Shelter/ShelterDashboard.razor`: Shows recent report history metadata for the authenticated shelter.
 
+CSV import organization:
+
+- `Services/ICsvImportService.cs` and `Services/CsvImportService.cs`: Parse CSV input, validate headers and row values, produce row-level preview results, import valid shelter resource/dog rows for the current shelter only, and import Admin shelter CSV rows as pending shelter registration requests.
+- `Services/CsvImportModels.cs`: Contains `CsvImportResult`, `CsvImportRowResult`, `CsvImportValidationError`, and import action labels used by the preview UI.
+- `Components/Pages/Admin/AdminShelters.razor`: Provides shelter request CSV template download, upload preview, row validation display, confirmed import, and approved shelter CSV export.
+- `Components/Pages/Shelter/Resources.razor`: Provides resource CSV template download, upload preview, row validation display, and confirmed import.
+- `Components/Pages/Shelter/ManageDogs.razor`: Provides dog CSV template download, upload preview, row validation display, and confirmed import.
+- `Services/AuditActions.cs`: Includes `ResourceCsvImported`, `DogCsvImported`, and `ShelterRequestsCsvImported` action names for successful import logging.
+
 Notification organization:
 
 - `Entities/Notification.cs`: Stores private in-app notification records.
@@ -961,6 +972,36 @@ The public map is read-only. Address lookup and explicit address updates from th
 9. `IBrowserFileDownloadService` downloads the generated file in the browser without storing it in the database.
 10. `ReportHistoryService` records shelter export metadata with the current `ShelterId`, preserving ownership filtering for history views.
 
+### CSV Import Flows
+
+Shelter-owned operational imports:
+
+1. A Shelter user opens `/shelter/resources` or `/shelter/dogs`.
+2. The page resolves the current shelter from the authenticated Identity user.
+3. The user can download a CSV template:
+   - `pawconnect-resource-import-template.csv`
+   - `pawconnect-dog-import-template.csv`
+4. The user selects a `.csv` file. The page validates extension and size before reading the file into memory.
+5. `ICsvImportService` parses the header row, trims values, supports quoted CSV values, and validates every row.
+6. The page shows a preview summary with total, valid, and invalid rows plus row-level errors.
+7. The confirm action is available only when the preview has no blocking row errors.
+8. Resource imports create or update resource stock for the current shelter based on name, category, and food type. Non-food resources ignore/clear food type values.
+9. Dog imports create dog records for the current shelter and add optional semicolon-separated HTTP/HTTPS image URLs as `DogImage` records.
+10. Invalid rows are not imported silently. The workflow is all-or-nothing for simplicity and clear user feedback.
+11. Successful imports are recorded in `AuditLogs` with the imported row count, without storing full CSV content.
+
+Admin shelter request imports:
+
+1. An Admin user opens `/admin/shelters`.
+2. The user can download `pawconnect-shelter-requests-import-template.csv`.
+3. The user selects a `.csv` file, previews it, and reviews row-level validation results.
+4. `ICsvImportService` validates required application fields, email format, optional website URL, optional latitude/longitude ranges, duplicate emails in the CSV, duplicate pending shelter applications, and existing shelter/user emails.
+5. Address and city are normalized separately, so rows such as `Strada Exemplu 10, Cluj-Napoca` store `Address = Strada Exemplu 10` and `City = Cluj-Napoca`.
+6. Confirming a valid preview creates `ShelterRegistrationRequest` rows with `Pending` status only.
+7. The import does not create `ApplicationUser` accounts, assign roles, or create `Shelter` profiles.
+8. Admins review imported requests at `/admin/shelter-requests`; accepting or rejecting uses the existing shelter registration request approval flow.
+9. Successful Admin shelter request imports are recorded in `AuditLogs` as `ShelterRequestsCsvImported`, with row counts and without storing full CSV content.
+
 ### Report History Flow
 
 1. A report/email/export flow generates report metadata, such as file name, report type, recipient, trigger type, and related shelter/entity information.
@@ -974,7 +1015,7 @@ The public map is read-only. Address lookup and explicit address updates from th
 
 ### In-App Notification Flow
 
-1. A successful business action occurs in an existing service, such as a new adoption request, an accepted/rejected adoption request, a low-stock resource update, a shelter application submission, or a shelter summary report send.
+1. A successful business action occurs in an existing service, such as a new adoption request, an accepted/rejected adoption request, a low-stock resource update, a shelter application submission, a shelter request CSV import, or a shelter summary report send.
 2. The service keeps existing email/snackbar behavior and additionally calls `INotificationService`.
 3. `NotificationService` creates a `Notification` row for the intended `ApplicationUser`.
 4. The top-bar `NotificationBell` loads the current user's unread count and recent notifications.
@@ -1253,6 +1294,7 @@ Examples of service validation:
 - `ShelterService` validates shelter profile contact fields, duplicate shelter email, separated address/city values, and optional latitude/longitude ranges.
 - `ShelterRegistrationRequestService` validates shelter application required fields, duplicate pending emails with case-insensitive trimmed comparison, existing shelter account/profile email conflicts, separated address/city values, optional latitude/longitude ranges, role restrictions for public submission, and admin-only pending accept/reject behavior.
 - `ExportService` scopes Admin exports to Admin pages and Shelter exports to the current shelter, while excluding sensitive Identity fields.
+- `CsvImportService` validates shelter CSV imports before saving, detects duplicate rows, scopes shelter-owned imports to the current shelter, imports Admin shelter rows only as pending registration requests, blocks invalid row data, and processes uploaded CSV files in memory without storing them permanently.
 - `NotificationService` enforces notification ownership for read/delete operations and ignores empty notification titles or messages.
 - `NominatimGeocodingService` returns `null` for missing/failed geocoding results so forms can show friendly messages without blocking application submission.
 
@@ -1379,6 +1421,11 @@ Current test coverage includes:
 - Shelter adoption requests CSV includes only requests for the current shelter's dogs.
 - Shelter resources CSV includes only current shelter resources and low-stock status.
 - Shelter adoption request and resource PDF exports return non-empty PDF bytes.
+- Shelter resource CSV import validates required fields, duplicate rows, negative values, food/non-food rules, existing resource updates, and current-shelter scoping.
+- Shelter dog CSV import validates age/status rules, required fields, optional image URLs, duplicate image URLs, and current-shelter ownership.
+- Admin shelter request CSV import creates pending `ShelterRegistrationRequest` rows without creating users or approved shelters directly.
+- Admin shelter request CSV import blocks duplicate pending emails, existing shelter/user emails, invalid email values, invalid coordinate values, and duplicated city/address storage.
+- Imported shelter request rows can still be accepted through the existing admin approval flow, creating the shelter user, role assignment, and linked shelter profile at approval time.
 - Report history records are created for manual shelter summary reports.
 - Report history records are created for failed shelter report sends.
 - Scheduled shelter reports are tracked with the Quartz trigger.
@@ -1461,6 +1508,7 @@ PawConnect is suitable for a bachelor thesis because it demonstrates:
 - Approval-based shelter onboarding with admin review.
 - Third-party map/location integration using Leaflet, OpenStreetMap, and manual Nominatim geocoding.
 - Service-layer validation and ownership checks.
+- CSV import/export workflows for shelter operational data and admin platform data.
 - Email communication using SMTP.
 - Persistent role-based in-app notifications grouped by adoption, shelter application, resource, report, and system categories.
 - PDF report generation with structured report content.

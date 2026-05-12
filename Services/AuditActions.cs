@@ -23,6 +23,10 @@ public static class AuditActions
     public const string ResourceCreated = nameof(ResourceCreated);
     public const string ResourceUpdated = nameof(ResourceUpdated);
     public const string ResourceDeleted = nameof(ResourceDeleted);
+    public const string ResourceCsvImported = nameof(ResourceCsvImported);
+    public const string DogCsvImported = nameof(DogCsvImported);
+    public const string ShelterCsvImported = nameof(ShelterCsvImported);
+    public const string ShelterRequestsCsvImported = nameof(ShelterRequestsCsvImported);
     public const string UserUpdatedByAdmin = nameof(UserUpdatedByAdmin);
     public const string ShelterUpdatedByAdmin = nameof(ShelterUpdatedByAdmin);
     public const string ReportGenerated = nameof(ReportGenerated);
@@ -51,6 +55,10 @@ public static class AuditActions
         ResourceCreated,
         ResourceUpdated,
         ResourceDeleted,
+        ResourceCsvImported,
+        DogCsvImported,
+        ShelterCsvImported,
+        ShelterRequestsCsvImported,
         UserUpdatedByAdmin,
         ShelterUpdatedByAdmin,
         ReportGenerated,
