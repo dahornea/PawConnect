@@ -99,7 +99,7 @@ public class ResourceStockService(
 
     public async Task CreateResourceAsync(ResourceStock resource, int shelterId)
     {
-        await PrepareResourceAsync(resource);
+        await PrepareResourceAsync(resource, shelterId);
 
         resource.Id = 0;
         resource.ShelterId = shelterId;
@@ -119,13 +119,13 @@ public class ResourceStockService(
 
     public async Task UpdateResourceAsync(ResourceStock resource, int shelterId)
     {
-        await PrepareResourceAsync(resource);
-
         var existingResource = await context.ResourceStocks.FirstOrDefaultAsync(r => r.Id == resource.Id && r.ShelterId == shelterId);
         if (existingResource is null)
         {
             throw new InvalidOperationException("Resource stock item was not found for your shelter.");
         }
+
+        await PrepareResourceAsync(resource, shelterId, resource.Id);
 
         existingResource.Name = resource.Name.Trim();
         existingResource.ResourceCategoryId = resource.ResourceCategoryId;
@@ -163,7 +163,7 @@ public class ResourceStockService(
             additionalData: $"ShelterId={shelterId}");
     }
 
-    private async Task PrepareResourceAsync(ResourceStock resource)
+    private async Task PrepareResourceAsync(ResourceStock resource, int shelterId, int? currentResourceId = null)
     {
         ValidateResource(resource);
 
@@ -177,6 +177,10 @@ public class ResourceStockService(
         {
             resource.FoodTypeId = null;
         }
+        else if (!resource.FoodTypeId.HasValue)
+        {
+            throw new InvalidOperationException("Food type is required for food resources.");
+        }
         else if (resource.FoodTypeId.HasValue)
         {
             var foodTypeExists = await context.FoodTypes.AnyAsync(f => f.Id == resource.FoodTypeId.Value);
@@ -188,6 +192,19 @@ public class ResourceStockService(
 
         resource.Name = resource.Name.Trim();
         resource.Unit = resource.Unit.Trim();
+
+        var normalizedName = resource.Name.ToUpperInvariant();
+        var duplicateExists = await context.ResourceStocks.AnyAsync(r =>
+            r.ShelterId == shelterId &&
+            (!currentResourceId.HasValue || r.Id != currentResourceId.Value) &&
+            r.ResourceCategoryId == resource.ResourceCategoryId &&
+            r.FoodTypeId == resource.FoodTypeId &&
+            r.Name.Trim().ToUpper() == normalizedName);
+
+        if (duplicateExists)
+        {
+            throw new InvalidOperationException("This resource already exists in your shelter stock.");
+        }
     }
 
     private static void ValidateResource(ResourceStock resource)

@@ -43,6 +43,7 @@ PawConnect is a beginner-friendly ASP.NET Core Blazor Server skeleton for a stra
 - Admin Activity Log for important user and system actions
 - Role-based in-app notifications with categorized notification bell and `/notifications` page
 - Optional address-based coordinate lookup using OpenStreetMap Nominatim
+- Service-level validation and duplicate prevention for core shelter, adoption, dog image, resource, export, notification, and report workflows
 
 ## Planned Features
 
@@ -80,6 +81,25 @@ Administrators review requests at:
 When an administrator accepts a request, PawConnect creates an `ApplicationUser`, assigns the `Shelter` role, and creates a linked `Shelter` profile. Rejected requests do not create a user or shelter profile. Admin-managed shelter editing remains available for already approved shelters.
 
 Submitting a shelter request attempts to notify admins by email and attach a PDF summary. Email/PDF failures are logged and do not delete or cancel the saved request.
+
+## Validation and Duplicate Prevention
+
+PawConnect uses friendly UI validation together with service-level safeguards for important business rules. UI checks help users fix forms quickly, but ownership, duplicate prevention, and status transition rules are enforced in services so they are not bypassed by page changes.
+
+Important rules include:
+
+- Shelter application emails are trimmed and compared case-insensitively. A duplicate pending shelter application is blocked, and existing shelter account/profile emails cannot be reused for a new shelter application or approval.
+- Adoption requests are limited to requestable dogs. Duplicate pending requests from the same adopter for the same dog are blocked, adopted/in-treatment dogs cannot receive new requests, and accept/reject/cancel actions require the request to still be pending.
+- Shelter users can manage adoption requests only for dogs owned by their shelter. Adopters can cancel only their own pending requests.
+- Dog image URLs are trimmed, empty URLs are ignored, and the same image URL cannot be added twice to the same dog.
+- Dog forms validate required identity fields, non-negative age/food values, valid month ranges, and avoid saving unusable dog age data.
+- Dogs with adoption request history cannot be hard deleted. Favorites and recently viewed rows do not block deletion when no adoption request history exists.
+- Resource stock validates name, category, unit, non-negative quantity/threshold, required food type for food resources, cleared food type for non-food resources, and duplicate shelter stock items.
+- Shelter address and city remain separate. Latitude/Longitude are optional internal map fields and are range-checked when present; missing or failed geocoding does not block application or shelter creation.
+- Admin and Shelter exports are role-protected and scoped to the correct data. Sensitive Identity fields such as password hashes, security stamps, concurrency stamps, and tokens are intentionally excluded.
+- In-app notification read/delete operations check ownership, and audit logging avoids sensitive values such as passwords, reset tokens, security stamps, and SMTP credentials.
+
+Validation failures use user-friendly messages through form validation, MudSnackbar, or MudAlert where appropriate, instead of raw technical exceptions.
 
 ## Email Notifications
 

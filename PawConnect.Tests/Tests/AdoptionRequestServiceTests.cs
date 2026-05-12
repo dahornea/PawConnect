@@ -69,7 +69,22 @@ public class AdoptionRequestServiceTests
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             service.CreateRequestAsync(TestDbContextFactory.AdopterId, dog.Id, new AdoptionRequestQuestionnaire("Another reason", null, null)));
 
-        Assert.Equal("You already have a pending adoption request for this dog.", exception.Message);
+        Assert.Equal("You already have a pending request for this dog.", exception.Message);
+    }
+
+    [Fact]
+    public async Task CreateRequestAsync_BlocksAdoptedDog()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        var dog = TestDbContextFactory.CreateDog("Adopted Request Dog", DogStatus.Adopted);
+        context.Dogs.Add(dog);
+        await context.SaveChangesAsync();
+        var service = CreateService(context);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.CreateRequestAsync(TestDbContextFactory.AdopterId, dog.Id, new AdoptionRequestQuestionnaire("Good reason", null, null)));
+
+        Assert.Equal("Adoption requests can only be submitted for available or reserved dogs.", exception.Message);
     }
 
     [Fact]
@@ -123,7 +138,35 @@ public class AdoptionRequestServiceTests
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             service.AcceptRequestAsync(request.Id, TestDbContextFactory.OtherShelterId));
 
-        Assert.Equal("This adoption request does not belong to your shelter.", exception.Message);
+        Assert.Equal("You cannot manage requests for another shelter's dog.", exception.Message);
+    }
+
+    [Fact]
+    public async Task AcceptRequestAsync_BlocksNonPendingRequest()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        var request = await SeedPendingRequestAsync(context, DogStatus.Available);
+        request.Status = AdoptionRequestStatus.Rejected;
+        await context.SaveChangesAsync();
+        var service = CreateService(context);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.AcceptRequestAsync(request.Id, TestDbContextFactory.ShelterId));
+
+        Assert.Equal("Only pending requests can be accepted.", exception.Message);
+    }
+
+    [Fact]
+    public async Task AcceptRequestAsync_BlocksAdoptedDog()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        var request = await SeedPendingRequestAsync(context, DogStatus.Adopted);
+        var service = CreateService(context);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.AcceptRequestAsync(request.Id, TestDbContextFactory.ShelterId));
+
+        Assert.Equal("This dog has already been adopted.", exception.Message);
     }
 
     [Fact]
@@ -138,6 +181,20 @@ public class AdoptionRequestServiceTests
         Assert.Equal(AdoptionRequestStatus.Cancelled, (await context.AdoptionRequests.FindAsync(request.Id))!.Status);
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             service.CancelRequestAsync(request.Id, TestDbContextFactory.AdopterId));
+    }
+
+    [Fact]
+    public async Task CancelRequestAsync_BlocksAnotherAdopter()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        var request = await SeedPendingRequestAsync(context, DogStatus.Available);
+        var service = CreateService(context);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.CancelRequestAsync(request.Id, TestDbContextFactory.SecondAdopterId));
+
+        Assert.Equal("You can only cancel your own adoption requests.", exception.Message);
+        Assert.Equal(AdoptionRequestStatus.Pending, (await context.AdoptionRequests.FindAsync(request.Id))!.Status);
     }
 
     private static AdoptionRequestService CreateService(ApplicationDbContext context)

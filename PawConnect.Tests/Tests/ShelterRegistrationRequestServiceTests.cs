@@ -31,7 +31,56 @@ public class ShelterRegistrationRequestServiceTests
         await service.SubmitRequestAsync(CreateRequest());
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.SubmitRequestAsync(CreateRequest()));
-        Assert.Contains("pending shelter application", exception.Message);
+        Assert.Equal("A shelter application with this email is already pending review.", exception.Message);
+    }
+
+    [Fact]
+    public async Task SubmitRequestAsync_BlocksDuplicatePendingRequestCaseInsensitively()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        var service = CreateService(context);
+
+        await service.SubmitRequestAsync(CreateRequest(email: "New-Shelter@Example.Test"));
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.SubmitRequestAsync(CreateRequest(email: " new-shelter@example.test ")));
+
+        Assert.Equal("A shelter application with this email is already pending review.", exception.Message);
+    }
+
+    [Fact]
+    public async Task SubmitRequestAsync_BlocksExistingShelterAccountEmail()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        var service = CreateService(context);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.SubmitRequestAsync(CreateRequest(email: " shelter@test.com ")));
+
+        Assert.Equal("A shelter account with this email already exists.", exception.Message);
+    }
+
+    [Fact]
+    public async Task SubmitRequestAsync_RejectsInvalidCoordinates()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        var service = CreateService(context);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.SubmitRequestAsync(CreateRequest(latitude: 91, longitude: 23.6)));
+
+        Assert.Equal("Latitude must be between -90 and 90.", exception.Message);
+    }
+
+    [Fact]
+    public async Task SubmitRequestAsync_StoresAddressWithoutDuplicatedCity()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        var service = CreateService(context);
+
+        var request = await service.SubmitRequestAsync(CreateRequest(address: "Strada Test 10, Cluj-Napoca"));
+
+        Assert.Equal("Strada Test 10", request.Address);
     }
 
     [Fact]
@@ -176,16 +225,20 @@ public class ShelterRegistrationRequestServiceTests
             NullLogger<ShelterRegistrationRequestService>.Instance);
     }
 
-    private static ShelterRegistrationRequest CreateRequest(double? latitude = 46.75, double? longitude = 23.6)
+    private static ShelterRegistrationRequest CreateRequest(
+        double? latitude = 46.75,
+        double? longitude = 23.6,
+        string email = "new-shelter@example.test",
+        string address = "Strada Test 10")
     {
         return new ShelterRegistrationRequest
         {
             ShelterName = "New Shelter",
             ContactPersonName = "Shelter Contact",
-            Email = "new-shelter@example.test",
+            Email = email,
             PhoneNumber = "+40 700 000 005",
             City = "Cluj-Napoca",
-            Address = "Strada Test 10",
+            Address = address,
             Description = "A demo shelter application for testing.",
             Website = "https://example.test",
             OpeningHours = "Mon-Fri 09:00-17:00",

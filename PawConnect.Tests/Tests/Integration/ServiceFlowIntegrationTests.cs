@@ -85,7 +85,7 @@ public class ServiceFlowIntegrationTests
         Assert.Equal("I live close to a park.", request.AdditionalInformation);
         Assert.Single(owningShelterRequests);
         Assert.Empty(otherShelterRequests);
-        Assert.Equal("You already have a pending adoption request for this dog.", duplicateException.Message);
+        Assert.Equal("You already have a pending request for this dog.", duplicateException.Message);
         Assert.Equal(AdoptionRequestStatus.Accepted, acceptedRequest.Status);
         Assert.Equal(DogStatus.Reserved, acceptedRequest.Dog!.Status);
         Assert.True(await context.DogStatusHistories.AnyAsync(h => h.DogId == dog.Id));

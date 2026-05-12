@@ -1187,15 +1187,17 @@ Validation is implemented at several levels:
 
 Examples of service validation:
 
-- `DogService` validates dog name, breed, location, age years/months, and daily food amount.
-- `DogImageService` validates image URLs and shelter ownership.
+- `DogService` validates dog name, breed, location, age years/months, daily food amount, shelter ownership, and dog deletion restrictions.
+- `DogImageService` validates image URLs, trims empty input, prevents duplicate image URLs for the same dog, and enforces shelter ownership.
 - `MedicalRecordService` validates record date and shelter ownership.
-- `AdoptionRequestService` validates adopter role, dog status, duplicate pending request, pending-only status changes, and questionnaire fields.
+- `AdoptionRequestService` validates adopter role, requestable dog status, duplicate pending request, pending-only status changes, dog ownership for shelter actions, adopter ownership for cancellation, and questionnaire fields.
 - `FavoriteDogService` validates adopter role and public-safe dog status.
-- `ResourceStockService` validates name, category, quantity, threshold, unit, and shelter ownership.
+- `ResourceStockService` validates name, category, non-negative quantity/threshold, unit, required food type for food resources, cleared food type for non-food resources, duplicate stock items per shelter/category/name/food type, and shelter ownership.
 - `AdopterProfileService` validates full name, city, phone number, and profile image URL.
-- `ShelterService` validates shelter profile contact fields, duplicate shelter email, and optional latitude/longitude ranges.
-- `ShelterRegistrationRequestService` validates shelter application required fields, duplicate pending emails, optional latitude/longitude ranges, role restrictions for public submission, and admin-only pending accept/reject behavior.
+- `ShelterService` validates shelter profile contact fields, duplicate shelter email, separated address/city values, and optional latitude/longitude ranges.
+- `ShelterRegistrationRequestService` validates shelter application required fields, duplicate pending emails with case-insensitive trimmed comparison, existing shelter account/profile email conflicts, separated address/city values, optional latitude/longitude ranges, role restrictions for public submission, and admin-only pending accept/reject behavior.
+- `ExportService` scopes Admin exports to Admin pages and Shelter exports to the current shelter, while excluding sensitive Identity fields.
+- `NotificationService` enforces notification ownership for read/delete operations and ignores empty notification titles or messages.
 - `NominatimGeocodingService` returns `null` for missing/failed geocoding results so forms can show friendly messages without blocking application submission.
 
 Error handling patterns:
@@ -1218,6 +1220,9 @@ Important delete restrictions:
 - Dogs with adoption request history cannot be hard deleted.
 - Favorites and recently viewed records do not block dog deletion and are removed when deleting a dog that has no adoption requests.
 - Adoption requests are preserved when dog deletion is blocked.
+- Shelter coordinates are optional; invalid coordinate ranges are rejected only when values are provided.
+- Geocoding failures do not block shelter application or shelter profile saving.
+- Audit logs intentionally avoid passwords, reset tokens, security stamps, SMTP credentials, and other sensitive values.
 
 ## 14. Testing
 
@@ -1268,20 +1273,31 @@ Current test coverage includes:
 - Favorites are private to each adopter.
 - Non-adopters cannot favorite dogs.
 - Dog image add/delete and shelter ownership checks.
+- Duplicate dog image URL blocking for the same dog while allowing reuse on different dogs.
 - Dog age formatting, including puppies such as `7 months old`.
 - Invalid dog age months validation.
+- Zero daily food amount accepted when provided.
 - Adoption request creation and questionnaire persistence.
 - Non-adopters blocked from submitting adoption requests.
 - Duplicate pending adoption requests blocked.
+- Adoption requests for adopted dogs blocked.
+- Accepting non-pending or already-adopted requests blocked.
 - Shelter accept/reject behavior.
 - Shelter ownership restrictions for adoption requests.
-- Cancellation rules.
+- Cancellation rules, including blocking cancellation by another adopter.
 - Dog status history creation when accepting a request changes dog status.
 - No duplicate status history when status does not change.
 - Resource create/update/delete and ownership.
 - Low-stock detection and non-low-stock detection.
+- Negative resource quantities blocked.
+- Duplicate shelter resource stock items blocked.
+- Food resources require a food type.
 - Clearing `FoodTypeId` for non-food resources.
 - Shelter registration request submission with optional coordinates.
+- Invalid shelter application latitude/longitude rejected when provided.
+- Duplicate pending shelter request emails blocked case-insensitively.
+- Existing shelter account/profile emails blocked for shelter applications.
+- Shelter application addresses are stored without duplicating the city suffix.
 - Anonymous shelter registration request submission.
 - Blocking Admin and Shelter users from submitting public shelter applications.
 - Duplicate pending shelter registration request blocking.

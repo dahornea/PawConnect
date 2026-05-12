@@ -29,6 +29,49 @@ public class DogImageServiceTests
     }
 
     [Fact]
+    public async Task AddDogImageAsync_BlocksDuplicateImageUrlForSameDog()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        var dog = TestDbContextFactory.CreateDog("Duplicate Image Dog");
+        context.Dogs.Add(dog);
+        await context.SaveChangesAsync();
+        context.DogImages.Add(new DogImage { DogId = dog.Id, ImageUrl = "https://example.com/dog.jpg" });
+        await context.SaveChangesAsync();
+
+        var service = new DogImageService(context);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.AddDogImageAsync(dog.Id, TestDbContextFactory.ShelterId, new DogImage
+            {
+                ImageUrl = " https://example.com/dog.jpg "
+            }));
+
+        Assert.Equal("This image has already been added for this dog.", exception.Message);
+        Assert.Equal(1, await context.DogImages.CountAsync(i => i.DogId == dog.Id));
+    }
+
+    [Fact]
+    public async Task AddDogImageAsync_AllowsSameImageUrlForDifferentDog()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        var dog = TestDbContextFactory.CreateDog("Image Dog A");
+        var otherDog = TestDbContextFactory.CreateDog("Image Dog B");
+        context.Dogs.AddRange(dog, otherDog);
+        await context.SaveChangesAsync();
+        context.DogImages.Add(new DogImage { DogId = dog.Id, ImageUrl = "https://example.com/shared.jpg" });
+        await context.SaveChangesAsync();
+
+        var service = new DogImageService(context);
+
+        await service.AddDogImageAsync(otherDog.Id, TestDbContextFactory.ShelterId, new DogImage
+        {
+            ImageUrl = "https://example.com/shared.jpg"
+        });
+
+        Assert.Equal(2, await context.DogImages.CountAsync(i => i.ImageUrl == "https://example.com/shared.jpg"));
+    }
+
+    [Fact]
     public async Task CreateDogWithoutImages_StillSucceeds()
     {
         await using var context = TestDbContextFactory.CreateContext();
