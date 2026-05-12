@@ -47,6 +47,9 @@ public class ShelterRegistrationRequestServiceTests
         Assert.Equal("admin@test.com", email.To);
         Assert.Contains("New shelter application", email.Subject);
         Assert.Contains(email.Attachments!, attachment => attachment.FileName == "ShelterRegistrationRequest.pdf");
+        Assert.NotNull(email.HtmlBody);
+        Assert.Contains("New shelter application submitted", email.HtmlBody!);
+        Assert.Contains("A PDF report is attached to this email.", email.HtmlBody!);
     }
 
     [Fact]

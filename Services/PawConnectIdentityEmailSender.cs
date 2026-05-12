@@ -20,13 +20,13 @@ public class PawConnectIdentityEmailSender(IEmailService emailService, ILogger<P
             If you did not create a PawConnect account, you can ignore this email.
             """;
 
-        var htmlBody = BuildHtmlLinkEmail(
+        var htmlBody = PawConnectEmailTemplate.BuildHtml(
             "Confirm your PawConnect account",
-            displayName,
-            "Please confirm your PawConnect account.",
-            "Confirm Account",
+            $"Hello {displayName},",
+            ["Please confirm your PawConnect account."],
+            new EmailTemplateButton("Confirm Account", link),
             link,
-            "If you did not create a PawConnect account, you can ignore this email.");
+            note: "If you did not create a PawConnect account, you can ignore this email.");
 
         return SendIdentityEmailAsync(email, "Confirm your PawConnect account", body, htmlBody);
     }
@@ -47,13 +47,13 @@ public class PawConnectIdentityEmailSender(IEmailService emailService, ILogger<P
             If you did not request a password reset, you can ignore this email.
             """;
 
-        var htmlBody = BuildHtmlLinkEmail(
+        var htmlBody = PawConnectEmailTemplate.BuildHtml(
             "Reset your PawConnect password",
-            displayName,
-            "We received a request to reset your PawConnect password.",
-            "Reset Password",
+            $"Hello {displayName},",
+            ["We received a request to reset your PawConnect password."],
+            new EmailTemplateButton("Reset Password", link),
             link,
-            "If you did not request a password reset, you can ignore this email.");
+            note: "If you did not request a password reset, you can ignore this email.");
 
         return SendIdentityEmailAsync(email, "Reset your PawConnect password", body, htmlBody);
     }
@@ -91,32 +91,4 @@ public class PawConnectIdentityEmailSender(IEmailService emailService, ILogger<P
         return string.IsNullOrWhiteSpace(user.FullName) ? email : user.FullName.Trim();
     }
 
-    private static string BuildHtmlLinkEmail(string title, string displayName, string message, string buttonText, string link, string footer)
-    {
-        var encodedTitle = WebUtility.HtmlEncode(title);
-        var encodedDisplayName = WebUtility.HtmlEncode(displayName);
-        var encodedMessage = WebUtility.HtmlEncode(message);
-        var encodedButtonText = WebUtility.HtmlEncode(buttonText);
-        var encodedLink = WebUtility.HtmlEncode(link);
-        var encodedFooter = WebUtility.HtmlEncode(footer);
-
-        return $"""
-            <!doctype html>
-            <html>
-            <body style="font-family: Arial, sans-serif; color: #17342f; line-height: 1.5;">
-                <h2 style="margin-bottom: 12px;">{encodedTitle}</h2>
-                <p>Hello {encodedDisplayName},</p>
-                <p>{encodedMessage}</p>
-                <p>
-                    <a href="{encodedLink}" style="display: inline-block; padding: 10px 16px; background: #2f7d6b; color: #ffffff; text-decoration: none; border-radius: 6px;">
-                        {encodedButtonText}
-                    </a>
-                </p>
-                <p>If the button does not work, copy and paste this link into your browser:</p>
-                <p style="word-break: break-all;">{encodedLink}</p>
-                <p>{encodedFooter}</p>
-            </body>
-            </html>
-            """;
-    }
 }

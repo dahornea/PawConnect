@@ -229,7 +229,20 @@ public class ResourceStockService(ApplicationDbContext context, IEmailService em
                 "LowStockResourceReport.pdf",
                 () => pdfReportService.GenerateLowStockResourceReportAsync(resource.Id));
 
-            await emailService.SendEmailAsync(shelterEmail ?? string.Empty, $"Low stock warning: {resource.Name}", body, attachments);
+            var htmlBody = PawConnectEmailTemplate.BuildHtml(
+                "Low stock warning",
+                "Hello,",
+                [$"A shelter resource was {action} and is now at or below its low-stock threshold.", "Please review your shelter resources in PawConnect."],
+                details:
+                [
+                    new("Resource", resource.Name),
+                    new("Category", resource.ResourceCategory?.Name ?? "Unknown"),
+                    new("Current quantity", $"{resource.Quantity} {resource.Unit}"),
+                    new("Low-stock threshold", $"{resource.LowStockThreshold} {resource.Unit}")
+                ],
+                hasAttachment: attachments.Count > 0);
+
+            await emailService.SendEmailAsync(shelterEmail ?? string.Empty, $"Low stock warning: {resource.Name}", body, attachments, htmlBody);
         }
         catch (Exception ex)
         {

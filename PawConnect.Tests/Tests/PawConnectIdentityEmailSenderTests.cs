@@ -24,7 +24,9 @@ public class PawConnectIdentityEmailSenderTests
         Assert.Contains("https://localhost/Account/ResetPassword?code=abc123", email.Body);
         Assert.Contains("If you did not request a password reset", email.Body);
         Assert.NotNull(email.HtmlBody);
-        Assert.Contains("Reset Password", email.HtmlBody);
+        Assert.Contains("PawConnect", email.HtmlBody!);
+        Assert.Contains("Reset your PawConnect password", email.HtmlBody!);
+        Assert.Contains("Reset Password", email.HtmlBody!);
     }
 
     [Fact]
@@ -38,7 +40,7 @@ public class PawConnectIdentityEmailSenderTests
 
         var email = Assert.Single(emailService.SentEmails);
         Assert.Contains("code=abc&returnUrl=%2Fdogs", email.Body);
-        Assert.Contains("code=abc&amp;returnUrl=%2Fdogs", email.HtmlBody);
+        Assert.Contains("code=abc&amp;returnUrl=%2Fdogs", email.HtmlBody!);
     }
 
     [Fact]
