@@ -25,10 +25,10 @@ The main user groups are:
 - **Leaflet**: Client-side JavaScript map library used to render read-only shelter maps inside Blazor pages.
 - **OpenStreetMap**: Public map tile provider used by the Leaflet shelter map integration. The map feature does not require a paid Google Maps API key.
 - **OpenStreetMap Nominatim**: Used through `NominatimGeocodingService` for manual address-to-coordinate lookup. The app does not call it on every keystroke and does not use it for route planning or nearby search.
-- **MailKit and MimeKit**: Used by `SmtpEmailService` for provider-agnostic SMTP email sending with plain text bodies, branded HTML bodies, and optional attachments.
-- **Generic SMTP / local SMTP catcher**: Email delivery is configured through `EmailSettings`. Development can use a local SMTP catcher such as Mailpit or smtp4dev so emails are captured locally and are not delivered to real users.
+- **MailKit and MimeKit**: Used by `SmtpEmailService` for SMTP email sending with plain text bodies, branded HTML bodies, optional attachments, and raw MIME calendar invite parts.
+- **Generic SMTP / local SMTP catcher**: Email delivery can be configured through `EmailSettings`. Development can use a local SMTP catcher such as Mailpit or smtp4dev so emails are captured locally and are not delivered to real users.
 - **QuestPDF**: Used by `PdfReportService` and admin export logic to generate PDF reports for adoption requests, adoption status updates, low-stock resources, shelter registration requests, shelter summary reports, and formatted admin exports.
-- **Quartz.NET**: Used for in-process scheduled shelter summary report jobs. The implementation uses simple in-memory scheduling, not an external cron job, Hangfire, a Quartz dashboard, or a persistent Quartz job store.
+- **Quartz.NET**: Used for in-process scheduled shelter summary report jobs and adoption visit reminder checks. The implementation uses simple in-memory scheduling, not an external cron job, Hangfire, a Quartz dashboard, or a persistent Quartz job store.
 - **xUnit**: Test framework used by the `PawConnect.Tests` project.
 - **EF Core InMemory**: Test database provider used by service and integration-style tests.
 - **coverlet.collector**: Test coverage collector package included in the test project.
@@ -79,6 +79,7 @@ Adopter users can:
 - Submit adoption requests for available or reserved dogs.
 - View and cancel their own pending adoption requests at `/my-adoption-requests`.
 - View private in-app notifications for adoption request updates.
+- Choose a preferred shelter visit date/time when submitting an adoption request.
 
 The favorite and adoption request services validate that the current user is in the `Adopter` role before allowing adopter-only actions.
 
@@ -93,7 +94,7 @@ Shelter users can:
 - View status history for dogs belonging to their shelter.
 - Manage their own resource stock at `/shelter/resources`.
 - View and manage adoption requests for dogs belonging to their shelter at `/shelter/adoption-requests`.
-- Accept or reject pending adoption requests.
+- Confirm adopter-selected shelter visits, reject requests, and later mark a confirmed request/dog as adopted after the visit.
 - Edit private internal shelter notes on adoption requests.
 - Export their own shelter dogs, adoption requests, and resource stock as CSV/PDF where available.
 - Review recent report/export metadata for their own shelter on the Shelter Dashboard.
@@ -133,9 +134,11 @@ Admin pages are protected with `[Authorize(Roles = "Admin")]`. Advanced role edi
 - **Adopter profile**: Stores stable adopter information such as full name, profile image URL, city, phone, housing type, yard, pets, children, and dog experience.
 - **Favorites**: Adopters can save and remove favorite dogs. Duplicate favorites are prevented.
 - **Recently viewed dogs**: When an adopter opens a public-safe dog details page, the app tracks or updates a `RecentlyViewedDog` record.
-- **Adoption request questionnaire**: Adoption requests include request-specific fields: reason for adoption, hours alone per day, and additional information.
+- **Adoption request questionnaire and visit time**: Adoption requests include request-specific fields: reason for adoption, hours alone per day, additional information, and the adopter's preferred visit date/time.
+- **Visit scheduling**: Preferred visit times are validated against the shelter's configured visiting hours. Shelter users confirm visits before any final adoption decision. Confirmed visits send adopter email/in-app notifications and an `.ics` calendar attachment; Google Calendar API/OAuth is intentionally not used.
+- **Visit reminders**: Optional Quartz reminders send adopter emails and in-app notifications about 24 hours before confirmed visits. `VisitReminderSentAt` prevents duplicate reminder sends.
 - **Request tracking**: Adopters can view their own requests and cancel pending requests.
-- **In-app notifications**: Adopters receive persistent notifications when their adoption requests are accepted or rejected.
+- **In-app notifications**: Adopters receive persistent notifications when visits are confirmed and when adoption requests are finalized or rejected.
 - **Adopter dashboard**: Shows adopter profile context, summary cards, recent adoption requests, favorites preview, and recently viewed dogs.
 
 ### Shelter Features
@@ -150,7 +153,7 @@ Admin pages are protected with `[Authorize(Roles = "Admin")]`. Advanced role edi
 - **Low-stock warnings**: Resources with `Quantity <= LowStockThreshold` are shown as low stock and can trigger email/PDF notifications.
 - **Shelter summary reports**: Shelters can manually email themselves a PDF summary from `/shelter/dashboard`. Automatic scheduled sending is handled by Quartz.NET when enabled in configuration.
 - **Adoption request review**: Shelters can view adopter profile summaries, questionnaire answers, dog information, and internal notes.
-- **Accept/reject workflow**: Shelters can accept or reject pending requests for their own dogs.
+- **Visit confirmation and final adoption workflow**: Shelters confirm visits for pending requests, which reserves the dog but does not mark it adopted. After the visit, shelters can mark the request/dog as adopted or reject/close the request.
 - **Internal notes**: Private notes are visible to shelters and admins, not adopters or public users.
 - **Shelter exports**: Shelter users can export only their own operational data. `/shelter/dogs` provides CSV export, while `/shelter/adoption-requests` and `/shelter/resources` provide CSV and formatted PDF exports.
 - **Shelter CSV imports**: Shelter users can import resource stock and dog records from `.csv` files through a preview-and-validate workflow. Imported rows are scoped to the authenticated shelter.
@@ -207,6 +210,9 @@ Important fields:
 - `Latitude`
 - `Longitude`
 - `ApplicationUserId`
+- `VisitStartTime`
+- `VisitEndTime`
+- `VisitsAllowedMonday` through `VisitsAllowedSunday`
 
 Relationships:
 
@@ -215,6 +221,8 @@ Relationships:
 - One shelter has many `ResourceStocks`.
 
 `Latitude` and `Longitude` are optional internal coordinate fields used by the public shelter details page to render a read-only map. Existing shelters can still work without coordinates; when either coordinate is missing, the UI shows a location-unavailable fallback instead of rendering a broken map. In the public shelter application form and normal admin shelter edit form, these raw numeric fields are hidden and are updated internally through address lookup, marker dragging, or map clicks. Marker movement does not overwrite address/city fields automatically.
+
+Shelter visiting hours are stored directly on the shelter profile as one visit time range plus allowed weekdays. The default/demo schedule is Monday-Friday, 10:00-17:00. Adopter-selected visit times are validated against these fields when adoption requests are submitted and confirmed.
 
 ### ShelterRegistrationRequest
 
@@ -324,6 +332,12 @@ Important fields:
 - `HoursAlonePerDay`
 - `AdditionalInformation`
 - `ShelterInternalNotes`
+- `PreferredVisitDateTime`
+- `VisitStatus`
+- `VisitConfirmedAt`
+- `VisitReminderSentAt`
+- `VisitNotes`
+- `VisitConfirmedByUserId`
 - `CreatedAt`
 - `UpdatedAt`
 
@@ -335,6 +349,8 @@ Relationships:
 Business role:
 
 - Stores request-specific questionnaire answers.
+- Stores the adopter's preferred shelter visit time and current visit status.
+- Stores `VisitReminderSentAt` after the automatic 24-hour visit reminder has been sent.
 - Does not duplicate stable adopter profile information such as housing type or city.
 - Stores private shelter notes separately in `ShelterInternalNotes`.
 
@@ -449,8 +465,11 @@ Important fields:
 - `FileName`
 - `ContentType`
 - `Content`
+- `IsCalendarInvite`
+- `CalendarMethod`
+- `IncludeAsAttachmentFallback`
 
-Used for PDF report attachments.
+Used for PDF report attachments and generated iCalendar `.ics` visit invitations. Calendar invite attachments are also emitted as inline `text/calendar; method=REQUEST` MIME parts by `SmtpEmailService` so compatible email clients can recognize the invite directly.
 
 ### EmailSettings
 
@@ -467,6 +486,8 @@ Important fields:
 - `EnableSsl`
 - `OpenLocalInboxOnStartup`
 - `LocalInboxUrl`
+
+The default development configuration uses smtp4dev on `localhost:2525` with empty credentials and `EnableSsl = false`. Mailpit is also supported with `localhost:1025`. Real SMTP providers can still be configured later through the same settings, with credentials supplied through User Secrets or environment variables.
 
 ### AuditLog
 
@@ -565,24 +586,46 @@ Behavior:
 - `Adopted` and `InTreatment` dogs are hidden from public listing.
 - Adopted dogs are read-only for shelter users.
 - Success stories display dogs with `Adopted` status.
-- Accepting an adoption request sets the dog status to `Reserved` and records status history if it changed.
+- Confirming an adoption visit sets the dog status to `Reserved` and records status history if it changed.
+- Final adoption after the visit sets the dog status to `Adopted` and records status history if it changed.
 
 ### AdoptionRequestStatus
 
 Values:
 
 - `Pending`
+- `VisitConfirmed`
 - `Accepted`
 - `Rejected`
 - `Cancelled`
 
 Behavior:
 
-- Only pending requests can be accepted, rejected, or cancelled.
-- Duplicate pending requests from the same adopter for the same dog are blocked by service logic and a filtered database index.
-- Accepting a request updates it to `Accepted` and rejects other pending requests for the same dog.
+- `Pending` means the shelter has not reviewed the adoption request yet.
+- `VisitConfirmed` means the shelter confirmed the adopter's proposed visit, but final adoption has not happened yet.
+- `Accepted` is the final successful adoption state after the visit.
+- Duplicate active requests from the same adopter for the same dog are blocked by service logic and the filtered pending-request index.
+- Confirming a visit moves a pending request to `VisitConfirmed`, reserves the dog, rejects other pending requests for that dog, and sends an adopter email/notification with a `.ics` calendar attachment.
+- Marking a confirmed request as adopted moves it to `Accepted` and marks the dog `Adopted`.
 - Rejecting a request updates it to `Rejected`.
 - Cancelling a request updates it to `Cancelled`.
+
+### AdoptionVisitStatus
+
+Values:
+
+- `NotScheduled`
+- `Requested`
+- `Confirmed`
+- `Completed`
+- `Cancelled`
+
+Behavior:
+
+- New adoption requests with a selected visit time start as `Requested`.
+- Shelter visit confirmation changes the visit status to `Confirmed`.
+- Final adoption after the visit changes the visit status to `Completed`.
+- Rejected or cancelled requests with scheduled visit data use `Cancelled`.
 
 ### DogSize
 
@@ -662,7 +705,7 @@ Values:
 Behavior:
 
 - Controls notification emphasis and icon/color choices in the UI.
-- Examples include success notifications for accepted adoption requests or sent reports, warning notifications for rejected requests or low-stock resources, and info notifications for new shelter applications.
+- Examples include success notifications for confirmed shelter visits, completed adoptions, or sent reports; warning notifications for rejected requests or low-stock resources; and info notifications for new shelter applications.
 
 ## 7. Database and Entity Relationships
 
@@ -684,6 +727,7 @@ Important relationships:
 - One `ApplicationUser` can have many `FavoriteDogs`.
 - One `ApplicationUser` can have many `RecentlyViewedDogs`.
 - One `ApplicationUser` can be referenced by many `DogStatusHistory` records as `ChangedByUser`.
+- One `ApplicationUser` can be referenced by many `AdoptionRequest` records as the user who confirmed a visit.
 - One `ApplicationUser` can review many `ShelterRegistrationRequest` records as an admin reviewer.
 - One `ApplicationUser` has many private `Notification` records.
 - One `Shelter` can be referenced by many `ReportHistory` records for shelter-scoped report/export metadata.
@@ -773,12 +817,15 @@ Shelter onboarding/geocoding organization:
 Scheduled report organization:
 
 - `Jobs/ShelterSummaryReportJob.cs`: Thin Quartz job that calls the shelter summary report service.
+- `Jobs/VisitReminderJob.cs`: Thin Quartz job that calls the visit reminder service.
 - `Services/IShelterSummaryReportService.cs` and `Services/ShelterSummaryReportService.cs`: Own scheduled report iteration, manual report sending, email body creation, and PDF attachment creation.
+- `Services/IVisitReminderService.cs` and `Services/VisitReminderService.cs`: Find due confirmed adoption visits, send reminder emails with `.ics` attachments, mark `VisitReminderSentAt`, and create notification/audit records.
 - `Entities/ReportHistory.cs`: Stores metadata for generated/sent reports and exports without storing generated file bytes.
 - `Services/IReportHistoryService.cs` and `Services/ReportHistoryService.cs`: Record successful/failed/generated report metadata and query shelter/admin history views.
 - `Services/ScheduledReportSettings.cs`: Configuration model for enabling/disabling scheduled reports, startup behavior, and minute interval.
+- `Services/VisitReminderSettings.cs`: Configuration model for enabling/disabling visit reminders, check interval, and reminder timing.
 - `Services/IPdfReportService.cs` and `Services/PdfReportService.cs`: Generate `ShelterSummaryReport-{date}.pdf` content.
-- `Program.cs`: Registers Quartz, the hosted service, the job, and the minute-based trigger when `ScheduledReports:Enabled` is true.
+- `Program.cs`: Registers Quartz, the hosted service, and minute-based triggers when `ScheduledReports:Enabled` or `VisitReminders:Enabled` is true.
 
 Export organization:
 
@@ -863,26 +910,38 @@ The public map is read-only. Address lookup and explicit address updates from th
    - Reason for adoption.
    - Hours alone per day.
    - Additional information.
+   - Preferred shelter visit date and time.
 4. `AdoptionRequestService.CreateRequestAsync` verifies:
    - The user is an adopter.
    - The dog exists.
    - The dog is not `Adopted` or `InTreatment`.
-   - The adopter does not already have a pending request for the dog.
+   - The adopter does not already have an active pending/visit-confirmed request for the dog.
    - The questionnaire is valid.
-5. The service creates a pending `AdoptionRequest`.
+   - The preferred visit time is in the future, on an allowed visiting day, and within the shelter's configured visiting hours.
+5. The service creates a pending `AdoptionRequest` with `VisitStatus = Requested`.
 6. The service attempts to notify the owning shelter by email and attach `AdoptionRequestReport.pdf`.
 7. Shelter users review requests at `/shelter/adoption-requests`.
-8. A shelter can accept or reject pending requests only for its own dogs.
-9. Accepting a request:
-   - Sets request status to `Accepted`.
+8. A shelter can confirm a visit or reject pending requests only for its own dogs.
+9. Confirming a visit:
+   - Sets request status to `VisitConfirmed`.
+   - Sets visit status to `Confirmed`.
    - Sets dog status to `Reserved`.
    - Creates dog status history if the dog status changed.
    - Rejects other pending requests for the same dog.
-   - Sends adopter notification with `AdoptionStatusReport.pdf`.
-10. Rejecting a request:
+   - Sends adopter email/in-app notification with a generated `.ics` calendar invitation.
+   - Leaves `VisitReminderSentAt` empty so the reminder job can send one reminder before the visit.
+10. After the visit, the owning shelter can mark a confirmed request as adopted:
+   - Sets request status to `Accepted`.
+   - Sets visit status to `Completed`.
+   - Sets dog status to `Adopted`.
+   - Creates dog status history if the dog status changed.
+   - Sends the final adopter notification with `AdoptionStatusReport.pdf`.
+11. Rejecting a request:
    - Sets request status to `Rejected`.
+   - Cancels visit status when applicable.
+   - Returns a reserved dog to `Available` when a confirmed visit is rejected and the dog has not otherwise changed status.
    - Sends adopter notification with `AdoptionStatusReport.pdf`.
-11. Adopters can cancel their own pending requests from `/my-adoption-requests`.
+12. Adopters can cancel their own pending requests from `/my-adoption-requests`.
 
 ### Shelter Dog Management Flow
 
@@ -932,6 +991,25 @@ The public map is read-only. Address lookup and explicit address updates from th
 8. Scheduled report notification creation uses a simple duplicate guard for the in-app "Summary report sent" notification, so very short demo intervals do not flood the notification dropdown with identical report entries. Email/PDF sending is not suppressed by this guard.
 9. Failures for one shelter are logged and do not stop the job from processing other shelters.
 10. Shelter users can manually send the same report from `/shelter/dashboard`; this manual action works even when automatic scheduling is disabled and can still create a notification.
+
+### Visit Reminder Flow
+
+1. `VisitReminders:Enabled` controls whether the automatic Quartz trigger is created. It is `false` by default to avoid development email spam.
+2. When enabled, Quartz runs `VisitReminderJob` using `VisitReminders:CheckIntervalMinutes`; invalid values fall back to 30 minutes.
+3. The job stays thin and calls `IVisitReminderService.SendDueVisitRemindersAsync`.
+4. The service finds adoption requests where:
+   - request status is `VisitConfirmed`
+   - visit status is `Confirmed`
+   - `PreferredVisitDateTime` exists
+   - the visit is approximately `VisitReminders:ReminderHoursBeforeVisit` hours away, defaulting to 24
+   - `VisitReminderSentAt` is null
+   - adopter email exists
+5. Reminder matching uses a simple one-hour window around the target reminder time, so the job does not need exact-second timing.
+6. For each due request, the service sends a branded reminder email with a dynamically generated `text/calendar` `.ics` attachment.
+7. After the email send call succeeds, `VisitReminderSentAt` is set and an Adoption notification is created for the adopter.
+8. The service writes an audit action `VisitReminderSent` when audit logging is available.
+9. Failed reminders are logged per request and do not stop other due reminders from being processed.
+10. The app does not use Google Calendar API/OAuth and does not store `.ics` files in the database.
 
 ### Admin Management Flow
 
@@ -1015,7 +1093,7 @@ Admin shelter request imports:
 
 ### In-App Notification Flow
 
-1. A successful business action occurs in an existing service, such as a new adoption request, an accepted/rejected adoption request, a low-stock resource update, a shelter application submission, a shelter request CSV import, or a shelter summary report send.
+1. A successful business action occurs in an existing service, such as a new adoption request, a confirmed visit, a finalized/rejected adoption request, a low-stock resource update, a shelter application submission, a shelter request CSV import, or a shelter summary report send.
 2. The service keeps existing email/snackbar behavior and additionally calls `INotificationService`.
 3. `NotificationService` creates a `Notification` row for the intended `ApplicationUser`.
 4. The top-bar `NotificationBell` loads the current user's unread count and recent notifications.
@@ -1055,12 +1133,14 @@ Email abstractions:
 The SMTP implementation:
 
 - Uses MailKit `SmtpClient`.
-- Uses MimeKit `MimeMessage`, `TextPart`, and `BodyBuilder`.
+- Uses MimeKit `MimeMessage`, `TextPart`, `Multipart`, and `MimePart`.
 - Sends plain text email bodies.
 - Supports optional branded HTML bodies with plain text fallback.
 - Supports optional attachments.
+- Sends adoption visit `.ics` files as `text/calendar; method=REQUEST; charset=utf-8` MIME parts and also keeps an `.ics` attachment fallback.
 - Uses `SecureSocketOptions.StartTls` when `EnableSsl` is true.
 - Connects without SMTP authentication when `SmtpUser` and `SmtpPassword` are empty, which supports local SMTP catchers.
+- Authenticates with configured `SmtpUser` and `SmtpPassword` if a real SMTP provider is configured.
 - In Development, `Program.cs` can open the configured local email inbox URL automatically when `OpenLocalInboxOnStartup` is enabled.
 - Logs and returns if the recipient is empty.
 - Logs and returns if SMTP host or sender email is incomplete.
@@ -1071,7 +1151,9 @@ Configured email events:
 - Forgot Password requests: sends an ASP.NET Core Identity password reset link.
 - Identity account confirmation and email verification requests: sends Identity account links.
 - New adoption request submitted: sends shelter notification.
-- Adoption request accepted: sends adopter notification.
+- Adoption visit confirmed: sends adopter notification with a generated `.ics` calendar attachment.
+- Adoption visit reminder: sends adopter notification about 24 hours before the confirmed visit with a generated `.ics` calendar attachment.
+- Final adoption completed after a visit: sends adopter notification with `AdoptionStatusReport.pdf`.
 - Adoption request rejected: sends adopter notification.
 - Resource stock created/updated and low stock: sends shelter notification.
 - Shelter summary report manual/scheduled send: sends a PDF summary to the shelter email.
@@ -1082,9 +1164,13 @@ For the password reset flow, the Forgot Password page generates an ASP.NET Core 
 
 Application notifications for adoption requests, low-stock resources, and shelter applications also use the branded HTML template where practical while preserving the existing plain text bodies and PDF attachments.
 
+Visit confirmation emails are intentionally calendar-provider neutral. They include the visit details in the email body and send a dynamically generated `text/calendar; method=REQUEST` calendar part with a stable request-based UID, a 60-minute event duration, shelter address/city as the location, shelter contact details in the description, `STATUS:CONFIRMED`, and organizer/attendee metadata when shelter/adopter email addresses are available. The `.ics` file is also included as an attachment fallback for clients that do not surface calendar actions automatically. PawConnect does not use Google Calendar API/OAuth or Microsoft Graph.
+
+Visit reminder emails reuse the same `.ics` generation helper as confirmation emails. The reminder service sets `VisitReminderSentAt` only after the email send call succeeds, preventing duplicate reminders for the same confirmed visit.
+
 Scheduled shelter summary report emails also use the existing email infrastructure and attach a generated PDF. The scheduled job is disabled by default through `ScheduledReports:Enabled = false`; the Shelter Dashboard manual send action still works for demo/testing.
 
-The current `appsettings.json` uses safe local SMTP catcher defaults: `localhost:2525`, empty credentials, and `EnableSsl = false`. `appsettings.Development.json` enables automatic opening of the local inbox URL for convenience. Real external SMTP credentials should be stored in `appsettings.Development.json`, .NET User Secrets, or environment variables and should not be committed to source control.
+The current `appsettings.json` and `appsettings.Development.json` use safe local smtp4dev defaults: `localhost:2525`, empty credentials, and `EnableSsl = false`. Development can inspect generated password reset emails, application notifications, PDF report attachments, and `.ics` calendar invitations in the smtp4dev browser UI at `http://localhost:3000`. Real SMTP credentials should not be committed; if a real provider is configured later, secrets should come from User Secrets or environment variables.
 
 ## 11. PDF Report System
 
@@ -1107,7 +1193,7 @@ Includes:
 
 - Dog name, breed, formatted age, size, current status, shelter name.
 - Adopter full name, email, phone, city, housing type, yard/pets/children flags, dog experience.
-- Request reason, hours alone per day, additional information, request date.
+- Request reason, hours alone per day, additional information, preferred visit time, visit status, and request date.
 
 Attached when an adopter submits a new adoption request.
 
@@ -1124,9 +1210,9 @@ Includes:
 - Status update date.
 - Dog information.
 - Shelter contact information.
-- Next steps depending on accepted/rejected status.
+- Next steps depending on final accepted/rejected status.
 
-Attached when a shelter accepts or rejects a request.
+Attached when a shelter finalizes an adoption after the visit or rejects a request.
 
 ### Low Stock Resource Report
 
@@ -1195,6 +1281,21 @@ Important classes and configuration:
 The scheduler uses Quartz's in-memory scheduling. The project does not include external cron, Hangfire, a Quartz dashboard, or a persistent Quartz job store. Admin scheduled reports are not implemented yet and remain a possible future extension.
 
 Manual and scheduled shelter summary sends create `ReportHistory` metadata records. Manual dashboard sends use `TriggeredBy = Manual`; Quartz sends use `TriggeredBy = Quartz`. Successful records include generated/sent timestamps and the report file name, while failed send attempts store a short error message. The PDF content itself is not stored.
+
+## 11.2 Visit Reminder System
+
+Visit reminders are implemented with Quartz.NET.
+
+Important classes and configuration:
+
+- `VisitReminderJob`: Quartz job class.
+- `IVisitReminderService` / `VisitReminderService`: Query due confirmed visits, send reminder emails, mark `VisitReminderSentAt`, and create notification/audit records.
+- `VisitReminderSettings`: Options bound from `VisitReminders`.
+- `VisitReminders:Enabled`: Enables automatic Quartz scheduling. Default is `false`.
+- `VisitReminders:CheckIntervalMinutes`: Minute-based check interval; invalid values fall back to 30 minutes.
+- `VisitReminders:ReminderHoursBeforeVisit`: Reminder timing; invalid values fall back to 24 hours.
+
+Reminder emails are sent only for confirmed visits and include the same kind of generated `.ics` calendar attachment as the visit confirmation email. The project does not use Google Calendar API/OAuth, does not store `.ics` files in the database, and does not send reminders for rejected/cancelled/finalized requests.
 
 ## 11.5 Shelter Map Integration
 
@@ -1287,7 +1388,8 @@ Examples of service validation:
 - `DogService` validates dog name, breed, location, age years/months, daily food amount, shelter ownership, and dog deletion restrictions.
 - `DogImageService` validates image URLs, trims empty input, prevents duplicate image URLs for the same dog, and enforces shelter ownership.
 - `MedicalRecordService` validates record date and shelter ownership.
-- `AdoptionRequestService` validates adopter role, requestable dog status, duplicate pending request, pending-only status changes, dog ownership for shelter actions, adopter ownership for cancellation, and questionnaire fields.
+- `AdoptionRequestService` validates adopter role, requestable dog status, duplicate active request, visit time rules, pending/confirmed status transitions, dog ownership for shelter actions, adopter ownership for cancellation, and questionnaire fields.
+- `VisitReminderService` sends reminders only for confirmed visits with a future preferred visit time, adopter email, and null `VisitReminderSentAt`.
 - `FavoriteDogService` validates adopter role and public-safe dog status.
 - `ResourceStockService` validates name, category, non-negative quantity/threshold, unit, required food type for food resources, cleared food type for non-food resources, duplicate stock items per shelter/category/name/food type, and shelter ownership.
 - `AdopterProfileService` validates full name, city, phone number, and profile image URL.
@@ -1306,6 +1408,7 @@ Error handling patterns:
 - Expected business rule violations use clear `InvalidOperationException` messages.
 - Email and PDF failures are logged and do not fail the main business action.
 - Scheduled shelter report failures are logged per shelter so one failed report does not stop the whole Quartz job.
+- Visit reminder failures are logged per request so one failed reminder does not stop other due reminders.
 - Confirmation dialogs are used before important/destructive actions such as delete, cancel, accept, reject, and logout.
 - Audit logging is best-effort: audit failures are logged as warnings and do not fail the main user action.
 - Notification creation is best-effort: notification failures are logged and do not fail the original business action.
@@ -1357,9 +1460,11 @@ Current test organization:
 - `ShelterSummaryReportServiceTests`
 - `PdfReportServiceTests`
 - `ExportServiceTests`
+- `EmailMimeBuilderTests`
 - `ReportHistoryServiceTests`
 - `AuditLogServiceTests`
 - `NotificationServiceTests`
+- `VisitReminderServiceTests`
 - `Integration/ServiceFlowIntegrationTests`
 - `Helpers/TestDbContextFactory`
 - `Helpers/TestDoubles`
@@ -1379,15 +1484,24 @@ Current test coverage includes:
 - Invalid dog age months validation.
 - Zero daily food amount accepted when provided.
 - Adoption request creation and questionnaire persistence.
+- Adoption request creation with preferred shelter visit time.
+- Past, closed-day, or outside-hours visit times are rejected.
 - Non-adopters blocked from submitting adoption requests.
-- Duplicate pending adoption requests blocked.
+- Duplicate active adoption requests blocked.
 - Adoption requests for adopted dogs blocked.
-- Accepting non-pending or already-adopted requests blocked.
-- Shelter accept/reject behavior.
+- Confirming non-pending or already-adopted requests blocked.
+- Shelter visit confirmation and reject behavior.
 - Shelter ownership restrictions for adoption requests.
 - Cancellation rules, including blocking cancellation by another adopter.
-- Dog status history creation when accepting a request changes dog status.
+- Dog status history creation when confirming a visit reserves a dog and when final adoption marks a dog adopted.
 - No duplicate status history when status does not change.
+- Visit confirmation sends a `text/calendar; method=REQUEST` calendar invite part plus `.ics` attachment fallback and does not mark the dog adopted.
+- Marking a confirmed request as adopted updates the dog to `Adopted`.
+- Confirmed visits about 24 hours away are eligible for visit reminders.
+- Unconfirmed, rejected, cancelled, or already-reminded visits are not eligible for reminders.
+- Visit reminder emails include a `text/calendar` `.ics` invitation generated from the same helper.
+- `VisitReminderSentAt` is set after a successful reminder send and remains null when the email service throws.
+- Visit reminder notification and audit records are created when those services are available.
 - Resource create/update/delete and ownership.
 - Low-stock detection and non-low-stock detection.
 - Negative resource quantities blocked.
@@ -1408,6 +1522,7 @@ Current test coverage includes:
 - Creating shelter users, assigning the `Shelter` role, and linked shelter profile creation after approval.
 - Nominatim geocoding response parsing and failure handling using fake HTTP responses.
 - Identity email sender behavior for password reset and account confirmation emails without sending real SMTP messages.
+- SMTP email delivery preserves branded HTML/plain text bodies, PDF/CSV attachments, and `text/calendar` invite parts without requiring real SMTP in automated tests.
 - PDF report generation returns non-empty bytes.
 - Shelter summary report PDF generation returns non-empty bytes.
 - Manual shelter summary report sending creates an email with a PDF attachment for the current shelter.
@@ -1509,10 +1624,10 @@ PawConnect is suitable for a bachelor thesis because it demonstrates:
 - Third-party map/location integration using Leaflet, OpenStreetMap, and manual Nominatim geocoding.
 - Service-layer validation and ownership checks.
 - CSV import/export workflows for shelter operational data and admin platform data.
-- Email communication using SMTP.
+- Email communication using local SMTP catchers for development testing.
 - Persistent role-based in-app notifications grouped by adoption, shelter application, resource, report, and system categories.
 - PDF report generation with structured report content.
-- Quartz.NET scheduled shelter summary reports with manual dashboard sending.
+- Quartz.NET scheduled shelter summary reports and 24-hour adoption visit reminders.
 - Report history metadata tracking for report/export traceability without storing generated file contents.
 - Lightweight audit/activity logging for traceability and accountability.
 - MudBlazor UI with dashboards, forms, tables, dialogs, cards, snackbars, and empty/loading states.
@@ -1617,4 +1732,4 @@ Evaluate project outcomes and list future improvements such as real uploads, dep
 - The README currently still uses some "skeleton/planned features" wording even though many features are implemented; thesis writing should rely on the current code and this context document for accuracy.
 - The test suite is service/domain-focused, not browser UI-focused.
 - The generic repository exists, but core services mainly use `ApplicationDbContext` directly for richer business queries and ownership checks.
-- Real SMTP credentials should not be committed. Local SMTP catcher configuration with Mailpit or smtp4dev is suitable for development/testing.
+- Real SMTP credentials should not be committed. Local SMTP catcher configuration with Mailpit or smtp4dev is suitable for development/testing; real SMTP providers can be configured later through `EmailSettings` if needed.

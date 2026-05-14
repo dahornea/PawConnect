@@ -12,9 +12,13 @@ public static class AuditActions
     public const string MedicalRecordUpdated = nameof(MedicalRecordUpdated);
     public const string MedicalRecordDeleted = nameof(MedicalRecordDeleted);
     public const string AdoptionRequestSubmitted = nameof(AdoptionRequestSubmitted);
+    public const string VisitConfirmed = nameof(VisitConfirmed);
+    public const string VisitReminderSent = nameof(VisitReminderSent);
+    public const string VisitCompleted = nameof(VisitCompleted);
     public const string AdoptionRequestAccepted = nameof(AdoptionRequestAccepted);
     public const string AdoptionRequestRejected = nameof(AdoptionRequestRejected);
     public const string AdoptionRequestCancelled = nameof(AdoptionRequestCancelled);
+    public const string DogMarkedAdopted = nameof(DogMarkedAdopted);
     public const string ShelterRegistrationRequestSubmitted = nameof(ShelterRegistrationRequestSubmitted);
     public const string ShelterRegistrationRequestAccepted = nameof(ShelterRegistrationRequestAccepted);
     public const string ShelterRegistrationRequestRejected = nameof(ShelterRegistrationRequestRejected);
@@ -44,9 +48,13 @@ public static class AuditActions
         MedicalRecordUpdated,
         MedicalRecordDeleted,
         AdoptionRequestSubmitted,
+        VisitConfirmed,
+        VisitReminderSent,
+        VisitCompleted,
         AdoptionRequestAccepted,
         AdoptionRequestRejected,
         AdoptionRequestCancelled,
+        DogMarkedAdopted,
         ShelterRegistrationRequestSubmitted,
         ShelterRegistrationRequestAccepted,
         ShelterRegistrationRequestRejected,

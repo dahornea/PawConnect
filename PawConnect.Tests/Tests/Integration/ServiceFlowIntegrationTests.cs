@@ -69,7 +69,8 @@ public class ServiceFlowIntegrationTests
         await adoptionService.CreateRequestAsync(TestDbContextFactory.AdopterId, dog.Id, new AdoptionRequestQuestionnaire(
             "I have a safe home and time for daily walks.",
             3,
-            "I live close to a park."));
+            "I live close to a park.",
+            FutureVisit()));
 
         var request = await context.AdoptionRequests.SingleAsync();
         var owningShelterRequests = await adoptionService.GetRequestsForShelterAsync(TestDbContextFactory.ShelterId);
@@ -77,21 +78,22 @@ public class ServiceFlowIntegrationTests
         var duplicateException = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             adoptionService.CreateRequestAsync(TestDbContextFactory.AdopterId, dog.Id, new AdoptionRequestQuestionnaire("Duplicate request", null, null)));
 
-        await adoptionService.AcceptRequestAsync(request.Id, TestDbContextFactory.ShelterId, TestDbContextFactory.ShelterUserId);
+        await adoptionService.ConfirmVisitAsync(request.Id, TestDbContextFactory.ShelterId, TestDbContextFactory.ShelterUserId);
+        var confirmedRequest = await context.AdoptionRequests.Include(r => r.Dog).SingleAsync(r => r.Id == request.Id);
 
-        var acceptedRequest = await context.AdoptionRequests.Include(r => r.Dog).SingleAsync(r => r.Id == request.Id);
         Assert.Equal("I have a safe home and time for daily walks.", request.ReasonForAdoption);
         Assert.Equal(3, request.HoursAlonePerDay);
         Assert.Equal("I live close to a park.", request.AdditionalInformation);
         Assert.Single(owningShelterRequests);
         Assert.Empty(otherShelterRequests);
         Assert.Equal("You already have a pending request for this dog.", duplicateException.Message);
-        Assert.Equal(AdoptionRequestStatus.Accepted, acceptedRequest.Status);
-        Assert.Equal(DogStatus.Reserved, acceptedRequest.Dog!.Status);
+        Assert.Equal(AdoptionRequestStatus.VisitConfirmed, confirmedRequest.Status);
+        Assert.Equal(AdoptionVisitStatus.Confirmed, confirmedRequest.VisitStatus);
+        Assert.Equal(DogStatus.Reserved, confirmedRequest.Dog!.Status);
         Assert.True(await context.DogStatusHistories.AnyAsync(h => h.DogId == dog.Id));
         Assert.Equal(2, emailService.SentEmails.Count);
         Assert.Contains(emailService.SentEmails, email => email.To == "shelter@test.com" && HasPdfAttachment(email.Attachments, "AdoptionRequestReport.pdf"));
-        Assert.Contains(emailService.SentEmails, email => email.To == "adopter@test.com" && HasPdfAttachment(email.Attachments, "AdoptionStatusReport.pdf"));
+        Assert.Contains(emailService.SentEmails, email => email.To == "adopter@test.com" && HasCalendarAttachment(email.Attachments));
         Assert.All(emailService.SentEmails, email =>
         {
             Assert.NotNull(email.HtmlBody);
@@ -108,7 +110,7 @@ public class ServiceFlowIntegrationTests
         await context.SaveChangesAsync();
         var adoptionService = CreateAdoptionRequestService(context, new TestEmailService());
 
-        await adoptionService.CreateRequestAsync(TestDbContextFactory.AdopterId, dog.Id, new AdoptionRequestQuestionnaire("Ready to adopt.", null, null));
+        await adoptionService.CreateRequestAsync(TestDbContextFactory.AdopterId, dog.Id, new AdoptionRequestQuestionnaire("Ready to adopt.", null, null, FutureVisit()));
         var request = await context.AdoptionRequests.SingleAsync();
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
@@ -212,5 +214,24 @@ public class ServiceFlowIntegrationTests
             attachment.FileName == fileName &&
             attachment.ContentType == "application/pdf" &&
             attachment.Content.Length > 0) == true;
+    }
+
+    private static bool HasCalendarAttachment(List<EmailAttachment>? attachments)
+    {
+        return attachments?.Any(attachment =>
+            attachment.ContentType == "text/calendar" &&
+            attachment.FileName.EndsWith(".ics", StringComparison.OrdinalIgnoreCase) &&
+            attachment.Content.Length > 0) == true;
+    }
+
+    private static DateTime FutureVisit()
+    {
+        var date = DateTime.Today.AddDays(1);
+        while (date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
+        {
+            date = date.AddDays(1);
+        }
+
+        return date.AddHours(11);
     }
 }

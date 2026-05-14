@@ -128,7 +128,7 @@ public class ExportServiceTests
         var file = await service.GenerateAdoptionRequestsCsvAsync();
         var csv = Decode(file.Content);
 
-        Assert.Contains("Request Id,Dog Name,Shelter Name,Adopter Email,Status,CreatedAt,UpdatedAt,ReasonForAdoption,HoursAlonePerDay,AdditionalInformation", csv);
+        Assert.Contains("Request Id,Dog Name,Shelter Name,Adopter Email,Status,PreferredVisitDateTime,VisitStatus,CreatedAt,UpdatedAt,ReasonForAdoption,HoursAlonePerDay,AdditionalInformation", csv);
         Assert.Contains("Bella", csv);
         Assert.Contains("Test Shelter", csv);
         Assert.Contains("adopter@test.com", csv);
@@ -176,7 +176,7 @@ public class ExportServiceTests
         var file = await service.GenerateShelterAdoptionRequestsCsvAsync(TestDbContextFactory.ShelterId);
         var csv = Decode(file.Content);
 
-        Assert.Contains("Request Id,Dog Name,Adopter Email,Adopter Full Name,Status,CreatedAt,UpdatedAt,ReasonForAdoption,HoursAlonePerDay,AdditionalInformation,ShelterInternalNotes", csv);
+        Assert.Contains("Request Id,Dog Name,Adopter Email,Adopter Full Name,Status,PreferredVisitDateTime,VisitStatus,CreatedAt,UpdatedAt,ReasonForAdoption,HoursAlonePerDay,AdditionalInformation,ShelterInternalNotes", csv);
         Assert.Contains("Shelter Dog", csv);
         Assert.Contains("Profile Adopter", csv);
         Assert.Contains("Private shelter note", csv);

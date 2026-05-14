@@ -327,6 +327,7 @@
         return status switch
         {
             AdoptionRequestStatus.Pending => Color.Warning,
+            AdoptionRequestStatus.VisitConfirmed => Color.Info,
             AdoptionRequestStatus.Accepted => Color.Success,
             AdoptionRequestStatus.Rejected => Color.Error,
             AdoptionRequestStatus.Cancelled => Color.Default,

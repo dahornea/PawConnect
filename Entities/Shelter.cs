@@ -31,6 +31,24 @@ public class Shelter
     [Range(-180, 180)]
     public double? Longitude { get; set; }
 
+    public TimeSpan? VisitStartTime { get; set; } = new(10, 0, 0);
+
+    public TimeSpan? VisitEndTime { get; set; } = new(17, 0, 0);
+
+    public bool VisitsAllowedMonday { get; set; } = true;
+
+    public bool VisitsAllowedTuesday { get; set; } = true;
+
+    public bool VisitsAllowedWednesday { get; set; } = true;
+
+    public bool VisitsAllowedThursday { get; set; } = true;
+
+    public bool VisitsAllowedFriday { get; set; } = true;
+
+    public bool VisitsAllowedSaturday { get; set; }
+
+    public bool VisitsAllowedSunday { get; set; }
+
     public string? ApplicationUserId { get; set; }
 
     public ApplicationUser? ApplicationUser { get; set; }

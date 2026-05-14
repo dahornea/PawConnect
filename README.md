@@ -27,7 +27,7 @@ PawConnect is a beginner-friendly ASP.NET Core Blazor Server skeleton for a stra
 - MudBlazor layout with role-based sidebar navigation
 - Placeholder pages for public, adopter, shelter, and admin workflows
 - Simple service and repository layer
-- SMTP email notification service using configuration-based settings
+- Email notification service with SMTP/local catcher support for development testing
 - PDF email report attachments for adoption and low-stock notifications
 - Scheduled shelter summary reports with PDF email attachments and manual Shelter Dashboard sending
 - Adopter profile page for household/contact information used during adoption request review
@@ -36,6 +36,7 @@ PawConnect is a beginner-friendly ASP.NET Core Blazor Server skeleton for a stra
 - Recently viewed dogs for adopter dashboard quick access
 - Public adoption success stories for adopted dogs
 - Dog ages support years and months for puppy-friendly display
+- Adopter-selected shelter visit scheduling for adoption requests
 - Approval-based shelter registration requests at `/shelters/apply`
 - Admin shelter application review at `/admin/shelter-requests`
 - Admin CSV/PDF exports for platform management pages
@@ -91,7 +92,9 @@ PawConnect uses friendly UI validation together with service-level safeguards fo
 Important rules include:
 
 - Shelter application emails are trimmed and compared case-insensitively. A duplicate pending shelter application is blocked, and existing shelter account/profile emails cannot be reused for a new shelter application or approval.
-- Adoption requests are limited to requestable dogs. Duplicate pending requests from the same adopter for the same dog are blocked, adopted/in-treatment dogs cannot receive new requests, and accept/reject/cancel actions require the request to still be pending.
+- Adoption requests are limited to requestable dogs. Duplicate active requests from the same adopter for the same dog are blocked, adopted/in-treatment dogs cannot receive new requests, and adopters choose a preferred future shelter visit time during submission.
+- Preferred visit times are validated against the shelter's visiting hours. Closed days, past times, and times outside the configured visit range are rejected with friendly messages.
+- Shelter review is split into visit confirmation and final adoption. Confirming a visit reserves the dog and sends the adopter an email/in-app notification with an `.ics` calendar attachment. Marking as adopted happens later, after the visit.
 - Shelter users can manage adoption requests only for dogs owned by their shelter. Adopters can cancel only their own pending requests.
 - Dog image URLs are trimmed, empty URLs are ignored, and the same image URL cannot be added twice to the same dog.
 - Dog forms validate required identity fields, non-negative age/food values, valid month ranges, and avoid saving unusable dog age data.
@@ -103,6 +106,50 @@ Important rules include:
 
 Validation failures use user-friendly messages through form validation, MudSnackbar, or MudAlert where appropriate, instead of raw technical exceptions.
 
+## Adoption Visit Scheduling
+
+Adoption requests remain the main concept in PawConnect, but the first positive shelter decision is now a visit confirmation rather than final adoption approval.
+
+The flow is:
+
+```text
+Adopter submits adoption request with preferred visit time
+-> PawConnect validates the time against shelter visiting hours
+-> Shelter confirms the visit or rejects the request
+-> Adopter receives email/in-app notification with an .ics calendar attachment
+-> After the visit, the shelter marks the dog/request as adopted or rejects/closes the request
+```
+
+Shelter visiting hours are stored on the `Shelter` profile with one daily time range and allowed visit weekdays. Admin users can edit these hours from `/admin/shelters`. Demo/default hours are Monday-Friday, 10:00-17:00.
+
+Visit confirmation reserves the dog but does not mark it as adopted. Final adoption happens only through the later "Mark as Adopted" action after the visit.
+
+## Visit Reminder Emails
+
+PawConnect can send automatic visit reminder emails 24 hours before confirmed shelter visits. The reminder uses Quartz.NET and the same SMTP/email template infrastructure as the confirmation email.
+
+Reminder emails include:
+
+- dog name
+- shelter name and contact details
+- visit date/time
+- shelter address/city
+- a generated `.ics` calendar attachment
+
+The reminder job is `VisitReminderJob`. It calls `IVisitReminderService`, which finds confirmed visits that are approximately 24 hours away and have not already received a reminder. Each adoption request stores `VisitReminderSentAt`; once it has a value, PawConnect will not send another reminder for that visit.
+
+Visit reminders are configured in `appsettings.json`:
+
+```json
+"VisitReminders": {
+  "Enabled": false,
+  "CheckIntervalMinutes": 30,
+  "ReminderHoursBeforeVisit": 24
+}
+```
+
+`Enabled` is `false` by default to avoid accidental development email spam. For local testing, enable it and use a local SMTP catcher such as smtp4dev. The reminder job does not use Google Calendar API/OAuth and does not store `.ics` files in the database.
+
 ## Email Notifications
 
 PawConnect uses `IEmailService` with `SmtpEmailService` as the active implementation. The service sends email through a generic SMTP server using MailKit. Important notifications include a branded PawConnect HTML layout with a plain text fallback, so a local SMTP catcher can be used to inspect readable text bodies, richer HTML previews, and PDF attachments during development.
@@ -112,15 +159,19 @@ Email notifications are triggered when:
 - A user requests a password reset through Forgot Password, sending an Identity reset link.
 - Identity account confirmation and email verification messages are sent.
 - An adopter submits a new adoption request, notifying the owning shelter.
-- A shelter accepts or rejects an adoption request, notifying the adopter.
+- A shelter confirms an adoption visit, notifying the adopter with a calendar invitation attachment.
+- A confirmed adoption visit is about 24 hours away, reminding the adopter with another calendar invitation attachment.
+- A shelter rejects or finalizes an adoption request after review/visit, notifying the adopter.
 - A shelter creates or updates a resource stock item that is at or below its low-stock threshold, notifying the shelter.
 
 Some notifications include PDF report attachments:
 
 - `AdoptionRequestReport.pdf` is attached when a new adoption request is sent to a shelter.
-- `AdoptionStatusReport.pdf` is attached when a request is accepted or rejected and the adopter is notified.
+- `AdoptionStatusReport.pdf` is attached when a request is finalized as adopted after the visit or rejected and the adopter is notified.
 - `LowStockResourceReport.pdf` is attached when a resource reaches low stock.
 - `ShelterSummaryReport-{yyyy-MM-dd}.pdf` is attached when a shelter summary report is sent manually or by the scheduler.
+
+Confirmed shelter visits and 24-hour visit reminders include an iCalendar invitation named `adoption-visit-{dog-name}-{yyyy-MM-dd}.ics`. PawConnect sends it as a `text/calendar; method=REQUEST` MIME part so compatible email clients may show an Add/Accept calendar action, and also keeps the `.ics` file as an attachment fallback. PawConnect does not use Google Calendar API/OAuth or Microsoft Graph; the generated `.ics` file can still be imported by common calendar applications.
 
 The reports are generated without charts. They use a clean PawConnect-style text and table layout with section headings, spacing, and a generated-date footer.
 
@@ -150,8 +201,10 @@ The bell dropdown is intentionally compact: it shows a limited set of recent not
 
 Examples of role-based notifications:
 
-- Adopters receive notifications when their adoption requests are accepted or rejected.
-- Shelters receive notifications for new adoption requests, cancelled adopter requests, low-stock resources, and sent summary reports.
+- Adopters receive notifications when a shelter visit is confirmed.
+- Adopters receive notifications when a 24-hour visit reminder is sent.
+- Adopters receive notifications when their adoption requests are finalized as adopted after the visit or rejected.
+- Shelters receive notifications for new adoption requests with preferred visit times, cancelled adopter requests, low-stock resources, and sent summary reports.
 - Admins receive notifications when a new shelter application is submitted.
 - Admins receive one summary notification when shelter application requests are imported from CSV.
 
@@ -159,7 +212,7 @@ Scheduled shelter summary report notifications also use a simple duplicate guard
 
 Notifications belong to a single `ApplicationUser`. Users can view, mark as read, mark all as read, and delete only their own notifications. Notification text avoids sensitive values such as passwords, reset tokens, security stamps, and SMTP credentials.
 
-SMTP settings are configured in `appsettings.json` under:
+Email delivery uses the generic `SmtpEmailService`. The default development setup uses a local SMTP catcher so emails can be inspected without sending anything to real inboxes:
 
 ```json
 "EmailSettings": {
@@ -175,13 +228,19 @@ SMTP settings are configured in `appsettings.json` under:
 }
 ```
 
-Do not commit real SMTP credentials. For external SMTP providers, put real values in `appsettings.Development.json`, .NET User Secrets, or environment variables.
+Do not commit real SMTP credentials. If a real SMTP provider is configured later, put real values in .NET User Secrets or environment variables.
 
 ## Local Email Testing
 
 For development, use a local SMTP catcher so no real emails are sent. Local catchers also let you inspect password reset emails, adoption/resource/shelter notifications, scheduled reports, HTML bodies, plain text bodies, and PDF attachments in a browser.
 
-Recommended option for this project setup: smtp4dev without Docker.
+Recommended option: smtp4dev.
+
+```bash
+docker run -d --name smtp4dev -p 3000:80 -p 2525:25 rnwood/smtp4dev
+```
+
+If smtp4dev is installed locally without Docker, run:
 
 ```powershell
 smtp4dev --urls=http://localhost:3000 --smtpport=2525
@@ -217,15 +276,17 @@ docker run -d --name mailpit -p 1025:1025 -p 8025:8025 axllent/mailpit
 
 Mailpit uses SMTP port `1025` and web UI `http://localhost:8025`.
 
-The SMTP service connects without authentication when `SmtpUser` and `SmtpPassword` are empty. External SMTP providers can still be configured later through the same `EmailSettings` keys.
+The SMTP service connects without authentication when `SmtpUser` and `SmtpPassword` are empty, which is the expected local smtp4dev/Mailpit setup. Real SMTP providers can still be configured later through the same `EmailSettings` keys, but they are not the default development path.
 
 In Development, PawConnect can open the local email inbox automatically when the app starts. This is controlled by `OpenLocalInboxOnStartup` and `LocalInboxUrl`; it opens the browser UI only and does not start the Mailpit/smtp4dev Docker container for you.
+
+The same SMTP path sends branded HTML and plain text email bodies, password reset links, adoption/resource/shelter notifications, scheduled report emails, PDF/CSV attachments, and `.ics` calendar invitations. PawConnect does not use Google Calendar API, Outlook/Microsoft Graph, or OAuth for visit invitations.
 
 ## Scheduled Shelter Summary Reports
 
 PawConnect uses Quartz.NET for optional scheduled shelter summary reports. The job is in-process and uses Quartz's simple in-memory scheduling. No external cron job, Hangfire server, Quartz dashboard, or persistent Quartz job store is required.
 
-The scheduled job is `ShelterSummaryReportJob`. It calls `IShelterSummaryReportService`, which generates a PDF through `IPdfReportService` and sends it through the existing generic `IEmailService` SMTP configuration. The report summarizes:
+The scheduled job is `ShelterSummaryReportJob`. It calls `IShelterSummaryReportService`, which generates a PDF through `IPdfReportService` and sends it through the configured SMTP email service. The report summarizes:
 
 - adoption request counts and new requests in the report period
 - dog status counts and recently adopted dogs

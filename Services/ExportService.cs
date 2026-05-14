@@ -129,6 +129,8 @@ public class ExportService(
             r.Dog?.Shelter?.Name,
             r.Adopter?.Email,
             r.Status.ToString(),
+            FormatDateTime(r.PreferredVisitDateTime),
+            r.VisitStatus.ToString(),
             FormatDateTime(r.CreatedAt),
             FormatDateTime(r.UpdatedAt),
             r.ReasonForAdoption,
@@ -138,7 +140,7 @@ public class ExportService(
 
         var file = BuildCsv(
             "pawconnect-adoption-requests",
-            ["Request Id", "Dog Name", "Shelter Name", "Adopter Email", "Status", "CreatedAt", "UpdatedAt", "ReasonForAdoption", "HoursAlonePerDay", "AdditionalInformation"],
+            ["Request Id", "Dog Name", "Shelter Name", "Adopter Email", "Status", "PreferredVisitDateTime", "VisitStatus", "CreatedAt", "UpdatedAt", "ReasonForAdoption", "HoursAlonePerDay", "AdditionalInformation"],
             rows);
         await LogExportAsync(file, "Admin adoption requests CSV export was generated.", relatedEntityName: "AdoptionRequests");
         return file;
@@ -181,6 +183,7 @@ public class ExportService(
                 AddSummary(content, [
                     ("Total requests", requests.Count.ToString(CultureInfo.InvariantCulture)),
                     ("Pending", CountAdoptionStatus(requests, AdoptionRequestStatus.Pending)),
+                    ("Visit confirmed", CountAdoptionStatus(requests, AdoptionRequestStatus.VisitConfirmed)),
                     ("Accepted", CountAdoptionStatus(requests, AdoptionRequestStatus.Accepted)),
                     ("Rejected", CountAdoptionStatus(requests, AdoptionRequestStatus.Rejected)),
                     ("Cancelled", CountAdoptionStatus(requests, AdoptionRequestStatus.Cancelled))
@@ -188,13 +191,14 @@ public class ExportService(
 
                 AddTable(
                     content,
-                    ["Dog", "Shelter", "Adopter", "Status", "Created", "Updated"],
+                    ["Dog", "Shelter", "Adopter", "Status", "Visit", "Created", "Updated"],
                     requests.Select(r => new[]
                     {
                         r.Dog?.Name ?? "-",
                         r.Dog?.Shelter?.Name ?? "-",
                         GetAdopterDisplay(r.Adopter),
                         r.Status.ToString(),
+                        FormatDateTime(r.PreferredVisitDateTime),
                         FormatDateTime(r.CreatedAt),
                         FormatDateTime(r.UpdatedAt)
                     }));
@@ -283,6 +287,8 @@ public class ExportService(
             r.Adopter?.Email,
             GetAdopterFullName(r.Adopter),
             r.Status.ToString(),
+            FormatDateTime(r.PreferredVisitDateTime),
+            r.VisitStatus.ToString(),
             FormatDateTime(r.CreatedAt),
             FormatDateTime(r.UpdatedAt),
             r.ReasonForAdoption,
@@ -293,7 +299,7 @@ public class ExportService(
 
         var file = BuildCsv(
             "pawconnect-shelter-adoption-requests",
-            ["Request Id", "Dog Name", "Adopter Email", "Adopter Full Name", "Status", "CreatedAt", "UpdatedAt", "ReasonForAdoption", "HoursAlonePerDay", "AdditionalInformation", "ShelterInternalNotes"],
+            ["Request Id", "Dog Name", "Adopter Email", "Adopter Full Name", "Status", "PreferredVisitDateTime", "VisitStatus", "CreatedAt", "UpdatedAt", "ReasonForAdoption", "HoursAlonePerDay", "AdditionalInformation", "ShelterInternalNotes"],
             rows);
         await LogExportAsync(file, "Shelter adoption requests CSV export was generated.", shelterId, "AdoptionRequests");
         return file;
@@ -312,6 +318,7 @@ public class ExportService(
                     ("Shelter", shelter?.Name ?? "Current shelter"),
                     ("Total", requests.Count.ToString(CultureInfo.InvariantCulture)),
                     ("Pending", CountAdoptionStatus(requests, AdoptionRequestStatus.Pending)),
+                    ("Visit confirmed", CountAdoptionStatus(requests, AdoptionRequestStatus.VisitConfirmed)),
                     ("Accepted", CountAdoptionStatus(requests, AdoptionRequestStatus.Accepted)),
                     ("Rejected", CountAdoptionStatus(requests, AdoptionRequestStatus.Rejected)),
                     ("Cancelled", CountAdoptionStatus(requests, AdoptionRequestStatus.Cancelled))
@@ -319,12 +326,13 @@ public class ExportService(
 
                 AddTable(
                     content,
-                    ["Dog", "Adopter", "Status", "Created", "Updated"],
+                    ["Dog", "Adopter", "Status", "Visit", "Created", "Updated"],
                     requests.Select(r => new[]
                     {
                         r.Dog?.Name ?? "-",
                         GetAdopterDisplay(r.Adopter),
                         r.Status.ToString(),
+                        FormatDateTime(r.PreferredVisitDateTime),
                         FormatDateTime(r.CreatedAt),
                         FormatDateTime(r.UpdatedAt)
                     }));

@@ -49,10 +49,10 @@
                     <MudPaper Elevation="0" Class="summary-card pa-3"><MudText Typo="Typo.caption" Color="Color.Secondary">Pending</MudText><MudText Typo="Typo.h5">@PendingCount</MudText></MudPaper>
                 </MudItem>
                 <MudItem xs="12" sm="6" md="3">
-                    <MudPaper Elevation="0" Class="summary-card pa-3"><MudText Typo="Typo.caption" Color="Color.Secondary">Accepted</MudText><MudText Typo="Typo.h5">@AcceptedCount</MudText></MudPaper>
+                    <MudPaper Elevation="0" Class="summary-card pa-3"><MudText Typo="Typo.caption" Color="Color.Secondary">Visits Confirmed</MudText><MudText Typo="Typo.h5">@VisitConfirmedCount</MudText></MudPaper>
                 </MudItem>
                 <MudItem xs="12" sm="6" md="3">
-                    <MudPaper Elevation="0" Class="summary-card pa-3"><MudText Typo="Typo.caption" Color="Color.Secondary">Closed</MudText><MudText Typo="Typo.h5">@ClosedCount</MudText></MudPaper>
+                    <MudPaper Elevation="0" Class="summary-card pa-3"><MudText Typo="Typo.caption" Color="Color.Secondary">Completed/Closed</MudText><MudText Typo="Typo.h5">@(AcceptedCount + ClosedCount)</MudText></MudPaper>
                 </MudItem>
             </MudGrid>
 
@@ -88,12 +88,19 @@
                                         <MudText Typo="Typo.caption" Color="Color.Secondary">Request reason</MudText>
                                         <MudText Typo="Typo.body2">@GetRequestSummary(request)</MudText>
                                         <MudText Typo="Typo.caption" Color="Color.Secondary">Hours alone: @(request.HoursAlonePerDay.HasValue ? request.HoursAlonePerDay.Value : "-")</MudText>
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">Preferred visit: @FormatVisitDateTime(request.PreferredVisitDateTime)</MudText>
+                                        @if (request.VisitReminderSentAt.HasValue)
+                                        {
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">Reminder sent: @request.VisitReminderSentAt.Value.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudText>
+                                        }
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">@GetRequestProgressText(request)</MudText>
                                     </MudStack>
                                 </MudItem>
 
                                 <MudItem xs="12" md="3">
                                     <MudStack Spacing="1" Class="request-meta">
                                         <MudChip T="string" Color="@GetStatusColor(request.Status)" Size="Size.Small" Class="status-chip">@request.Status</MudChip>
+                                        <MudChip T="string" Color="@GetVisitStatusColor(request.VisitStatus)" Size="Size.Small" Variant="Variant.Outlined">@GetVisitStatusText(request.VisitStatus)</MudChip>
                                         <MudText Typo="Typo.caption" Color="Color.Secondary">Created: @request.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudText>
                                         <MudText Typo="Typo.caption" Color="Color.Secondary">Updated: @request.UpdatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudText>
                                         @if (request.Status == AdoptionRequestStatus.Pending)
@@ -117,6 +124,7 @@
     private string? _error;
     private string? _currentUserId;
     private int PendingCount => _requests.Count(r => r.Status == AdoptionRequestStatus.Pending);
+    private int VisitConfirmedCount => _requests.Count(r => r.Status == AdoptionRequestStatus.VisitConfirmed);
     private int AcceptedCount => _requests.Count(r => r.Status == AdoptionRequestStatus.Accepted);
     private int ClosedCount => _requests.Count(r => r.Status is AdoptionRequestStatus.Rejected or AdoptionRequestStatus.Cancelled);
 
@@ -208,11 +216,54 @@
         return status switch
         {
             AdoptionRequestStatus.Pending => Color.Warning,
+            AdoptionRequestStatus.VisitConfirmed => Color.Info,
             AdoptionRequestStatus.Accepted => Color.Success,
             AdoptionRequestStatus.Rejected => Color.Error,
             AdoptionRequestStatus.Cancelled => Color.Default,
             _ => Color.Default
         };
+    }
+
+    private static Color GetVisitStatusColor(AdoptionVisitStatus status)
+    {
+        return status switch
+        {
+            AdoptionVisitStatus.Requested => Color.Warning,
+            AdoptionVisitStatus.Confirmed => Color.Success,
+            AdoptionVisitStatus.Completed => Color.Info,
+            AdoptionVisitStatus.Cancelled => Color.Default,
+            _ => Color.Default
+        };
+    }
+
+    private static string GetVisitStatusText(AdoptionVisitStatus status)
+    {
+        return status switch
+        {
+            AdoptionVisitStatus.Requested => "Visit requested",
+            AdoptionVisitStatus.Confirmed => "Visit confirmed",
+            AdoptionVisitStatus.Completed => "Completed",
+            AdoptionVisitStatus.Cancelled => "Cancelled",
+            _ => "Not scheduled"
+        };
+    }
+
+    private static string GetRequestProgressText(AdoptionRequest request)
+    {
+        return request.Status switch
+        {
+            AdoptionRequestStatus.Pending => "Waiting for shelter review.",
+            AdoptionRequestStatus.VisitConfirmed => "Your visit has been confirmed.",
+            AdoptionRequestStatus.Accepted => "The adoption was completed after the visit.",
+            AdoptionRequestStatus.Rejected => "This request was rejected.",
+            AdoptionRequestStatus.Cancelled => "This request was cancelled.",
+            _ => string.Empty
+        };
+    }
+
+    private static string FormatVisitDateTime(DateTime? visitDateTime)
+    {
+        return VisitSchedulingHelper.FormatVisitDateTime(visitDateTime);
     }
 
     private static string GetRequestSummary(AdoptionRequest request)

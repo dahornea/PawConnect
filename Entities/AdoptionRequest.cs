@@ -18,6 +18,21 @@ public class AdoptionRequest
 
     public AdoptionRequestStatus Status { get; set; } = AdoptionRequestStatus.Pending;
 
+    public DateTime? PreferredVisitDateTime { get; set; }
+
+    public AdoptionVisitStatus VisitStatus { get; set; } = AdoptionVisitStatus.NotScheduled;
+
+    public DateTime? VisitConfirmedAt { get; set; }
+
+    public DateTime? VisitReminderSentAt { get; set; }
+
+    [StringLength(1000)]
+    public string? VisitNotes { get; set; }
+
+    public string? VisitConfirmedByUserId { get; set; }
+
+    public ApplicationUser? VisitConfirmedByUser { get; set; }
+
     [StringLength(1000)]
     public string? Message { get; set; }
 

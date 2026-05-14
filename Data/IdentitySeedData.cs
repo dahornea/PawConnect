@@ -157,6 +157,13 @@ public static class IdentitySeedData
             Email = "u8878233525@id.gle",
             Latitude = 46.7556,
             Longitude = 23.5804,
+            VisitStartTime = new TimeSpan(10, 0, 0),
+            VisitEndTime = new TimeSpan(17, 0, 0),
+            VisitsAllowedMonday = true,
+            VisitsAllowedTuesday = true,
+            VisitsAllowedWednesday = true,
+            VisitsAllowedThursday = true,
+            VisitsAllowedFriday = true,
             ApplicationUserId = ShelterUserId
         };
 
@@ -299,7 +306,14 @@ public static class IdentitySeedData
                 PhoneNumber = "+40 700 000 002",
                 Email = "hope-tails@example.test",
                 Latitude = 46.7842,
-                Longitude = 23.6157
+                Longitude = 23.6157,
+                VisitStartTime = new TimeSpan(10, 0, 0),
+                VisitEndTime = new TimeSpan(17, 0, 0),
+                VisitsAllowedMonday = true,
+                VisitsAllowedTuesday = true,
+                VisitsAllowedWednesday = true,
+                VisitsAllowedThursday = true,
+                VisitsAllowedFriday = true
             },
             new Shelter
             {
@@ -310,7 +324,14 @@ public static class IdentitySeedData
                 PhoneNumber = "+40 700 000 003",
                 Email = "safe-haven@example.test",
                 Latitude = 46.7509,
-                Longitude = 23.6022
+                Longitude = 23.6022,
+                VisitStartTime = new TimeSpan(10, 0, 0),
+                VisitEndTime = new TimeSpan(17, 0, 0),
+                VisitsAllowedMonday = true,
+                VisitsAllowedTuesday = true,
+                VisitsAllowedWednesday = true,
+                VisitsAllowedThursday = true,
+                VisitsAllowedFriday = true
             },
             new Shelter
             {
@@ -321,7 +342,14 @@ public static class IdentitySeedData
                 PhoneNumber = "+40 700 000 004",
                 Email = "green-yard@example.test",
                 Latitude = 46.7719,
-                Longitude = 23.5458
+                Longitude = 23.5458,
+                VisitStartTime = new TimeSpan(10, 0, 0),
+                VisitEndTime = new TimeSpan(17, 0, 0),
+                VisitsAllowedMonday = true,
+                VisitsAllowedTuesday = true,
+                VisitsAllowedWednesday = true,
+                VisitsAllowedThursday = true,
+                VisitsAllowedFriday = true
             });
         await context.SaveChangesAsync();
     }
@@ -367,6 +395,7 @@ public static class IdentitySeedData
             shelter.Email = "u8878233525@id.gle";
             shelter.Latitude = 46.7556;
             shelter.Longitude = 23.5804;
+            ApplyDefaultVisitingHours(shelter);
 
             await EnsureDemoShelterAsync(
                 context,
@@ -513,7 +542,7 @@ public static class IdentitySeedData
         var shelter = await context.Shelters.FirstOrDefaultAsync(s => s.Name == name);
         if (shelter is null)
         {
-            context.Shelters.Add(new Shelter
+            shelter = new Shelter
             {
                 Name = name,
                 Description = description,
@@ -523,7 +552,9 @@ public static class IdentitySeedData
                 Email = email,
                 Latitude = latitude,
                 Longitude = longitude
-            });
+            };
+            ApplyDefaultVisitingHours(shelter);
+            context.Shelters.Add(shelter);
             return;
         }
 
@@ -534,6 +565,30 @@ public static class IdentitySeedData
         shelter.Email = email;
         shelter.Latitude = latitude;
         shelter.Longitude = longitude;
+        ApplyDefaultVisitingHours(shelter);
+    }
+
+    private static void ApplyDefaultVisitingHours(Shelter shelter)
+    {
+        shelter.VisitStartTime ??= new TimeSpan(10, 0, 0);
+        shelter.VisitEndTime ??= new TimeSpan(17, 0, 0);
+
+        if (shelter.VisitsAllowedMonday ||
+            shelter.VisitsAllowedTuesday ||
+            shelter.VisitsAllowedWednesday ||
+            shelter.VisitsAllowedThursday ||
+            shelter.VisitsAllowedFriday ||
+            shelter.VisitsAllowedSaturday ||
+            shelter.VisitsAllowedSunday)
+        {
+            return;
+        }
+
+        shelter.VisitsAllowedMonday = true;
+        shelter.VisitsAllowedTuesday = true;
+        shelter.VisitsAllowedWednesday = true;
+        shelter.VisitsAllowedThursday = true;
+        shelter.VisitsAllowedFriday = true;
     }
 
     private static async Task UpdateDemoDogImagesAsync(ApplicationDbContext context, Dog dog)

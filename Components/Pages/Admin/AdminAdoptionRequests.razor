@@ -68,6 +68,7 @@
                     <MudTh>Shelter</MudTh>
                     <MudTh>Adopter</MudTh>
                     <MudTh>Status</MudTh>
+                    <MudTh>Visit</MudTh>
                     <MudTh>Questionnaire</MudTh>
                     <MudTh>Internal Notes</MudTh>
                     <MudTh>Profile</MudTh>
@@ -80,6 +81,12 @@
                     <MudTd DataLabel="Adopter">@GetAdopterName(context.Adopter)</MudTd>
                     <MudTd DataLabel="Status">
                         <MudChip T="string" Color="@GetStatusColor(context.Status)" Size="Size.Small">@context.Status</MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Visit">
+                        <MudStack Spacing="1">
+                            <MudText Typo="Typo.caption">@VisitSchedulingHelper.FormatVisitDateTime(context.PreferredVisitDateTime)</MudText>
+                            <MudChip T="string" Color="@GetVisitStatusColor(context.VisitStatus)" Size="Size.Small" Variant="Variant.Outlined">@GetVisitStatusText(context.VisitStatus)</MudChip>
+                        </MudStack>
                     </MudTd>
                     <MudTd DataLabel="Questionnaire">
                         <MudStack Spacing="1">
@@ -199,10 +206,35 @@
         return status switch
         {
             AdoptionRequestStatus.Pending => Color.Warning,
+            AdoptionRequestStatus.VisitConfirmed => Color.Info,
             AdoptionRequestStatus.Accepted => Color.Success,
             AdoptionRequestStatus.Rejected => Color.Error,
             AdoptionRequestStatus.Cancelled => Color.Default,
             _ => Color.Default
+        };
+    }
+
+    private static Color GetVisitStatusColor(AdoptionVisitStatus status)
+    {
+        return status switch
+        {
+            AdoptionVisitStatus.Requested => Color.Warning,
+            AdoptionVisitStatus.Confirmed => Color.Success,
+            AdoptionVisitStatus.Completed => Color.Info,
+            AdoptionVisitStatus.Cancelled => Color.Default,
+            _ => Color.Default
+        };
+    }
+
+    private static string GetVisitStatusText(AdoptionVisitStatus status)
+    {
+        return status switch
+        {
+            AdoptionVisitStatus.Requested => "Visit requested",
+            AdoptionVisitStatus.Confirmed => "Visit confirmed",
+            AdoptionVisitStatus.Completed => "Completed",
+            AdoptionVisitStatus.Cancelled => "Cancelled",
+            _ => "Not scheduled"
         };
     }
 

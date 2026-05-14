@@ -30,6 +30,10 @@ public interface IAdoptionRequestService
 
     Task AcceptRequestAsync(int requestId, int shelterId, string? changedByUserId = null);
 
+    Task ConfirmVisitAsync(int requestId, int shelterId, string? changedByUserId = null);
+
+    Task MarkAsAdoptedAsync(int requestId, int shelterId, string? changedByUserId = null);
+
     Task RejectRequestAsync(int requestId, int shelterId);
 
     Task CancelRequestAsync(int requestId, string adopterId);
@@ -42,4 +46,5 @@ public sealed record AdoptionRequestSummary(int Total, int Pending, int Accepted
 public sealed record AdoptionRequestQuestionnaire(
     string ReasonForAdoption,
     int? HoursAlonePerDay,
-    string? AdditionalInformation);
+    string? AdditionalInformation,
+    DateTime? PreferredVisitDateTime = null);

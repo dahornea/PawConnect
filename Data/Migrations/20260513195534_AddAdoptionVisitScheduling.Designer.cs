@@ -3,17 +3,20 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using PawConnect.Data;
 
 #nullable disable
 
-namespace PawConnect.Migrations
+namespace PawConnect.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260513195534_AddAdoptionVisitScheduling")]
+    partial class AddAdoptionVisitScheduling
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -367,9 +370,6 @@ namespace PawConnect.Migrations
                     b.Property<string>("VisitNotes")
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
-
-                    b.Property<DateTime?>("VisitReminderSentAt")
-                        .HasColumnType("datetime2");
 
                     b.Property<int>("VisitStatus")
                         .HasColumnType("int");

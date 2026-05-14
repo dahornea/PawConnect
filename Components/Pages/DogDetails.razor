@@ -196,6 +196,37 @@ else
 
                                         <MudForm @ref="_adoptionForm">
                                             <MudStack Spacing="2">
+                                                <MudPaper Elevation="0" Class="section-surface pa-3">
+                                                    <MudStack Spacing="2">
+                                                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                                            <MudIcon Icon="@Icons.Material.Filled.EventAvailable" Color="Color.Primary" />
+                                                            <MudText Typo="Typo.subtitle1">Preferred Visit Time</MudText>
+                                                        </MudStack>
+                                                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                                            Shelter visiting hours: @GetShelterVisitingHours()
+                                                        </MudText>
+                                                        <MudGrid Spacing="2">
+                                                            <MudItem xs="12" sm="6">
+                                                                <MudDatePicker Label="Preferred visit date"
+                                                                               @bind-Date="_preferredVisitDate"
+                                                                               Required="true"
+                                                                               RequiredError="Preferred visit date is required."
+                                                                               MinDate="DateTime.Today"
+                                                                               Variant="Variant.Outlined" />
+                                                            </MudItem>
+                                                            <MudItem xs="12" sm="6">
+                                                                <MudTimePicker Label="Preferred visit time"
+                                                                               @bind-Time="_preferredVisitTime"
+                                                                               Required="true"
+                                                                               RequiredError="Preferred visit time is required."
+                                                                               Variant="Variant.Outlined" />
+                                                            </MudItem>
+                                                        </MudGrid>
+                                                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                                            The shelter will review your request and confirm the visit before any final adoption decision.
+                                                        </MudText>
+                                                    </MudStack>
+                                                </MudPaper>
                                                 <MudTextField Label="Reason for adoption" @bind-Value="_reasonForAdoption" Required="true" RequiredError="Reason for adoption is required." Lines="4" Variant="Variant.Outlined" />
                                                 <MudNumericField T="int?" Label="Hours per day the dog would be alone" @bind-Value="_hoursAlonePerDay" Min="0" Max="24" Variant="Variant.Outlined" />
                                                 <MudTextField Label="Additional information" @bind-Value="_additionalInformation" Lines="3" Variant="Variant.Outlined" />
@@ -334,6 +365,8 @@ else
     private string? _reasonForAdoption;
     private int? _hoursAlonePerDay;
     private string? _additionalInformation;
+    private DateTime? _preferredVisitDate;
+    private TimeSpan? _preferredVisitTime;
 
     private bool IsAdopted => _dog?.Status == DogStatus.Adopted;
     private string LoginUrl => $"/Account/Login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}";
@@ -493,6 +526,8 @@ else
         }
 
         _showAdoptionForm = true;
+        _preferredVisitDate ??= DateTime.Today.AddDays(1);
+        _preferredVisitTime ??= VisitSchedulingHelper.GetVisitStartTime(_dog.Shelter);
     }
 
     private async Task SubmitAdoptionRequestAsync()
@@ -519,7 +554,8 @@ else
             var questionnaire = new AdoptionRequestQuestionnaire(
                 _reasonForAdoption ?? string.Empty,
                 _hoursAlonePerDay,
-                _additionalInformation);
+                _additionalInformation,
+                GetPreferredVisitDateTime());
 
             await AdoptionRequestService.CreateRequestAsync(_currentUserId, _dog.Id, questionnaire);
             _hasPendingRequest = true;
@@ -552,6 +588,8 @@ else
         _reasonForAdoption = null;
         _hoursAlonePerDay = null;
         _additionalInformation = null;
+        _preferredVisitDate = null;
+        _preferredVisitTime = null;
         if (_adoptionForm is not null)
         {
             await _adoptionForm.ResetValidationAsync();
@@ -581,6 +619,21 @@ else
     private string GetAdoptionButtonText()
     {
         return _hasPendingRequest ? "Request Pending" : "Submit Adoption Request";
+    }
+
+    private DateTime? GetPreferredVisitDateTime()
+    {
+        if (!_preferredVisitDate.HasValue || !_preferredVisitTime.HasValue)
+        {
+            return null;
+        }
+
+        return _preferredVisitDate.Value.Date.Add(_preferredVisitTime.Value);
+    }
+
+    private string GetShelterVisitingHours()
+    {
+        return VisitSchedulingHelper.FormatVisitingHours(_dog?.Shelter);
     }
 
     private static string FormatYesNo(bool value)

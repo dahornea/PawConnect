@@ -97,6 +97,8 @@ public class AdoptionRequestService(
             throw new InvalidOperationException("You already have a pending request for this dog.");
         }
 
+        VisitSchedulingHelper.ValidatePreferredVisitTime(dog.Shelter, questionnaire.PreferredVisitDateTime);
+
         var adopter = await context.Users
             .Include(u => u.AdopterProfile)
             .AsNoTracking()
@@ -112,6 +114,8 @@ public class AdoptionRequestService(
             HoursAlonePerDay = questionnaire.HoursAlonePerDay,
             AdditionalInformation = string.IsNullOrWhiteSpace(questionnaire.AdditionalInformation) ? null : questionnaire.AdditionalInformation.Trim(),
             Status = AdoptionRequestStatus.Pending,
+            PreferredVisitDateTime = questionnaire.PreferredVisitDateTime,
+            VisitStatus = AdoptionVisitStatus.Requested,
             CreatedAt = now,
             UpdatedAt = now
         };
@@ -124,14 +128,14 @@ public class AdoptionRequestService(
             adoptionRequest.Id.ToString(),
             $"Adoption request for dog {dog.Name} was submitted.",
             userId: adopterId,
-            additionalData: $"DogId={dogId};ShelterId={dog.ShelterId}");
+            additionalData: $"DogId={dogId};ShelterId={dog.ShelterId};PreferredVisit={questionnaire.PreferredVisitDateTime:O}");
         await NotifyShelterAboutNewRequestAsync(adoptionRequest.Id, dog, adopter, questionnaire, now);
         if (dog.Shelter?.ApplicationUserId is not null)
         {
             await CreateNotificationAsync(
                 dog.Shelter.ApplicationUserId,
                 "New adoption request",
-                $"A new adoption request was submitted for {dog.Name}.",
+                $"A new adoption request was submitted for {dog.Name} with a preferred shelter visit time.",
                 NotificationCategory.Adoption,
                 NotificationType.Info,
                 "/shelter/adoption-requests",
@@ -202,10 +206,15 @@ public class AdoptionRequestService(
         return context.AdoptionRequests.AnyAsync(r =>
             r.AdopterId == adopterId &&
             r.DogId == dogId &&
-            r.Status == AdoptionRequestStatus.Pending);
+            (r.Status == AdoptionRequestStatus.Pending || r.Status == AdoptionRequestStatus.VisitConfirmed));
     }
 
     public async Task AcceptRequestAsync(int requestId, int shelterId, string? changedByUserId = null)
+    {
+        await MarkAsAdoptedAsync(requestId, shelterId, changedByUserId);
+    }
+
+    public async Task ConfirmVisitAsync(int requestId, int shelterId, string? changedByUserId = null)
     {
         var request = await context.AdoptionRequests
             .Include(r => r.Dog)
@@ -214,7 +223,7 @@ public class AdoptionRequestService(
             .FirstOrDefaultAsync(r => r.Id == requestId);
 
         EnsureShelterCanManageRequest(request, shelterId);
-        EnsurePending(request!, "accepted");
+        EnsurePending(request!, "confirmed for a visit");
 
         if (request!.Dog!.Status == DogStatus.Adopted)
         {
@@ -223,11 +232,16 @@ public class AdoptionRequestService(
 
         if (request.Dog.Status is not (DogStatus.Available or DogStatus.Reserved))
         {
-            throw new InvalidOperationException("Only requests for available or reserved dogs can be accepted.");
+            throw new InvalidOperationException("Only requests for available or reserved dogs can have visits confirmed.");
         }
 
+        VisitSchedulingHelper.ValidatePreferredVisitTime(request.Dog.Shelter, request.PreferredVisitDateTime);
+
         var now = DateTime.UtcNow;
-        request.Status = AdoptionRequestStatus.Accepted;
+        request.Status = AdoptionRequestStatus.VisitConfirmed;
+        request.VisitStatus = AdoptionVisitStatus.Confirmed;
+        request.VisitConfirmedAt = now;
+        request.VisitConfirmedByUserId = changedByUserId;
         request.UpdatedAt = now;
         var oldDogStatus = request.Dog!.Status;
         request.Dog!.Status = DogStatus.Reserved;
@@ -236,7 +250,7 @@ public class AdoptionRequestService(
             oldDogStatus,
             request.Dog.Status,
             changedByUserId,
-            "Status changed to reserved after adoption request acceptance.");
+            "Status changed to reserved after adoption visit confirmation.");
 
         var otherPendingRequests = await context.AdoptionRequests
             .Where(r => r.Id != request.Id && r.DogId == request.DogId && r.Status == AdoptionRequestStatus.Pending)
@@ -250,10 +264,10 @@ public class AdoptionRequestService(
 
         await context.SaveChangesAsync();
         await LogAsync(
-            AuditActions.AdoptionRequestAccepted,
+            AuditActions.VisitConfirmed,
             "AdoptionRequest",
             request.Id.ToString(),
-            $"Adoption request for dog {request.Dog.Name} was accepted.",
+            $"Shelter visit for dog {request.Dog.Name} was confirmed.",
             userId: changedByUserId,
             additionalData: $"DogId={request.DogId};ShelterId={shelterId}");
 
@@ -263,15 +277,96 @@ public class AdoptionRequestService(
                 AuditActions.DogStatusChanged,
                 "Dog",
                 request.Dog.Id.ToString(),
-                $"Dog {request.Dog.Name} status changed from {oldDogStatus} to {request.Dog.Status} after adoption request acceptance.",
+                $"Dog {request.Dog.Name} status changed from {oldDogStatus} to {request.Dog.Status} after visit confirmation.",
                 userId: changedByUserId,
                 additionalData: $"RequestId={request.Id};ShelterId={shelterId}");
         }
+        await NotifyAdopterAboutVisitConfirmedAsync(request);
+        await CreateNotificationAsync(
+            request.AdopterId,
+            "Shelter visit confirmed",
+            $"Your visit for {request.Dog.Name} has been confirmed.",
+            NotificationCategory.Adoption,
+            NotificationType.Success,
+            "/my-adoption-requests",
+            "AdoptionRequest",
+            request.Id.ToString());
+    }
+
+    public async Task MarkAsAdoptedAsync(int requestId, int shelterId, string? changedByUserId = null)
+    {
+        var request = await context.AdoptionRequests
+            .Include(r => r.Dog)
+            .ThenInclude(d => d!.Shelter)
+            .Include(r => r.Adopter)
+            .FirstOrDefaultAsync(r => r.Id == requestId);
+
+        EnsureShelterCanManageRequest(request, shelterId);
+        if (request!.Status != AdoptionRequestStatus.VisitConfirmed || request.VisitStatus != AdoptionVisitStatus.Confirmed)
+        {
+            throw new InvalidOperationException("Only requests with a confirmed visit can be marked as adopted.");
+        }
+
+        if (request.Dog!.Status == DogStatus.Adopted)
+        {
+            throw new InvalidOperationException("This dog has already been adopted.");
+        }
+
+        var now = DateTime.UtcNow;
+        request.Status = AdoptionRequestStatus.Accepted;
+        request.VisitStatus = AdoptionVisitStatus.Completed;
+        request.UpdatedAt = now;
+        var oldDogStatus = request.Dog.Status;
+        request.Dog.Status = DogStatus.Adopted;
+        request.Dog.AdoptedAt ??= now;
+        AddDogStatusHistoryIfChanged(
+            request.Dog.Id,
+            oldDogStatus,
+            request.Dog.Status,
+            changedByUserId,
+            "Status changed to adopted after confirmed shelter visit.");
+
+        var otherActiveRequests = await context.AdoptionRequests
+            .Where(r =>
+                r.Id != request.Id &&
+                r.DogId == request.DogId &&
+                (r.Status == AdoptionRequestStatus.Pending || r.Status == AdoptionRequestStatus.VisitConfirmed))
+            .ToListAsync();
+
+        foreach (var otherRequest in otherActiveRequests)
+        {
+            otherRequest.Status = AdoptionRequestStatus.Rejected;
+            otherRequest.VisitStatus = AdoptionVisitStatus.Cancelled;
+            otherRequest.UpdatedAt = now;
+        }
+
+        await context.SaveChangesAsync();
+        await LogAsync(
+            AuditActions.VisitCompleted,
+            "AdoptionRequest",
+            request.Id.ToString(),
+            $"Visit for dog {request.Dog.Name} was completed.",
+            userId: changedByUserId,
+            additionalData: $"DogId={request.DogId};ShelterId={shelterId}");
+        await LogAsync(
+            AuditActions.DogMarkedAdopted,
+            "Dog",
+            request.Dog.Id.ToString(),
+            $"Dog {request.Dog.Name} was marked as adopted after a confirmed visit.",
+            userId: changedByUserId,
+            additionalData: $"RequestId={request.Id};ShelterId={shelterId}");
+        await LogAsync(
+            AuditActions.AdoptionRequestAccepted,
+            "AdoptionRequest",
+            request.Id.ToString(),
+            $"Adoption request for dog {request.Dog.Name} was accepted after the visit.",
+            userId: changedByUserId,
+            additionalData: $"DogId={request.DogId};ShelterId={shelterId}");
         await NotifyAdopterAboutRequestStatusAsync(request, AdoptionRequestStatus.Accepted);
         await CreateNotificationAsync(
             request.AdopterId,
-            "Adoption request accepted",
-            $"Your request for {request.Dog.Name} was accepted.",
+            "Adoption finalized",
+            $"Your adoption request for {request.Dog.Name} was accepted after the visit.",
             NotificationCategory.Adoption,
             NotificationType.Success,
             "/my-adoption-requests",
@@ -288,10 +383,26 @@ public class AdoptionRequestService(
             .FirstOrDefaultAsync(r => r.Id == requestId);
 
         EnsureShelterCanManageRequest(request, shelterId);
-        EnsurePending(request!, "rejected");
+        EnsureCanReject(request!);
 
+        var wasConfirmedVisit = request!.Status == AdoptionRequestStatus.VisitConfirmed;
+        var oldDogStatus = request.Dog?.Status;
         request!.Status = AdoptionRequestStatus.Rejected;
+        request.VisitStatus = request.VisitStatus == AdoptionVisitStatus.NotScheduled
+            ? AdoptionVisitStatus.NotScheduled
+            : AdoptionVisitStatus.Cancelled;
         request.UpdatedAt = DateTime.UtcNow;
+
+        if (wasConfirmedVisit && request.Dog is not null && request.Dog.Status == DogStatus.Reserved)
+        {
+            request.Dog.Status = DogStatus.Available;
+            AddDogStatusHistoryIfChanged(
+                request.Dog.Id,
+                oldDogStatus!.Value,
+                DogStatus.Available,
+                null,
+                "Dog returned to available after a confirmed visit was rejected.");
+        }
 
         await context.SaveChangesAsync();
         await LogAsync(
@@ -390,6 +501,14 @@ public class AdoptionRequestService(
         }
     }
 
+    private static void EnsureCanReject(AdoptionRequest request)
+    {
+        if (request.Status is not (AdoptionRequestStatus.Pending or AdoptionRequestStatus.VisitConfirmed))
+        {
+            throw new InvalidOperationException("Only pending or visit-confirmed requests can be rejected.");
+        }
+    }
+
     private static void ValidateQuestionnaire(AdoptionRequestQuestionnaire questionnaire)
     {
         if (string.IsNullOrWhiteSpace(questionnaire.ReasonForAdoption))
@@ -446,6 +565,7 @@ public class AdoptionRequestService(
 
                 Adopter: {adopterName}
                 Created: {createdAt.ToLocalTime():dd MMM yyyy HH:mm}
+                Preferred visit: {VisitSchedulingHelper.FormatVisitDateTime(questionnaire.PreferredVisitDateTime)}
 
                 Reason for adoption:
                 {questionnaire.ReasonForAdoption.Trim()}
@@ -480,6 +600,7 @@ public class AdoptionRequestService(
                     new("Shelter", dog.Shelter?.Name ?? "Your shelter"),
                     new("Adopter", adopterName),
                     new("Request status", AdoptionRequestStatus.Pending.ToString()),
+                    new("Preferred visit", VisitSchedulingHelper.FormatVisitDateTime(questionnaire.PreferredVisitDateTime)),
                     new("Created", createdAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")),
                     new("Hours alone per day", questionnaire.HoursAlonePerDay.HasValue ? questionnaire.HoursAlonePerDay.Value.ToString() : "Not provided")
                 ],
@@ -500,6 +621,64 @@ public class AdoptionRequestService(
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Shelter adoption request notification failed for dog {DogId}.", dog.Id);
+        }
+    }
+
+    private async Task NotifyAdopterAboutVisitConfirmedAsync(AdoptionRequest request)
+    {
+        try
+        {
+            var adopterEmail = request.Adopter?.Email;
+            var dogName = request.Dog?.Name ?? "the selected dog";
+            var shelter = request.Dog?.Shelter;
+            var shelterName = shelter?.Name ?? "the shelter";
+            var visitTime = VisitSchedulingHelper.FormatVisitDateTime(request.PreferredVisitDateTime);
+            var shelterAddress = string.Join(", ", new[] { shelter?.Address, shelter?.City }
+                .Where(value => !string.IsNullOrWhiteSpace(value)));
+            var attachments = new List<EmailAttachment>
+            {
+                VisitSchedulingHelper.CreateCalendarInviteAttachment(request)
+            };
+
+            var body = $"""
+                Hello,
+
+                Your PawConnect shelter visit has been confirmed.
+
+                Dog: {dogName}
+                Shelter: {shelterName}
+                Visit time: {visitTime}
+                Shelter address: {(string.IsNullOrWhiteSpace(shelterAddress) ? "Not provided" : shelterAddress)}
+                Shelter email: {(string.IsNullOrWhiteSpace(shelter?.Email) ? "Not provided" : shelter.Email)}
+                Shelter phone: {(string.IsNullOrWhiteSpace(shelter?.PhoneNumber) ? "Not provided" : shelter.PhoneNumber)}
+
+                A calendar invitation is included in this email.
+                If you cannot attend, please contact the shelter.
+                """;
+
+            var htmlBody = PawConnectEmailTemplate.BuildHtml(
+                "Your PawConnect shelter visit has been confirmed",
+                "Hello,",
+                [
+                    $"Your visit for {dogName} has been confirmed.",
+                    "A calendar invitation is included in this email.",
+                    "If you cannot attend, please contact the shelter."
+                ],
+                details:
+                [
+                    new("Dog", dogName),
+                    new("Shelter", shelterName),
+                    new("Visit time", visitTime),
+                    new("Shelter address", string.IsNullOrWhiteSpace(shelterAddress) ? "Not provided" : shelterAddress),
+                    new("Shelter email", shelter?.Email ?? "Not provided"),
+                    new("Shelter phone", shelter?.PhoneNumber ?? "Not provided")
+                ]);
+
+            await emailService.SendEmailAsync(adopterEmail ?? string.Empty, "Your PawConnect shelter visit has been confirmed", body, attachments, htmlBody);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Visit confirmation email failed for request {RequestId}.", request.Id);
         }
     }
 
