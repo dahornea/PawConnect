@@ -56,7 +56,7 @@ public class AuditLogServiceTests
     }
 
     [Fact]
-    public async Task AcceptRequestAsync_WritesAuditLog()
+    public async Task ConfirmVisitAsync_WritesAuditLog()
     {
         await using var context = TestDbContextFactory.CreateContext();
         var dog = TestDbContextFactory.CreateDog("Audit Request Dog");
@@ -67,6 +67,8 @@ public class AuditLogServiceTests
             DogId = dog.Id,
             AdopterId = TestDbContextFactory.AdopterId,
             Status = AdoptionRequestStatus.Pending,
+            PreferredVisitDateTime = FutureVisit(),
+            VisitStatus = AdoptionVisitStatus.Requested,
             ReasonForAdoption = "Ready to adopt.",
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
@@ -82,10 +84,10 @@ public class AuditLogServiceTests
             TestDbContextFactory.CreateUserManager(context),
             auditLogService: auditService);
 
-        await adoptionService.AcceptRequestAsync(request.Id, TestDbContextFactory.ShelterId, TestDbContextFactory.ShelterUserId);
+        await adoptionService.ConfirmVisitAsync(request.Id, TestDbContextFactory.ShelterId, TestDbContextFactory.ShelterUserId);
 
         Assert.True(await context.AuditLogs.AnyAsync(log =>
-            log.Action == AuditActions.AdoptionRequestAccepted &&
+            log.Action == AuditActions.VisitConfirmed &&
             log.EntityName == "AdoptionRequest" &&
             log.EntityId == request.Id.ToString()));
     }
@@ -129,5 +131,16 @@ public class AuditLogServiceTests
             context,
             new HttpContextAccessor(),
             NullLogger<AuditLogService>.Instance);
+    }
+
+    private static DateTime FutureVisit()
+    {
+        var date = DateTime.Today.AddDays(1);
+        while (date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
+        {
+            date = date.AddDays(1);
+        }
+
+        return date.AddHours(11);
     }
 }

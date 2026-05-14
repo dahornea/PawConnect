@@ -165,7 +165,7 @@ public class NotificationServiceTests
         await service.CreateRequestAsync(
             TestDbContextFactory.AdopterId,
             dog.Id,
-            new AdoptionRequestQuestionnaire("I can offer a stable home.", 3, null));
+            new AdoptionRequestQuestionnaire("I can offer a stable home.", 3, null, FutureVisit()));
 
         var notification = await context.Notifications.SingleAsync(n => n.UserId == TestDbContextFactory.ShelterUserId);
         Assert.Equal("New adoption request", notification.Title);
@@ -175,17 +175,17 @@ public class NotificationServiceTests
     }
 
     [Fact]
-    public async Task AcceptRequestAsync_CreatesAdopterNotification()
+    public async Task ConfirmVisitAsync_CreatesAdopterNotification()
     {
         await using var test = CreateNotificationTestContext();
         var context = test.Context;
         var request = await SeedPendingRequestAsync(context, "Accepted Notification Dog");
         var service = CreateAdoptionService(context, test.Service);
 
-        await service.AcceptRequestAsync(request.Id, TestDbContextFactory.ShelterId, TestDbContextFactory.ShelterUserId);
+        await service.ConfirmVisitAsync(request.Id, TestDbContextFactory.ShelterId, TestDbContextFactory.ShelterUserId);
 
         var notification = await context.Notifications.SingleAsync(n => n.UserId == TestDbContextFactory.AdopterId);
-        Assert.Equal("Adoption request accepted", notification.Title);
+        Assert.Equal("Shelter visit confirmed", notification.Title);
         Assert.Equal(NotificationType.Success, notification.Type);
         Assert.Contains("Accepted Notification Dog", notification.Message);
     }
@@ -412,6 +412,8 @@ public class NotificationServiceTests
             DogId = dog.Id,
             AdopterId = TestDbContextFactory.AdopterId,
             Status = AdoptionRequestStatus.Pending,
+            PreferredVisitDateTime = FutureVisit(),
+            VisitStatus = AdoptionVisitStatus.Requested,
             ReasonForAdoption = "I am ready to adopt.",
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
@@ -419,6 +421,17 @@ public class NotificationServiceTests
         context.AdoptionRequests.Add(request);
         await context.SaveChangesAsync();
         return request;
+    }
+
+    private static DateTime FutureVisit()
+    {
+        var date = DateTime.Today.AddDays(1);
+        while (date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
+        {
+            date = date.AddDays(1);
+        }
+
+        return date.AddHours(11);
     }
 
     private static ShelterRegistrationRequest CreateShelterRegistrationRequest()

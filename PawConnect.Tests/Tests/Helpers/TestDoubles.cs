@@ -6,8 +6,15 @@ public class TestEmailService : IEmailService
 {
     public List<(string To, string Subject, string Body, List<EmailAttachment>? Attachments, string? HtmlBody)> SentEmails { get; } = [];
 
+    public bool ThrowOnSend { get; set; }
+
     public Task SendEmailAsync(string to, string subject, string body, List<EmailAttachment>? attachments = null, string? htmlBody = null)
     {
+        if (ThrowOnSend)
+        {
+            throw new InvalidOperationException("Email failed.");
+        }
+
         SentEmails.Add((to, subject, body, attachments, htmlBody));
         return Task.CompletedTask;
     }

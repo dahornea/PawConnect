@@ -115,6 +115,13 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.Entity<AdoptionRequest>()
+            .HasOne(a => a.VisitConfirmedByUser)
+            .WithMany()
+            .HasForeignKey(a => a.VisitConfirmedByUserId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.Entity<AdoptionRequest>()
             .HasIndex(a => new { a.AdopterId, a.DogId })
             .HasFilter("[Status] = 0")
             .IsUnique();
@@ -126,6 +133,34 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         builder.Entity<AdoptionRequest>()
             .Property(a => a.UpdatedAt)
             .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<Shelter>()
+            .Property(s => s.VisitStartTime)
+            .HasDefaultValue(new TimeSpan(10, 0, 0));
+
+        builder.Entity<Shelter>()
+            .Property(s => s.VisitEndTime)
+            .HasDefaultValue(new TimeSpan(17, 0, 0));
+
+        builder.Entity<Shelter>()
+            .Property(s => s.VisitsAllowedMonday)
+            .HasDefaultValue(true);
+
+        builder.Entity<Shelter>()
+            .Property(s => s.VisitsAllowedTuesday)
+            .HasDefaultValue(true);
+
+        builder.Entity<Shelter>()
+            .Property(s => s.VisitsAllowedWednesday)
+            .HasDefaultValue(true);
+
+        builder.Entity<Shelter>()
+            .Property(s => s.VisitsAllowedThursday)
+            .HasDefaultValue(true);
+
+        builder.Entity<Shelter>()
+            .Property(s => s.VisitsAllowedFriday)
+            .HasDefaultValue(true);
 
         builder.Entity<FavoriteDog>()
             .HasIndex(f => new { f.AdopterId, f.DogId })

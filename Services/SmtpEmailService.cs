@@ -30,28 +30,7 @@ public class SmtpEmailService(IOptions<EmailSettings> options, ILogger<SmtpEmail
             message.To.Add(MailboxAddress.Parse(to));
             message.Subject = subject;
 
-            if ((attachments is null || attachments.Count == 0) && string.IsNullOrWhiteSpace(htmlBody))
-            {
-                message.Body = new TextPart("plain") { Text = body };
-            }
-            else
-            {
-                var bodyBuilder = new BodyBuilder
-                {
-                    TextBody = body,
-                    HtmlBody = string.IsNullOrWhiteSpace(htmlBody) ? null : htmlBody
-                };
-
-                foreach (var attachment in (attachments ?? []).Where(a => a.Content.Length > 0))
-                {
-                    bodyBuilder.Attachments.Add(
-                        attachment.FileName,
-                        attachment.Content,
-                        ContentType.Parse(attachment.ContentType));
-                }
-
-                message.Body = bodyBuilder.ToMessageBody();
-            }
+            message.Body = EmailMimeBuilder.BuildBody(body, htmlBody, attachments);
 
             using var client = new SmtpClient();
             var secureSocketOptions = settings.EnableSsl ? SecureSocketOptions.StartTls : SecureSocketOptions.None;

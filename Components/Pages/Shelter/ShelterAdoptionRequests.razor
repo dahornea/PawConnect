@@ -75,10 +75,10 @@
                     <MudPaper Elevation="0" Class="summary-card pa-3"><MudText Typo="Typo.caption" Color="Color.Secondary">Pending</MudText><MudText Typo="Typo.h5">@PendingRequestCount</MudText></MudPaper>
                 </MudItem>
                 <MudItem xs="12" sm="6" md="3">
-                    <MudPaper Elevation="0" Class="summary-card pa-3"><MudText Typo="Typo.caption" Color="Color.Secondary">Accepted</MudText><MudText Typo="Typo.h5">@AcceptedRequestCount</MudText></MudPaper>
+                    <MudPaper Elevation="0" Class="summary-card pa-3"><MudText Typo="Typo.caption" Color="Color.Secondary">Visits Confirmed</MudText><MudText Typo="Typo.h5">@VisitConfirmedCount</MudText></MudPaper>
                 </MudItem>
                 <MudItem xs="12" sm="6" md="3">
-                    <MudPaper Elevation="0" Class="summary-card pa-3"><MudText Typo="Typo.caption" Color="Color.Secondary">Rejected</MudText><MudText Typo="Typo.h5">@RejectedRequestCount</MudText></MudPaper>
+                    <MudPaper Elevation="0" Class="summary-card pa-3"><MudText Typo="Typo.caption" Color="Color.Secondary">Adopted</MudText><MudText Typo="Typo.h5">@AcceptedRequestCount</MudText></MudPaper>
                 </MudItem>
             </MudGrid>
 
@@ -97,6 +97,7 @@
                         <MudTh>Dog</MudTh>
                         <MudTh>Adopter</MudTh>
                         <MudTh>Status</MudTh>
+                        <MudTh>Visit</MudTh>
                         <MudTh>Created</MudTh>
                         <MudTh>Updated</MudTh>
                         <MudTh>Actions</MudTh>
@@ -144,6 +145,12 @@
                         <MudTd DataLabel="Status">
                             <MudChip T="string" Color="@GetStatusColor(context.Status)" Size="Size.Small" Class="request-status-chip">@context.Status</MudChip>
                         </MudTd>
+                        <MudTd DataLabel="Visit">
+                            <MudStack Spacing="1">
+                                <MudText Typo="Typo.body2">@FormatVisitDateTime(context.PreferredVisitDateTime)</MudText>
+                                <MudChip T="string" Color="@GetVisitStatusColor(context.VisitStatus)" Size="Size.Small" Variant="Variant.Outlined">@GetVisitStatusText(context.VisitStatus)</MudChip>
+                            </MudStack>
+                        </MudTd>
                         <MudTd DataLabel="Created">@context.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
                         <MudTd DataLabel="Updated">@context.UpdatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
                         <MudTd DataLabel="Actions">
@@ -151,8 +158,13 @@
                                 <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Filled.Visibility" OnClick="@(() => SelectRequestForDetails(context))">View Details</MudButton>
                                 @if (context.Status == AdoptionRequestStatus.Pending)
                                 {
-                                    <MudButton Variant="Variant.Text" Color="Color.Success" Size="Size.Small" StartIcon="@Icons.Material.Filled.CheckCircle" Disabled="@_isUpdating" OnClick="@(() => AcceptRequestAsync(context))">Accept</MudButton>
+                                    <MudButton Variant="Variant.Text" Color="Color.Success" Size="Size.Small" StartIcon="@Icons.Material.Filled.EventAvailable" Disabled="@_isUpdating" OnClick="@(() => ConfirmVisitAsync(context))">Confirm Visit</MudButton>
                                     <MudButton Variant="Variant.Text" Color="Color.Error" Size="Size.Small" StartIcon="@Icons.Material.Filled.Cancel" Disabled="@_isUpdating" OnClick="@(() => RejectRequestAsync(context))">Reject</MudButton>
+                                }
+                                else if (context.Status == AdoptionRequestStatus.VisitConfirmed)
+                                {
+                                    <MudButton Variant="Variant.Text" Color="Color.Success" Size="Size.Small" StartIcon="@Icons.Material.Filled.Pets" Disabled="@_isUpdating" OnClick="@(() => MarkAsAdoptedAsync(context))">Mark as Adopted</MudButton>
+                                    <MudButton Variant="Variant.Text" Color="Color.Error" Size="Size.Small" StartIcon="@Icons.Material.Filled.Cancel" Disabled="@_isUpdating" OnClick="@(() => RejectRequestAsync(context))">Reject after Visit</MudButton>
                                 }
                             </MudStack>
                         </MudTd>
@@ -205,6 +217,14 @@
                                             @if (_selectedRequest.Dog is not null)
                                             {
                                                 <MudChip T="string" Color="@GetDogStatusColor(_selectedRequest.Dog.Status)" Size="Size.Small">@_selectedRequest.Dog.Status</MudChip>
+                                            }
+                                            <MudDivider />
+                                            <MudText Typo="Typo.subtitle2">Visit</MudText>
+                                            <MudText Typo="Typo.body2">Preferred: @FormatVisitDateTime(_selectedRequest.PreferredVisitDateTime)</MudText>
+                                            <MudText Typo="Typo.body2">Status: @GetVisitStatusText(_selectedRequest.VisitStatus)</MudText>
+                                            @if (_selectedRequest.VisitConfirmedAt.HasValue)
+                                            {
+                                                <MudText Typo="Typo.body2">Confirmed: @_selectedRequest.VisitConfirmedAt.Value.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudText>
                                             }
                                         </MudStack>
                                     </MudCardContent>
@@ -339,6 +359,7 @@
     private string? _internalNotesModel;
     private AdoptionRequest? _selectedRequest;
     private int PendingRequestCount => _requests.Count(r => r.Status == AdoptionRequestStatus.Pending);
+    private int VisitConfirmedCount => _requests.Count(r => r.Status == AdoptionRequestStatus.VisitConfirmed);
     private int AcceptedRequestCount => _requests.Count(r => r.Status == AdoptionRequestStatus.Accepted);
     private int RejectedRequestCount => _requests.Count(r => r.Status == AdoptionRequestStatus.Rejected);
 
@@ -375,7 +396,7 @@
         }
     }
 
-    private async Task AcceptRequestAsync(AdoptionRequest request)
+    private async Task ConfirmVisitAsync(AdoptionRequest request)
     {
         if (_shelterId is null)
         {
@@ -384,11 +405,11 @@
         }
 
         if (!await ConfirmAsync(
-            "Accept adoption request",
-            "Are you sure you want to accept this adoption request? The adopter may be notified by email.",
-            "Accept",
+            "Confirm shelter visit",
+            "Confirm this adopter's preferred visit time? The adopter will receive an email with a calendar invitation.",
+            "Confirm Visit",
             Color.Primary,
-            Icons.Material.Filled.CheckCircle))
+            Icons.Material.Filled.EventAvailable))
         {
             return;
         }
@@ -397,10 +418,13 @@
 
         try
         {
-            await AdoptionRequestService.AcceptRequestAsync(request.Id, _shelterId.Value, _currentUserId);
+            await AdoptionRequestService.ConfirmVisitAsync(request.Id, _shelterId.Value, _currentUserId);
 
             var now = DateTime.UtcNow;
-            request.Status = AdoptionRequestStatus.Accepted;
+            request.Status = AdoptionRequestStatus.VisitConfirmed;
+            request.VisitStatus = AdoptionVisitStatus.Confirmed;
+            request.VisitConfirmedAt = now;
+            request.VisitConfirmedByUserId = _currentUserId;
             request.UpdatedAt = now;
             if (request.Dog is not null)
             {
@@ -416,7 +440,7 @@
                 }
             }
 
-            Snackbar.Add("Request accepted and adopter notified.", Severity.Success);
+            Snackbar.Add("Visit confirmed and adopter notified.", Severity.Success);
         }
         catch (InvalidOperationException ex)
         {
@@ -425,6 +449,55 @@
         catch
         {
             Snackbar.Add("Could not accept the request. Please try again.", Severity.Error);
+        }
+        finally
+        {
+            _isUpdating = false;
+        }
+    }
+
+    private async Task MarkAsAdoptedAsync(AdoptionRequest request)
+    {
+        if (_shelterId is null)
+        {
+            Snackbar.Add("Current shelter profile could not be found.", Severity.Error);
+            return;
+        }
+
+        if (!await ConfirmAsync(
+            "Mark dog as adopted",
+            "Mark this request as adopted after the confirmed visit? This will move the dog to Adopted.",
+            "Mark as Adopted",
+            Color.Success,
+            Icons.Material.Filled.Pets))
+        {
+            return;
+        }
+
+        _isUpdating = true;
+
+        try
+        {
+            await AdoptionRequestService.MarkAsAdoptedAsync(request.Id, _shelterId.Value, _currentUserId);
+            var now = DateTime.UtcNow;
+            request.Status = AdoptionRequestStatus.Accepted;
+            request.VisitStatus = AdoptionVisitStatus.Completed;
+            request.UpdatedAt = now;
+            if (request.Dog is not null)
+            {
+                request.Dog.Status = DogStatus.Adopted;
+                request.Dog.AdoptedAt ??= now;
+            }
+
+            Snackbar.Add("Dog marked as adopted and adopter notified.", Severity.Success);
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch
+        {
+            Snackbar.Add("Could not mark the request as adopted. Please try again.", Severity.Error);
         }
         finally
         {
@@ -498,6 +571,10 @@
         {
             await AdoptionRequestService.RejectRequestAsync(request.Id, _shelterId.Value);
             request.Status = AdoptionRequestStatus.Rejected;
+            if (request.VisitStatus != AdoptionVisitStatus.NotScheduled)
+            {
+                request.VisitStatus = AdoptionVisitStatus.Cancelled;
+            }
             request.UpdatedAt = DateTime.UtcNow;
             Snackbar.Add("Request rejected and adopter notified.", Severity.Success);
         }
@@ -616,11 +693,41 @@
         return status switch
         {
             AdoptionRequestStatus.Pending => Color.Warning,
+            AdoptionRequestStatus.VisitConfirmed => Color.Info,
             AdoptionRequestStatus.Accepted => Color.Success,
             AdoptionRequestStatus.Rejected => Color.Error,
             AdoptionRequestStatus.Cancelled => Color.Default,
             _ => Color.Default
         };
+    }
+
+    private static Color GetVisitStatusColor(AdoptionVisitStatus status)
+    {
+        return status switch
+        {
+            AdoptionVisitStatus.Requested => Color.Warning,
+            AdoptionVisitStatus.Confirmed => Color.Success,
+            AdoptionVisitStatus.Completed => Color.Info,
+            AdoptionVisitStatus.Cancelled => Color.Default,
+            _ => Color.Default
+        };
+    }
+
+    private static string GetVisitStatusText(AdoptionVisitStatus status)
+    {
+        return status switch
+        {
+            AdoptionVisitStatus.Requested => "Visit requested",
+            AdoptionVisitStatus.Confirmed => "Visit confirmed",
+            AdoptionVisitStatus.Completed => "Completed",
+            AdoptionVisitStatus.Cancelled => "Cancelled",
+            _ => "Not scheduled"
+        };
+    }
+
+    private static string FormatVisitDateTime(DateTime? visitDateTime)
+    {
+        return VisitSchedulingHelper.FormatVisitDateTime(visitDateTime);
     }
 
     private static Color GetDogStatusColor(DogStatus status)

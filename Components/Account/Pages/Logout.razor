@@ -1,0 +1,59 @@
+@page "/Account/Logout"
+@attribute [Authorize]
+
+<PageTitle>Logging out</PageTitle>
+
+<form id="logout-page-form" action="/Account/Logout" method="post">
+    <AntiforgeryToken />
+    <input type="hidden" name="returnUrl" value="@ReturnUrl" />
+    <button type="submit" class="logout-fallback-button">Continue logout</button>
+</form>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="py-8">
+    <MudPaper Elevation="0" Class="pa-6 text-center">
+        <MudStack AlignItems="AlignItems.Center" Spacing="2">
+            <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+            <MudText Typo="Typo.h6">Logging out...</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Please wait while PawConnect signs you out.</MudText>
+        </MudStack>
+    </MudPaper>
+</MudContainer>
+
+<script>
+    (() => {
+        const form = document.getElementById('logout-page-form');
+        if (!form) {
+            return;
+        }
+
+        if (typeof form.requestSubmit === 'function') {
+            form.requestSubmit();
+            return;
+        }
+
+        form.submit();
+    })();
+</script>
+
+<style>
+    .logout-fallback-button {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+    }
+</style>
+
+@code {
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    private string? ReturnUrlQuery { get; set; }
+
+    private string ReturnUrl => string.IsNullOrWhiteSpace(ReturnUrlQuery)
+        ? "?loggedOut=true"
+        : ReturnUrlQuery;
+}

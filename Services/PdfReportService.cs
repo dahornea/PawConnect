@@ -61,6 +61,8 @@ public class PdfReportService(ApplicationDbContext context, ILogger<PdfReportSer
                     ("Reason for adoption", request.ReasonForAdoption),
                     ("Hours alone per day", request.HoursAlonePerDay?.ToString() ?? "Not provided"),
                     ("Additional information", request.AdditionalInformation),
+                    ("Preferred visit", VisitSchedulingHelper.FormatVisitDateTime(request.PreferredVisitDateTime)),
+                    ("Visit status", request.VisitStatus.ToString()),
                     ("Request date", FormatDateTime(request.CreatedAt))
                 ]);
             });
@@ -112,7 +114,7 @@ public class PdfReportService(ApplicationDbContext context, ILogger<PdfReportSer
 
                 AddSection(content, "Next Steps", [
                     ("Recommendation", isAccepted
-                        ? "The shelter may contact you soon to discuss the next adoption steps."
+                        ? "The shelter has marked the adoption as completed after the visit."
                         : "You can continue browsing other dogs on PawConnect and submit a new request when you find another good match.")
                 ]);
             });

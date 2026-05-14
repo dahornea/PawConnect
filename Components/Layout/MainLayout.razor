@@ -7,7 +7,7 @@
 @inject IAdopterProfileService AdopterProfileService
 @inject IShelterService ShelterService
 @inject IDialogService DialogService
-@inject IJSRuntime JSRuntime
+@inject NavigationManager NavigationManager
 
 <MudThemeProvider Theme="_theme" />
 <MudPopoverProvider />
@@ -43,11 +43,7 @@
                         }
                     </span>
                 </div>
-                <form id="logout-form" action="/Account/Logout" method="post">
-                    <AntiforgeryToken />
-                    <input type="hidden" name="ReturnUrl" value="?loggedOut=true" />
-                    <MudButton ButtonType="ButtonType.Button" Variant="Variant.Text" Color="Color.Inherit" StartIcon="@Icons.Material.Filled.Logout" OnClick="ConfirmLogoutAsync">Logout</MudButton>
-                </form>
+                <MudButton ButtonType="ButtonType.Button" Variant="Variant.Text" Color="Color.Inherit" StartIcon="@Icons.Material.Filled.Logout" OnClick="ConfirmLogoutAsync">Logout</MudButton>
             </Authorized>
             <NotAuthorized>
                 <MudButton Href="/Account/Login" Variant="Variant.Text" Color="Color.Inherit" StartIcon="@Icons.Material.Filled.Login">Login</MudButton>
@@ -78,7 +74,6 @@
     private string? _displayName;
     private string? _displayEmail;
     private string _currentUserIcon = Icons.Material.Filled.AccountCircle;
-    private const string LogoutFormId = "logout-form";
 
     private string CurrentUserIcon => _currentUserIcon;
 
@@ -218,7 +213,7 @@
 
         if (result is not null && !result.Canceled)
         {
-            await JSRuntime.InvokeVoidAsync("pawConnect.submitForm", LogoutFormId);
+            NavigationManager.NavigateTo("/Account/Logout?returnUrl=%3FloggedOut%3Dtrue", forceLoad: true);
         }
     }
 

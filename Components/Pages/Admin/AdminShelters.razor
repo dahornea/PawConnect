@@ -226,6 +226,34 @@
                                     <MudTextField Label="Description" @bind-Value="_editShelter.Description" Lines="3" Variant="Variant.Outlined" />
                                 </MudItem>
                                 <MudItem xs="12">
+                                    <MudPaper Elevation="0" Class="section-surface pa-3">
+                                        <MudStack Spacing="2">
+                                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                                <MudIcon Icon="@Icons.Material.Filled.Schedule" Color="Color.Primary" />
+                                                <MudText Typo="Typo.subtitle1">Visiting Hours</MudText>
+                                            </MudStack>
+                                            <MudText Typo="Typo.body2" Color="Color.Secondary">These hours are used to validate adopter-selected visit times.</MudText>
+                                            <MudGrid Spacing="2">
+                                                <MudItem xs="12" sm="6">
+                                                    <MudTimePicker Label="Visit start time" @bind-Time="_editShelter.VisitStartTime" Variant="Variant.Outlined" />
+                                                </MudItem>
+                                                <MudItem xs="12" sm="6">
+                                                    <MudTimePicker Label="Visit end time" @bind-Time="_editShelter.VisitEndTime" Variant="Variant.Outlined" />
+                                                </MudItem>
+                                            </MudGrid>
+                                            <MudStack Row="true" Spacing="1" Class="flex-wrap">
+                                                <MudCheckBox T="bool" Label="Mon" @bind-Value="_editShelter.VisitsAllowedMonday" />
+                                                <MudCheckBox T="bool" Label="Tue" @bind-Value="_editShelter.VisitsAllowedTuesday" />
+                                                <MudCheckBox T="bool" Label="Wed" @bind-Value="_editShelter.VisitsAllowedWednesday" />
+                                                <MudCheckBox T="bool" Label="Thu" @bind-Value="_editShelter.VisitsAllowedThursday" />
+                                                <MudCheckBox T="bool" Label="Fri" @bind-Value="_editShelter.VisitsAllowedFriday" />
+                                                <MudCheckBox T="bool" Label="Sat" @bind-Value="_editShelter.VisitsAllowedSaturday" />
+                                                <MudCheckBox T="bool" Label="Sun" @bind-Value="_editShelter.VisitsAllowedSunday" />
+                                            </MudStack>
+                                        </MudStack>
+                                    </MudPaper>
+                                </MudItem>
+                                <MudItem xs="12">
                                     <MudText Typo="Typo.caption" Color="Color.Secondary">Use address lookup first, then drag the pin or click the map to adjust the location.</MudText>
                                     <ShelterMap @bind-Latitude="_editShelter.Latitude"
                                                 @bind-Longitude="_editShelter.Longitude"
@@ -337,7 +365,16 @@
             PhoneNumber = shelter.PhoneNumber,
             Email = shelter.Email,
             Latitude = shelter.Latitude,
-            Longitude = shelter.Longitude
+            Longitude = shelter.Longitude,
+            VisitStartTime = shelter.VisitStartTime,
+            VisitEndTime = shelter.VisitEndTime,
+            VisitsAllowedMonday = shelter.VisitsAllowedMonday,
+            VisitsAllowedTuesday = shelter.VisitsAllowedTuesday,
+            VisitsAllowedWednesday = shelter.VisitsAllowedWednesday,
+            VisitsAllowedThursday = shelter.VisitsAllowedThursday,
+            VisitsAllowedFriday = shelter.VisitsAllowedFriday,
+            VisitsAllowedSaturday = shelter.VisitsAllowedSaturday,
+            VisitsAllowedSunday = shelter.VisitsAllowedSunday
         };
         _savedLatitude = shelter.Latitude;
         _savedLongitude = shelter.Longitude;

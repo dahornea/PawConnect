@@ -71,8 +71,10 @@ builder.Services.AddScoped<IBrowserFileDownloadService, BrowserFileDownloadServi
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IReportHistoryService, ReportHistoryService>();
+builder.Services.AddScoped<IVisitReminderService, VisitReminderService>();
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.Configure<ScheduledReportSettings>(builder.Configuration.GetSection("ScheduledReports"));
+builder.Services.Configure<VisitReminderSettings>(builder.Configuration.GetSection("VisitReminders"));
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 builder.Services.AddScoped<IEmailSender<ApplicationUser>, PawConnectIdentityEmailSender>();
 builder.Services.AddHttpClient<IGeocodingService, NominatimGeocodingService>(client =>
@@ -85,6 +87,10 @@ var scheduledReportSettings = builder.Configuration
     .GetSection("ScheduledReports")
     .Get<ScheduledReportSettings>() ?? new ScheduledReportSettings();
 var shelterReportIntervalMinutes = scheduledReportSettings.GetSafeShelterReportIntervalMinutes();
+var visitReminderSettings = builder.Configuration
+    .GetSection("VisitReminders")
+    .Get<VisitReminderSettings>() ?? new VisitReminderSettings();
+var visitReminderCheckIntervalMinutes = visitReminderSettings.GetSafeCheckIntervalMinutes();
 
 builder.Services.AddQuartz(quartz =>
 {
@@ -109,6 +115,22 @@ builder.Services.AddQuartz(quartz =>
             {
                 options.StartAt(DateBuilder.FutureDate(shelterReportIntervalMinutes, IntervalUnit.Minute));
             }
+        });
+    }
+
+    if (visitReminderSettings.Enabled)
+    {
+        var jobKey = new JobKey(nameof(VisitReminderJob));
+        quartz.AddJob<VisitReminderJob>(options => options.WithIdentity(jobKey));
+        quartz.AddTrigger(options =>
+        {
+            options
+                .ForJob(jobKey)
+                .WithIdentity($"{nameof(VisitReminderJob)}-trigger")
+                .WithSimpleSchedule(schedule => schedule
+                    .WithIntervalInMinutes(visitReminderCheckIntervalMinutes)
+                    .RepeatForever())
+                .StartAt(DateBuilder.FutureDate(visitReminderCheckIntervalMinutes, IntervalUnit.Minute));
         });
     }
 });

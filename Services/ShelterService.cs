@@ -124,6 +124,15 @@ public class ShelterService(IDbContextFactory<ApplicationDbContext> contextFacto
         existingShelter.Email = shelter.Email;
         existingShelter.Latitude = shelter.Latitude;
         existingShelter.Longitude = shelter.Longitude;
+        existingShelter.VisitStartTime = shelter.VisitStartTime;
+        existingShelter.VisitEndTime = shelter.VisitEndTime;
+        existingShelter.VisitsAllowedMonday = shelter.VisitsAllowedMonday;
+        existingShelter.VisitsAllowedTuesday = shelter.VisitsAllowedTuesday;
+        existingShelter.VisitsAllowedWednesday = shelter.VisitsAllowedWednesday;
+        existingShelter.VisitsAllowedThursday = shelter.VisitsAllowedThursday;
+        existingShelter.VisitsAllowedFriday = shelter.VisitsAllowedFriday;
+        existingShelter.VisitsAllowedSaturday = shelter.VisitsAllowedSaturday;
+        existingShelter.VisitsAllowedSunday = shelter.VisitsAllowedSunday;
 
         await context.SaveChangesAsync();
         await LogAsync(
@@ -169,6 +178,13 @@ public class ShelterService(IDbContextFactory<ApplicationDbContext> contextFacto
         {
             throw new InvalidOperationException("Longitude must be between -180 and 180.");
         }
+
+        var visitStart = shelter.VisitStartTime ?? VisitSchedulingHelper.DefaultVisitStartTime;
+        var visitEnd = shelter.VisitEndTime ?? VisitSchedulingHelper.DefaultVisitEndTime;
+        if (visitStart >= visitEnd)
+        {
+            throw new InvalidOperationException("Visit start time must be before visit end time.");
+        }
     }
 
     private static async Task EnsureShelterEmailIsAvailableAsync(ApplicationDbContext context, string? email, int shelterId)
@@ -198,6 +214,7 @@ public class ShelterService(IDbContextFactory<ApplicationDbContext> contextFacto
         shelter.Description = string.IsNullOrWhiteSpace(shelter.Description) ? null : shelter.Description.Trim();
         shelter.PhoneNumber = string.IsNullOrWhiteSpace(shelter.PhoneNumber) ? null : shelter.PhoneNumber.Trim();
         shelter.Email = string.IsNullOrWhiteSpace(shelter.Email) ? null : shelter.Email.Trim();
+        VisitSchedulingHelper.ApplyDefaultVisitingHours(shelter);
     }
 
     private static string NormalizeAddressWithoutCity(string address, string city)
