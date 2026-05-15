@@ -96,6 +96,7 @@ Important rules include:
 - Preferred visit times are validated against the shelter's visiting hours. Closed days, past times, and times outside the configured visit range are rejected with friendly messages.
 - Shelter review is split into visit confirmation and final adoption. Confirming a visit reserves the dog and sends the adopter an email/in-app notification with an `.ics` calendar attachment. Marking as adopted happens later, after the visit.
 - Shelter users can manage adoption requests only for dogs owned by their shelter. Adopters can cancel only their own pending requests.
+- Dog recommendations use public-safe dog data only. Adopted and in-treatment dogs are excluded before any optional OpenAI enhancement is considered.
 - Dog image URLs are trimmed, empty URLs are ignored, and the same image URL cannot be added twice to the same dog.
 - Dog forms validate required identity fields, non-negative age/food values, valid month ranges, and avoid saving unusable dog age data.
 - Dogs with adoption request history cannot be hard deleted. Favorites and recently viewed rows do not block deletion when no adoption request history exists.
@@ -105,6 +106,43 @@ Important rules include:
 - In-app notification read/delete operations check ownership, and audit logging avoids sensitive values such as passwords, reset tokens, security stamps, and SMTP credentials.
 
 Validation failures use user-friendly messages instead of raw technical exceptions. Field-specific problems are shown next to the relevant MudBlazor input, multi-field validation appears as a compact in-form alert near the related section, and snackbars are reserved mostly for success messages, system feedback, and failures that are not tied to a single field.
+
+## Dog Recommendations
+
+Adopter users can open:
+
+```text
+/adopter/recommendations
+```
+
+The adopter dashboard also shows a compact "Recommended for you" preview with the top matches.
+
+Recommendations are hybrid and safe by default:
+
+- C# rule-based scoring is always available and is the source of truth for hard filters.
+- Only `Available` and `Reserved` dogs are considered.
+- Scoring uses adopter profile fields such as city, housing type, yard, children, other pets, dog experience, favorites, and recently viewed dog traits.
+- Each recommendation includes a visible percentage-style match score, match label, short explanation, and categorized reasons such as Home fit, Experience fit, Location fit, Behavior fit, and Preferences fit.
+- OpenAI-assisted re-ranking/explanation refinement is optional, disabled by default, and only receives the top rule-based candidates.
+- If OpenAI is disabled, missing an API key, returns invalid output, or fails, PawConnect falls back to rule-based recommendations.
+- Sensitive adopter data such as full name, email, phone number, full address, additional notes, internal notes, passwords, tokens, and security fields is not sent to OpenAI.
+
+Configuration:
+
+```json
+"OpenAI": {
+  "Enabled": false,
+  "ApiKey": "",
+  "Model": "gpt-5.4-mini"
+}
+```
+
+Do not commit API keys. Use User Secrets or environment variables when testing OpenAI-assisted recommendations:
+
+```bash
+dotnet user-secrets set "OpenAI:ApiKey" "sk-..."
+dotnet user-secrets set "OpenAI:Enabled" "true"
+```
 
 ## Adoption Visit Scheduling
 

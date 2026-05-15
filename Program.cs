@@ -76,16 +76,22 @@ builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IReportHistoryService, ReportHistoryService>();
 builder.Services.AddScoped<IVisitReminderService, VisitReminderService>();
+builder.Services.AddScoped<IDogRecommendationService, DogRecommendationService>();
 builder.Services.AddSingleton<IDistanceService, DistanceService>();
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.Configure<ScheduledReportSettings>(builder.Configuration.GetSection("ScheduledReports"));
 builder.Services.Configure<VisitReminderSettings>(builder.Configuration.GetSection("VisitReminders"));
+builder.Services.Configure<OpenAiSettings>(builder.Configuration.GetSection("OpenAI"));
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 builder.Services.AddScoped<IEmailSender<ApplicationUser>, PawConnectIdentityEmailSender>();
 builder.Services.AddHttpClient<IGeocodingService, NominatimGeocodingService>(client =>
 {
     client.BaseAddress = new Uri("https://nominatim.openstreetmap.org/");
     client.DefaultRequestHeaders.UserAgent.ParseAdd("PawConnect/1.0 (shelter map demo)");
+});
+builder.Services.AddHttpClient<IOpenAiRecommendationClient, OpenAiRecommendationClient>(client =>
+{
+    client.BaseAddress = new Uri("https://api.openai.com/");
 });
 
 var scheduledReportSettings = builder.Configuration

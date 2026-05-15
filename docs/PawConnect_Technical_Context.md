@@ -123,6 +123,7 @@ Admin pages are protected with `[Authorize(Roles = "Admin")]`. Advanced role edi
 
 - **Home page**: Presents the platform, how adoption works, featured public dogs, and shelter-oriented features.
 - **Dog browsing**: Public users can browse dogs with public-safe statuses: `Available` and `Reserved`, see compact shelter name/city information on each dog card, use a compact Filter/Sort toolbar with active chips, filter the public dog list by shelter, and search for dogs near a manually entered city/address or optional browser-provided location using shelter coordinates.
+- **Dog recommendations**: Adopter users can open `/adopter/recommendations` and see explainable dog recommendations. The system uses deterministic rule-based scoring first and can optionally use OpenAI to re-rank/reword only the top public-safe candidates. OpenAI is disabled by default and rule-based recommendations remain the fallback.
 - **Dog details**: Public users can view dog information, images, shelter information, medical summary, and food information where available.
 - **Shelter listing and details**: Public users can browse approved shelter cards with public contact/location information, public dog counts, a compact Filter/Sort toolbar with active chips, search by shelter name/city/address, and filter shelters near a manually entered city/address or optional browser-provided location. The listing includes a compact application CTA pointing to `/shelters/apply`, hidden for Admin and Shelter roles. Shelter details include address/city information and, when coordinates exist, a read-only Leaflet map using OpenStreetMap tiles. If coordinates are missing, the UI shows a friendly fallback message instead of a broken map. The Location card also includes an external "Open in Google Maps" link for easier navigation.
 - **Success stories**: Public page showing adopted dogs, success story text, adoption dates, and shelter information.
@@ -817,6 +818,14 @@ Shelter onboarding/geocoding organization:
 - `Services/BrowserLocationResult.cs`: Small DTO for one-shot browser geolocation JavaScript interop responses.
 - `Services/DistanceService.cs`: Calculates deterministic Haversine distances in kilometers for nearby dog/shelter filtering.
 
+Dog recommendation organization:
+
+- `Services/IDogRecommendationService.cs` and `Services/DogRecommendationService.cs`: Build adopter-specific recommendations from adopter profile data, public-safe dog data, shelter city information, favorites, and recently viewed dog traits. Results include a normalized match percentage, match label, short summary, and categorized reasons.
+- `Services/IOpenAiRecommendationClient.cs` and `Services/OpenAiRecommendationClient.cs`: Optional OpenAI Responses API client used only for sanitized top-candidate re-ranking, short summaries, and reason/category refinement.
+- `Services/OpenAiSettings.cs`: Configuration model bound from `OpenAI` with `Enabled`, `ApiKey`, and `Model`. The default model is `gpt-5.4-mini`, and the feature is disabled by default.
+- `Components/Pages/Adopter/Recommendations.razor`: Adopter-only recommendations page showing match percentage, match labels, concise explanations, reason categories, status, shelter information, and links to dog details.
+- `Components/Pages/Adopter/AdopterDashboard.razor`: Shows a compact top-3 "Recommended for you" section with score and strongest reason.
+
 Scheduled report organization:
 
 - `Jobs/ShelterSummaryReportJob.cs`: Thin Quartz job that calls the shelter summary report service.
@@ -888,6 +897,19 @@ Notification organization:
 11. Results can be sorted by `Nearest first` when a nearby origin exists.
 12. Nearby filters show the active radius/location, distance labels on cards, and a more helpful empty state with nearest-result feedback and quick actions to increase the radius or clear the nearby filter.
 13. Development debug logs record the explicit search term, matched geocoding display name, origin coordinates, shelter coordinates, calculated distance, and include/exclude decision without exposing those diagnostics in the normal UI.
+
+### Dog Recommendation Flow
+
+1. An adopter opens `/adopter/recommendations` or the adopter dashboard.
+2. `DogRecommendationService` loads the adopter profile and public-safe dogs only.
+3. Dogs with `Adopted` or `InTreatment` status are excluded before scoring or OpenAI enhancement.
+4. Rule-based scoring considers same-city shelter matches, housing type, yard, children, other pets, dog experience, safe local profile notes, public behavior/description text, favorites, and recently viewed dog traits.
+5. Each rule-based result gets an internal score, a normalized percentage-style match score, a match label, a concise explanation, and categorized reasons such as Home fit, Experience fit, Location fit, Behavior fit, and Preferences fit.
+6. If `OpenAI:Enabled` is false, `OpenAI:ApiKey` is missing, or no candidates exist, the rule-based order is returned.
+7. If OpenAI is enabled, only the top rule-based candidates are converted into sanitized DTOs and sent to `OpenAiRecommendationClient`.
+8. The sanitized OpenAI request excludes adopter full name, email, phone, full address, additional notes, internal notes, passwords, tokens, and security fields.
+9. OpenAI may re-rank and rewrite reasons only for provided candidate dog IDs. Unknown dog IDs are ignored, and OpenAI cannot add unavailable/private dogs.
+10. If the OpenAI call fails or returns invalid output, PawConnect logs a safe warning and returns rule-based recommendations.
 
 ### Shelter Location Map Flow
 
@@ -1575,6 +1597,7 @@ Current test coverage includes:
 - Audit descriptions tested do not include sensitive Identity field names such as password hash or security stamp.
 - Notification records are created for selected adoption, shelter application, resource, and report events.
 - Notification unread counts, newest-first ordering, category filtering, and owner-only mark-as-read behavior are tested.
+- Dog recommendations exclude unavailable statuses, score same-city and housing/yard matches, normalize match percentages, categorize reasons, keep favorites/recent views as a smaller bonus, fall back when OpenAI is disabled/missing/failing, ignore unknown OpenAI dog IDs, map optional OpenAI summaries/categories, and verify sensitive adopter fields are not included in the sanitized OpenAI request DTO.
 - Integration-style service flows for public visibility, favorites/deletion, adoption notifications, dog image/age, resources, and fake PDF/email attachment behavior.
 
 The README documents running tests with:
@@ -1667,7 +1690,7 @@ Based on the current codebase, realistic future improvements include:
 - Route/directions integration.
 - Better mobile map interactions.
 - Map-based dog and shelter location search.
-- More advanced dog recommendations based on adopter profile and preferences.
+- More advanced recommendation tuning, distance weighting, and adopter preference controls beyond the current hybrid rule-based/OpenAI-assisted implementation.
 - Full shelter messaging/chat between adopters and shelters.
 - Admin-level scheduled reports and richer report management UI.
 - More detailed medical record categories and vaccination schedules.
