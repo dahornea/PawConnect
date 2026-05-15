@@ -286,7 +286,7 @@ public class AdoptionRequestServiceTests
     {
         await using var context = TestDbContextFactory.CreateContext();
         var request = await SeedPendingRequestAsync(context, DogStatus.Available);
-        request.PreferredVisitDateTime = new DateTime(2026, 5, 15, 10, 0, 0);
+        request.PreferredVisitDateTime = new DateTime(2027, 5, 17, 10, 0, 0);
         await context.SaveChangesAsync();
         var emailService = new TestEmailService();
         var service = CreateService(context, emailService);
@@ -294,12 +294,12 @@ public class AdoptionRequestServiceTests
         await service.ConfirmVisitAsync(request.Id, TestDbContextFactory.ShelterId, TestDbContextFactory.ShelterUserId);
 
         var email = Assert.Single(emailService.SentEmails, sent => sent.Subject == "Your PawConnect shelter visit has been confirmed");
-        Assert.Contains("15 May 2026 10:00", email.Body);
+        Assert.Contains("17 May 2027 10:00", email.Body);
         var attachment = Assert.Single(email.Attachments!);
         var ics = System.Text.Encoding.UTF8.GetString(attachment.Content);
-        Assert.Contains("DTSTART;TZID=Europe/Bucharest:20260515T100000", ics);
-        Assert.Contains("DTEND;TZID=Europe/Bucharest:20260515T110000", ics);
-        Assert.DoesNotContain("DTSTART:20260515T070000Z", ics);
+        Assert.Contains("DTSTART;TZID=Europe/Bucharest:20270517T100000", ics);
+        Assert.Contains("DTEND;TZID=Europe/Bucharest:20270517T110000", ics);
+        Assert.DoesNotContain("DTSTART:20270517T070000Z", ics);
         Assert.Contains("METHOD:REQUEST", ics);
         Assert.Contains($"UID:pawconnect-adoption-visit-{request.Id}@pawconnect.local", ics);
         Assert.Contains("DTSTAMP:", ics);

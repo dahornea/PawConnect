@@ -357,6 +357,8 @@ The public `/shelters` page lists approved shelter profiles with public-safe con
 
 Demo shelters use approximate, fictional Cluj-Napoca, Romania locations for development and testing. The demo addresses and coordinates are not real shelter addresses and should not be treated as public contact/location data for real organizations.
 
+Public dog and shelter browsing uses a compact Filter/Sort toolbar with active filter chips instead of a large always-visible filter form. Nearby search remains available from the filter panel: users can type a city or address and choose a radius such as 5, 10, 25, 50, or 100 km. The Near input shows lightweight address suggestions after at least 3 characters with a debounce, using OpenStreetMap/Nominatim with a small result limit and in-memory caching for repeated queries. Selecting a suggestion fills the input and immediately applies nearby filtering with the selected coordinates and current radius; users can still type a custom address and use the compact search icon as a fallback. PawConnect geocodes only explicit nearby searches/suggestions with Nominatim/OpenStreetMap, then uses a local Haversine distance calculation against stored shelter coordinates. Users can also click "Use my location" to grant one-time browser location permission; those coordinates are used only in memory for filtering and are not stored or sent to Nominatim. Dogs are filtered by their shelter location, and shelters without coordinates are excluded only while a nearby filter is active. Nearby results show active chips, distance labels, and helpful no-result guidance such as increasing the radius. PawConnect does not use Google Maps API, Google Places API, or route planning for this feature.
+
 After adding the map coordinate fields, apply migrations with:
 
 ```bash
@@ -371,7 +373,7 @@ Nominatim integration notes:
 - Coordinates can be adjusted by dragging the map marker or clicking the editable map in shelter forms.
 - Moving the marker does not automatically overwrite address/city fields; users can review the suggested address and click "Update address from pin" when they want that update.
 - Missing coordinates show a friendly map fallback.
-- Route planning, autocomplete, browser geolocation, nearby search, and distance filtering are not implemented.
+- Route planning is not implemented. Nearby browsing uses explicit user searches, debounced address suggestions, or optional one-click browser geolocation, plus stored shelter coordinates.
 
 ## Admin Exports
 

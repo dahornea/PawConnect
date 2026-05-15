@@ -24,7 +24,7 @@ The main user groups are:
 - **MudBlazor**: Main UI component library for layout, navigation, cards, tables, forms, dialogs, snackbars, chips, alerts, and icons.
 - **Leaflet**: Client-side JavaScript map library used to render read-only shelter maps inside Blazor pages.
 - **OpenStreetMap**: Public map tile provider used by the Leaflet shelter map integration. The map feature does not require a paid Google Maps API key.
-- **OpenStreetMap Nominatim**: Used through `NominatimGeocodingService` for manual address-to-coordinate lookup. The app does not call it on every keystroke and does not use it for route planning or nearby search.
+- **OpenStreetMap Nominatim**: Used through `NominatimGeocodingService` for manual address-to-coordinate lookup and explicit nearby text search. The app does not call it on every keystroke and does not use it for route planning. Optional browser geolocation is user-triggered and does not call Nominatim.
 - **MailKit and MimeKit**: Used by `SmtpEmailService` for SMTP email sending with plain text bodies, branded HTML bodies, optional attachments, and raw MIME calendar invite parts.
 - **Generic SMTP / local SMTP catcher**: Email delivery can be configured through `EmailSettings`. Development can use a local SMTP catcher such as Mailpit or smtp4dev so emails are captured locally and are not delivered to real users.
 - **QuestPDF**: Used by `PdfReportService` and admin export logic to generate PDF reports for adoption requests, adoption status updates, low-stock resources, shelter registration requests, shelter summary reports, and formatted admin exports.
@@ -122,9 +122,9 @@ Admin pages are protected with `[Authorize(Roles = "Admin")]`. Advanced role edi
 ### Public/Anonymous Features
 
 - **Home page**: Presents the platform, how adoption works, featured public dogs, and shelter-oriented features.
-- **Dog browsing**: Public users can browse dogs with public-safe statuses: `Available` and `Reserved`, see compact shelter name/city information on each dog card, and filter the public dog list by shelter.
+- **Dog browsing**: Public users can browse dogs with public-safe statuses: `Available` and `Reserved`, see compact shelter name/city information on each dog card, use a compact Filter/Sort toolbar with active chips, filter the public dog list by shelter, and search for dogs near a manually entered city/address or optional browser-provided location using shelter coordinates.
 - **Dog details**: Public users can view dog information, images, shelter information, medical summary, and food information where available.
-- **Shelter listing and details**: Public users can browse approved shelter cards with public contact/location information, public dog counts, and search by shelter name/city/address. The listing includes a compact application CTA pointing to `/shelters/apply`, hidden for Admin and Shelter roles. Shelter details include address/city information and, when coordinates exist, a read-only Leaflet map using OpenStreetMap tiles. If coordinates are missing, the UI shows a friendly fallback message instead of a broken map. The Location card also includes an external "Open in Google Maps" link for easier navigation.
+- **Shelter listing and details**: Public users can browse approved shelter cards with public contact/location information, public dog counts, a compact Filter/Sort toolbar with active chips, search by shelter name/city/address, and filter shelters near a manually entered city/address or optional browser-provided location. The listing includes a compact application CTA pointing to `/shelters/apply`, hidden for Admin and Shelter roles. Shelter details include address/city information and, when coordinates exist, a read-only Leaflet map using OpenStreetMap tiles. If coordinates are missing, the UI shows a friendly fallback message instead of a broken map. The Location card also includes an external "Open in Google Maps" link for easier navigation.
 - **Success stories**: Public page showing adopted dogs, success story text, adoption dates, and shelter information.
 - **Authentication**: Users can register and log in through Identity account pages. New registrations are assigned the `Adopter` role by default in the register flow.
 - **Shelter applications**: Shelter representatives apply through `/shelters/apply`. Public registration remains adopter-only. Admin and Shelter users are not prompted to apply from public CTAs and cannot submit public shelter applications.
@@ -659,6 +659,7 @@ Values:
 - `LocationAsc`
 - `Status`
 - `NewestFirst`
+- `NearestFirst`
 
 Used by public dog search/sorting logic.
 
@@ -811,8 +812,10 @@ Shelter onboarding/geocoding organization:
 - `Components/Pages/ShelterApply.razor`: Public shelter application form at `/shelters/apply`.
 - `Components/Pages/Admin/AdminShelterRequests.razor`: Admin review page at `/admin/shelter-requests`.
 - `Services/ShelterRegistrationRequestService.cs`: Handles application submission, duplicate pending email checks, admin notifications, accept/reject workflow, and creating approved shelter accounts/profiles.
-- `Services/NominatimGeocodingService.cs`: Performs manual address-based coordinate lookup through OpenStreetMap Nominatim.
-- `Services/IGeocodingService.cs`: Interface used by public/admin forms so geocoding can be faked in tests.
+- `Services/NominatimGeocodingService.cs`: Performs manual address-based coordinate lookup and lightweight nearby autocomplete suggestions through OpenStreetMap Nominatim.
+- `Services/IGeocodingService.cs`: Interface used by public/admin forms and nearby text search so geocoding can be faked in tests.
+- `Services/BrowserLocationResult.cs`: Small DTO for one-shot browser geolocation JavaScript interop responses.
+- `Services/DistanceService.cs`: Calculates deterministic Haversine distances in kilometers for nearby dog/shelter filtering.
 
 Scheduled report organization:
 
@@ -865,10 +868,26 @@ Notification organization:
 1. The user opens `/dogs`.
 2. `Dogs.razor` loads public dog data through `IDogService`.
 3. `DogService.GetAvailableDogsAsync` or `SearchDogsAsync` returns only dogs whose status is `Available` or `Reserved`.
-4. The page displays filters, shelter filtering, sorting, dog cards with compact public-safe shelter name/city information, images/placeholders, status chips, and view details actions.
+4. The page displays a compact Filter/Sort toolbar with active filter chips, shelter filtering, optional nearby radius filtering, sorting, dog cards with compact public-safe shelter name/city information, images/placeholders, status chips, distance labels when a nearby filter is active, and view details actions.
 5. Clicking a dog image or View Details navigates to `/dogs/{id:int}`.
 6. `DogDetails.razor` loads detailed dog data through `GetDogDetailsAsync`, including shelter, images, medical records, and preferred food type.
 7. Public and non-adopter users see only view-safe dog information and login/register prompts where relevant.
+
+### Nearby Browsing Flow
+
+1. The user opens `/dogs` or `/shelters`.
+2. The user enters a city or address in the `Near` field. After at least 3 characters and a debounce, `NominatimGeocodingService.SearchAddressSuggestionsAsync` can show up to 5 OpenStreetMap/Nominatim suggestions.
+3. Suggestion requests use `countrycodes=ro`, `addressdetails=1`, and short in-memory caching for repeated queries; PawConnect does not use Google Places API and does not store search text or selected coordinates in the database.
+4. If the user selects a suggestion, the UI stores that suggestion's coordinates in component state and immediately applies nearby filtering with the current radius, avoiding a second geocoding request.
+5. If the user does not select a suggestion, a compact search icon can explicitly geocode the typed text as a fallback. PawConnect does not geocode every keystroke.
+6. Alternatively, the user may click `Use my location`, which requests one-time browser geolocation permission through JavaScript interop.
+7. Browser coordinates are used only in memory for filtering, are not stored, and are not sent to Nominatim or any other geocoder.
+8. `DistanceService` calculates Haversine distance in kilometers from the selected origin to each shelter with stored coordinates.
+9. Dog results use each dog's shelter coordinates; shelter results use the shelter's own coordinates.
+10. Shelters without coordinates are excluded only while the nearby filter is active.
+11. Results can be sorted by `Nearest first` when a nearby origin exists.
+12. Nearby filters show the active radius/location, distance labels on cards, and a more helpful empty state with nearest-result feedback and quick actions to increase the radius or clear the nearby filter.
+13. Development debug logs record the explicit search term, matched geocoding display name, origin coordinates, shelter coordinates, calculated distance, and include/exclude decision without exposing those diagnostics in the normal UI.
 
 ### Shelter Location Map Flow
 
@@ -883,7 +902,7 @@ Notification organization:
 9. If coordinates are missing, the map component shows a friendly "Map location is not available for this shelter" fallback instead of trying to initialize Leaflet.
 10. The Location card shows an "Open in Google Maps" link when coordinates or address/city information are available. The link uses coordinates first and falls back to an encoded address query.
 
-The public map is read-only. Address lookup and explicit address updates from the selected pin are limited to editable shelter location forms; the app does not implement route planning, distance search, browser geolocation, or automatic typing autocomplete. Google Maps is only used as an external new-tab link from shelter details and does not require an API key.
+The public map is read-only. Address lookup and explicit address updates from the selected pin are limited to editable shelter location forms; nearby filtering uses explicit user-entered searches, debounced address suggestions, or optional one-click browser geolocation with stored shelter coordinates. Browser location is never requested on page load, is not continuously watched, and is not stored. The app does not implement route planning or automatic geocoding on every keystroke. Google Maps is only used as an external new-tab link from shelter details and does not require an API key.
 
 ### Shelter Registration Request Flow
 
@@ -1318,12 +1337,12 @@ Implemented behavior:
 
 Not implemented:
 
-- Automatic address geocoding while typing.
+- Unbounded address geocoding on every keystroke.
 - Automatic address replacement after moving the marker.
 - Route planning or directions.
-- "Near me" search.
-- Distance calculations or distance-based filtering.
-- Browser geolocation or user location tracking.
+- Continuous browser location tracking.
+- Storing browser-provided coordinates in the database.
+- Sending browser-provided coordinates to Nominatim.
 
 ## 12. UI/UX Design
 
@@ -1644,9 +1663,8 @@ Based on the current codebase, realistic future improvements include:
 - Real image file upload instead of URL-only dog images.
 - Cloud or local file storage for uploaded images.
 - More advanced address search/geocoding suggestions beyond the current manual Nominatim lookup.
-- "Nearby shelters" search.
+- Map-based nearby browsing with richer result previews.
 - Route/directions integration.
-- Distance-based shelter or dog filtering.
 - Better mobile map interactions.
 - Map-based dog and shelter location search.
 - More advanced dog recommendations based on adopter profile and preferences.
@@ -1668,7 +1686,7 @@ Features intentionally not present:
 - No complex analytics/charts.
 - No admin scheduled reports.
 - No full event sourcing, rollback, or audit-based entity restoration.
-- No route planning, distance search, or browser geolocation.
+- No route planning or continuous location tracking. Nearby distance filtering is implemented with explicit user-entered searches, optional one-click browser geolocation, Nominatim geocoding for text searches only, and local Haversine distance calculation.
 - No public comments, likes, or social features for success stories.
 - No complex role management from admin UI.
 
