@@ -76,6 +76,7 @@ builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IReportHistoryService, ReportHistoryService>();
 builder.Services.AddScoped<IVisitReminderService, VisitReminderService>();
+builder.Services.AddSingleton<IDistanceService, DistanceService>();
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.Configure<ScheduledReportSettings>(builder.Configuration.GetSection("ScheduledReports"));
 builder.Services.Configure<VisitReminderSettings>(builder.Configuration.GetSection("VisitReminders"));

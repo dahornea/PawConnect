@@ -37,6 +37,46 @@ window.pawConnect.downloadFileFromBase64 = (fileName, contentType, base64Data) =
     setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
 
+window.pawConnect.getCurrentLocation = () => new Promise(resolve => {
+    if (!navigator.geolocation) {
+        resolve({
+            success: false,
+            errorCode: "unsupported",
+            message: "Geolocation is not supported by this browser."
+        });
+        return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+        position => {
+            resolve({
+                success: true,
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude
+            });
+        },
+        error => {
+            const errorCode = error.code === error.PERMISSION_DENIED
+                ? "permission-denied"
+                : error.code === error.POSITION_UNAVAILABLE
+                    ? "position-unavailable"
+                    : error.code === error.TIMEOUT
+                        ? "timeout"
+                        : "unknown";
+
+            resolve({
+                success: false,
+                errorCode,
+                message: error.message || "Browser location could not be retrieved."
+            });
+        },
+        {
+            enableHighAccuracy: false,
+            timeout: 10000,
+            maximumAge: 300000
+        });
+});
+
 window.pawConnect.maps = window.pawConnect.maps || {};
 
 window.pawConnect.renderShelterMap = (elementId, latitude, longitude, shelterName, addressText, editable = false, dotNetReference = null) => {

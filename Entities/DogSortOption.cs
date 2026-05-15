@@ -9,5 +9,6 @@ public enum DogSortOption
     BreedAsc,
     LocationAsc,
     Status,
-    NewestFirst
+    NewestFirst,
+    NearestFirst
 }

@@ -1,6 +1,10 @@
 @page "/shelters"
 @using PawConnect.Data
 @inject IShelterService ShelterService
+@inject IGeocodingService GeocodingService
+@inject IDistanceService DistanceService
+@inject IJSRuntime JSRuntime
+@inject ILogger<Shelters> Logger
 
 <PageTitle>Shelters</PageTitle>
 
@@ -77,23 +81,188 @@
         }
         else
         {
-            <MudPaper Elevation="0" Class="section-surface shelter-search-panel pa-3">
-                <MudTextField Label="Search shelters"
-                              @bind-Value="_searchTerm"
-                              Immediate="true"
-                              Variant="Variant.Outlined"
-                              Adornment="Adornment.Start"
-                              AdornmentIcon="@Icons.Material.Filled.Search"
-                              Placeholder="Search by name, city, or address" />
+            var filteredShelters = GetFilteredShelters().ToList();
+
+            <MudPaper Elevation="0" Class="section-surface shelter-search-panel filter-toolbar pa-3">
+                <MudStack Spacing="2">
+                    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="filter-toolbar-row">
+                        <MudButton Variant="@(_filtersOpen ? Variant.Filled : Variant.Outlined)"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.FilterList"
+                                   OnClick="ToggleFilters">
+                            @FilterButtonText
+                        </MudButton>
+                        <MudMenu Label="@($"Sort by: {CurrentSortLabel}")"
+                                 Variant="Variant.Outlined"
+                                 Color="Color.Default"
+                                 EndIcon="@Icons.Material.Filled.ExpandMore"
+                                 AnchorOrigin="Origin.BottomLeft"
+                                 TransformOrigin="Origin.TopLeft">
+                            <MudMenuItem OnClick="@(() => SetSort(ShelterSortOption.NameAsc))">Name A-Z</MudMenuItem>
+                            <MudMenuItem OnClick="@(() => SetSort(ShelterSortOption.NameDesc))">Name Z-A</MudMenuItem>
+                            <MudMenuItem OnClick="@(() => SetSort(ShelterSortOption.CityAsc))">City A-Z</MudMenuItem>
+                            @if (_nearbyOrigin is not null)
+                            {
+                                <MudMenuItem OnClick="@(() => SetSort(ShelterSortOption.NearestFirst))">Nearest first</MudMenuItem>
+                            }
+                        </MudMenu>
+                        <MudSpacer />
+                        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="result-count-text">@GetShelterResultCountText(filteredShelters.Count)</MudText>
+                        @if (HasActiveFilters)
+                        {
+                            <MudButton Variant="Variant.Text" Color="Color.Default" StartIcon="@Icons.Material.Filled.Clear" OnClick="ClearFiltersAsync">Clear all</MudButton>
+                        }
+                    </MudStack>
+
+                    @if (ActiveFilterChips.Count > 0)
+                    {
+                        <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Class="active-filter-chip-row">
+                            @foreach (var chip in ActiveFilterChips)
+                            {
+                                <span class="active-filter-chip">
+                                    <span>@chip.Label</span>
+                                    <button type="button" @onclick="chip.ClearAsync" aria-label="@($"Remove {chip.Label}")">
+                                        <MudIcon Icon="@Icons.Material.Filled.Close" Size="Size.Small" />
+                                    </button>
+                                </span>
+                            }
+                        </MudStack>
+                    }
+                </MudStack>
             </MudPaper>
 
-            @if (!FilteredShelters.Any())
+            @if (_filtersOpen)
+            {
+                <MudPaper Elevation="0" Class="section-surface shelter-search-panel filter-panel pa-4">
+                    <MudGrid Spacing="2">
+                        <MudItem xs="12" md="6">
+                            <MudTextField Label="Search shelters"
+                                          @bind-Value="_searchTerm"
+                                          Variant="Variant.Outlined"
+                                          Adornment="Adornment.Start"
+                                          AdornmentIcon="@Icons.Material.Filled.Search"
+                                          Placeholder="Search by name, city, or address" />
+                        </MudItem>
+                        <MudItem xs="12" md="6">
+                            <MudAutocomplete T="AddressSuggestion"
+                                             Label="Near"
+                                             Text="@_nearbySearchTerm"
+                                             TextChanged="OnNearbyTextChanged"
+                                             Value="@_selectedNearbySuggestion"
+                                             ValueChanged="OnNearbySuggestionSelected"
+                                             SearchFunc="SearchNearbySuggestionsAsync"
+                                             ToStringFunc="GetSuggestionDisplayText"
+                                             Variant="Variant.Outlined"
+                                             Adornment="Adornment.Start"
+                                             AdornmentIcon="@Icons.Material.Filled.TravelExplore"
+                                             Placeholder="Search near city or address"
+                                             MinCharacters="3"
+                                             DebounceInterval="650"
+                                             MaxItems="5"
+                                             Clearable="true"
+                                             CoerceText="true"
+                                             ResetValueOnEmptyText="true"
+                                             ShowProgressIndicator="true"
+                                             Class="nearby-autocomplete">
+                                <ItemTemplate Context="suggestion">
+                                    <div class="nearby-suggestion">
+                                        <MudText Typo="Typo.body2" Class="nearby-suggestion-primary">@GetSuggestionDisplayText(suggestion)</MudText>
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="nearby-suggestion-secondary">@suggestion.DisplayName</MudText>
+                                    </div>
+                                </ItemTemplate>
+                                <NoItemsTemplate>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">No suggestions found. You can still use the search icon.</MudText>
+                                </NoItemsTemplate>
+                            </MudAutocomplete>
+                        </MudItem>
+                        <MudItem xs="12" sm="6" md="3">
+                            <MudSelect T="int" Label="Radius" Value="_selectedRadiusKm" ValueChanged="OnRadiusChangedAsync" Variant="Variant.Outlined">
+                                @foreach (var radius in RadiusOptions)
+                                {
+                                    <MudSelectItem Value="@radius">@($"{radius} km")</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" sm="6" md="9" Class="nearby-action-cell">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="nearby-actions">
+                                @if (HasManualNearbyText)
+                                {
+                                    <MudTooltip Text="Search typed address">
+                                        <MudIconButton Icon="@Icons.Material.Filled.NearMe"
+                                                       Color="Color.Primary"
+                                                       Size="Size.Medium"
+                                                       Disabled="@(_isFindingNearby || _isUsingBrowserLocation)"
+                                                       OnClick="FindNearbyAsync"
+                                                       aria-label="Search typed address" />
+                                    </MudTooltip>
+                                }
+                                <MudTooltip Text="Your location is used only to filter nearby results.">
+                                    <MudButton Variant="Variant.Outlined"
+                                               Color="Color.Secondary"
+                                               StartIcon="@Icons.Material.Filled.MyLocation"
+                                               Disabled="@(_isFindingNearby || _isUsingBrowserLocation)"
+                                               OnClick="UseMyLocationAsync">
+                                        @(_isUsingBrowserLocation ? "Locating..." : "Use my location")
+                                    </MudButton>
+                                </MudTooltip>
+                                @if (_nearbyOrigin is not null)
+                                {
+                                    <MudButton Variant="Variant.Text" Color="Color.Default" StartIcon="@Icons.Material.Filled.LocationOff" OnClick="ClearNearbyAsync">Clear address</MudButton>
+                                }
+                            </MudStack>
+                        </MudItem>
+                        <MudItem xs="12">
+                            @if (!string.IsNullOrWhiteSpace(_nearbyError))
+                            {
+                                <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Dense="true">@_nearbyError</MudAlert>
+                            }
+                            else if (HasManualNearbyText)
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="nearby-inline-hint">
+                                    Choose a suggestion to apply nearby filtering, or use the search icon for this typed address.
+                                </MudText>
+                            }
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudDivider Class="my-2" />
+                            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="filter-panel-actions">
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.FilterAlt" OnClick="ApplySearchFilterAsync">Apply Filters</MudButton>
+                                <MudButton Variant="Variant.Text" Color="Color.Default" StartIcon="@Icons.Material.Filled.Clear" OnClick="ClearFiltersAsync">Reset Filters</MudButton>
+                                <MudSpacer />
+                                <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="ToggleFilters">Done</MudButton>
+                            </MudStack>
+                        </MudItem>
+                    </MudGrid>
+                </MudPaper>
+            }
+
+            @if (filteredShelters.Count == 0)
             {
                 <MudPaper Elevation="0" Class="empty-state pa-5">
                     <MudStack AlignItems="AlignItems.Center" Spacing="2">
                         <MudIcon Icon="@Icons.Material.Filled.SearchOff" Color="Color.Secondary" Size="Size.Large" />
-                        <MudText Typo="Typo.h6">No shelters match your search.</MudText>
-                        <MudText Typo="Typo.body2" Color="Color.Secondary">Try searching by shelter name, city, or street address.</MudText>
+                        <MudText Typo="Typo.h6">@EmptyStateTitle</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">@EmptyStateSubtitle</MudText>
+                        @if (!string.IsNullOrWhiteSpace(NearestShelterText))
+                        {
+                            <MudText Typo="Typo.body2" Class="nearby-nearest-text">@NearestShelterText</MudText>
+                        }
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="1" Class="empty-state-actions">
+                            @if (_nearbyOrigin is not null && SuggestedRadiusKm.HasValue)
+                            {
+                                <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.ZoomOutMap" OnClick="@(() => IncreaseNearbyRadiusAsync(SuggestedRadiusKm.Value))">
+                                    Increase radius to @SuggestedRadiusKm.Value km
+                                </MudButton>
+                            }
+                            @if (_nearbyOrigin is not null)
+                            {
+                                <MudButton Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.LocationOff" OnClick="ClearNearbyAsync">Clear address</MudButton>
+                            }
+                            else
+                            {
+                                <MudButton Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Clear" OnClick="ClearFiltersAsync">Reset filters</MudButton>
+                            }
+                        </MudStack>
                     </MudStack>
                 </MudPaper>
             }
@@ -101,9 +270,10 @@
             {
                 <div class="shelter-grid-host">
                     <MudGrid Spacing="3" Class="shelter-grid">
-                        @foreach (var shelter in FilteredShelters)
+                        @foreach (var shelter in filteredShelters)
                         {
                             var publicDogCount = GetPublicDogCount(shelter);
+                            var distanceText = GetDistanceText(shelter);
                             <MudItem xs="12" md="6" lg="4" Class="shelter-grid-item">
                                 <div class="shelter-card-shell">
                                     <MudCard Class="shelter-card">
@@ -129,6 +299,10 @@
 
                                                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="shelter-chip-row">
                                                     <MudChip T="string" Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small">@GetDogCountText(publicDogCount)</MudChip>
+                                                    @if (!string.IsNullOrWhiteSpace(distanceText))
+                                                    {
+                                                        <MudChip T="string" Color="Color.Info" Variant="Variant.Outlined" Size="Size.Small">@distanceText</MudChip>
+                                                    }
                                                     @if (HasMapLocation(shelter))
                                                     {
                                                         <MudChip T="string" Color="Color.Info" Variant="Variant.Outlined" Size="Size.Small">Map available</MudChip>
@@ -155,24 +329,176 @@
 @code {
     private List<PawConnect.Entities.Shelter> _shelters = [];
     private bool _isLoading = true;
+    private bool _isFindingNearby;
+    private bool _isUsingBrowserLocation;
+    private bool _nearbyUsesBrowserLocation;
+    private bool _filtersOpen;
     private string? _error;
     private string? _searchTerm;
+    private string? _nearbySearchTerm;
+    private string? _nearbyError;
+    private string? _activeNearbyLabel;
+    private string? _activeNearbyDisplayName;
+    private AddressSuggestion? _selectedNearbySuggestion;
+    private double? _nearestShelterDistanceKm;
+    private int _selectedRadiusKm = 25;
+    private GeocodingResult? _nearbyOrigin;
+    private ShelterSortOption _sortOption = ShelterSortOption.NameAsc;
 
-    private IEnumerable<PawConnect.Entities.Shelter> FilteredShelters
+    private static readonly int[] RadiusOptions = [5, 10, 25, 50, 100];
+    private IReadOnlyList<ActiveFilterChip> ActiveFilterChips => BuildActiveFilterChips();
+    private int ActiveFilterCount => ActiveFilterChips.Count;
+    private bool HasActiveFilters => ActiveFilterCount > 0;
+    private string FilterButtonText => ActiveFilterCount == 0 ? "Filter by" : $"Filter by ({ActiveFilterCount})";
+    private string CurrentSortLabel => GetShelterSortLabel(_sortOption);
+    private string NearbyOriginLabel => _nearbyUsesBrowserLocation
+        ? "your location"
+        : _activeNearbyLabel ?? _nearbySearchTerm ?? "the selected location";
+    private string NearbySummaryText => $"Showing shelters within {_selectedRadiusKm} km of {NearbyOriginLabel}.";
+    private string? NearbyMatchedLocationText => !_nearbyUsesBrowserLocation &&
+        !string.IsNullOrWhiteSpace(_activeNearbyDisplayName) &&
+        !string.Equals(_activeNearbyDisplayName, _activeNearbyLabel, StringComparison.OrdinalIgnoreCase)
+            ? $"Matched location: {_activeNearbyDisplayName}"
+            : null;
+    private string EmptyStateTitle => _nearbyOrigin is not null
+        ? $"No shelters found within {_selectedRadiusKm} km of this location."
+        : "No shelters match your search.";
+    private string EmptyStateSubtitle => _nearbyOrigin is not null
+        ? "Try increasing the radius or searching a different area."
+        : "Try searching by shelter name, city, or street address.";
+    private string? NearestShelterText => _nearbyOrigin is not null && _nearestShelterDistanceKm.HasValue
+        ? $"Nearest shelter is {FormatDistance(_nearestShelterDistanceKm.Value)} away."
+        : null;
+    private bool HasManualNearbyText => !string.IsNullOrWhiteSpace(_nearbySearchTerm) &&
+        _nearbySearchTerm.Trim().Length >= 3 &&
+        _selectedNearbySuggestion is null &&
+        _nearbyOrigin is null;
+    private int? SuggestedRadiusKm
     {
         get
         {
-            if (string.IsNullOrWhiteSpace(_searchTerm))
-            {
-                return _shelters;
-            }
+            var nextRadius = _selectedRadiusKm < 25
+                ? 25
+                : RadiusOptions.FirstOrDefault(radius => radius > _selectedRadiusKm);
+            return nextRadius == 0 ? null : nextRadius;
+        }
+    }
 
+    private sealed record ActiveFilterChip(string Label, Func<Task> ClearAsync);
+
+    private IEnumerable<PawConnect.Entities.Shelter> GetFilteredShelters()
+    {
+        _nearestShelterDistanceKm = null;
+        IEnumerable<PawConnect.Entities.Shelter> query = _shelters;
+
+        if (!string.IsNullOrWhiteSpace(_searchTerm))
+        {
             var term = _searchTerm.Trim();
-            return _shelters.Where(shelter =>
+            query = query.Where(shelter =>
                 Contains(shelter.Name, term) ||
                 Contains(shelter.City, term) ||
                 Contains(shelter.Address, term));
         }
+
+        if (_nearbyOrigin is not null)
+        {
+            var sheltersWithDistance = new List<(PawConnect.Entities.Shelter Shelter, double Distance)>();
+            Logger.LogDebug(
+                "Applying nearby shelter filter from '{OriginLabel}' at {Latitude}, {Longitude} with radius {RadiusKm} km.",
+                NearbyOriginLabel,
+                _nearbyOrigin.Latitude,
+                _nearbyOrigin.Longitude,
+                _selectedRadiusKm);
+
+            foreach (var shelter in query)
+            {
+                var distance = GetShelterDistanceKm(shelter);
+                if (!distance.HasValue)
+                {
+                    Logger.LogDebug(
+                        "Nearby shelter filter excluded shelter '{ShelterName}' because it has no coordinates.",
+                        shelter.Name);
+                    continue;
+                }
+
+                if (!_nearestShelterDistanceKm.HasValue || distance.Value < _nearestShelterDistanceKm.Value)
+                {
+                    _nearestShelterDistanceKm = distance.Value;
+                }
+
+                var isIncluded = distance.Value <= _selectedRadiusKm;
+                Logger.LogDebug(
+                    "Nearby shelter filter shelter '{ShelterName}' at {ShelterLatitude}, {ShelterLongitude}: distance {DistanceKm} km, included {Included}.",
+                    shelter.Name,
+                    shelter.Latitude,
+                    shelter.Longitude,
+                    Math.Round(distance.Value, 2),
+                    isIncluded);
+
+                if (isIncluded)
+                {
+                    sheltersWithDistance.Add((shelter, distance.Value));
+                }
+            }
+
+            return _sortOption == ShelterSortOption.NearestFirst
+                ? sheltersWithDistance
+                    .OrderBy(item => item.Distance)
+                    .ThenBy(item => item.Shelter.Name)
+                    .Select(item => item.Shelter)
+                : SortShelters(sheltersWithDistance.Select(item => item.Shelter));
+        }
+
+        return SortShelters(query);
+    }
+
+    private IEnumerable<PawConnect.Entities.Shelter> SortShelters(IEnumerable<PawConnect.Entities.Shelter> shelters)
+    {
+        return _sortOption switch
+        {
+            ShelterSortOption.NameDesc => shelters.OrderByDescending(shelter => shelter.Name),
+            ShelterSortOption.CityAsc => shelters.OrderBy(shelter => shelter.City).ThenBy(shelter => shelter.Name),
+            _ => shelters.OrderBy(shelter => shelter.Name)
+        };
+    }
+
+    private void ToggleFilters()
+    {
+        _filtersOpen = !_filtersOpen;
+    }
+
+    private void SetSort(ShelterSortOption sortOption)
+    {
+        _sortOption = sortOption;
+    }
+
+    private Task ApplySearchFilterAsync()
+    {
+        _filtersOpen = false;
+        return Task.CompletedTask;
+    }
+
+    private List<ActiveFilterChip> BuildActiveFilterChips()
+    {
+        var chips = new List<ActiveFilterChip>();
+
+        if (!string.IsNullOrWhiteSpace(_searchTerm))
+        {
+            chips.Add(new ActiveFilterChip($"Search: {ShortChipText(_searchTerm)}", ClearSearchFilterAsync));
+        }
+
+        if (_nearbyOrigin is not null)
+        {
+            chips.Add(new ActiveFilterChip($"Near: {ShortChipText(NearbyOriginLabel)}, {_selectedRadiusKm} km", ClearNearbyAsync));
+        }
+
+        return chips;
+    }
+
+    private Task ClearSearchFilterAsync()
+    {
+        _searchTerm = null;
+        return Task.CompletedTask;
     }
 
     protected override async Task OnInitializedAsync()
@@ -196,6 +522,227 @@
         return !string.IsNullOrWhiteSpace(value) && value.Contains(term, StringComparison.OrdinalIgnoreCase);
     }
 
+    private async Task FindNearbyAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_nearbySearchTerm))
+        {
+            _nearbyError = "Enter a city or address to search nearby.";
+            return;
+        }
+
+        _isFindingNearby = true;
+        _nearbyError = null;
+
+        try
+        {
+            var selectedSuggestion = GetCurrentSelectedSuggestion();
+            var result = selectedSuggestion is not null
+                ? new GeocodingResult(selectedSuggestion.Latitude, selectedSuggestion.Longitude, selectedSuggestion.DisplayName)
+                : await GeocodingService.FindCoordinatesAsync(_nearbySearchTerm);
+            if (result is null)
+            {
+                ClearNearbyOrigin();
+                _nearbyError = "Could not find this location. Please try another city or address.";
+                return;
+            }
+
+            _nearbyOrigin = result;
+            _activeNearbyLabel = selectedSuggestion is not null
+                ? GetSuggestionDisplayText(selectedSuggestion)
+                : _nearbySearchTerm.Trim();
+            _activeNearbyDisplayName = result.DisplayName;
+            _nearbyUsesBrowserLocation = false;
+            Logger.LogDebug(
+                "Nearby shelter search input '{SearchInput}' matched '{DisplayName}' at {Latitude}, {Longitude}. Used selected suggestion: {UsedSuggestion}.",
+                _nearbySearchTerm,
+                result.DisplayName,
+                result.Latitude,
+                result.Longitude,
+                selectedSuggestion is not null);
+        }
+        catch
+        {
+            ClearNearbyOrigin();
+            _nearbyError = "Could not find this location. Please try another city or address.";
+        }
+        finally
+        {
+            _isFindingNearby = false;
+        }
+    }
+
+    private async Task UseMyLocationAsync()
+    {
+        _isUsingBrowserLocation = true;
+        _nearbyError = null;
+
+        try
+        {
+            var result = await JSRuntime.InvokeAsync<BrowserLocationResult>("pawConnect.getCurrentLocation");
+            if (result.Success && result.Latitude.HasValue && result.Longitude.HasValue)
+            {
+                _nearbyOrigin = new GeocodingResult(result.Latitude.Value, result.Longitude.Value, "Your location");
+                _nearbySearchTerm = null;
+                _activeNearbyLabel = null;
+                _activeNearbyDisplayName = null;
+                _selectedNearbySuggestion = null;
+                _nearbyUsesBrowserLocation = true;
+                Logger.LogDebug(
+                    "Nearby shelter search is using browser location at {Latitude}, {Longitude}.",
+                    result.Latitude.Value,
+                    result.Longitude.Value);
+                return;
+            }
+
+            ClearNearbyOrigin();
+            _nearbyError = GetBrowserLocationErrorMessage(result.ErrorCode);
+        }
+        catch (JSException)
+        {
+            ClearNearbyOrigin();
+            _nearbyError = "Could not get your location. Please try again or search by city/address.";
+        }
+        finally
+        {
+            _isUsingBrowserLocation = false;
+        }
+    }
+
+    private void ClearFilters()
+    {
+        _searchTerm = null;
+        _nearbySearchTerm = null;
+        _nearbyError = null;
+        ClearNearbyOrigin();
+        _selectedRadiusKm = 25;
+        _sortOption = ShelterSortOption.NameAsc;
+    }
+
+    private Task ClearFiltersAsync()
+    {
+        ClearFilters();
+        _filtersOpen = false;
+        return Task.CompletedTask;
+    }
+
+    private void ClearNearbyOrigin()
+    {
+        _activeNearbyLabel = null;
+        _activeNearbyDisplayName = null;
+        _selectedNearbySuggestion = null;
+        _nearbyOrigin = null;
+        _nearbyUsesBrowserLocation = false;
+        _nearestShelterDistanceKm = null;
+        if (_sortOption == ShelterSortOption.NearestFirst)
+        {
+            _sortOption = ShelterSortOption.NameAsc;
+        }
+    }
+
+    private Task ClearNearbyAsync()
+    {
+        _nearbySearchTerm = null;
+        _nearbyError = null;
+        ClearNearbyOrigin();
+        return Task.CompletedTask;
+    }
+
+    private Task IncreaseNearbyRadiusAsync(int radiusKm)
+    {
+        _selectedRadiusKm = radiusKm;
+        return Task.CompletedTask;
+    }
+
+    private Task OnRadiusChangedAsync(int radiusKm)
+    {
+        _selectedRadiusKm = radiusKm;
+        return Task.CompletedTask;
+    }
+
+    private static string GetBrowserLocationErrorMessage(string? errorCode)
+    {
+        return errorCode switch
+        {
+            "permission-denied" => "Location permission was denied. You can still search by city or address.",
+            "unsupported" => "Your browser does not support location access. Please search by city or address.",
+            "position-unavailable" or "timeout" => "Could not get your location. Please try again or search by city/address.",
+            _ => "Could not get your location. Please try again or search by city/address."
+        };
+    }
+
+    private async Task<IEnumerable<AddressSuggestion>> SearchNearbySuggestionsAsync(string? query, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(query) || query.Trim().Length < 3)
+        {
+            return [];
+        }
+
+        return await GeocodingService.SearchAddressSuggestionsAsync(query, 5, cancellationToken);
+    }
+
+    private Task OnNearbyTextChanged(string text)
+    {
+        _nearbySearchTerm = text;
+        if (_nearbyOrigin is not null &&
+            (_selectedNearbySuggestion is null || !IsSelectedSuggestionText(text, _selectedNearbySuggestion)))
+        {
+            ClearNearbyOrigin();
+        }
+        else if (_selectedNearbySuggestion is not null &&
+            !IsSelectedSuggestionText(text, _selectedNearbySuggestion))
+        {
+            ClearNearbyOrigin();
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private Task OnNearbySuggestionSelected(AddressSuggestion? suggestion)
+    {
+        _selectedNearbySuggestion = suggestion;
+        if (suggestion is null)
+        {
+            if (_nearbyOrigin is not null)
+            {
+                ClearNearbyOrigin();
+            }
+
+            return Task.CompletedTask;
+        }
+
+        if (suggestion is not null)
+        {
+            var label = GetSuggestionDisplayText(suggestion);
+            _nearbySearchTerm = label;
+            _nearbyError = null;
+            _nearbyOrigin = new GeocodingResult(suggestion.Latitude, suggestion.Longitude, suggestion.DisplayName);
+            _activeNearbyLabel = label;
+            _activeNearbyDisplayName = suggestion.DisplayName;
+            _nearbyUsesBrowserLocation = false;
+            Logger.LogDebug(
+                "Nearby shelter autocomplete suggestion '{DisplayName}' selected at {Latitude}, {Longitude}.",
+                suggestion.DisplayName,
+                suggestion.Latitude,
+                suggestion.Longitude);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private AddressSuggestion? GetCurrentSelectedSuggestion()
+    {
+        return _selectedNearbySuggestion is not null &&
+            IsSelectedSuggestionText(_nearbySearchTerm, _selectedNearbySuggestion)
+                ? _selectedNearbySuggestion
+                : null;
+    }
+
+    private static bool IsSelectedSuggestionText(string? text, AddressSuggestion suggestion)
+    {
+        return string.Equals(text?.Trim(), suggestion.DisplayName, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(text?.Trim(), GetSuggestionDisplayText(suggestion), StringComparison.OrdinalIgnoreCase);
+    }
+
     private static int GetPublicDogCount(PawConnect.Entities.Shelter shelter)
     {
         return shelter.Dogs.Count(dog => dog.Status is PawConnect.Entities.DogStatus.Available or PawConnect.Entities.DogStatus.Reserved);
@@ -214,5 +761,95 @@
     private static bool HasMapLocation(PawConnect.Entities.Shelter shelter)
     {
         return shelter.Latitude.HasValue && shelter.Longitude.HasValue;
+    }
+
+    private bool TryGetShelterDistanceKm(PawConnect.Entities.Shelter shelter, out double distance)
+    {
+        distance = 0;
+        var calculatedDistance = GetShelterDistanceKm(shelter);
+        if (!calculatedDistance.HasValue)
+        {
+            return false;
+        }
+
+        distance = calculatedDistance.Value;
+        return true;
+    }
+
+    private double? GetShelterDistanceKm(PawConnect.Entities.Shelter shelter)
+    {
+        if (_nearbyOrigin is null ||
+            shelter.Latitude is null ||
+            shelter.Longitude is null)
+        {
+            return null;
+        }
+
+        return DistanceService.CalculateDistanceKm(
+            _nearbyOrigin.Latitude,
+            _nearbyOrigin.Longitude,
+            shelter.Latitude.Value,
+            shelter.Longitude.Value);
+    }
+
+    private string? GetDistanceText(PawConnect.Entities.Shelter shelter)
+    {
+        var distance = GetShelterDistanceKm(shelter);
+        return distance.HasValue
+            ? $"{FormatDistance(distance.Value)} away"
+            : null;
+    }
+
+    private static string FormatDistance(double distanceKm)
+    {
+        return $"{distanceKm.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture)} km";
+    }
+
+    private static string ShortChipText(string? value)
+    {
+        var text = value?.Trim() ?? string.Empty;
+        return text.Length <= 34 ? text : $"{text[..31]}...";
+    }
+
+    private static string GetSuggestionDisplayText(AddressSuggestion? suggestion)
+    {
+        if (suggestion is null)
+        {
+            return string.Empty;
+        }
+
+        if (!string.IsNullOrWhiteSpace(suggestion.Address) &&
+            !string.IsNullOrWhiteSpace(suggestion.City))
+        {
+            return $"{suggestion.Address}, {suggestion.City}";
+        }
+
+        return !string.IsNullOrWhiteSpace(suggestion.City)
+            ? suggestion.City
+            : suggestion.DisplayName;
+    }
+
+    private static string GetShelterSortLabel(ShelterSortOption sortOption)
+    {
+        return sortOption switch
+        {
+            ShelterSortOption.NameDesc => "Name Z-A",
+            ShelterSortOption.CityAsc => "City A-Z",
+            ShelterSortOption.NearestFirst => "Nearest first",
+            _ => "Name A-Z"
+        };
+    }
+
+    private static string GetShelterResultCountText(int count)
+    {
+        return count == 1 ? "Showing 1 shelter" : $"Showing {count} shelters";
+    }
+
+    private enum ShelterSortOption
+    {
+        NameAsc,
+        NameDesc,
+        CityAsc,
+        NearestFirst
     }
 }

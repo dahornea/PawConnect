@@ -389,6 +389,7 @@ public class DogService(ApplicationDbContext context, IAuditLogService? auditLog
             DogSortOption.LocationAsc => query.OrderBy(d => d.Location).ThenBy(d => d.Name),
             DogSortOption.Status => query.OrderBy(d => d.Status).ThenBy(d => d.Name),
             DogSortOption.NewestFirst => query.OrderByDescending(d => d.Id),
+            DogSortOption.NearestFirst => query.OrderBy(d => d.Name),
             _ => query.OrderBy(d => d.Name)
         };
     }
