@@ -127,4 +127,32 @@ public class DogServiceTests
         Assert.DoesNotContain(dogs, d => d.Name == "Adopted Dog");
         Assert.DoesNotContain(dogs, d => d.Name == "Treatment Dog");
     }
+
+    [Fact]
+    public async Task SearchDogsAsync_FiltersPublicDogsByShelter()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        context.Dogs.AddRange(
+            TestDbContextFactory.CreateDog("Shelter One Dog", DogStatus.Available, TestDbContextFactory.ShelterId),
+            TestDbContextFactory.CreateDog("Shelter Two Dog", DogStatus.Available, TestDbContextFactory.OtherShelterId),
+            TestDbContextFactory.CreateDog("Shelter One Adopted Dog", DogStatus.Adopted, TestDbContextFactory.ShelterId));
+        await context.SaveChangesAsync();
+
+        var service = new DogService(context);
+
+        var dogs = await service.SearchDogsAsync(
+            searchTerm: null,
+            breed: null,
+            maxAge: null,
+            size: null,
+            location: null,
+            status: null,
+            sortOption: DogSortOption.NameAsc,
+            shelterId: TestDbContextFactory.ShelterId);
+
+        Assert.Contains(dogs, d => d.Name == "Shelter One Dog");
+        Assert.DoesNotContain(dogs, d => d.Name == "Shelter Two Dog");
+        Assert.DoesNotContain(dogs, d => d.Name == "Shelter One Adopted Dog");
+        Assert.All(dogs, dog => Assert.Equal(TestDbContextFactory.ShelterId, dog.ShelterId));
+    }
 }

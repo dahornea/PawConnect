@@ -2,6 +2,24 @@
     padding-bottom: 20px;
 }
 
+.dog-details-page .dog-details-nav {
+    display: flex;
+    align-items: center;
+    margin-bottom: -6px;
+}
+
+.dog-details-page ::deep .back-to-dogs-button {
+    color: #66756f;
+    font-weight: 700;
+    padding-left: 0;
+    padding-right: 10px;
+}
+
+.dog-details-page ::deep .back-to-dogs-button:hover {
+    color: #2f6f5e;
+    background: transparent;
+}
+
 .dog-details-page ::deep .details-hero-grid {
     align-items: start;
 }
@@ -101,6 +119,10 @@
     border: 1px solid rgba(217, 119, 6, 0.16);
     border-radius: 10px;
     background: rgba(255, 251, 235, 0.62);
+}
+
+.dog-details-page ::deep .visit-validation-alert {
+    border-radius: 10px;
 }
 
 .dog-details-page ::deep .info-panel {

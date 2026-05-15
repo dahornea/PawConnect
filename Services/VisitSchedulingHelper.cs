@@ -130,7 +130,6 @@ public static class VisitSchedulingHelper
         var startLocal = DateTime.SpecifyKind(request.PreferredVisitDateTime.Value, DateTimeKind.Unspecified);
         var endLocal = startLocal.AddHours(1);
         var fileDate = request.PreferredVisitDateTime.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-        var visitTime = FormatVisitDateTime(request.PreferredVisitDateTime);
 
         return new EmailAttachment
         {
@@ -144,7 +143,7 @@ public static class VisitSchedulingHelper
                 dogName,
                 shelterName,
                 BuildLocation(shelter),
-                BuildDescription(dogName, shelterName, visitTime, shelter),
+                BuildDescription(dogName, shelterName, shelter),
                 shelter?.Email,
                 shelterName,
                 request.Adopter?.Email,
@@ -264,26 +263,26 @@ public static class VisitSchedulingHelper
             .Where(value => !string.IsNullOrWhiteSpace(value)));
     }
 
-    private static string BuildDescription(string dogName, string shelterName, string visitTime, Shelter? shelter)
+    private static string BuildDescription(string dogName, string shelterName, Shelter? shelter)
     {
-        var address = BuildLocation(shelter);
-
-        return string.Join("\n",
-        [
-            $"Adoption visit for {dogName}",
-            $"Shelter: {shelterName}",
-            $"Visit time: {visitTime}",
-            $"Address: {ValueOrFallback(address)}",
-            $"Email: {ValueOrFallback(shelter?.Email)}",
-            $"Phone: {ValueOrFallback(shelter?.PhoneNumber)}",
+        var lines = new List<string>
+        {
+            $"Adoption visit for {dogName} at {shelterName}.",
             string.Empty,
-            "If you cannot attend, please contact the shelter."
-        ]);
-    }
+            "If you cannot attend, please contact the shelter:"
+        };
 
-    private static string ValueOrFallback(string? value)
-    {
-        return string.IsNullOrWhiteSpace(value) ? "Not provided" : value.Trim();
+        if (!string.IsNullOrWhiteSpace(shelter?.Email))
+        {
+            lines.Add($"Email: {shelter.Email.Trim()}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(shelter?.PhoneNumber))
+        {
+            lines.Add($"Phone: {shelter.PhoneNumber.Trim()}");
+        }
+
+        return string.Join("\n", lines);
     }
 
     private static string FormatIcsDateTime(DateTime value)

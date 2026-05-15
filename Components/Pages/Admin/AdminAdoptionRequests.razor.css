@@ -1,3 +1,11 @@
+::deep .adoption-requests-page {
+    left: 50%;
+    max-width: 1360px;
+    position: relative;
+    transform: translateX(-50%);
+    width: min(1360px, calc(100vw - 48px));
+}
+
 ::deep .table-shell {
     border: 1px solid rgba(47, 111, 94, 0.1);
     border-radius: 10px;
@@ -7,4 +15,24 @@
 
 ::deep .table-shell .mud-table-head {
     background: rgba(47, 111, 94, 0.06);
+}
+
+::deep .admin-adoption-table .request-date-cell {
+    min-width: 108px;
+    width: 108px;
+    white-space: nowrap;
+}
+
+::deep .admin-adoption-table .request-date {
+    line-height: 1.15;
+    min-width: 96px;
+}
+
+@media (max-width: 960px) {
+    ::deep .adoption-requests-page {
+        left: auto;
+        max-width: none;
+        transform: none;
+        width: 100%;
+    }
 }

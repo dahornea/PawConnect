@@ -45,19 +45,57 @@
 
             <MudCard Class="form-card">
                 <MudCardContent>
+                    @if (!string.IsNullOrWhiteSpace(_formError))
+                    {
+                        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-3">
+                            @_formError
+                        </MudAlert>
+                    }
                     <MudForm @ref="_form">
                         <MudGrid>
                             <MudItem xs="12" md="6">
-                                <MudTextField Label="Name" @bind-Value="_model.Name" Required="true" RequiredError="Name is required." Variant="Variant.Outlined" Disabled="@IsReadOnly" />
+                                <MudTextField Label="Name"
+                                              @bind-Value="_model.Name"
+                                              @bind-Value:after="ClearDogNameError"
+                                              Required="true"
+                                              RequiredError="Name is required."
+                                              Error="@HasNameError"
+                                              ErrorText="@_nameError"
+                                              Variant="Variant.Outlined"
+                                              Disabled="@IsReadOnly" />
                             </MudItem>
                             <MudItem xs="12" md="6">
-                                <MudTextField Label="Breed" @bind-Value="_model.Breed" Required="true" RequiredError="Breed is required." Variant="Variant.Outlined" Disabled="@IsReadOnly" />
+                                <MudTextField Label="Breed"
+                                              @bind-Value="_model.Breed"
+                                              @bind-Value:after="ClearBreedError"
+                                              Required="true"
+                                              RequiredError="Breed is required."
+                                              Error="@HasBreedError"
+                                              ErrorText="@_breedError"
+                                              Variant="Variant.Outlined"
+                                              Disabled="@IsReadOnly" />
                             </MudItem>
                             <MudItem xs="12" md="2">
-                                <MudNumericField T="int" Label="Age Years" @bind-Value="_model.AgeYears" Min="0" Max="30" Variant="Variant.Outlined" Disabled="@IsReadOnly" />
+                                <MudNumericField T="int" Label="Age Years"
+                                                 @bind-Value="_model.AgeYears"
+                                                 @bind-Value:after="ClearAgeErrors"
+                                                 Min="0"
+                                                 Max="30"
+                                                 Error="@HasAgeYearsError"
+                                                 ErrorText="@_ageYearsError"
+                                                 Variant="Variant.Outlined"
+                                                 Disabled="@IsReadOnly" />
                             </MudItem>
                             <MudItem xs="12" md="2">
-                                <MudNumericField T="int" Label="Age Months" @bind-Value="_model.AgeMonths" Min="0" Max="11" Variant="Variant.Outlined" Disabled="@IsReadOnly" />
+                                <MudNumericField T="int" Label="Age Months"
+                                                 @bind-Value="_model.AgeMonths"
+                                                 @bind-Value:after="ClearAgeErrors"
+                                                 Min="0"
+                                                 Max="11"
+                                                 Error="@HasAgeMonthsError"
+                                                 ErrorText="@_ageMonthsError"
+                                                 Variant="Variant.Outlined"
+                                                 Disabled="@IsReadOnly" />
                             </MudItem>
                             <MudItem xs="12" md="4">
                                 <MudSelect T="DogSize" Label="Size" @bind-Value="_model.Size" Required="true" Variant="Variant.Outlined" Disabled="@IsReadOnly">
@@ -76,7 +114,15 @@
                                 </MudSelect>
                             </MudItem>
                             <MudItem xs="12">
-                                <MudTextField Label="Location" @bind-Value="_model.Location" Required="true" RequiredError="Location is required." Variant="Variant.Outlined" Disabled="@IsReadOnly" />
+                                <MudTextField Label="Location"
+                                              @bind-Value="_model.Location"
+                                              @bind-Value:after="ClearLocationError"
+                                              Required="true"
+                                              RequiredError="Location is required."
+                                              Error="@HasLocationError"
+                                              ErrorText="@_locationError"
+                                              Variant="Variant.Outlined"
+                                              Disabled="@IsReadOnly" />
                             </MudItem>
                             <MudItem xs="12" md="6">
                                 <MudSelect T="int?" Label="Preferred Food Type" @bind-Value="_model.PreferredFoodTypeId" Clearable="true" Variant="Variant.Outlined" Disabled="@IsReadOnly">
@@ -87,7 +133,15 @@
                                 </MudSelect>
                             </MudItem>
                             <MudItem xs="12" md="6">
-                                <MudNumericField T="int?" Label="Daily Food Amount (grams)" @bind-Value="_model.DailyFoodAmountGrams" Min="0" Max="10000" Variant="Variant.Outlined" Disabled="@IsReadOnly" />
+                                <MudNumericField T="int?" Label="Daily Food Amount (grams)"
+                                                 @bind-Value="_model.DailyFoodAmountGrams"
+                                                 @bind-Value:after="ClearDailyFoodAmountError"
+                                                 Min="0"
+                                                 Max="10000"
+                                                 Error="@HasDailyFoodAmountError"
+                                                 ErrorText="@_dailyFoodAmountError"
+                                                 Variant="Variant.Outlined"
+                                                 Disabled="@IsReadOnly" />
                             </MudItem>
                             <MudItem xs="12">
                                 <MudTextField Label="Description" @bind-Value="_model.Description" Lines="4" Variant="Variant.Outlined" Disabled="@IsReadOnly" />
@@ -126,9 +180,12 @@
                         <MudItem xs="12">
                             <MudTextField Label="Success Story Text"
                                           @bind-Value="_successStoryText"
+                                          @bind-Value:after="ClearSuccessStoryError"
                                           Lines="4"
                                           Counter="2000"
                                           MaxLength="2000"
+                                          Error="@HasSuccessStoryError"
+                                          ErrorText="@_successStoryError"
                                           Immediate="true"
                                           Variant="Variant.Outlined" />
                         </MudItem>
@@ -195,7 +252,15 @@
                     <MudForm @ref="_imageForm">
                         <MudGrid Spacing="2">
                             <MudItem xs="12" md="8">
-                                <MudTextField Label="Image URL" @bind-Value="_newImage.ImageUrl" Required="true" RequiredError="Image URL is required." Variant="Variant.Outlined" Disabled="@IsReadOnly" />
+                                <MudTextField Label="Image URL"
+                                              @bind-Value="_newImage.ImageUrl"
+                                              @bind-Value:after="ClearImageUrlError"
+                                              Required="true"
+                                              RequiredError="Image URL is required."
+                                              Error="@HasImageUrlError"
+                                              ErrorText="@_imageUrlError"
+                                              Variant="Variant.Outlined"
+                                              Disabled="@IsReadOnly" />
                             </MudItem>
                             <MudItem xs="12" md="2">
                                 <MudCheckBox T="bool" Label="Main image" @bind-Value="_newImage.IsMainImage" Color="Color.Primary" Disabled="@IsReadOnly" />
@@ -335,13 +400,30 @@
     private bool _isMedicalSaving;
     private bool _isSuccessStorySaving;
     private string? _error;
+    private string? _formError;
+    private string? _nameError;
+    private string? _breedError;
+    private string? _ageYearsError;
+    private string? _ageMonthsError;
+    private string? _locationError;
+    private string? _dailyFoodAmountError;
+    private string? _imageUrlError;
     private string? _statusHistoryError;
+    private string? _successStoryError;
     private string? _successStoryText;
     private DateTime? _adoptedAt;
     private int? _shelterId;
     private string? _currentUserId;
 
     private bool IsReadOnly => _model?.Status == DogStatus.Adopted;
+    private bool HasNameError => !string.IsNullOrWhiteSpace(_nameError);
+    private bool HasBreedError => !string.IsNullOrWhiteSpace(_breedError);
+    private bool HasAgeYearsError => !string.IsNullOrWhiteSpace(_ageYearsError);
+    private bool HasAgeMonthsError => !string.IsNullOrWhiteSpace(_ageMonthsError);
+    private bool HasLocationError => !string.IsNullOrWhiteSpace(_locationError);
+    private bool HasDailyFoodAmountError => !string.IsNullOrWhiteSpace(_dailyFoodAmountError);
+    private bool HasImageUrlError => !string.IsNullOrWhiteSpace(_imageUrlError);
+    private bool HasSuccessStoryError => !string.IsNullOrWhiteSpace(_successStoryError);
 
     protected override async Task OnInitializedAsync()
     {
@@ -404,6 +486,7 @@
             }
         }
 
+        ClearDogValidationErrors();
         _isSaving = true;
 
         try
@@ -414,7 +497,10 @@
         }
         catch (InvalidOperationException ex)
         {
-            Snackbar.Add(ex.Message, Severity.Warning);
+            if (!TryMapDogValidationMessage(ex.Message))
+            {
+                _formError = ex.Message;
+            }
         }
         catch
         {
@@ -435,6 +521,7 @@
         }
 
         _isSuccessStorySaving = true;
+        _successStoryError = null;
 
         try
         {
@@ -445,7 +532,14 @@
         }
         catch (InvalidOperationException ex)
         {
-            Snackbar.Add(ex.Message, Severity.Warning);
+            if (ex.Message == "Success story text must be 2000 characters or fewer.")
+            {
+                _successStoryError = ex.Message;
+            }
+            else
+            {
+                Snackbar.Add(ex.Message, Severity.Warning);
+            }
         }
         catch
         {
@@ -508,6 +602,7 @@
         }
 
         _isImageSaving = true;
+        _imageUrlError = null;
 
         try
         {
@@ -527,7 +622,10 @@
         }
         catch (InvalidOperationException ex)
         {
-            Snackbar.Add(ex.Message, Severity.Warning);
+            if (!TryMapImageValidationMessage(ex.Message))
+            {
+                Snackbar.Add(ex.Message, Severity.Warning);
+            }
         }
         catch
         {
@@ -559,7 +657,10 @@
         }
         catch (InvalidOperationException ex)
         {
-            Snackbar.Add(ex.Message, Severity.Warning);
+            if (!TryMapImageValidationMessage(ex.Message))
+            {
+                Snackbar.Add(ex.Message, Severity.Warning);
+            }
         }
         catch
         {
@@ -593,7 +694,10 @@
         }
         catch (InvalidOperationException ex)
         {
-            Snackbar.Add(ex.Message, Severity.Warning);
+            if (!TryMapImageValidationMessage(ex.Message))
+            {
+                Snackbar.Add(ex.Message, Severity.Warning);
+            }
         }
         catch
         {
@@ -706,6 +810,102 @@
         if (_medicalForm is not null)
         {
             await _medicalForm.ResetValidationAsync();
+        }
+    }
+
+    private void ClearDogValidationErrors()
+    {
+        _formError = null;
+        _nameError = null;
+        _breedError = null;
+        ClearAgeErrors();
+        _locationError = null;
+        _dailyFoodAmountError = null;
+    }
+
+    private void ClearDogNameError()
+    {
+        _nameError = null;
+        _formError = null;
+    }
+
+    private void ClearBreedError()
+    {
+        _breedError = null;
+        _formError = null;
+    }
+
+    private void ClearAgeErrors()
+    {
+        _ageYearsError = null;
+        _ageMonthsError = null;
+        _formError = null;
+    }
+
+    private void ClearLocationError()
+    {
+        _locationError = null;
+        _formError = null;
+    }
+
+    private void ClearDailyFoodAmountError()
+    {
+        _dailyFoodAmountError = null;
+        _formError = null;
+    }
+
+    private void ClearImageUrlError()
+    {
+        _imageUrlError = null;
+    }
+
+    private void ClearSuccessStoryError()
+    {
+        _successStoryError = null;
+    }
+
+    private bool TryMapDogValidationMessage(string message)
+    {
+        switch (message)
+        {
+            case "Dog name is required.":
+                _nameError = message;
+                return true;
+            case "Breed is required.":
+                _breedError = message;
+                return true;
+            case "Age in years must be between 0 and 30.":
+                _ageYearsError = message;
+                return true;
+            case "Age in months must be between 0 and 11.":
+                _ageMonthsError = message;
+                return true;
+            case "Please enter the dog's age in years or months.":
+                _ageYearsError = message;
+                _ageMonthsError = message;
+                return true;
+            case "Location is required.":
+                _locationError = message;
+                return true;
+            case "Daily food amount must be zero or greater when provided.":
+                _dailyFoodAmountError = message;
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private bool TryMapImageValidationMessage(string message)
+    {
+        switch (message)
+        {
+            case "This image has already been added for this dog.":
+            case "Image URL is required.":
+            case "Image URL must be a valid web address.":
+                _imageUrlError = message;
+                return true;
+            default:
+                return false;
         }
     }
 

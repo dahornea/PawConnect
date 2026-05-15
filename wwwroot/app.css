@@ -8,6 +8,32 @@ a {
     color: #2f6f5e;
 }
 
+.request-menu-success,
+.request-menu-success .mud-icon-root,
+.request-menu-success .mud-list-item-icon,
+.request-menu-success .mud-list-item-text,
+.request-menu-success .mud-typography,
+.request-menu-success span {
+    color: #2e7d32 !important;
+}
+
+.request-menu-success:hover {
+    background-color: rgba(46, 125, 50, 0.08) !important;
+}
+
+.request-menu-danger,
+.request-menu-danger .mud-icon-root,
+.request-menu-danger .mud-list-item-icon,
+.request-menu-danger .mud-list-item-text,
+.request-menu-danger .mud-typography,
+.request-menu-danger span {
+    color: #b91c1c !important;
+}
+
+.request-menu-danger:hover {
+    background-color: rgba(185, 28, 28, 0.08) !important;
+}
+
 .shelter-map-frame,
 .shelter-map.leaflet-container {
     width: 100%;

@@ -271,12 +271,11 @@ public class AdoptionRequestServiceTests
         Assert.Contains("DTSTART;TZID=Europe/Bucharest:", ics);
         Assert.Contains("DTEND;TZID=Europe/Bucharest:", ics);
         Assert.Contains("LOCATION:Shelter Street 1\\, Bucharest", ics);
-        Assert.Contains("DESCRIPTION:Adoption visit for Pending Dog\\nShelter: Test Shelter", ics);
-        Assert.Contains($"Visit time: {VisitSchedulingHelper.FormatVisitDateTime(request.PreferredVisitDateTime)}", ics);
-        Assert.Contains("Address: Shelter Street 1\\, Bucharest", ics);
+        Assert.Contains("DESCRIPTION:Adoption visit for Pending Dog at Test Shelter.\\n\\nIf you cannot attend\\, please contact the shelter:", ics);
+        Assert.DoesNotContain($"Visit time: {VisitSchedulingHelper.FormatVisitDateTime(request.PreferredVisitDateTime)}", ics);
+        Assert.DoesNotContain("Address: Shelter Street 1\\, Bucharest", ics);
         Assert.Contains("Email: shelter@test.com", ics);
         Assert.Contains("Phone: 123", ics);
-        Assert.Contains("If you cannot attend\\, please contact the shelter.", ics);
         Assert.Contains("STATUS:CONFIRMED", ics);
         Assert.Contains("ORGANIZER;", ics);
         Assert.Contains("ATTENDEE;", ics);

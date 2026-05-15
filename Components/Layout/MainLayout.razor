@@ -30,20 +30,22 @@
                     var displayName = GetDisplayName(context.User.Identity?.Name);
                     var displayEmail = GetDisplayEmail(context.User.Identity?.Name);
                 }
-                <NotificationBell />
-                <div class="user-display me-2">
-                    <span class="user-avatar">
-                        <MudIcon Icon="@CurrentUserIcon" Color="Color.Inherit" />
-                    </span>
-                    <span class="user-copy">
-                        <span class="user-name">@displayName</span>
-                        @if (!string.IsNullOrWhiteSpace(displayEmail))
-                        {
-                            <span class="user-email">@displayEmail</span>
-                        }
-                    </span>
+                <div class="topbar-auth-actions">
+                    <NotificationBell />
+                    <div class="user-display">
+                        <span class="user-avatar">
+                            <MudIcon Icon="@CurrentUserIcon" Color="Color.Inherit" />
+                        </span>
+                        <span class="user-copy">
+                            <span class="user-name">@displayName</span>
+                            @if (!string.IsNullOrWhiteSpace(displayEmail))
+                            {
+                                <span class="user-email">@displayEmail</span>
+                            }
+                        </span>
+                    </div>
+                    <MudButton ButtonType="ButtonType.Button" Variant="Variant.Text" Color="Color.Inherit" StartIcon="@Icons.Material.Filled.Logout" OnClick="ConfirmLogoutAsync">Logout</MudButton>
                 </div>
-                <MudButton ButtonType="ButtonType.Button" Variant="Variant.Text" Color="Color.Inherit" StartIcon="@Icons.Material.Filled.Logout" OnClick="ConfirmLogoutAsync">Logout</MudButton>
             </Authorized>
             <NotAuthorized>
                 <MudButton Href="/Account/Login" Variant="Variant.Text" Color="Color.Inherit" StartIcon="@Icons.Material.Filled.Login">Login</MudButton>

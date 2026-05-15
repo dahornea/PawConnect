@@ -205,13 +205,24 @@
                 <MudPaper Elevation="0" Class="section-surface edit-panel pa-4 mt-3">
                     <MudStack Spacing="2">
                         <MudText Typo="Typo.h6">Edit Shelter</MudText>
+                        @if (!string.IsNullOrWhiteSpace(_shelterFormError))
+                        {
+                            <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Dense="true">
+                                @_shelterFormError
+                            </MudAlert>
+                        }
                         <MudForm @ref="_shelterForm">
                             <MudGrid Spacing="2">
                                 <MudItem xs="12" md="6">
                                     <MudTextField Label="Name" @bind-Value="_editShelter.Name" Required="true" RequiredError="Shelter name is required." Variant="Variant.Outlined" />
                                 </MudItem>
                                 <MudItem xs="12" md="6">
-                                    <MudTextField Label="Email" @bind-Value="_editShelter.Email" Variant="Variant.Outlined" />
+                                    <MudTextField Label="Email"
+                                                  @bind-Value="_editShelter.Email"
+                                                  @bind-Value:after="ClearShelterEmailError"
+                                                  Error="@HasShelterEmailError"
+                                                  ErrorText="@_shelterEmailError"
+                                                  Variant="Variant.Outlined" />
                                 </MudItem>
                                 <MudItem xs="12" md="6">
                                     <MudTextField Label="City" @bind-Value="_editShelter.City" Required="true" RequiredError="City is required." Variant="Variant.Outlined" />
@@ -233,12 +244,24 @@
                                                 <MudText Typo="Typo.subtitle1">Visiting Hours</MudText>
                                             </MudStack>
                                             <MudText Typo="Typo.body2" Color="Color.Secondary">These hours are used to validate adopter-selected visit times.</MudText>
+                                            @if (!string.IsNullOrWhiteSpace(_visitHoursError))
+                                            {
+                                                <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Dense="true">
+                                                    @_visitHoursError
+                                                </MudAlert>
+                                            }
                                             <MudGrid Spacing="2">
                                                 <MudItem xs="12" sm="6">
-                                                    <MudTimePicker Label="Visit start time" @bind-Time="_editShelter.VisitStartTime" Variant="Variant.Outlined" />
+                                                    <MudTimePicker Label="Visit start time"
+                                                                   @bind-Time="_editShelter.VisitStartTime"
+                                                                   @bind-Time:after="ClearVisitHoursError"
+                                                                   Variant="Variant.Outlined" />
                                                 </MudItem>
                                                 <MudItem xs="12" sm="6">
-                                                    <MudTimePicker Label="Visit end time" @bind-Time="_editShelter.VisitEndTime" Variant="Variant.Outlined" />
+                                                    <MudTimePicker Label="Visit end time"
+                                                                   @bind-Time="_editShelter.VisitEndTime"
+                                                                   @bind-Time:after="ClearVisitHoursError"
+                                                                   Variant="Variant.Outlined" />
                                                 </MudItem>
                                             </MudGrid>
                                             <MudStack Row="true" Spacing="1" Class="flex-wrap">
@@ -263,6 +286,12 @@
                                                 Height="300px"
                                                 Editable="true"
                                                 CoordinatesChanged="OnMapCoordinatesChangedAsync" />
+                                    @if (!string.IsNullOrWhiteSpace(_shelterLocationError))
+                                    {
+                                        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mt-2">
+                                            @_shelterLocationError
+                                        </MudAlert>
+                                    }
                                     @if (!_editShelter.Latitude.HasValue || !_editShelter.Longitude.HasValue)
                                     {
                                         <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mt-2">No map location selected. The shelter can still be saved without map coordinates.</MudAlert>
@@ -326,11 +355,16 @@
     private double? _savedLongitude;
     private string _savedAddress = string.Empty;
     private string _savedCity = string.Empty;
+    private string? _shelterFormError;
+    private string? _shelterEmailError;
+    private string? _shelterLocationError;
+    private string? _visitHoursError;
     private ReverseGeocodingResult? _suggestedAddress;
     private bool _suggestedAddressUnavailable;
     private int _suggestedAddressRequestVersion;
     private MudForm? _shelterForm;
     private const long MaxCsvFileSize = 2 * 1024 * 1024;
+    private bool HasShelterEmailError => !string.IsNullOrWhiteSpace(_shelterEmailError);
 
     protected override async Task OnInitializedAsync()
     {
@@ -380,6 +414,7 @@
         _savedLongitude = shelter.Longitude;
         _savedAddress = shelter.Address ?? string.Empty;
         _savedCity = shelter.City ?? string.Empty;
+        ClearShelterEditValidationErrors();
         _suggestedAddressRequestVersion++;
         _suggestedAddress = null;
         _suggestedAddressUnavailable = false;
@@ -392,6 +427,7 @@
         _savedLongitude = null;
         _savedAddress = string.Empty;
         _savedCity = string.Empty;
+        ClearShelterEditValidationErrors();
         _suggestedAddressRequestVersion++;
         _suggestedAddress = null;
         _suggestedAddressUnavailable = false;
@@ -547,6 +583,7 @@
             }
         }
 
+        ClearShelterEditValidationErrors();
         _isSaving = true;
 
         try
@@ -570,7 +607,10 @@
         }
         catch (InvalidOperationException ex)
         {
-            Snackbar.Add(ex.Message, Severity.Warning);
+            if (!TryMapShelterEditValidationMessage(ex.Message))
+            {
+                _shelterFormError = ex.Message;
+            }
         }
         catch
         {
@@ -591,6 +631,7 @@
 
         _editShelter.Latitude = coordinates.Latitude;
         _editShelter.Longitude = coordinates.Longitude;
+        _shelterLocationError = null;
         await LoadSuggestedAddressAsync(coordinates.Latitude, coordinates.Longitude);
     }
 
@@ -611,6 +652,7 @@
         _editShelter.Longitude = _savedLongitude;
         _editShelter.Address = _savedAddress;
         _editShelter.City = _savedCity;
+        _shelterLocationError = null;
         _suggestedAddressRequestVersion++;
         _suggestedAddress = null;
         _suggestedAddressUnavailable = false;
@@ -687,6 +729,46 @@
         return string.Join(", ", new[] { result.SuggestedAddress, result.City }
             .Where(value => !string.IsNullOrWhiteSpace(value))
             .Distinct());
+    }
+
+    private void ClearShelterEditValidationErrors()
+    {
+        _shelterFormError = null;
+        _shelterEmailError = null;
+        _shelterLocationError = null;
+        _visitHoursError = null;
+    }
+
+    private void ClearShelterEmailError()
+    {
+        _shelterEmailError = null;
+        _shelterFormError = null;
+    }
+
+    private void ClearVisitHoursError()
+    {
+        _visitHoursError = null;
+        _shelterFormError = null;
+    }
+
+    private bool TryMapShelterEditValidationMessage(string message)
+    {
+        switch (message)
+        {
+            case "Shelter email must be a valid email address.":
+            case "Another shelter already uses this email address.":
+                _shelterEmailError = message;
+                return true;
+            case "Latitude must be between -90 and 90.":
+            case "Longitude must be between -180 and 180.":
+                _shelterLocationError = message;
+                return true;
+            case "Visit start time must be before visit end time.":
+                _visitHoursError = message;
+                return true;
+            default:
+                return false;
+        }
     }
 
     private static bool IsCsvFile(IBrowserFile file)

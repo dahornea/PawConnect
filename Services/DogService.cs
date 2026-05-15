@@ -66,7 +66,7 @@ public class DogService(ApplicationDbContext context, IAuditLogService? auditLog
             .ToListAsync();
     }
 
-    public Task<List<Dog>> SearchDogsAsync(string? searchTerm, string? breed, int? maxAge, DogSize? size, string? location, DogStatus? status, DogSortOption sortOption = DogSortOption.NameAsc)
+    public Task<List<Dog>> SearchDogsAsync(string? searchTerm, string? breed, int? maxAge, DogSize? size, string? location, DogStatus? status, DogSortOption sortOption = DogSortOption.NameAsc, int? shelterId = null)
     {
         var query = context.Dogs
             .Include(d => d.Shelter)
@@ -103,6 +103,11 @@ public class DogService(ApplicationDbContext context, IAuditLogService? auditLog
         if (status.HasValue)
         {
             query = query.Where(d => d.Status == status.Value);
+        }
+
+        if (shelterId.HasValue)
+        {
+            query = query.Where(d => d.ShelterId == shelterId.Value);
         }
 
         return ApplyDogSorting(query, sortOption)

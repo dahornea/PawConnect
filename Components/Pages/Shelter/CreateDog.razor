@@ -35,19 +35,53 @@
         {
             <MudCard Class="form-card">
                 <MudCardContent>
+                    @if (!string.IsNullOrWhiteSpace(_formError))
+                    {
+                        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-3">
+                            @_formError
+                        </MudAlert>
+                    }
                     <MudForm @ref="_form">
                         <MudGrid>
                             <MudItem xs="12" md="6">
-                                <MudTextField Label="Name" @bind-Value="_model.Name" Required="true" RequiredError="Name is required." Variant="Variant.Outlined" />
+                                <MudTextField Label="Name"
+                                              @bind-Value="_model.Name"
+                                              @bind-Value:after="ClearDogNameError"
+                                              Required="true"
+                                              RequiredError="Name is required."
+                                              Error="@HasNameError"
+                                              ErrorText="@_nameError"
+                                              Variant="Variant.Outlined" />
                             </MudItem>
                             <MudItem xs="12" md="6">
-                                <MudTextField Label="Breed" @bind-Value="_model.Breed" Required="true" RequiredError="Breed is required." Variant="Variant.Outlined" />
+                                <MudTextField Label="Breed"
+                                              @bind-Value="_model.Breed"
+                                              @bind-Value:after="ClearBreedError"
+                                              Required="true"
+                                              RequiredError="Breed is required."
+                                              Error="@HasBreedError"
+                                              ErrorText="@_breedError"
+                                              Variant="Variant.Outlined" />
                             </MudItem>
                             <MudItem xs="12" md="2">
-                                <MudNumericField T="int" Label="Age Years" @bind-Value="_model.AgeYears" Min="0" Max="30" Variant="Variant.Outlined" />
+                                <MudNumericField T="int" Label="Age Years"
+                                                 @bind-Value="_model.AgeYears"
+                                                 @bind-Value:after="ClearAgeErrors"
+                                                 Min="0"
+                                                 Max="30"
+                                                 Error="@HasAgeYearsError"
+                                                 ErrorText="@_ageYearsError"
+                                                 Variant="Variant.Outlined" />
                             </MudItem>
                             <MudItem xs="12" md="2">
-                                <MudNumericField T="int" Label="Age Months" @bind-Value="_model.AgeMonths" Min="0" Max="11" Variant="Variant.Outlined" />
+                                <MudNumericField T="int" Label="Age Months"
+                                                 @bind-Value="_model.AgeMonths"
+                                                 @bind-Value:after="ClearAgeErrors"
+                                                 Min="0"
+                                                 Max="11"
+                                                 Error="@HasAgeMonthsError"
+                                                 ErrorText="@_ageMonthsError"
+                                                 Variant="Variant.Outlined" />
                             </MudItem>
                             <MudItem xs="12" md="4">
                                 <MudSelect T="DogSize" Label="Size" @bind-Value="_model.Size" Required="true" Variant="Variant.Outlined">
@@ -66,7 +100,14 @@
                                 </MudSelect>
                             </MudItem>
                             <MudItem xs="12">
-                                <MudTextField Label="Location" @bind-Value="_model.Location" Required="true" RequiredError="Location is required." Variant="Variant.Outlined" />
+                                <MudTextField Label="Location"
+                                              @bind-Value="_model.Location"
+                                              @bind-Value:after="ClearLocationError"
+                                              Required="true"
+                                              RequiredError="Location is required."
+                                              Error="@HasLocationError"
+                                              ErrorText="@_locationError"
+                                              Variant="Variant.Outlined" />
                             </MudItem>
                             <MudItem xs="12" md="6">
                                 <MudSelect T="int?" Label="Preferred Food Type" @bind-Value="_model.PreferredFoodTypeId" Clearable="true" Variant="Variant.Outlined">
@@ -77,7 +118,14 @@
                                 </MudSelect>
                             </MudItem>
                             <MudItem xs="12" md="6">
-                                <MudNumericField T="int?" Label="Daily Food Amount (grams)" @bind-Value="_model.DailyFoodAmountGrams" Min="0" Max="10000" Variant="Variant.Outlined" />
+                                <MudNumericField T="int?" Label="Daily Food Amount (grams)"
+                                                 @bind-Value="_model.DailyFoodAmountGrams"
+                                                 @bind-Value:after="ClearDailyFoodAmountError"
+                                                 Min="0"
+                                                 Max="10000"
+                                                 Error="@HasDailyFoodAmountError"
+                                                 ErrorText="@_dailyFoodAmountError"
+                                                 Variant="Variant.Outlined" />
                             </MudItem>
                             <MudItem xs="12">
                                 <MudTextField Label="Description" @bind-Value="_model.Description" Lines="4" Variant="Variant.Outlined" />
@@ -94,18 +142,18 @@
                                 <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">Optional image URLs saved with this dog profile.</MudText>
                                 <MudGrid Spacing="2">
                                     <MudItem xs="12" md="9">
-                                        <MudTextField Label="Image URL" @bind-Value="_newImageUrl" Variant="Variant.Outlined" Placeholder="https://example.com/dog-photo.jpg" />
+                                        <MudTextField Label="Image URL"
+                                                      @bind-Value="_newImageUrl"
+                                                      @bind-Value:after="ClearImageUrlError"
+                                                      Error="@HasImageUrlError"
+                                                      ErrorText="@_imageUrlError"
+                                                      Variant="Variant.Outlined"
+                                                      Placeholder="https://example.com/dog-photo.jpg" />
                                     </MudItem>
                                     <MudItem xs="12" md="3">
                                         <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.AddPhotoAlternate" OnClick="AddPendingImageUrl">Add Image</MudButton>
                                     </MudItem>
                                 </MudGrid>
-
-                                @if (!string.IsNullOrWhiteSpace(_imageUrlError))
-                                {
-                                    <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">@_imageUrlError</MudAlert>
-                                }
-
                                 @if (_pendingImageUrls.Count > 0)
                                 {
                                     <MudGrid Spacing="2" Class="mt-2">
@@ -142,10 +190,24 @@
     private bool _isLoading = true;
     private bool _isSaving;
     private string? _error;
+    private string? _formError;
+    private string? _nameError;
+    private string? _breedError;
+    private string? _ageYearsError;
+    private string? _ageMonthsError;
+    private string? _locationError;
+    private string? _dailyFoodAmountError;
     private string? _newImageUrl;
     private string? _imageUrlError;
     private int? _shelterId;
     private List<string> _pendingImageUrls = [];
+    private bool HasNameError => !string.IsNullOrWhiteSpace(_nameError);
+    private bool HasBreedError => !string.IsNullOrWhiteSpace(_breedError);
+    private bool HasAgeYearsError => !string.IsNullOrWhiteSpace(_ageYearsError);
+    private bool HasAgeMonthsError => !string.IsNullOrWhiteSpace(_ageMonthsError);
+    private bool HasLocationError => !string.IsNullOrWhiteSpace(_locationError);
+    private bool HasDailyFoodAmountError => !string.IsNullOrWhiteSpace(_dailyFoodAmountError);
+    private bool HasImageUrlError => !string.IsNullOrWhiteSpace(_imageUrlError);
 
     protected override async Task OnInitializedAsync()
     {
@@ -187,6 +249,7 @@
             }
         }
 
+        ClearDogValidationErrors();
         _isSaving = true;
 
         try
@@ -203,7 +266,10 @@
         }
         catch (InvalidOperationException ex)
         {
-            Snackbar.Add(ex.Message, Severity.Warning);
+            if (!TryMapDogValidationMessage(ex.Message))
+            {
+                _formError = ex.Message;
+            }
         }
         catch
         {
@@ -255,6 +321,89 @@
     private void RemovePendingImageUrl(string imageUrl)
     {
         _pendingImageUrls.Remove(imageUrl);
+        _imageUrlError = null;
+    }
+
+    private void ClearDogValidationErrors()
+    {
+        _formError = null;
+        _nameError = null;
+        _breedError = null;
+        ClearAgeErrors();
+        _locationError = null;
+        _dailyFoodAmountError = null;
+    }
+
+    private void ClearDogNameError()
+    {
+        _nameError = null;
+        _formError = null;
+    }
+
+    private void ClearBreedError()
+    {
+        _breedError = null;
+        _formError = null;
+    }
+
+    private void ClearAgeErrors()
+    {
+        _ageYearsError = null;
+        _ageMonthsError = null;
+        _formError = null;
+    }
+
+    private void ClearLocationError()
+    {
+        _locationError = null;
+        _formError = null;
+    }
+
+    private void ClearDailyFoodAmountError()
+    {
+        _dailyFoodAmountError = null;
+        _formError = null;
+    }
+
+    private void ClearImageUrlError()
+    {
+        _imageUrlError = null;
+    }
+
+    private bool TryMapDogValidationMessage(string message)
+    {
+        switch (message)
+        {
+            case "Dog name is required.":
+                _nameError = message;
+                return true;
+            case "Breed is required.":
+                _breedError = message;
+                return true;
+            case "Age in years must be between 0 and 30.":
+                _ageYearsError = message;
+                return true;
+            case "Age in months must be between 0 and 11.":
+                _ageMonthsError = message;
+                return true;
+            case "Please enter the dog's age in years or months.":
+                _ageYearsError = message;
+                _ageMonthsError = message;
+                return true;
+            case "Location is required.":
+                _locationError = message;
+                return true;
+            case "Daily food amount must be zero or greater when provided.":
+                _dailyFoodAmountError = message;
+                return true;
+            case "This image has already been added for this dog.":
+            case "Image URL is required.":
+            case "Image URL must be a valid web address.":
+                _imageUrlError = message;
+                return true;
+            default:
+                return false;
+        }
     }
 
     private async Task SavePendingImagesAsync()
