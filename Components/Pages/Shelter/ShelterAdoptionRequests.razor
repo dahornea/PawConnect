@@ -13,7 +13,7 @@
 
 <PageTitle>Shelter Adoption Requests</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.False" Class="px-0">
+<MudContainer MaxWidth="MaxWidth.False" Class="px-0 adoption-requests-page">
     <MudStack Spacing="3">
         <div class="page-header">
             <MudText Typo="Typo.h4">Adoption Requests</MudText>
@@ -107,64 +107,110 @@
                             @{
                                 var dogImageUrl = GetImageUrl(context.Dog);
                             }
-                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                                <MudAvatar Size="Size.Large" Class="request-avatar">
-                                    @if (dogImageUrl is null)
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="request-dog-cell">
+                                <div class="request-dog-thumbnail" aria-label="@($"{context.Dog?.Name ?? "Dog"} thumbnail")">
+                                    <MudIcon Icon="@Icons.Material.Filled.Pets" />
+                                    @if (dogImageUrl is not null)
                                     {
-                                        <MudIcon Icon="@Icons.Material.Filled.Pets" />
+                                        <img src="@dogImageUrl" alt="" loading="lazy" onerror="this.style.display='none';" />
                                     }
-                                    else
-                                    {
-                                        <MudImage Src="@dogImageUrl" Alt="@context.Dog?.Name" />
-                                    }
-                                </MudAvatar>
-                                <div>
-                                    <MudText Typo="Typo.body2" Class="request-primary-text">@context.Dog?.Name</MudText>
-                                    <MudText Typo="Typo.caption" Color="Color.Secondary">@context.Dog?.Breed</MudText>
+                                </div>
+                                <div class="request-dog-copy">
+                                    <MudText Typo="Typo.body2" Class="request-primary-text request-line-clamp">@context.Dog?.Name</MudText>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="request-line-clamp request-secondary-text">@context.Dog?.Breed</MudText>
                                 </div>
                             </MudStack>
                         </MudTd>
                         <MudTd DataLabel="Adopter">
-                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                                <MudAvatar Size="Size.Medium" Class="request-avatar">
-                                    @if (string.IsNullOrWhiteSpace(context.Adopter?.AdopterProfile?.ProfileImageUrl))
-                                    {
-                                        <MudIcon Icon="@Icons.Material.Filled.Person" />
-                                    }
-                                    else
-                                    {
-                                        <MudImage Src="@context.Adopter.AdopterProfile.ProfileImageUrl" Alt="@context.Adopter.AdopterProfile.FullName" />
-                                    }
-                                </MudAvatar>
-                                <div>
-                                    <MudText Typo="Typo.body2" Class="request-primary-text">@GetAdopterName(context.Adopter)</MudText>
-                                    <MudText Typo="Typo.caption" Color="Color.Secondary">@(context.Adopter?.AdopterProfile?.City ?? "No profile city")</MudText>
-                                </div>
+                            <MudStack Spacing="0" Class="request-adopter-cell">
+                                <MudText Typo="Typo.body2" Class="request-primary-text request-line-clamp">@GetAdopterName(context.Adopter)</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="request-line-clamp request-secondary-text">@(context.Adopter?.AdopterProfile?.City ?? "No profile city")</MudText>
                             </MudStack>
                         </MudTd>
                         <MudTd DataLabel="Status">
-                            <MudChip T="string" Color="@GetStatusColor(context.Status)" Size="Size.Small" Class="request-status-chip">@context.Status</MudChip>
+                            <MudChip T="string" Color="@GetStatusColor(context.Status)" Size="Size.Small" Class="request-status-chip">@GetRequestStatusText(context.Status)</MudChip>
                         </MudTd>
                         <MudTd DataLabel="Visit">
                             <MudStack Spacing="1">
-                                <MudText Typo="Typo.body2">@FormatVisitDateTime(context.PreferredVisitDateTime)</MudText>
-                                <MudChip T="string" Color="@GetVisitStatusColor(context.VisitStatus)" Size="Size.Small" Variant="Variant.Outlined">@GetVisitStatusText(context.VisitStatus)</MudChip>
+                                <MudText Typo="Typo.body2">@FormatTableVisitDateTime(context.PreferredVisitDateTime)</MudText>
+                                @if (ShouldShowVisitChip(context.VisitStatus))
+                                {
+                                    <MudChip T="string" Color="@GetVisitStatusColor(context.VisitStatus)" Size="Size.Small" Variant="Variant.Outlined" Class="request-visit-chip">@GetVisitChipText(context.VisitStatus)</MudChip>
+                                }
                             </MudStack>
                         </MudTd>
-                        <MudTd DataLabel="Created">@context.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
-                        <MudTd DataLabel="Updated">@context.UpdatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
+                        <MudTd DataLabel="Created" Class="request-date-cell">
+                            <MudStack Spacing="0" Class="request-date">
+                                <MudText Typo="Typo.body2">@FormatTableDate(context.CreatedAt)</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">@FormatTableTime(context.CreatedAt)</MudText>
+                            </MudStack>
+                        </MudTd>
+                        <MudTd DataLabel="Updated" Class="request-date-cell">
+                            <MudStack Spacing="0" Class="request-date">
+                                <MudText Typo="Typo.body2">@FormatTableDate(context.UpdatedAt)</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">@FormatTableTime(context.UpdatedAt)</MudText>
+                            </MudStack>
+                        </MudTd>
                         <MudTd DataLabel="Actions">
-                            <MudStack Row="true" Spacing="1" Class="request-actions">
-                                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Filled.Visibility" OnClick="@(() => SelectRequestForDetails(context))">View Details</MudButton>
-                                @if (context.Status == AdoptionRequestStatus.Pending)
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="request-actions">
+                                <MudButton Variant="Variant.Outlined"
+                                           Color="Color.Primary"
+                                           Size="Size.Small"
+                                           StartIcon="@Icons.Material.Filled.Visibility"
+                                           Class="request-details-button"
+                                           OnClick="@(() => SelectRequestForDetails(context))">
+                                    Details
+                                </MudButton>
+                                @if (HasRequestActions(context))
                                 {
-                                    <MudButton Variant="Variant.Text" Color="Color.Success" Size="Size.Small" StartIcon="@Icons.Material.Filled.EventAvailable" Disabled="@_isUpdating" OnClick="@(() => ConfirmVisitAsync(context))">Confirm Visit</MudButton>
-                                    <MudButton Variant="Variant.Text" Color="Color.Error" Size="Size.Small" StartIcon="@Icons.Material.Filled.Cancel" Disabled="@_isUpdating" OnClick="@(() => RejectRequestAsync(context))">Reject</MudButton>
-                                }
-                                else if (context.Status == AdoptionRequestStatus.VisitConfirmed)
-                                {
-                                    <MudButton Variant="Variant.Text" Color="Color.Success" Size="Size.Small" StartIcon="@Icons.Material.Filled.Pets" Disabled="@_isUpdating" OnClick="@(() => MarkAsAdoptedAsync(context))">Mark as Adopted</MudButton>
-                                    <MudButton Variant="Variant.Text" Color="Color.Error" Size="Size.Small" StartIcon="@Icons.Material.Filled.Cancel" Disabled="@_isUpdating" OnClick="@(() => RejectRequestAsync(context))">Reject after Visit</MudButton>
+                                    <MudMenu Label="Manage"
+                                             Variant="Variant.Outlined"
+                                             Color="Color.Default"
+                                             Size="Size.Small"
+                                             Class="request-manage-menu"
+                                             EndIcon="@Icons.Material.Filled.ExpandMore"
+                                             AnchorOrigin="Origin.BottomRight"
+                                             TransformOrigin="Origin.TopRight"
+                                             Disabled="@_isUpdating">
+                                        @if (context.Status == AdoptionRequestStatus.Pending)
+                                        {
+                                            <MudMenuItem Icon="@Icons.Material.Filled.EventAvailable"
+                                                         Class="request-menu-success"
+                                                         IconColor="Color.Success"
+                                                         Style="color: #2E7D32;"
+                                                         Disabled="@_isUpdating"
+                                                         OnClick="@(() => ConfirmVisitAsync(context))">
+                                                Confirm Visit
+                                            </MudMenuItem>
+                                            <MudMenuItem Icon="@Icons.Material.Filled.Cancel"
+                                                         Class="request-menu-danger"
+                                                         IconColor="Color.Error"
+                                                         Style="color: #B91C1C;"
+                                                         Disabled="@_isUpdating"
+                                                         OnClick="@(() => RejectRequestAsync(context))">
+                                                Reject
+                                            </MudMenuItem>
+                                        }
+                                        else if (context.Status == AdoptionRequestStatus.VisitConfirmed)
+                                        {
+                                            <MudMenuItem Icon="@Icons.Material.Filled.Pets"
+                                                         Class="request-menu-success"
+                                                         IconColor="Color.Success"
+                                                         Style="color: #2E7D32;"
+                                                         Disabled="@_isUpdating"
+                                                         OnClick="@(() => MarkAsAdoptedAsync(context))">
+                                                Mark as Adopted
+                                            </MudMenuItem>
+                                            <MudMenuItem Icon="@Icons.Material.Filled.Cancel"
+                                                         Class="request-menu-danger"
+                                                         IconColor="Color.Error"
+                                                         Style="color: #B91C1C;"
+                                                         Disabled="@_isUpdating"
+                                                         OnClick="@(() => RejectRequestAsync(context))">
+                                                Reject after Visit
+                                            </MudMenuItem>
+                                        }
+                                    </MudMenu>
                                 }
                             </MudStack>
                         </MudTd>
@@ -362,6 +408,10 @@
     private int VisitConfirmedCount => _requests.Count(r => r.Status == AdoptionRequestStatus.VisitConfirmed);
     private int AcceptedRequestCount => _requests.Count(r => r.Status == AdoptionRequestStatus.Accepted);
     private int RejectedRequestCount => _requests.Count(r => r.Status == AdoptionRequestStatus.Rejected);
+    private static bool HasRequestActions(AdoptionRequest request)
+    {
+        return request.Status is AdoptionRequestStatus.Pending or AdoptionRequestStatus.VisitConfirmed;
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -701,12 +751,25 @@
         };
     }
 
+    private static string GetRequestStatusText(AdoptionRequestStatus status)
+    {
+        return status switch
+        {
+            AdoptionRequestStatus.Pending => "Pending",
+            AdoptionRequestStatus.VisitConfirmed => "Visit confirmed",
+            AdoptionRequestStatus.Accepted => "Adopted",
+            AdoptionRequestStatus.Rejected => "Rejected",
+            AdoptionRequestStatus.Cancelled => "Cancelled",
+            _ => status.ToString()
+        };
+    }
+
     private static Color GetVisitStatusColor(AdoptionVisitStatus status)
     {
         return status switch
         {
             AdoptionVisitStatus.Requested => Color.Warning,
-            AdoptionVisitStatus.Confirmed => Color.Success,
+            AdoptionVisitStatus.Confirmed => Color.Default,
             AdoptionVisitStatus.Completed => Color.Info,
             AdoptionVisitStatus.Cancelled => Color.Default,
             _ => Color.Default
@@ -725,9 +788,45 @@
         };
     }
 
+    private static string GetVisitChipText(AdoptionVisitStatus status)
+    {
+        return status switch
+        {
+            AdoptionVisitStatus.Requested => "Requested",
+            AdoptionVisitStatus.Confirmed => "Confirmed",
+            AdoptionVisitStatus.Completed => "Completed",
+            AdoptionVisitStatus.Cancelled => "Cancelled",
+            _ => "Not scheduled"
+        };
+    }
+
     private static string FormatVisitDateTime(DateTime? visitDateTime)
     {
         return VisitSchedulingHelper.FormatVisitDateTime(visitDateTime);
+    }
+
+    private static string FormatTableVisitDateTime(DateTime? visitDateTime)
+    {
+        return visitDateTime.HasValue
+            ? $"{FormatTableDate(visitDateTime.Value)}, {FormatTableTime(visitDateTime.Value)}"
+            : "No visit selected";
+    }
+
+    private static bool ShouldShowVisitChip(AdoptionVisitStatus status)
+    {
+        return status != AdoptionVisitStatus.NotScheduled;
+    }
+
+    private static string FormatTableDate(DateTime dateTime)
+    {
+        var localDateTime = dateTime.ToLocalTime();
+        var format = localDateTime.Year == DateTime.Now.Year ? "dd MMM" : "dd MMM yyyy";
+        return localDateTime.ToString(format);
+    }
+
+    private static string FormatTableTime(DateTime dateTime)
+    {
+        return dateTime.ToLocalTime().ToString("HH:mm");
     }
 
     private static Color GetDogStatusColor(DogStatus status)

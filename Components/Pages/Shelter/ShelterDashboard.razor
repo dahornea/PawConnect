@@ -165,7 +165,7 @@
                                         @GetReportStatusText(context)
                                     </MudChip>
                                 </MudTd>
-                                <MudTd DataLabel="Triggered by">@context.TriggeredBy</MudTd>
+                                <MudTd DataLabel="Triggered by">@ReportHistoryTriggerLabels.Format(context.TriggeredBy)</MudTd>
                                 <MudTd DataLabel="Recipient">@(context.RecipientEmail ?? "-")</MudTd>
                             </RowTemplate>
                         </MudTable>

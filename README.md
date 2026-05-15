@@ -104,7 +104,7 @@ Important rules include:
 - Admin and Shelter exports are role-protected and scoped to the correct data. Sensitive Identity fields such as password hashes, security stamps, concurrency stamps, and tokens are intentionally excluded.
 - In-app notification read/delete operations check ownership, and audit logging avoids sensitive values such as passwords, reset tokens, security stamps, and SMTP credentials.
 
-Validation failures use user-friendly messages through form validation, MudSnackbar, or MudAlert where appropriate, instead of raw technical exceptions.
+Validation failures use user-friendly messages instead of raw technical exceptions. Field-specific problems are shown next to the relevant MudBlazor input, multi-field validation appears as a compact in-form alert near the related section, and snackbars are reserved mostly for success messages, system feedback, and failures that are not tied to a single field.
 
 ## Adoption Visit Scheduling
 

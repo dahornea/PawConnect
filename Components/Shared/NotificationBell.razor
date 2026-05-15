@@ -5,13 +5,17 @@
 @inject ISnackbar Snackbar
 
 <div class="notification-root">
-    <MudBadge Content="@UnreadCountText" Visible="@(_unreadCount > 0)" Color="Color.Error" Overlap="true" Class="notification-badge">
+    <div class="notification-trigger">
         <MudIconButton Icon="@Icons.Material.Filled.Notifications"
                        Color="Color.Inherit"
                        OnClick="ToggleNotificationsAsync"
                        aria-label="Notifications"
                        aria-expanded="@_isOpen" />
-    </MudBadge>
+        @if (_unreadCount > 0)
+        {
+            <span class="notification-bell-badge" aria-label="@($"{UnreadCountText} unread notifications")">@UnreadCountText</span>
+        }
+    </div>
 
     @if (_isOpen)
     {
@@ -92,7 +96,7 @@
     private bool _isOpen;
     private const int DropdownNotificationLimit = 8;
 
-    private string UnreadCountText => _unreadCount > 99 ? "99+" : _unreadCount.ToString();
+    private string UnreadCountText => _unreadCount > 9 ? "9+" : _unreadCount.ToString();
 
     protected override async Task OnInitializedAsync()
     {

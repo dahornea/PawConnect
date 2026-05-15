@@ -33,7 +33,16 @@ else
     <div class="dog-details-page">
     <MudContainer MaxWidth="MaxWidth.False" Class="px-0">
         <MudStack Spacing="3">
-            <MudButton Href="/dogs" Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.ArrowBack">Back to Dogs</MudButton>
+            <div class="dog-details-nav">
+                <MudButton Href="/dogs"
+                           Variant="Variant.Text"
+                           Color="Color.Default"
+                           Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.ArrowBack"
+                           Class="back-to-dogs-button">
+                    Back to Dogs
+                </MudButton>
+            </div>
 
             @{
                 var validImages = GetValidImages(_dog);
@@ -202,6 +211,12 @@ else
                                                             <MudIcon Icon="@Icons.Material.Filled.EventAvailable" Color="Color.Primary" />
                                                             <MudText Typo="Typo.subtitle1">Preferred Visit Time</MudText>
                                                         </MudStack>
+                                                        @if (!string.IsNullOrWhiteSpace(_visitSectionValidationError))
+                                                        {
+                                                            <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Dense="true" Class="visit-validation-alert">
+                                                                @_visitSectionValidationError
+                                                            </MudAlert>
+                                                        }
                                                         <MudText Typo="Typo.body2" Color="Color.Secondary">
                                                             Shelter visiting hours: @GetShelterVisitingHours()
                                                         </MudText>
@@ -209,16 +224,22 @@ else
                                                             <MudItem xs="12" sm="6">
                                                                 <MudDatePicker Label="Preferred visit date"
                                                                                @bind-Date="_preferredVisitDate"
+                                                                               @bind-Date:after="ClearVisitValidationErrors"
                                                                                Required="true"
                                                                                RequiredError="Preferred visit date is required."
+                                                                               Error="@HasPreferredVisitDateError"
+                                                                               ErrorText="@_preferredVisitDateError"
                                                                                MinDate="DateTime.Today"
                                                                                Variant="Variant.Outlined" />
                                                             </MudItem>
                                                             <MudItem xs="12" sm="6">
                                                                 <MudTimePicker Label="Preferred visit time"
                                                                                @bind-Time="_preferredVisitTime"
+                                                                               @bind-Time:after="ClearVisitValidationErrors"
                                                                                Required="true"
                                                                                RequiredError="Preferred visit time is required."
+                                                                               Error="@HasPreferredVisitTimeError"
+                                                                               ErrorText="@_preferredVisitTimeError"
                                                                                Variant="Variant.Outlined" />
                                                             </MudItem>
                                                         </MudGrid>
@@ -227,8 +248,23 @@ else
                                                         </MudText>
                                                     </MudStack>
                                                 </MudPaper>
-                                                <MudTextField Label="Reason for adoption" @bind-Value="_reasonForAdoption" Required="true" RequiredError="Reason for adoption is required." Lines="4" Variant="Variant.Outlined" />
-                                                <MudNumericField T="int?" Label="Hours per day the dog would be alone" @bind-Value="_hoursAlonePerDay" Min="0" Max="24" Variant="Variant.Outlined" />
+                                                <MudTextField Label="Reason for adoption"
+                                                              @bind-Value="_reasonForAdoption"
+                                                              @bind-Value:after="ClearQuestionnaireValidationErrors"
+                                                              Required="true"
+                                                              RequiredError="Reason for adoption is required."
+                                                              Error="@HasReasonForAdoptionError"
+                                                              ErrorText="@_reasonForAdoptionError"
+                                                              Lines="4"
+                                                              Variant="Variant.Outlined" />
+                                                <MudNumericField T="int?" Label="Hours per day the dog would be alone"
+                                                                 @bind-Value="_hoursAlonePerDay"
+                                                                 @bind-Value:after="ClearHoursAloneValidationError"
+                                                                 Min="0"
+                                                                 Max="24"
+                                                                 Error="@HasHoursAloneError"
+                                                                 ErrorText="@_hoursAloneError"
+                                                                 Variant="Variant.Outlined" />
                                                 <MudTextField Label="Additional information" @bind-Value="_additionalInformation" Lines="3" Variant="Variant.Outlined" />
                                             </MudStack>
                                         </MudForm>
@@ -367,9 +403,18 @@ else
     private string? _additionalInformation;
     private DateTime? _preferredVisitDate;
     private TimeSpan? _preferredVisitTime;
+    private string? _visitSectionValidationError;
+    private string? _preferredVisitDateError;
+    private string? _preferredVisitTimeError;
+    private string? _reasonForAdoptionError;
+    private string? _hoursAloneError;
 
     private bool IsAdopted => _dog?.Status == DogStatus.Adopted;
     private string LoginUrl => $"/Account/Login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}";
+    private bool HasPreferredVisitDateError => !string.IsNullOrWhiteSpace(_preferredVisitDateError);
+    private bool HasPreferredVisitTimeError => !string.IsNullOrWhiteSpace(_preferredVisitTimeError);
+    private bool HasReasonForAdoptionError => !string.IsNullOrWhiteSpace(_reasonForAdoptionError);
+    private bool HasHoursAloneError => !string.IsNullOrWhiteSpace(_hoursAloneError);
 
     protected override async Task OnInitializedAsync()
     {
@@ -526,6 +571,7 @@ else
         }
 
         _showAdoptionForm = true;
+        ClearAdoptionValidationErrors();
         _preferredVisitDate ??= DateTime.Today.AddDays(1);
         _preferredVisitTime ??= VisitSchedulingHelper.GetVisitStartTime(_dog.Shelter);
     }
@@ -557,6 +603,7 @@ else
                 _additionalInformation,
                 GetPreferredVisitDateTime());
 
+            ClearAdoptionValidationErrors();
             await AdoptionRequestService.CreateRequestAsync(_currentUserId, _dog.Id, questionnaire);
             _hasPendingRequest = true;
             _showAdoptionForm = false;
@@ -565,7 +612,10 @@ else
         }
         catch (InvalidOperationException ex)
         {
-            Snackbar.Add(ex.Message, Severity.Warning);
+            if (!TryMapAdoptionValidationMessage(ex.Message))
+            {
+                Snackbar.Add(ex.Message, Severity.Warning);
+            }
         }
         catch
         {
@@ -590,6 +640,7 @@ else
         _additionalInformation = null;
         _preferredVisitDate = null;
         _preferredVisitTime = null;
+        ClearAdoptionValidationErrors();
         if (_adoptionForm is not null)
         {
             await _adoptionForm.ResetValidationAsync();
@@ -629,6 +680,69 @@ else
         }
 
         return _preferredVisitDate.Value.Date.Add(_preferredVisitTime.Value);
+    }
+
+    private void ClearAdoptionValidationErrors()
+    {
+        ClearVisitValidationErrors();
+        ClearQuestionnaireValidationErrors();
+        ClearHoursAloneValidationError();
+    }
+
+    private void ClearVisitValidationErrors()
+    {
+        _visitSectionValidationError = null;
+        _preferredVisitDateError = null;
+        _preferredVisitTimeError = null;
+    }
+
+    private void ClearQuestionnaireValidationErrors()
+    {
+        _reasonForAdoptionError = null;
+    }
+
+    private void ClearHoursAloneValidationError()
+    {
+        _hoursAloneError = null;
+    }
+
+    private bool TryMapAdoptionValidationMessage(string message)
+    {
+        switch (message)
+        {
+            case "Preferred visit time is required.":
+                _preferredVisitDateError = _preferredVisitDate.HasValue ? null : "Preferred visit date is required.";
+                _preferredVisitTimeError = _preferredVisitTime.HasValue ? null : message;
+                return true;
+            case "Please choose a future visit time.":
+                if (_preferredVisitDate.HasValue && _preferredVisitDate.Value.Date < DateTime.Today)
+                {
+                    _preferredVisitDateError = message;
+                }
+                else
+                {
+                    _preferredVisitTimeError = message;
+                }
+
+                return true;
+            case "This shelter is closed for visits on the selected day.":
+                _preferredVisitDateError = message;
+                return true;
+            case "Please choose a time within the shelter's visiting hours.":
+                _preferredVisitTimeError = message;
+                return true;
+            case "Shelter visiting hours are not configured correctly.":
+                _visitSectionValidationError = message;
+                return true;
+            case "Reason for adoption is required.":
+                _reasonForAdoptionError = message;
+                return true;
+            case "Hours alone per day must be between 0 and 24.":
+                _hoursAloneError = message;
+                return true;
+            default:
+                return false;
+        }
     }
 
     private string GetShelterVisitingHours()

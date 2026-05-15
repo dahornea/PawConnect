@@ -143,6 +143,17 @@ public class ReportHistoryServiceTests
         Assert.All(history, report => Assert.Equal(ReportHistoryTriggers.Quartz, report.TriggeredBy));
     }
 
+    [Theory]
+    [InlineData(ReportHistoryTriggers.Quartz, "Scheduled report")]
+    [InlineData(ReportHistoryTriggers.Manual, "Sent manually")]
+    [InlineData(ReportHistoryTriggers.System, "System")]
+    [InlineData(ReportHistoryTriggers.Admin, "Admin")]
+    [InlineData(ReportHistoryTriggers.Shelter, "Shelter")]
+    public void ReportHistoryTriggerLabels_Format_ReturnsUserFriendlyLabels(string trigger, string expectedLabel)
+    {
+        Assert.Equal(expectedLabel, ReportHistoryTriggerLabels.Format(trigger));
+    }
+
     [Fact]
     public async Task ExportGeneration_CreatesReportHistoryRecord()
     {

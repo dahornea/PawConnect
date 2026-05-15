@@ -122,7 +122,7 @@ Admin pages are protected with `[Authorize(Roles = "Admin")]`. Advanced role edi
 ### Public/Anonymous Features
 
 - **Home page**: Presents the platform, how adoption works, featured public dogs, and shelter-oriented features.
-- **Dog browsing**: Public users can browse dogs with public-safe statuses: `Available` and `Reserved`.
+- **Dog browsing**: Public users can browse dogs with public-safe statuses: `Available` and `Reserved`, see compact shelter name/city information on each dog card, and filter the public dog list by shelter.
 - **Dog details**: Public users can view dog information, images, shelter information, medical summary, and food information where available.
 - **Shelter listing and details**: Public users can browse approved shelter cards with public contact/location information, public dog counts, and search by shelter name/city/address. The listing includes a compact application CTA pointing to `/shelters/apply`, hidden for Admin and Shelter roles. Shelter details include address/city information and, when coordinates exist, a read-only Leaflet map using OpenStreetMap tiles. If coordinates are missing, the UI shows a friendly fallback message instead of a broken map. The Location card also includes an external "Open in Google Maps" link for easier navigation.
 - **Success stories**: Public page showing adopted dogs, success story text, adoption dates, and shelter information.
@@ -865,7 +865,7 @@ Notification organization:
 1. The user opens `/dogs`.
 2. `Dogs.razor` loads public dog data through `IDogService`.
 3. `DogService.GetAvailableDogsAsync` or `SearchDogsAsync` returns only dogs whose status is `Available` or `Reserved`.
-4. The page displays filters, sorting, dog cards, images/placeholders, status chips, and view details actions.
+4. The page displays filters, shelter filtering, sorting, dog cards with compact public-safe shelter name/city information, images/placeholders, status chips, and view details actions.
 5. Clicking a dog image or View Details navigates to `/dogs/{id:int}`.
 6. `DogDetails.razor` loads detailed dog data through `GetDogDetailsAsync`, including shelter, images, medical records, and preferred food type.
 7. Public and non-adopter users see only view-safe dog information and login/register prompts where relevant.
@@ -1402,7 +1402,10 @@ Examples of service validation:
 
 Error handling patterns:
 
-- UI pages generally show user-friendly MudSnackbar or MudAlert messages.
+- UI pages show validation at the closest useful level: field-specific business validation is mapped to MudBlazor input `Error`/`ErrorText`, multi-field validation appears as compact in-form MudAlert content near the related section, and MudSnackbar is used mainly for success, background/system feedback, or failures that are not tied to one field.
+- Adoption visit scheduling maps closed-day errors to the preferred visit date field, outside-hours errors to the preferred visit time field, and questionnaire range errors to the relevant questionnaire inputs while keeping service-level validation as the source of truth.
+- Shelter applications, dog create/edit forms, resource stock forms, and admin shelter editing map common service validation such as duplicate emails, duplicate dog image URLs, invalid dog age, invalid resource quantity/threshold, duplicate resources, visiting-hours errors, and optional coordinate range errors to the relevant field or section.
+- CSV imports keep row-specific validation in the preview table so invalid rows are visible before import; snackbars only summarize preview/import outcomes.
 - Missing shelter coordinates do not break shelter profile pages; the map component displays a friendly fallback message instead.
 - Leaflet map initialization is handled through JavaScript interop with unique map element IDs, explicit map sizing, resize invalidation, marker drag/click callbacks in editable mode, and disposal to avoid broken map rendering during Blazor Server navigation.
 - Expected business rule violations use clear `InvalidOperationException` messages.

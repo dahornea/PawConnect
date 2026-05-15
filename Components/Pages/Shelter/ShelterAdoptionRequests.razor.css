@@ -1,3 +1,11 @@
+::deep .adoption-requests-page {
+    left: 50%;
+    max-width: 1360px;
+    position: relative;
+    transform: translateX(-50%);
+    width: min(1360px, calc(100vw - 48px));
+}
+
 .request-summary-grid {
     margin-bottom: 2px;
 }
@@ -32,28 +40,145 @@
 }
 
 ::deep .requests-table .mud-table-cell {
-    padding-bottom: 12px;
-    padding-top: 12px;
+    padding-bottom: 10px;
+    padding-top: 10px;
     vertical-align: middle;
 }
 
-::deep .request-avatar {
+.request-dog-cell,
+.request-adopter-cell {
+    min-width: 0;
+}
+
+.request-dog-cell {
+    max-width: 230px;
+}
+
+.request-adopter-cell {
+    max-width: 240px;
+}
+
+.request-dog-thumbnail {
+    align-items: center;
     background: rgba(47, 111, 94, 0.1);
+    border: 1px solid rgba(47, 111, 94, 0.12);
+    border-radius: 10px;
     color: #2f6f5e;
+    display: inline-flex;
+    flex: 0 0 52px;
+    height: 52px;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+    width: 52px;
+}
+
+.request-dog-thumbnail img {
+    display: block;
+    height: 100%;
+    inset: 0;
+    object-fit: cover;
+    position: absolute;
+    width: 100%;
+    z-index: 1;
+}
+
+::deep .request-dog-thumbnail .mud-icon-root {
+    font-size: 1.45rem;
+    position: relative;
+    z-index: 0;
+}
+
+.request-dog-copy,
+.request-adopter-cell {
+    min-width: 0;
+}
+
+.request-dog-copy {
+    max-width: 160px;
+}
+
+.request-adopter-cell {
+    max-width: 190px;
 }
 
 .request-primary-text {
     font-weight: 700;
 }
 
+.request-secondary-text {
+    display: block;
+}
+
+.request-line-clamp {
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+    display: -webkit-box;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+}
+
 ::deep .request-status-chip {
     font-weight: 700;
 }
 
+::deep .request-visit-chip {
+    font-size: 0.72rem;
+    font-weight: 500;
+    opacity: 0.86;
+}
+
 .request-actions {
     align-items: center;
-    justify-content: flex-end;
+    justify-content: flex-start;
     white-space: nowrap;
+    min-width: 172px;
+}
+
+::deep .requests-table .mud-table-cell[data-label="Actions"] {
+    min-width: 180px;
+    width: 180px;
+    white-space: nowrap;
+}
+
+::deep .requests-table .request-date-cell {
+    min-width: 108px;
+    width: 108px;
+    white-space: nowrap;
+}
+
+::deep .request-date {
+    line-height: 1.15;
+    min-width: 96px;
+}
+
+::deep .request-actions .mud-button-root,
+::deep .request-actions .mud-menu {
+    flex: 0 0 auto;
+}
+
+::deep .request-details-button {
+    min-width: 86px;
+}
+
+::deep .request-details-button .mud-button-label {
+    white-space: nowrap;
+}
+
+::deep .request-manage-menu .mud-button-root {
+    min-width: 82px;
+    padding-left: 10px;
+    padding-right: 8px;
+}
+
+::deep .request-menu-success .mud-list-item-icon,
+::deep .request-menu-success .mud-list-item-text {
+    color: #2e7d32;
+}
+
+::deep .request-menu-danger .mud-list-item-icon,
+::deep .request-menu-danger .mud-list-item-text {
+    color: #b91c1c;
 }
 
 ::deep .request-details-panel {
@@ -77,4 +202,13 @@
 
 .details-heading {
     padding-bottom: 4px;
+}
+
+@media (max-width: 960px) {
+    ::deep .adoption-requests-page {
+        left: auto;
+        max-width: none;
+        transform: none;
+        width: 100%;
+    }
 }

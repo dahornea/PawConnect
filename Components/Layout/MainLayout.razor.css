@@ -44,6 +44,13 @@
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
+.topbar-auth-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
 .user-display {
     display: inline-flex;
     align-items: center;
@@ -111,6 +118,10 @@
 }
 
 @media (max-width: 720px) {
+    .topbar-auth-actions {
+        gap: 7px;
+    }
+
     .user-display {
         max-width: 180px;
     }

@@ -166,13 +166,32 @@
             <MudPaper Elevation="0" Class="section-surface resource-form pa-4">
                 <MudStack Spacing="2">
                     <MudText Typo="Typo.h6">@(_model.Id == 0 ? "Add Resource" : "Edit Resource")</MudText>
+                    @if (!string.IsNullOrWhiteSpace(_resourceFormError))
+                    {
+                        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Dense="true">
+                            @_resourceFormError
+                        </MudAlert>
+                    }
                     <MudForm @ref="_form">
                         <MudGrid Spacing="2">
                             <MudItem xs="12" md="4">
-                                <MudTextField Label="Name" @bind-Value="_model.Name" Required="true" RequiredError="Name is required." Variant="Variant.Outlined" />
+                                <MudTextField Label="Name"
+                                              @bind-Value="_model.Name"
+                                              @bind-Value:after="ClearResourceNameError"
+                                              Required="true"
+                                              RequiredError="Name is required."
+                                              Error="@HasResourceNameError"
+                                              ErrorText="@_resourceNameError"
+                                              Variant="Variant.Outlined" />
                             </MudItem>
                             <MudItem xs="12" md="4">
-                                <MudSelect T="int" Label="Category" Value="_model.ResourceCategoryId" ValueChanged="OnCategoryChanged" Required="true" Variant="Variant.Outlined">
+                                <MudSelect T="int" Label="Category"
+                                           Value="_model.ResourceCategoryId"
+                                           ValueChanged="OnCategoryChanged"
+                                           Required="true"
+                                           Error="@HasResourceCategoryError"
+                                           ErrorText="@_resourceCategoryError"
+                                           Variant="Variant.Outlined">
                                     @foreach (var category in _categories)
                                     {
                                         <MudSelectItem Value="@category.Id">@category.Name</MudSelectItem>
@@ -180,7 +199,14 @@
                                 </MudSelect>
                             </MudItem>
                             <MudItem xs="12" md="4">
-                                <MudSelect T="int?" Label="Food Type" @bind-Value="_model.FoodTypeId" Clearable="true" Disabled="@(!IsFoodCategorySelected)" Variant="Variant.Outlined">
+                                <MudSelect T="int?" Label="Food Type"
+                                           @bind-Value="_model.FoodTypeId"
+                                           @bind-Value:after="ClearFoodTypeError"
+                                           Clearable="true"
+                                           Disabled="@(!IsFoodCategorySelected)"
+                                           Error="@HasFoodTypeError"
+                                           ErrorText="@_foodTypeError"
+                                           Variant="Variant.Outlined">
                                     @foreach (var foodType in _foodTypes)
                                     {
                                         <MudSelectItem T="int?" Value="@((int?)foodType.Id)">@foodType.Name</MudSelectItem>
@@ -188,13 +214,32 @@
                                 </MudSelect>
                             </MudItem>
                             <MudItem xs="12" md="3">
-                                <MudNumericField T="int" Label="Quantity" @bind-Value="_model.Quantity" Min="0" Variant="Variant.Outlined" />
+                                <MudNumericField T="int" Label="Quantity"
+                                                 @bind-Value="_model.Quantity"
+                                                 @bind-Value:after="ClearQuantityError"
+                                                 Min="0"
+                                                 Error="@HasQuantityError"
+                                                 ErrorText="@_quantityError"
+                                                 Variant="Variant.Outlined" />
                             </MudItem>
                             <MudItem xs="12" md="3">
-                                <MudTextField Label="Unit" @bind-Value="_model.Unit" Required="true" RequiredError="Unit is required." Variant="Variant.Outlined" />
+                                <MudTextField Label="Unit"
+                                              @bind-Value="_model.Unit"
+                                              @bind-Value:after="ClearUnitError"
+                                              Required="true"
+                                              RequiredError="Unit is required."
+                                              Error="@HasUnitError"
+                                              ErrorText="@_unitError"
+                                              Variant="Variant.Outlined" />
                             </MudItem>
                             <MudItem xs="12" md="3">
-                                <MudNumericField T="int" Label="Low-Stock Threshold" @bind-Value="_model.LowStockThreshold" Min="0" Variant="Variant.Outlined" />
+                                <MudNumericField T="int" Label="Low-Stock Threshold"
+                                                 @bind-Value="_model.LowStockThreshold"
+                                                 @bind-Value:after="ClearLowStockThresholdError"
+                                                 Min="0"
+                                                 Error="@HasLowStockThresholdError"
+                                                 ErrorText="@_lowStockThresholdError"
+                                                 Variant="Variant.Outlined" />
                             </MudItem>
                             <MudItem xs="12" md="3">
                                 <MudStack Row="true" Spacing="2" Class="mt-2">
@@ -273,6 +318,13 @@
     private bool _isExporting;
     private bool _isImporting;
     private string? _error;
+    private string? _resourceFormError;
+    private string? _resourceNameError;
+    private string? _resourceCategoryError;
+    private string? _foodTypeError;
+    private string? _quantityError;
+    private string? _unitError;
+    private string? _lowStockThresholdError;
     private int? _shelterId;
     private IBrowserFile? _resourceImportFile;
     private CsvImportResult? _importResult;
@@ -281,6 +333,12 @@
 
     private bool IsFoodCategorySelected =>
         _categories.FirstOrDefault(c => c.Id == _model.ResourceCategoryId)?.Name.Equals("Food", StringComparison.OrdinalIgnoreCase) == true;
+    private bool HasResourceNameError => !string.IsNullOrWhiteSpace(_resourceNameError);
+    private bool HasResourceCategoryError => !string.IsNullOrWhiteSpace(_resourceCategoryError);
+    private bool HasFoodTypeError => !string.IsNullOrWhiteSpace(_foodTypeError);
+    private bool HasQuantityError => !string.IsNullOrWhiteSpace(_quantityError);
+    private bool HasUnitError => !string.IsNullOrWhiteSpace(_unitError);
+    private bool HasLowStockThresholdError => !string.IsNullOrWhiteSpace(_lowStockThresholdError);
 
     protected override async Task OnInitializedAsync()
     {
@@ -324,6 +382,7 @@
             }
         }
 
+        ClearResourceValidationErrors();
         if (!IsFoodCategorySelected)
         {
             _model.FoodTypeId = null;
@@ -349,7 +408,10 @@
         }
         catch (InvalidOperationException ex)
         {
-            Snackbar.Add(ex.Message, Severity.Warning);
+            if (!TryMapResourceValidationMessage(ex.Message))
+            {
+                _resourceFormError = ex.Message;
+            }
         }
         catch
         {
@@ -503,6 +565,7 @@
 
     private void EditResource(ResourceStock resource)
     {
+        ClearResourceValidationErrors();
         _model = new ResourceStock
         {
             Id = resource.Id,
@@ -563,18 +626,95 @@
     private void OnCategoryChanged(int categoryId)
     {
         _model.ResourceCategoryId = categoryId;
+        _resourceCategoryError = null;
+        _resourceNameError = null;
+        _resourceFormError = null;
         if (!IsFoodCategorySelected)
         {
             _model.FoodTypeId = null;
+            _foodTypeError = null;
         }
     }
 
     private async Task ResetFormAsync()
     {
         _model = new ResourceStock();
+        ClearResourceValidationErrors();
         if (_form is not null)
         {
             await _form.ResetValidationAsync();
+        }
+    }
+
+    private void ClearResourceValidationErrors()
+    {
+        _resourceFormError = null;
+        _resourceNameError = null;
+        _resourceCategoryError = null;
+        _foodTypeError = null;
+        _quantityError = null;
+        _unitError = null;
+        _lowStockThresholdError = null;
+    }
+
+    private void ClearResourceNameError()
+    {
+        _resourceNameError = null;
+        _resourceFormError = null;
+    }
+
+    private void ClearFoodTypeError()
+    {
+        _foodTypeError = null;
+        _resourceFormError = null;
+    }
+
+    private void ClearQuantityError()
+    {
+        _quantityError = null;
+        _resourceFormError = null;
+    }
+
+    private void ClearUnitError()
+    {
+        _unitError = null;
+        _resourceFormError = null;
+    }
+
+    private void ClearLowStockThresholdError()
+    {
+        _lowStockThresholdError = null;
+        _resourceFormError = null;
+    }
+
+    private bool TryMapResourceValidationMessage(string message)
+    {
+        switch (message)
+        {
+            case "Resource name is required.":
+                _resourceNameError = message;
+                return true;
+            case "Resource category is required.":
+                _resourceCategoryError = message;
+                return true;
+            case "Food type is required for food resources.":
+            case "Selected food type was not found.":
+                _foodTypeError = message;
+                return true;
+            case "Quantity must be zero or greater.":
+                _quantityError = message;
+                return true;
+            case "Low-stock threshold must be zero or greater.":
+                _lowStockThresholdError = message;
+                return true;
+            case "Unit is required.":
+                _unitError = message;
+                return true;
+            case "This resource already exists in your shelter stock.":
+                _resourceNameError = message;
+                return true;
+            default:
+                return false;
         }
     }
 

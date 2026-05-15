@@ -2,6 +2,7 @@
 @using Microsoft.AspNetCore.Identity
 @using PawConnect.Data
 @inject IDogService DogService
+@inject IShelterService ShelterService
 @inject IFavoriteDogService FavoriteDogService
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject UserManager<ApplicationUser> UserManager
@@ -23,6 +24,15 @@
                 <MudItem xs="12" md="4">
                     <MudTextField Label="Search by name" @bind-Value="_searchTerm" Variant="Variant.Outlined" Margin="Margin.Dense" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
                 </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudSelect T="int?" Label="Shelter" @bind-Value="_selectedShelterId" Variant="Variant.Outlined" Margin="Margin.Dense">
+                        <MudSelectItem T="int?" Value="@((int?)null)">All shelters</MudSelectItem>
+                        @foreach (var shelter in _shelters)
+                        {
+                            <MudSelectItem T="int?" Value="@((int?)shelter.Id)">@shelter.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
                 <MudItem xs="12" sm="6" md="2">
                     <MudSelect T="string" Label="Breed" @bind-Value="_selectedBreed" Variant="Variant.Outlined" Margin="Margin.Dense">
                         <MudSelectItem Value="@string.Empty">All breeds</MudSelectItem>
@@ -32,7 +42,7 @@
                         }
                     </MudSelect>
                 </MudItem>
-                <MudItem xs="12" sm="6" md="2">
+                <MudItem xs="12" sm="6" md="3">
                     <MudNumericField T="int?" Label="Max age" @bind-Value="_maxAge" Variant="Variant.Outlined" Margin="Margin.Dense" Min="0" Max="30" />
                 </MudItem>
                 <MudItem xs="12" sm="6" md="2">
@@ -44,7 +54,7 @@
                         }
                     </MudSelect>
                 </MudItem>
-                <MudItem xs="12" sm="6" md="2">
+                <MudItem xs="12" sm="6" md="3">
                     <MudSelect T="string" Label="Location" @bind-Value="_selectedLocation" Variant="Variant.Outlined" Margin="Margin.Dense">
                         <MudSelectItem Value="@string.Empty">All locations</MudSelectItem>
                         @foreach (var location in _locations)
@@ -53,14 +63,14 @@
                         }
                     </MudSelect>
                 </MudItem>
-                <MudItem xs="12" sm="6" md="2">
+                <MudItem xs="12" sm="6" md="3">
                     <MudSelect T="string" Label="Status" @bind-Value="_selectedStatus" Variant="Variant.Outlined" Margin="Margin.Dense">
                         <MudSelectItem Value="@string.Empty">Available or reserved</MudSelectItem>
                         <MudSelectItem Value="@DogStatus.Available.ToString()">Available</MudSelectItem>
                         <MudSelectItem Value="@DogStatus.Reserved.ToString()">Reserved</MudSelectItem>
                     </MudSelect>
                 </MudItem>
-                <MudItem xs="12" sm="6" md="3">
+                <MudItem xs="12" sm="6" md="4">
                     <MudSelect T="DogSortOption" Label="Sort by" @bind-Value="_sortOption" Variant="Variant.Outlined" Margin="Margin.Dense">
                         <MudSelectItem Value="@DogSortOption.NameAsc">Name A-Z</MudSelectItem>
                         <MudSelectItem Value="@DogSortOption.NameDesc">Name Z-A</MudSelectItem>
@@ -72,7 +82,7 @@
                         <MudSelectItem Value="@DogSortOption.NewestFirst">Newest first</MudSelectItem>
                     </MudSelect>
                 </MudItem>
-                <MudItem xs="12" md="9">
+                <MudItem xs="12">
                     <MudStack Row="true" Spacing="2" Class="mt-1" AlignItems="AlignItems.Center">
                         <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.FilterAlt" OnClick="ApplyFiltersAsync">Apply Filters</MudButton>
                         <MudButton Variant="Variant.Text" Color="Color.Default" StartIcon="@Icons.Material.Filled.Clear" OnClick="ClearFiltersAsync">Reset Filters</MudButton>
@@ -99,8 +109,8 @@
             <MudPaper Elevation="0" Class="empty-state pa-6">
                 <MudStack AlignItems="AlignItems.Center" Spacing="2">
                     <MudIcon Icon="@Icons.Material.Filled.SearchOff" Color="Color.Secondary" Size="Size.Large" />
-                    <MudText Typo="Typo.h6">No dogs matched your filters</MudText>
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">Try clearing filters or broadening your search.</MudText>
+                    <MudText Typo="Typo.h6">@EmptyStateTitle</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">@EmptyStateSubtitle</MudText>
                     <MudButton Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Clear" OnClick="ClearFiltersAsync">Reset Filters</MudButton>
                 </MudStack>
             </MudPaper>
@@ -130,7 +140,7 @@
                             <MudCardContent>
                                 <MudStack Spacing="1">
                                     <MudStack Row="true" AlignItems="AlignItems.Start">
-                                        <MudText Typo="Typo.h6">@dog.Name</MudText>
+                                    <MudText Typo="Typo.h6">@dog.Name</MudText>
                                         <MudSpacer />
                                         @if (_currentUserIsAdopter || !_currentUserIsAuthenticated)
                                         {
@@ -139,10 +149,14 @@
                                         <MudChip T="string" Color="@GetStatusColor(dog.Status)" Size="Size.Small">@dog.Status</MudChip>
                                     </MudStack>
                                     <MudText Typo="Typo.body2">@dog.Breed, @DogAgeFormatter.Format(dog)</MudText>
+                                    @if (!string.IsNullOrWhiteSpace(GetShelterLine(dog)))
+                                    {
+                                        <MudText Typo="Typo.body2" Class="dog-shelter-line">@GetShelterLine(dog)</MudText>
+                                    }
                                     <MudText Typo="Typo.body2" Color="Color.Secondary">@dog.Size dog in @dog.Location</MudText>
                                     @if (!string.IsNullOrWhiteSpace(dog.Description))
                                     {
-                                        <MudText Typo="Typo.body2">@GetShortDescription(dog.Description)</MudText>
+                                        <MudText Typo="Typo.body2" Class="dog-card-description">@GetShortDescription(dog.Description)</MudText>
                                     }
                                 </MudStack>
                             </MudCardContent>
@@ -160,6 +174,7 @@
 
 @code {
     private List<Dog> _dogs = [];
+    private List<PawConnect.Entities.Shelter> _shelters = [];
     private List<string> _breeds = [];
     private List<string> _locations = [];
     private bool _isLoading = true;
@@ -167,6 +182,7 @@
     private string? _searchTerm;
     private string _selectedBreed = string.Empty;
     private int? _maxAge;
+    private int? _selectedShelterId;
     private string _selectedSize = string.Empty;
     private string _selectedLocation = string.Empty;
     private string _selectedStatus = string.Empty;
@@ -177,6 +193,12 @@
     private HashSet<int> _favoriteDogIds = [];
 
     private string ResultCountText => _dogs.Count == 1 ? "Showing 1 dog" : $"Showing {_dogs.Count} dogs";
+    private string EmptyStateTitle => _selectedShelterId.HasValue
+        ? "No dogs found for the selected shelter."
+        : "No dogs matched your filters";
+    private string EmptyStateSubtitle => _selectedShelterId.HasValue
+        ? "Try another shelter or broaden your filters."
+        : "Try clearing filters or broadening your search.";
 
     protected override async Task OnInitializedAsync()
     {
@@ -184,6 +206,7 @@
         {
             await LoadCurrentUserAsync();
             var availableDogs = await DogService.GetAvailableDogsAsync();
+            _shelters = await ShelterService.GetAllSheltersAsync();
             _dogs = availableDogs;
             _breeds = availableDogs.Select(d => d.Breed).Distinct().OrderBy(b => b).ToList();
             _locations = availableDogs.Select(d => d.Location).Distinct().OrderBy(l => l).ToList();
@@ -213,7 +236,8 @@
                 ParseEnum<DogSize>(_selectedSize),
                 EmptyToNull(_selectedLocation),
                 ParsePublicStatus(_selectedStatus),
-                _sortOption);
+                _sortOption,
+                _selectedShelterId);
             await LoadFavoriteStateAsync();
         }
         catch
@@ -231,6 +255,7 @@
         _searchTerm = null;
         _selectedBreed = string.Empty;
         _maxAge = null;
+        _selectedShelterId = null;
         _selectedSize = string.Empty;
         _selectedLocation = string.Empty;
         _selectedStatus = string.Empty;
@@ -263,6 +288,20 @@
     private static string GetShortDescription(string description)
     {
         return description.Length <= 120 ? description : $"{description[..117]}...";
+    }
+
+    private static string? GetShelterLine(Dog dog)
+    {
+        var shelterName = dog.Shelter?.Name?.Trim();
+        var shelterCity = dog.Shelter?.City?.Trim();
+
+        return (string.IsNullOrWhiteSpace(shelterName), string.IsNullOrWhiteSpace(shelterCity)) switch
+        {
+            (false, false) => $"{shelterName} · {shelterCity}",
+            (false, true) => shelterName,
+            (true, false) => shelterCity,
+            _ => null
+        };
     }
 
     private static Color GetStatusColor(DogStatus status)

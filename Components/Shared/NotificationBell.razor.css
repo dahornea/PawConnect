@@ -2,6 +2,38 @@
     position: relative;
     display: inline-flex;
     align-items: center;
+    flex: 0 0 auto;
+}
+
+.notification-trigger {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+}
+
+.notification-bell-badge {
+    position: absolute;
+    top: 4px;
+    right: 3px;
+    min-width: 19px;
+    height: 17px;
+    padding: 0 5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: #b91c1c;
+    color: #fffefb;
+    border: 2px solid #2f6f5e;
+    box-shadow: 0 2px 5px rgba(31, 47, 42, 0.22);
+    font-size: 10px;
+    font-weight: 650;
+    line-height: 17px;
+    pointer-events: none;
+    z-index: 1;
 }
 
 .notification-scrim {

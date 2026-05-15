@@ -80,7 +80,7 @@
                     <MudTd DataLabel="Shelter">@(context.Shelter?.Name ?? "-")</MudTd>
                     <MudTd DataLabel="Recipient">@(context.RecipientEmail ?? "-")</MudTd>
                     <MudTd DataLabel="Triggered by">
-                        <MudText Typo="Typo.body2">@context.TriggeredBy</MudText>
+                        <MudText Typo="Typo.body2">@ReportHistoryTriggerLabels.Format(context.TriggeredBy)</MudText>
                         @if (!string.IsNullOrWhiteSpace(context.TriggeredByUserEmail))
                         {
                             <MudText Typo="Typo.caption" Color="Color.Secondary">@context.TriggeredByUserEmail</MudText>

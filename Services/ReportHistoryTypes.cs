@@ -20,3 +20,20 @@ public static class ReportHistoryTriggers
     public const string Admin = nameof(Admin);
     public const string Shelter = nameof(Shelter);
 }
+
+public static class ReportHistoryTriggerLabels
+{
+    public static string Format(string? triggeredBy)
+    {
+        return triggeredBy?.Trim() switch
+        {
+            ReportHistoryTriggers.Quartz => "Scheduled report",
+            ReportHistoryTriggers.Manual => "Sent manually",
+            ReportHistoryTriggers.System => "System",
+            ReportHistoryTriggers.Admin => "Admin",
+            ReportHistoryTriggers.Shelter => "Shelter",
+            null or "" => "Unknown",
+            var value => value
+        };
+    }
+}
