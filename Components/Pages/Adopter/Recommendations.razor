@@ -1,0 +1,297 @@
+@page "/adopter/recommendations"
+@using Microsoft.AspNetCore.Identity
+@using PawConnect.Data
+@attribute [Authorize(Roles = "Adopter")]
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject UserManager<ApplicationUser> UserManager
+@inject IAdopterProfileService AdopterProfileService
+@inject IDogRecommendationService DogRecommendationService
+
+<PageTitle>Recommended Dogs</PageTitle>
+
+<div class="recommendations-page">
+<MudContainer MaxWidth="MaxWidth.False" Class="px-0">
+    <MudStack Spacing="3">
+        <div class="page-header">
+            <MudText Typo="Typo.h4">Recommended Dogs</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Personalized suggestions based on your profile, saved dogs, and recent views.</MudText>
+        </div>
+
+        @if (_isLoading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="py-8">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Finding matches...</MudText>
+            </MudStack>
+        }
+        else if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <MudAlert Severity="Severity.Error">@_error</MudAlert>
+        }
+        else
+        {
+            @if (_profile is null)
+            {
+                <MudPaper Elevation="0" Class="section-surface profile-completeness-card pa-4">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudIcon Icon="@Icons.Material.Filled.AccountCircle" Color="Color.Primary" />
+                        <div>
+                            <MudText Typo="Typo.subtitle1">Complete your profile to improve recommendations.</MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">Useful details include city, housing type, yard, children/pets, and experience with dogs.</MudText>
+                        </div>
+                        <MudSpacer />
+                        <MudButton Href="/adopter/profile" Variant="Variant.Outlined" Color="Color.Primary">Update Profile</MudButton>
+                    </MudStack>
+                </MudPaper>
+            }
+            else if (ProfileNeedsAttention)
+            {
+                <MudPaper Elevation="0" Class="section-surface profile-completeness-card pa-4">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudIcon Icon="@Icons.Material.Filled.TipsAndUpdates" Color="Color.Primary" />
+                        <div>
+                            <MudText Typo="Typo.subtitle1">Complete your profile to improve recommendations.</MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">Missing: @MissingProfileFieldsText. Useful details include yard, children/pets, and experience with dogs.</MudText>
+                        </div>
+                        <MudSpacer />
+                        <MudButton Href="/adopter/profile" Variant="Variant.Outlined" Color="Color.Primary">Update Profile</MudButton>
+                    </MudStack>
+                </MudPaper>
+            }
+
+            @if (_recommendations.Count == 0)
+            {
+                <MudPaper Elevation="0" Class="empty-state pa-5">
+                    <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                        <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" Color="Color.Secondary" Size="Size.Large" />
+                        <MudText Typo="Typo.h6">No recommendations found yet</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Try browsing all dogs or updating your adopter profile.</MudText>
+                        <MudButton Href="/dogs" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Search">Browse all dogs</MudButton>
+                    </MudStack>
+                </MudPaper>
+            }
+            else
+            {
+                <MudPaper Elevation="0" Class="section-surface pa-4">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Class="recommendation-summary">
+                        <div>
+                            <MudText Typo="Typo.h5" Class="section-title">Best matches for you</MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">@RecommendationSourceText</MudText>
+                        </div>
+                        <MudSpacer />
+                        <MudButton Href="/dogs" Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Search">Browse dogs</MudButton>
+                    </MudStack>
+                </MudPaper>
+
+                <MudGrid Spacing="3">
+                    @foreach (var recommendation in _recommendations)
+                    {
+                        var dog = recommendation.Dog;
+                        var imageUrl = GetDogImageUrl(dog);
+
+                        <MudItem xs="12" sm="6" md="4">
+                            <MudCard Class="recommendation-card h-100">
+                                <a class="dog-image-link" href="@($"/dogs/{dog.Id}")" aria-label="@($"View details for {dog.Name}")">
+                                    @if (imageUrl is null)
+                                    {
+                                        <div class="dog-image dog-image-placeholder">
+                                            <MudIcon Icon="@Icons.Material.Filled.Pets" Color="Color.Primary" />
+                                            <MudText Typo="Typo.caption">No image available</MudText>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <MudCardMedia Image="@imageUrl" Class="dog-image" />
+                                    }
+                                </a>
+
+                                <MudCardContent>
+                                    <MudStack Spacing="1">
+                                        <MudStack Row="true" AlignItems="AlignItems.Start">
+                                            <div>
+                                                <MudText Typo="Typo.h6">@dog.Name</MudText>
+                                                <MudText Typo="Typo.body2">@dog.Breed, @DogAgeFormatter.Format(dog)</MudText>
+                                            </div>
+                                            <MudSpacer />
+                                            <MudChip T="string" Color="@GetStatusColor(dog.Status)" Size="Size.Small">@dog.Status</MudChip>
+                                        </MudStack>
+
+                                        <MudText Typo="Typo.body2" Class="dog-shelter-line">@GetShelterLine(dog)</MudText>
+
+                                        <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Class="match-chip-row">
+                                            <span class="match-score-badge">@recommendation.MatchPercentage% match</span>
+                                            <MudChip T="string" Color="@GetMatchColor(recommendation.MatchLevel)" Size="Size.Small">@recommendation.MatchLevel</MudChip>
+                                            @if (recommendation.UsedAiEnhancement)
+                                            {
+                                                <MudChip T="string" Color="Color.Info" Size="Size.Small" Variant="Variant.Outlined">AI-assisted</MudChip>
+                                            }
+                                        </MudStack>
+
+                                        <MudText Typo="Typo.body2" Class="recommendation-explanation">@GetSummary(recommendation)</MudText>
+
+                                        <div class="reason-groups" aria-label="@($"Reasons {dog.Name} may be a good match")">
+                                            @foreach (var reason in GetVisibleReasons(recommendation))
+                                            {
+                                                <div class="reason-group">
+                                                    <span>@reason.Category</span>
+                                                    <p>@reason.Text</p>
+                                                </div>
+                                            }
+                                        </div>
+                                    </MudStack>
+                                </MudCardContent>
+
+                                <MudCardActions>
+                                    <MudButton Href="@($"/dogs/{dog.Id}")" Variant="Variant.Text" Color="Color.Primary" EndIcon="@Icons.Material.Filled.ArrowForward">View Details</MudButton>
+                                </MudCardActions>
+                            </MudCard>
+                        </MudItem>
+                    }
+                </MudGrid>
+            }
+        }
+    </MudStack>
+</MudContainer>
+</div>
+
+@code {
+    private AdopterProfile? _profile;
+    private IReadOnlyList<DogRecommendationResult> _recommendations = [];
+    private bool _isLoading = true;
+    private string? _error;
+
+    private bool ProfileNeedsAttention => _profile is not null &&
+        (string.IsNullOrWhiteSpace(_profile.City) ||
+         string.IsNullOrWhiteSpace(_profile.ExperienceWithDogs));
+
+    private string MissingProfileFieldsText => string.Join(", ", GetMissingProfileFields());
+
+    private string RecommendationSourceText => _recommendations.Any(recommendation => recommendation.UsedAiEnhancement)
+        ? "AI-assisted explanations are enabled."
+        : "Rule-based matches from your profile, saved dogs, and recent views.";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var user = await UserManager.GetUserAsync(authState.User);
+            if (user is null)
+            {
+                _error = "Current adopter account could not be found.";
+                return;
+            }
+
+            _profile = await AdopterProfileService.GetProfileForUserAsync(user.Id);
+            _recommendations = await DogRecommendationService.GetRecommendationsForAdopterAsync(user.Id, 12);
+        }
+        catch
+        {
+            _error = "Recommendations could not be loaded right now.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private static string? GetDogImageUrl(Dog dog)
+    {
+        return dog.Images
+            .Where(image => IsValidImageUrl(image.ImageUrl))
+            .OrderByDescending(image => image.IsMainImage)
+            .ThenBy(image => image.Id)
+            .Select(image => image.ImageUrl)
+            .FirstOrDefault();
+    }
+
+    private static bool IsValidImageUrl(string? imageUrl)
+    {
+        if (string.IsNullOrWhiteSpace(imageUrl) ||
+            imageUrl.Contains("placehold.co", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return Uri.TryCreate(imageUrl, UriKind.Absolute, out var uri) &&
+            (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
+    }
+
+    private static string GetShelterLine(Dog dog)
+    {
+        var shelterName = dog.Shelter?.Name?.Trim();
+        var shelterCity = dog.Shelter?.City?.Trim();
+
+        return (string.IsNullOrWhiteSpace(shelterName), string.IsNullOrWhiteSpace(shelterCity)) switch
+        {
+            (false, false) => $"{shelterName} · {shelterCity}",
+            (false, true) => shelterName!,
+            (true, false) => shelterCity!,
+            _ => "Shelter details available on profile"
+        };
+    }
+
+    private static Color GetStatusColor(DogStatus status)
+    {
+        return status switch
+        {
+            DogStatus.Available => Color.Success,
+            DogStatus.Reserved => Color.Warning,
+            _ => Color.Default
+        };
+    }
+
+    private static Color GetMatchColor(string matchLevel)
+    {
+        return matchLevel switch
+        {
+            "Excellent match" => Color.Success,
+            "Good match" => Color.Primary,
+            _ => Color.Default
+        };
+    }
+
+    private IReadOnlyList<string> GetMissingProfileFields()
+    {
+        if (_profile is null)
+        {
+            return ["profile details"];
+        }
+
+        var missing = new List<string>();
+        if (string.IsNullOrWhiteSpace(_profile.City))
+        {
+            missing.Add("city");
+        }
+
+        if (string.IsNullOrWhiteSpace(_profile.ExperienceWithDogs))
+        {
+            missing.Add("experience with dogs");
+        }
+
+        return missing.Count == 0 ? ["more preference details"] : missing;
+    }
+
+    private static string GetSummary(DogRecommendationResult recommendation)
+    {
+        return string.IsNullOrWhiteSpace(recommendation.ShortSummary)
+            ? $"Why this dog may fit you: {recommendation.Reasons.FirstOrDefault() ?? "Their public profile matches part of your adopter profile."}"
+            : recommendation.ShortSummary;
+    }
+
+    private static IReadOnlyList<DogRecommendationReason> GetVisibleReasons(DogRecommendationResult recommendation)
+    {
+        if (recommendation.ReasonCategories is { Count: > 0 })
+        {
+            return recommendation.ReasonCategories
+                .OrderByDescending(reason => reason.Weight)
+                .Take(4)
+                .ToList();
+        }
+
+        return recommendation.Reasons
+            .Take(3)
+            .Select((reason, index) => new DogRecommendationReason("Match fit", reason, 100 - index))
+            .ToList();
+    }
+}
