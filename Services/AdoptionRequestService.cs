@@ -25,6 +25,8 @@ public class AdoptionRequestService(
             .ThenInclude(d => d!.Shelter)
             .Include(r => r.Adopter)
             .ThenInclude(a => a!.AdopterProfile)
+            .Include(r => r.VisitConfirmedByUser)
+            .OrderByDescending(r => r.CreatedAt)
             .AsNoTracking()
             .ToListAsync();
     }
@@ -38,6 +40,7 @@ public class AdoptionRequestService(
             .ThenInclude(d => d!.Shelter)
             .Include(r => r.Adopter)
             .ThenInclude(a => a!.AdopterProfile)
+            .Include(r => r.VisitConfirmedByUser)
             .AsNoTracking()
             .FirstOrDefaultAsync(r => r.Id == id);
     }

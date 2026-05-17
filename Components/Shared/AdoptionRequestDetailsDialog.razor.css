@@ -1,0 +1,5 @@
+::deep .request-detail-card {
+    border: 1px solid rgba(47, 111, 94, 0.12);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.72);
+}

@@ -28,6 +28,49 @@
     min-width: 96px;
 }
 
+::deep .request-summary-grid .summary-card {
+    border: 1px solid rgba(47, 111, 94, 0.1);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.72);
+}
+
+::deep .requests-shell {
+    border: 1px solid rgba(47, 111, 94, 0.1);
+    border-radius: 10px;
+}
+
+::deep .requests-toolbar {
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+::deep .admin-adoption-table .mud-table-row {
+    vertical-align: middle;
+}
+
+::deep .admin-adoption-table .mud-table-cell {
+    padding-top: 10px;
+    padding-bottom: 10px;
+}
+
+.request-primary-cell {
+    min-width: 150px;
+}
+
+.request-primary-text {
+    font-weight: 600;
+}
+
+.actions-heading,
+.actions-cell {
+    text-align: right;
+}
+
+::deep .request-details-button {
+    min-width: 0;
+    white-space: nowrap;
+}
+
 @media (max-width: 960px) {
     ::deep .adoption-requests-page {
         left: auto;

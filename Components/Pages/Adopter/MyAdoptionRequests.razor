@@ -62,54 +62,97 @@
                     var imageUrl = GetImageUrl(request.Dog);
 
                     <MudCard Class="request-card">
-                        <MudCardContent>
-                            <MudGrid Spacing="2" Class="request-card-grid">
-                                <MudItem xs="12" md="4">
-                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                                        <MudAvatar Size="Size.Large" Class="dog-avatar">
-                                            @if (imageUrl is null)
+                        <MudCardContent Class="request-card-content">
+                            <div class="request-card-layout">
+                                <section class="request-dog-section" aria-label="Dog information">
+                                    <div class="request-dog-image" aria-label="@GetDogImageLabel(request)">
+                                        <MudIcon Icon="@Icons.Material.Filled.Pets" Class="dog-placeholder-icon" />
+                                        @if (imageUrl is not null)
+                                        {
+                                            <img src="@imageUrl" alt="@GetDogImageAlt(request)" loading="lazy" onerror="this.style.display='none';" />
+                                        }
+                                    </div>
+                                    <div class="request-dog-copy">
+                                        <MudText Typo="Typo.h6" Class="request-dog-name">@DisplayOrFallback(request.Dog?.Name, "Unknown dog")</MudText>
+                                        <MudText Typo="Typo.body2" Class="request-shelter-name">@DisplayOrFallback(request.Dog?.Shelter?.Name, "Shelter not available")</MudText>
+                                        <MudStack Row="true" Spacing="1" Class="request-dog-tags">
+                                            @if (!string.IsNullOrWhiteSpace(request.Dog?.Breed))
                                             {
-                                                <MudIcon Icon="@Icons.Material.Filled.Pets" />
+                                                <span class="dog-mini-tag">@request.Dog.Breed</span>
                                             }
-                                            else
+                                            @if (request.Dog is not null)
                                             {
-                                                <MudImage Src="@imageUrl" Alt="@request.Dog?.Name" />
+                                                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="@GetDogStatusColor(request.Dog.Status)" Class="compact-chip">@GetDogStatusLabel(request.Dog.Status)</MudChip>
                                             }
-                                        </MudAvatar>
-                                        <div>
-                                            <MudText Typo="Typo.h6">@request.Dog?.Name</MudText>
-                                            <MudText Typo="Typo.body2" Color="Color.Secondary">@(request.Dog?.Shelter?.Name ?? "Shelter not available")</MudText>
+                                        </MudStack>
+                                    </div>
+                                </section>
+
+                                <section class="request-details-section" aria-label="Request details">
+                                    <div class="request-detail-row">
+                                        <span class="request-detail-label">Reason</span>
+                                        <span class="request-detail-value">@GetRequestSummary(request)</span>
+                                    </div>
+                                    <div class="request-detail-row">
+                                        <span class="request-detail-label">Hours alone</span>
+                                        <span class="request-detail-value">@FormatHoursAlone(request.HoursAlonePerDay)</span>
+                                    </div>
+                                    <div class="request-detail-row">
+                                        <span class="request-detail-label">Preferred visit</span>
+                                        <span class="request-detail-value">@FormatVisitDateTime(request.PreferredVisitDateTime)</span>
+                                    </div>
+                                    @if (!string.IsNullOrWhiteSpace(request.AdditionalInformation))
+                                    {
+                                        <div class="request-detail-row">
+                                            <span class="request-detail-label">Note</span>
+                                            <span class="request-detail-value">@TrimText(request.AdditionalInformation, 120)</span>
                                         </div>
-                                    </MudStack>
-                                </MudItem>
+                                    }
+                                    @if (request.VisitReminderSentAt.HasValue)
+                                    {
+                                        <div class="request-detail-row">
+                                            <span class="request-detail-label">Reminder</span>
+                                            <span class="request-detail-value">@FormatDateTime(request.VisitReminderSentAt.Value)</span>
+                                        </div>
+                                    }
+                                    <MudAlert Severity="@GetProgressSeverity(request)" Variant="Variant.Outlined" Dense="true" Class="request-progress-note">
+                                        @GetRequestProgressText(request)
+                                    </MudAlert>
+                                </section>
 
-                                <MudItem xs="12" md="5">
-                                    <MudStack Spacing="1">
-                                        <MudText Typo="Typo.caption" Color="Color.Secondary">Request reason</MudText>
-                                        <MudText Typo="Typo.body2">@GetRequestSummary(request)</MudText>
-                                        <MudText Typo="Typo.caption" Color="Color.Secondary">Hours alone: @(request.HoursAlonePerDay.HasValue ? request.HoursAlonePerDay.Value : "-")</MudText>
-                                        <MudText Typo="Typo.caption" Color="Color.Secondary">Preferred visit: @FormatVisitDateTime(request.PreferredVisitDateTime)</MudText>
-                                        @if (request.VisitReminderSentAt.HasValue)
+                                <aside class="request-status-section" aria-label="Request status and actions">
+                                    <MudStack Row="true" Spacing="1" Class="request-chip-row">
+                                        <MudChip T="string" Color="@GetStatusColor(request.Status)" Size="Size.Small" Class="compact-chip status-chip">@GetRequestStatusLabel(request.Status)</MudChip>
+                                        @if (ShouldShowVisitStatus(request.VisitStatus))
                                         {
-                                            <MudText Typo="Typo.caption" Color="Color.Secondary">Reminder sent: @request.VisitReminderSentAt.Value.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudText>
-                                        }
-                                        <MudText Typo="Typo.caption" Color="Color.Secondary">@GetRequestProgressText(request)</MudText>
-                                    </MudStack>
-                                </MudItem>
-
-                                <MudItem xs="12" md="3">
-                                    <MudStack Spacing="1" Class="request-meta">
-                                        <MudChip T="string" Color="@GetStatusColor(request.Status)" Size="Size.Small" Class="status-chip">@request.Status</MudChip>
-                                        <MudChip T="string" Color="@GetVisitStatusColor(request.VisitStatus)" Size="Size.Small" Variant="Variant.Outlined">@GetVisitStatusText(request.VisitStatus)</MudChip>
-                                        <MudText Typo="Typo.caption" Color="Color.Secondary">Created: @request.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudText>
-                                        <MudText Typo="Typo.caption" Color="Color.Secondary">Updated: @request.UpdatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudText>
-                                        @if (request.Status == AdoptionRequestStatus.Pending)
-                                        {
-                                            <MudButton Variant="Variant.Outlined" Color="Color.Warning" Size="Size.Small" StartIcon="@Icons.Material.Filled.Cancel" OnClick="@(() => CancelRequestAsync(request))">Cancel Request</MudButton>
+                                            <MudChip T="string" Color="@GetVisitStatusColor(request.VisitStatus)" Size="Size.Small" Variant="Variant.Outlined" Class="compact-chip">@GetVisitStatusLabel(request.VisitStatus)</MudChip>
                                         }
                                     </MudStack>
-                                </MudItem>
-                            </MudGrid>
+
+                                    <div class="request-date-stack">
+                                        <div>
+                                            <span class="request-date-label">Created</span>
+                                            <span class="request-date-value">@FormatDateTime(request.CreatedAt)</span>
+                                        </div>
+                                        <div>
+                                            <span class="request-date-label">Updated</span>
+                                            <span class="request-date-value">@FormatDateTime(request.UpdatedAt)</span>
+                                        </div>
+                                    </div>
+
+                                    @if (CanCancelRequest(request))
+                                    {
+                                        <MudButton Variant="Variant.Outlined"
+                                                   Color="Color.Error"
+                                                   Size="Size.Small"
+                                                   StartIcon="@Icons.Material.Filled.Cancel"
+                                                   Class="cancel-request-button"
+                                                   OnClick="@(() => CancelRequestAsync(request))">
+                                            Cancel Request
+                                        </MudButton>
+                                    }
+                                </aside>
+                            </div>
                         </MudCardContent>
                     </MudCard>
                 }
@@ -236,15 +279,29 @@
         };
     }
 
-    private static string GetVisitStatusText(AdoptionVisitStatus status)
+    private static string GetRequestStatusLabel(AdoptionRequestStatus status)
+    {
+        return status switch
+        {
+            AdoptionRequestStatus.Pending => "Pending",
+            AdoptionRequestStatus.VisitConfirmed => "Visit confirmed",
+            AdoptionRequestStatus.Accepted => "Accepted",
+            AdoptionRequestStatus.Rejected => "Rejected",
+            AdoptionRequestStatus.Cancelled => "Cancelled",
+            _ => FormatEnumLabel(status.ToString())
+        };
+    }
+
+    private static string GetVisitStatusLabel(AdoptionVisitStatus status)
     {
         return status switch
         {
             AdoptionVisitStatus.Requested => "Visit requested",
             AdoptionVisitStatus.Confirmed => "Visit confirmed",
-            AdoptionVisitStatus.Completed => "Completed",
-            AdoptionVisitStatus.Cancelled => "Cancelled",
-            _ => "Not scheduled"
+            AdoptionVisitStatus.Completed => "Visit completed",
+            AdoptionVisitStatus.Cancelled => "Visit cancelled",
+            AdoptionVisitStatus.NotScheduled => "Not scheduled",
+            _ => FormatEnumLabel(status.ToString())
         };
     }
 
@@ -266,13 +323,107 @@
         return VisitSchedulingHelper.FormatVisitDateTime(visitDateTime);
     }
 
+    private static string FormatDateTime(DateTime dateTime)
+    {
+        return dateTime.ToLocalTime().ToString("dd MMM yyyy, HH:mm");
+    }
+
+    private static string FormatHoursAlone(int? hoursAlonePerDay)
+    {
+        return hoursAlonePerDay.HasValue ? $"{hoursAlonePerDay.Value} hour(s) per day" : "-";
+    }
+
     private static string GetRequestSummary(AdoptionRequest request)
     {
         var reason = string.IsNullOrWhiteSpace(request.ReasonForAdoption)
             ? "No reason provided."
             : request.ReasonForAdoption.Trim();
 
-        return reason.Length <= 150 ? reason : $"{reason[..147]}...";
+        return TrimText(reason, 180);
+    }
+
+    private static string TrimText(string value, int maxLength)
+    {
+        var trimmed = value.Trim();
+        return trimmed.Length <= maxLength ? trimmed : $"{trimmed[..Math.Max(0, maxLength - 3)]}...";
+    }
+
+    private static bool CanCancelRequest(AdoptionRequest request)
+    {
+        return request.Status == AdoptionRequestStatus.Pending;
+    }
+
+    private static bool ShouldShowVisitStatus(AdoptionVisitStatus status)
+    {
+        return status != AdoptionVisitStatus.NotScheduled;
+    }
+
+    private static Severity GetProgressSeverity(AdoptionRequest request)
+    {
+        return request.Status switch
+        {
+            AdoptionRequestStatus.Pending => Severity.Info,
+            AdoptionRequestStatus.VisitConfirmed => Severity.Success,
+            AdoptionRequestStatus.Accepted => Severity.Success,
+            AdoptionRequestStatus.Rejected => Severity.Error,
+            AdoptionRequestStatus.Cancelled => Severity.Warning,
+            _ => Severity.Info
+        };
+    }
+
+    private static Color GetDogStatusColor(DogStatus status)
+    {
+        return status switch
+        {
+            DogStatus.Available => Color.Success,
+            DogStatus.Reserved => Color.Warning,
+            DogStatus.Adopted => Color.Default,
+            DogStatus.InTreatment => Color.Info,
+            _ => Color.Default
+        };
+    }
+
+    private static string GetDogStatusLabel(DogStatus status)
+    {
+        return FormatEnumLabel(status.ToString());
+    }
+
+    private static string DisplayOrFallback(string? value, string fallback)
+    {
+        return string.IsNullOrWhiteSpace(value) ? fallback : value;
+    }
+
+    private static string GetDogImageLabel(AdoptionRequest request)
+    {
+        return $"{DisplayOrFallback(request.Dog?.Name, "Dog")} image";
+    }
+
+    private static string GetDogImageAlt(AdoptionRequest request)
+    {
+        return DisplayOrFallback(request.Dog?.Name, "Dog");
+    }
+
+    private static string FormatEnumLabel(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        var words = new List<string>();
+        var start = 0;
+        for (var i = 1; i < value.Length; i++)
+        {
+            if (char.IsUpper(value[i]) && !char.IsWhiteSpace(value[i - 1]))
+            {
+                words.Add(value[start..i]);
+                start = i;
+            }
+        }
+
+        words.Add(value[start..]);
+        var label = string.Join(" ", words).ToLowerInvariant();
+        return char.ToUpperInvariant(label[0]) + label[1..];
     }
 
     private async Task<bool> ConfirmAsync(string title, string message, string confirmText, Color confirmColor, string icon)

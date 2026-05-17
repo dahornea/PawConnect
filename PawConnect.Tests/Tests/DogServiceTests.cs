@@ -186,4 +186,33 @@ public class DogServiceTests
         Assert.DoesNotContain(dogs, d => d.Name == "Manastur Dog");
         Assert.DoesNotContain(dogs, d => d.Name == "Adopted Zorilor Dog");
     }
+
+    [Fact]
+    public async Task GetStatusHistoryForDogAsync_ReturnsChangedByUserAndNotes()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        var dog = TestDbContextFactory.CreateDog("History Dog");
+        context.Dogs.Add(dog);
+        await context.SaveChangesAsync();
+        context.DogStatusHistories.Add(new DogStatusHistory
+        {
+            DogId = dog.Id,
+            OldStatus = DogStatus.Available,
+            NewStatus = DogStatus.Reserved,
+            ChangedByUserId = TestDbContextFactory.AdminId,
+            Notes = "Admin review note.",
+            ChangedAt = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
+
+        var service = new DogService(context);
+
+        var history = await service.GetStatusHistoryForDogAsync(dog.Id);
+
+        var item = Assert.Single(history);
+        Assert.Equal(DogStatus.Available, item.OldStatus);
+        Assert.Equal(DogStatus.Reserved, item.NewStatus);
+        Assert.Equal("Admin review note.", item.Notes);
+        Assert.Equal("admin@test.com", item.ChangedByUser?.Email);
+    }
 }
