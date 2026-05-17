@@ -169,6 +169,7 @@
                     <HeaderContent>
                         <MudTh>Name</MudTh>
                         <MudTh>City</MudTh>
+                        <MudTh>Neighborhood</MudTh>
                         <MudTh>Address</MudTh>
                         <MudTh>Email</MudTh>
                         <MudTh>Phone</MudTh>
@@ -179,6 +180,7 @@
                     <RowTemplate>
                         <MudTd DataLabel="Name">@context.Name</MudTd>
                         <MudTd DataLabel="City">@context.City</MudTd>
+                        <MudTd DataLabel="Neighborhood">@(string.IsNullOrWhiteSpace(context.Neighborhood) ? "-" : context.Neighborhood)</MudTd>
                         <MudTd DataLabel="Address">@context.Address</MudTd>
                         <MudTd DataLabel="Email">@context.Email</MudTd>
                         <MudTd DataLabel="Phone">@(string.IsNullOrWhiteSpace(context.PhoneNumber) ? "-" : context.PhoneNumber)</MudTd>
@@ -229,6 +231,12 @@
                                 </MudItem>
                                 <MudItem xs="12" md="6">
                                     <MudTextField Label="Phone Number" @bind-Value="_editShelter.PhoneNumber" Variant="Variant.Outlined" />
+                                </MudItem>
+                                <MudItem xs="12" md="6">
+                                    <MudTextField Label="Neighborhood"
+                                                  @bind-Value="_editShelter.Neighborhood"
+                                                  HelperText="Optional. Used to help adopters find nearby shelters and dogs."
+                                                  Variant="Variant.Outlined" />
                                 </MudItem>
                                 <MudItem xs="12">
                                     <MudTextField Label="Address" @bind-Value="_editShelter.Address" Required="true" RequiredError="Address is required." Variant="Variant.Outlined" />
@@ -355,6 +363,7 @@
     private double? _savedLongitude;
     private string _savedAddress = string.Empty;
     private string _savedCity = string.Empty;
+    private string _savedNeighborhood = string.Empty;
     private string? _shelterFormError;
     private string? _shelterEmailError;
     private string? _shelterLocationError;
@@ -398,6 +407,7 @@
             City = shelter.City,
             PhoneNumber = shelter.PhoneNumber,
             Email = shelter.Email,
+            Neighborhood = shelter.Neighborhood,
             Latitude = shelter.Latitude,
             Longitude = shelter.Longitude,
             VisitStartTime = shelter.VisitStartTime,
@@ -414,6 +424,7 @@
         _savedLongitude = shelter.Longitude;
         _savedAddress = shelter.Address ?? string.Empty;
         _savedCity = shelter.City ?? string.Empty;
+        _savedNeighborhood = shelter.Neighborhood ?? string.Empty;
         ClearShelterEditValidationErrors();
         _suggestedAddressRequestVersion++;
         _suggestedAddress = null;
@@ -427,6 +438,7 @@
         _savedLongitude = null;
         _savedAddress = string.Empty;
         _savedCity = string.Empty;
+        _savedNeighborhood = string.Empty;
         ClearShelterEditValidationErrors();
         _suggestedAddressRequestVersion++;
         _suggestedAddress = null;
@@ -600,6 +612,7 @@
             _savedLongitude = null;
             _savedAddress = string.Empty;
             _savedCity = string.Empty;
+            _savedNeighborhood = string.Empty;
             _suggestedAddressRequestVersion++;
             _suggestedAddress = null;
             _suggestedAddressUnavailable = false;
@@ -652,6 +665,7 @@
         _editShelter.Longitude = _savedLongitude;
         _editShelter.Address = _savedAddress;
         _editShelter.City = _savedCity;
+        _editShelter.Neighborhood = _savedNeighborhood;
         _shelterLocationError = null;
         _suggestedAddressRequestVersion++;
         _suggestedAddress = null;
@@ -681,6 +695,7 @@
             }
 
             _suggestedAddress = result;
+            FillNeighborhoodFromSuggestion(result);
         }
         catch
         {
@@ -718,6 +733,7 @@
             _editShelter.City = _suggestedAddress.City;
         }
 
+        FillNeighborhoodFromSuggestion(_suggestedAddress, overwrite: true);
         _suggestedAddressRequestVersion++;
         _suggestedAddress = null;
         _suggestedAddressUnavailable = false;
@@ -726,9 +742,22 @@
 
     private static string GetSuggestedAddressPreview(ReverseGeocodingResult result)
     {
-        return string.Join(", ", new[] { result.SuggestedAddress, result.City }
+        return string.Join(", ", new[] { result.SuggestedAddress, result.Neighborhood, result.City }
             .Where(value => !string.IsNullOrWhiteSpace(value))
             .Distinct());
+    }
+
+    private void FillNeighborhoodFromSuggestion(ReverseGeocodingResult result, bool overwrite = false)
+    {
+        if (_editShelter is null || string.IsNullOrWhiteSpace(result.Neighborhood))
+        {
+            return;
+        }
+
+        if (overwrite || string.IsNullOrWhiteSpace(_editShelter.Neighborhood))
+        {
+            _editShelter.Neighborhood = result.Neighborhood.Trim();
+        }
     }
 
     private void ClearShelterEditValidationErrors()

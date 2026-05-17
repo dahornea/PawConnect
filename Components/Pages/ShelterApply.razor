@@ -111,6 +111,12 @@
                                                           ErrorText="@_addressError"
                                                           Variant="Variant.Outlined" />
                                         </MudItem>
+                                        <MudItem xs="12" md="6">
+                                            <MudTextField Label="Neighborhood"
+                                                          @bind-Value="_request.Neighborhood"
+                                                          HelperText="Optional. Used to help adopters find nearby shelters and dogs."
+                                                          Variant="Variant.Outlined" />
+                                        </MudItem>
                                         <MudItem xs="12">
                                             <MudTextField Label="Description" @bind-Value="_request.Description" Required="true" RequiredError="Description is required." Lines="4" Variant="Variant.Outlined" />
                                         </MudItem>
@@ -309,6 +315,7 @@
             _suggestedAddressRequestVersion++;
             _suggestedAddress = null;
             _suggestedAddressUnavailable = false;
+            await LoadSuggestedAddressAsync(result.Latitude, result.Longitude);
             Snackbar.Add("Location found. You can adjust the pin if needed.", Severity.Success);
         }
         catch
@@ -351,6 +358,7 @@
             }
 
             _suggestedAddress = result;
+            FillNeighborhoodFromSuggestion(result);
         }
         catch
         {
@@ -388,6 +396,7 @@
             _request.City = _suggestedAddress.City;
         }
 
+        FillNeighborhoodFromSuggestion(_suggestedAddress, overwrite: true);
         _suggestedAddressRequestVersion++;
         _suggestedAddress = null;
         _suggestedAddressUnavailable = false;
@@ -396,9 +405,22 @@
 
     private static string GetSuggestedAddressPreview(ReverseGeocodingResult result)
     {
-        return string.Join(", ", new[] { result.SuggestedAddress, result.City }
+        return string.Join(", ", new[] { result.SuggestedAddress, result.Neighborhood, result.City }
             .Where(value => !string.IsNullOrWhiteSpace(value))
             .Distinct());
+    }
+
+    private void FillNeighborhoodFromSuggestion(ReverseGeocodingResult result, bool overwrite = false)
+    {
+        if (string.IsNullOrWhiteSpace(result.Neighborhood))
+        {
+            return;
+        }
+
+        if (overwrite || string.IsNullOrWhiteSpace(_request.Neighborhood))
+        {
+            _request.Neighborhood = result.Neighborhood.Trim();
+        }
     }
 
     private async Task StartAnotherApplicationAsync()

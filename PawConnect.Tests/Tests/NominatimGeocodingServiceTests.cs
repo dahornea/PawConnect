@@ -139,7 +139,8 @@ public class NominatimGeocodingServiceTests
               "address": {
                 "road": "Strada Buna Ziua",
                 "house_number": "22",
-                "city": "Cluj-Napoca"
+                "city": "Cluj-Napoca",
+                "suburb": "Buna Ziua"
               }
             }
             """))
@@ -152,9 +153,39 @@ public class NominatimGeocodingServiceTests
 
         Assert.NotNull(result);
         Assert.Equal("Cluj-Napoca", result!.City);
+        Assert.Equal("Buna Ziua", result.Neighborhood);
         Assert.Equal("Strada Buna Ziua", result.Road);
         Assert.Equal("22", result.HouseNumber);
         Assert.Equal("Strada Buna Ziua 22", result.SuggestedAddress);
+    }
+
+    [Theory]
+    [InlineData("neighbourhood", "Zorilor")]
+    [InlineData("suburb", "Manastur")]
+    [InlineData("quarter", "Gheorgheni")]
+    [InlineData("city_district", "Marasti")]
+    [InlineData("district", "Grigorescu")]
+    public async Task ReverseGeocodeAsync_ExtractsNeighborhoodFromKnownNominatimFields(string fieldName, string expectedNeighborhood)
+    {
+        var httpClient = new HttpClient(new FakeHttpMessageHandler($$"""
+            {
+              "display_name": "Demo address, Cluj-Napoca, Romania",
+              "address": {
+                "road": "Demo Street",
+                "city": "Cluj-Napoca",
+                "{{fieldName}}": "{{expectedNeighborhood}}"
+              }
+            }
+            """))
+        {
+            BaseAddress = new Uri("https://nominatim.openstreetmap.org/")
+        };
+        var service = new NominatimGeocodingService(httpClient, NullLogger<NominatimGeocodingService>.Instance);
+
+        var result = await service.ReverseGeocodeAsync(46.7509, 23.6022);
+
+        Assert.NotNull(result);
+        Assert.Equal(expectedNeighborhood, result!.Neighborhood);
     }
 
     [Fact]

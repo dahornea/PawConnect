@@ -34,13 +34,13 @@ else
     <MudContainer MaxWidth="MaxWidth.False" Class="px-0">
         <MudStack Spacing="3">
             <div class="dog-details-nav">
-                <MudButton Href="/dogs"
+                <MudButton Href="@BackHref"
                            Variant="Variant.Text"
                            Color="Color.Default"
                            Size="Size.Small"
                            StartIcon="@Icons.Material.Filled.ArrowBack"
                            Class="back-to-dogs-button">
-                    Back to Dogs
+                    @BackButtonText
                 </MudButton>
             </div>
 
@@ -384,6 +384,9 @@ else
     [Parameter]
     public int Id { get; set; }
 
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    public string? ReturnUrl { get; set; }
+
     private Dog? _dog;
     private bool _isLoading = true;
     private string? _error;
@@ -415,6 +418,10 @@ else
     private bool HasPreferredVisitTimeError => !string.IsNullOrWhiteSpace(_preferredVisitTimeError);
     private bool HasReasonForAdoptionError => !string.IsNullOrWhiteSpace(_reasonForAdoptionError);
     private bool HasHoursAloneError => !string.IsNullOrWhiteSpace(_hoursAloneError);
+    private string BackHref => IsSafeLocalReturnUrl(ReturnUrl) ? ReturnUrl!.Trim() : "/dogs";
+    private string BackButtonText => string.Equals(BackHref, "/adopter/copilot", StringComparison.OrdinalIgnoreCase)
+        ? "Back to Copilot"
+        : "Back to Dogs";
 
     protected override async Task OnInitializedAsync()
     {
@@ -471,6 +478,21 @@ else
             DogStatus.InTreatment => Color.Info,
             _ => Color.Default
         };
+    }
+
+    private static bool IsSafeLocalReturnUrl(string? returnUrl)
+    {
+        if (string.IsNullOrWhiteSpace(returnUrl))
+        {
+            return false;
+        }
+
+        var trimmed = returnUrl.Trim();
+        return trimmed.StartsWith('/') &&
+            !trimmed.StartsWith("//", StringComparison.Ordinal) &&
+            !trimmed.Contains('\\') &&
+            !trimmed.Contains('\r') &&
+            !trimmed.Contains('\n');
     }
 
     private async Task LoadCurrentUserAsync()

@@ -77,6 +77,12 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IReportHistoryService, ReportHistoryService>();
 builder.Services.AddScoped<IVisitReminderService, VisitReminderService>();
 builder.Services.AddScoped<IDogRecommendationService, DogRecommendationService>();
+builder.Services.AddScoped<IDogSearchDocumentService, DogSearchDocumentService>();
+builder.Services.AddScoped<IDogSearchEmbeddingService, DogSearchEmbeddingService>();
+builder.Services.AddScoped<ISemanticDogSearchService, SemanticDogSearchService>();
+builder.Services.AddScoped<IAdoptionCopilotToolService, AdoptionCopilotToolService>();
+builder.Services.AddScoped<IAdoptionCopilotService, AdoptionCopilotService>();
+builder.Services.AddScoped<ICopilotStateService, CopilotStateService>();
 builder.Services.AddSingleton<IDistanceService, DistanceService>();
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.Configure<ScheduledReportSettings>(builder.Configuration.GetSection("ScheduledReports"));
@@ -90,6 +96,14 @@ builder.Services.AddHttpClient<IGeocodingService, NominatimGeocodingService>(cli
     client.DefaultRequestHeaders.UserAgent.ParseAdd("PawConnect/1.0 (shelter map demo)");
 });
 builder.Services.AddHttpClient<IOpenAiRecommendationClient, OpenAiRecommendationClient>(client =>
+{
+    client.BaseAddress = new Uri("https://api.openai.com/");
+});
+builder.Services.AddHttpClient<IEmbeddingService, OpenAiEmbeddingService>(client =>
+{
+    client.BaseAddress = new Uri("https://api.openai.com/");
+});
+builder.Services.AddHttpClient<IOpenAiAdoptionCopilotClient, OpenAiAdoptionCopilotClient>(client =>
 {
     client.BaseAddress = new Uri("https://api.openai.com/");
 });

@@ -37,6 +37,7 @@ public class ShelterRegistrationRequestService(
         request.ContactPersonName = request.ContactPersonName.Trim();
         request.PhoneNumber = request.PhoneNumber.Trim();
         request.City = request.City.Trim();
+        request.Neighborhood = NormalizeOptional(request.Neighborhood);
         request.Address = NormalizeAddressWithoutCity(request.Address, request.City);
         request.Description = request.Description.Trim();
         request.Website = NormalizeOptional(request.Website);
@@ -95,6 +96,7 @@ public class ShelterRegistrationRequestService(
 
         request.Email = request.Email.Trim();
         request.City = request.City.Trim();
+        request.Neighborhood = NormalizeOptional(request.Neighborhood);
         request.Address = NormalizeAddressWithoutCity(request.Address, request.City);
 
         var normalizedEmail = NormalizeEmail(request.Email);
@@ -127,6 +129,7 @@ public class ShelterRegistrationRequestService(
             Description = request.Description,
             Address = request.Address,
             City = request.City,
+            Neighborhood = request.Neighborhood,
             PhoneNumber = request.PhoneNumber,
             Email = request.Email,
             Latitude = request.Latitude,
@@ -233,6 +236,7 @@ public class ShelterRegistrationRequestService(
                 Email: {request.Email}
                 Phone: {request.PhoneNumber}
                 Address: {request.Address}, {request.City}
+                Neighborhood: {(string.IsNullOrWhiteSpace(request.Neighborhood) ? "Not provided" : request.Neighborhood)}
                 Coordinates: {(request.Latitude.HasValue && request.Longitude.HasValue ? $"{request.Latitude:0.######}, {request.Longitude:0.######}" : "Not provided")}
                 Submitted: {request.SubmittedAt:g}
                 """;
@@ -248,6 +252,7 @@ public class ShelterRegistrationRequestService(
                     new("Email", request.Email),
                     new("Phone", request.PhoneNumber),
                     new("City", request.City),
+                    new("Neighborhood", string.IsNullOrWhiteSpace(request.Neighborhood) ? "Not provided" : request.Neighborhood),
                     new("Address", request.Address),
                     new("Map location", request.Latitude.HasValue && request.Longitude.HasValue ? "Map location selected" : "No map location provided"),
                     new("Submitted", request.SubmittedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm"))

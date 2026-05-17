@@ -525,6 +525,49 @@ namespace PawConnect.Migrations
                     b.ToTable("Dogs");
                 });
 
+            modelBuilder.Entity("PawConnect.Entities.DogSearchEmbedding", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<string>("ContentHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<int>("DogId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("EmbeddingJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("EmbeddingModel")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DogId")
+                        .IsUnique();
+
+                    b.HasIndex("UpdatedAt");
+
+                    b.ToTable("DogSearchEmbeddings");
+                });
+
             modelBuilder.Entity("PawConnect.Entities.DogImage", b =>
                 {
                     b.Property<int>("Id")
@@ -1022,6 +1065,10 @@ namespace PawConnect.Migrations
                         .HasMaxLength(120)
                         .HasColumnType("nvarchar(120)");
 
+                    b.Property<string>("Neighborhood")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
                     b.Property<string>("PhoneNumber")
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
@@ -1120,6 +1167,10 @@ namespace PawConnect.Migrations
 
                     b.Property<double?>("Longitude")
                         .HasColumnType("float");
+
+                    b.Property<string>("Neighborhood")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
 
                     b.Property<string>("OpeningHours")
                         .HasMaxLength(200)
@@ -1325,6 +1376,17 @@ namespace PawConnect.Migrations
                     b.Navigation("PreferredFoodType");
 
                     b.Navigation("Shelter");
+                });
+
+            modelBuilder.Entity("PawConnect.Entities.DogSearchEmbedding", b =>
+                {
+                    b.HasOne("PawConnect.Entities.Dog", "Dog")
+                        .WithOne()
+                        .HasForeignKey("PawConnect.Entities.DogSearchEmbedding", "DogId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Dog");
                 });
 
             modelBuilder.Entity("PawConnect.Entities.DogImage", b =>

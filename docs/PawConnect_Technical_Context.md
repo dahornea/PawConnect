@@ -24,7 +24,7 @@ The main user groups are:
 - **MudBlazor**: Main UI component library for layout, navigation, cards, tables, forms, dialogs, snackbars, chips, alerts, and icons.
 - **Leaflet**: Client-side JavaScript map library used to render read-only shelter maps inside Blazor pages.
 - **OpenStreetMap**: Public map tile provider used by the Leaflet shelter map integration. The map feature does not require a paid Google Maps API key.
-- **OpenStreetMap Nominatim**: Used through `NominatimGeocodingService` for manual address-to-coordinate lookup and explicit nearby text search. The app does not call it on every keystroke and does not use it for route planning. Optional browser geolocation is user-triggered and does not call Nominatim.
+- **OpenStreetMap Nominatim**: Used through `NominatimGeocodingService` for manual address-to-coordinate lookup, explicit nearby text search, and reverse-geocoding address details such as neighborhood/suburb/quarter/city district. The app does not call it on every keystroke and does not use it for route planning. Optional browser geolocation is user-triggered and does not call Nominatim.
 - **MailKit and MimeKit**: Used by `SmtpEmailService` for SMTP email sending with plain text bodies, branded HTML bodies, optional attachments, and raw MIME calendar invite parts.
 - **Generic SMTP / local SMTP catcher**: Email delivery can be configured through `EmailSettings`. Development can use a local SMTP catcher such as Mailpit or smtp4dev so emails are captured locally and are not delivered to real users.
 - **QuestPDF**: Used by `PdfReportService` and admin export logic to generate PDF reports for adoption requests, adoption status updates, low-stock resources, shelter registration requests, shelter summary reports, and formatted admin exports.
@@ -76,6 +76,7 @@ Adopter users can:
 - Add and remove favorite dogs.
 - View `/favorites`.
 - Track recently viewed public-safe dogs.
+- Use `/adopter/copilot` to ask natural-language dog search questions and receive real PawConnect dog suggestions.
 - Submit adoption requests for available or reserved dogs.
 - View and cancel their own pending adoption requests at `/my-adoption-requests`.
 - View private in-app notifications for adoption request updates.
@@ -122,10 +123,10 @@ Admin pages are protected with `[Authorize(Roles = "Admin")]`. Advanced role edi
 ### Public/Anonymous Features
 
 - **Home page**: Presents the platform, how adoption works, featured public dogs, and shelter-oriented features.
-- **Dog browsing**: Public users can browse dogs with public-safe statuses: `Available` and `Reserved`, see compact shelter name/city information on each dog card, use a compact Filter/Sort toolbar with active chips, filter the public dog list by shelter, and search for dogs near a manually entered city/address or optional browser-provided location using shelter coordinates.
-- **Dog recommendations**: Adopter users can open `/adopter/recommendations` and see explainable dog recommendations. The system uses deterministic rule-based scoring first and can optionally use OpenAI to re-rank/reword only the top public-safe candidates. OpenAI is disabled by default and rule-based recommendations remain the fallback.
+- **Dog browsing**: Public users can browse dogs with public-safe statuses: `Available` and `Reserved`, see compact shelter name/neighborhood/city information on each dog card, use a compact Filter/Sort toolbar with active chips, filter the public dog list by shelter or neighborhood, and search for dogs near a manually entered city/address or optional browser-provided location using shelter coordinates.
+- **Dog recommendations and Copilot**: Adopter users can open `/adopter/recommendations` for explainable recommendations or `/adopter/copilot` for natural-language searches such as "calm apartment dog near Cluj". The system uses deterministic rule-based scoring and public-safe dog retrieval first, then can optionally use OpenAI for re-ranking/explanation. OpenAI is disabled by default and fallback behavior remains available.
 - **Dog details**: Public users can view dog information, images, shelter information, medical summary, and food information where available.
-- **Shelter listing and details**: Public users can browse approved shelter cards with public contact/location information, public dog counts, a compact Filter/Sort toolbar with active chips, search by shelter name/city/address, and filter shelters near a manually entered city/address or optional browser-provided location. The listing includes a compact application CTA pointing to `/shelters/apply`, hidden for Admin and Shelter roles. Shelter details include address/city information and, when coordinates exist, a read-only Leaflet map using OpenStreetMap tiles. If coordinates are missing, the UI shows a friendly fallback message instead of a broken map. The Location card also includes an external "Open in Google Maps" link for easier navigation.
+- **Shelter listing and details**: Public users can browse approved shelter cards with public contact/location information, optional neighborhood, public dog counts, a compact Filter/Sort toolbar with active chips, search by shelter name/neighborhood/city/address, and filter shelters near a manually entered city/address or optional browser-provided location. The listing includes a compact application CTA pointing to `/shelters/apply`, hidden for Admin and Shelter roles. Shelter details include address/city/neighborhood information and, when coordinates exist, a read-only Leaflet map using OpenStreetMap tiles. If coordinates are missing, the UI shows a friendly fallback message instead of a broken map. The Location card also includes an external "Open in Google Maps" link for easier navigation.
 - **Success stories**: Public page showing adopted dogs, success story text, adoption dates, and shelter information.
 - **Authentication**: Users can register and log in through Identity account pages. New registrations are assigned the `Adopter` role by default in the register flow.
 - **Shelter applications**: Shelter representatives apply through `/shelters/apply`. Public registration remains adopter-only. Admin and Shelter users are not prompted to apply from public CTAs and cannot submit public shelter applications.
@@ -206,6 +207,7 @@ Important fields:
 - `Description`
 - `Address`
 - `City`
+- `Neighborhood`
 - `PhoneNumber`
 - `Email`
 - `Latitude`
@@ -220,6 +222,8 @@ Relationships:
 - One shelter can belong to one `ApplicationUser`.
 - One shelter has many `Dogs`.
 - One shelter has many `ResourceStocks`.
+
+`Neighborhood` is optional and stores a public-safe neighborhood/cartier such as Zorilor, Manastur, Marasti, Gheorgheni, Grigorescu, or Buna Ziua. It can be filled manually or from Nominatim reverse-geocoding address details (`neighbourhood`, `suburb`, `quarter`, `city_district`, or `district`) during explicit location actions.
 
 `Latitude` and `Longitude` are optional internal coordinate fields used by the public shelter details page to render a read-only map. Existing shelters can still work without coordinates; when either coordinate is missing, the UI shows a location-unavailable fallback instead of rendering a broken map. In the public shelter application form and normal admin shelter edit form, these raw numeric fields are hidden and are updated internally through address lookup, marker dragging, or map clicks. Marker movement does not overwrite address/city fields automatically.
 
@@ -237,6 +241,7 @@ Important fields:
 - `PhoneNumber`
 - `City`
 - `Address`
+- `Neighborhood`
 - `Description`
 - `Website`
 - `OpeningHours`
@@ -813,7 +818,7 @@ Shelter onboarding/geocoding organization:
 - `Components/Pages/ShelterApply.razor`: Public shelter application form at `/shelters/apply`.
 - `Components/Pages/Admin/AdminShelterRequests.razor`: Admin review page at `/admin/shelter-requests`.
 - `Services/ShelterRegistrationRequestService.cs`: Handles application submission, duplicate pending email checks, admin notifications, accept/reject workflow, and creating approved shelter accounts/profiles.
-- `Services/NominatimGeocodingService.cs`: Performs manual address-based coordinate lookup and lightweight nearby autocomplete suggestions through OpenStreetMap Nominatim.
+- `Services/NominatimGeocodingService.cs`: Performs manual address-based coordinate lookup, reverse-geocoding address suggestions/neighborhood details, and lightweight nearby autocomplete suggestions through OpenStreetMap Nominatim.
 - `Services/IGeocodingService.cs`: Interface used by public/admin forms and nearby text search so geocoding can be faked in tests.
 - `Services/BrowserLocationResult.cs`: Small DTO for one-shot browser geolocation JavaScript interop responses.
 - `Services/DistanceService.cs`: Calculates deterministic Haversine distances in kilometers for nearby dog/shelter filtering.
@@ -822,9 +827,24 @@ Dog recommendation organization:
 
 - `Services/IDogRecommendationService.cs` and `Services/DogRecommendationService.cs`: Build adopter-specific recommendations from adopter profile data, public-safe dog data, shelter city information, favorites, and recently viewed dog traits. Results include a normalized match percentage, match label, short summary, and categorized reasons.
 - `Services/IOpenAiRecommendationClient.cs` and `Services/OpenAiRecommendationClient.cs`: Optional OpenAI Responses API client used only for sanitized top-candidate re-ranking, short summaries, and reason/category refinement.
-- `Services/OpenAiSettings.cs`: Configuration model bound from `OpenAI` with `Enabled`, `ApiKey`, and `Model`. The default model is `gpt-5.4-mini`, and the feature is disabled by default.
+- `Services/OpenAiSettings.cs`: Configuration model bound from `OpenAI` with `Enabled`, `ApiKey`, `Model`, `ChatModel`, and `EmbeddingModel`. Chat/Copilot defaults to `gpt-5.4-mini`, embeddings default to `text-embedding-3-small`, and OpenAI is disabled by default.
 - `Components/Pages/Adopter/Recommendations.razor`: Adopter-only recommendations page showing match percentage, match labels, concise explanations, reason categories, status, shelter information, and links to dog details.
 - `Components/Pages/Adopter/AdopterDashboard.razor`: Shows a compact top-3 "Recommended for you" section with score and strongest reason.
+
+Semantic dog search and Copilot organization:
+
+- `Entities/DogSearchEmbedding.cs`: Stores one current search embedding per dog, including public-safe content, content hash, embedding JSON, embedding model, and update timestamp.
+- `Services/IDogSearchDocumentService.cs` and `Services/DogSearchDocumentService.cs`: Build public-safe dog search documents from dog name, breed, age, size, public description, behavior text, status, shelter name/neighborhood/city, location, and compact public-safe summaries. Sensitive adopter data, private shelter notes, emails, phone numbers, tokens, audit logs, and private request notes are excluded.
+- `Services/IEmbeddingService.cs` and `Services/OpenAiEmbeddingService.cs`: Generate embeddings with the configured OpenAI embedding model and provide deterministic cosine similarity. If OpenAI is disabled, missing a key, or fails, embedding generation returns a safe fallback result instead of breaking dog management.
+- `Services/IDogSearchEmbeddingService.cs` and `Services/DogSearchEmbeddingService.cs`: Refresh missing/all dog embeddings, skip unchanged content hashes, remove embeddings for dogs no longer public-searchable, and return searchable embedding rows with dog/shelter/image data.
+- `Services/ISemanticDogSearchService.cs` and `Services/SemanticDogSearchService.cs`: Handles natural-language search by generating a query embedding, comparing it with stored dog embeddings, applying hard public-safe dog and optional neighborhood filters, adding rule-based adopter profile bonuses, and falling back to keyword/rule-based search when embeddings are unavailable.
+- `Services/IAdoptionCopilotToolService.cs` and `Services/AdoptionCopilotToolService.cs`: Executes safe application tools for the Copilot, including `search_dogs`, sanitized adopter profile summary, aggregate favorite/recent preferences, and public dog details. The tools enforce public-safe dog statuses and never expose raw SQL, arbitrary user IDs, or private adopter/shelter fields.
+- `Services/IAdoptionCopilotService.cs` and `Services/AdoptionCopilotService.cs`: Orchestrates the tool-based Copilot flow, detects deterministic constraints such as "medium" or "in Zorilor", applies those constraints before AI ranking, executes app-owned tools requested by OpenAI, validates final dog IDs against tool-returned candidates, ignores unknown dog IDs, and returns dog cards backed by database records.
+- `Services/IOpenAiAdoptionCopilotClient.cs` and `Services/OpenAiAdoptionCopilotClient.cs`: Optional `gpt-5.4-mini` Responses API client using function calling/tools for short adopter-friendly Copilot messages and reasons. It defines JSON-schema tools, sends tool outputs back through `function_call_output` items, disables parallel tool calls for simpler orchestration, and logs only safe failure metadata.
+- `Components/Pages/Adopter/AdoptionCopilot.razor`: Adopter-only Copilot page with prompt input, suggested prompts, real dog cards, match labels/scores, reasons, favorite actions, and links to dog details.
+- `Components/Pages/Admin/AdminDogs.razor`: Includes an Admin-only "Rebuild Dog Search Index" action for refreshing dog search embeddings when OpenAI embeddings are configured.
+
+Dog search embeddings must be populated before true semantic search is active. The Admin-only rebuild flow checks safe OpenAI configuration metadata (`OpenAI:Enabled`, `OpenAI:EmbeddingModel`, and `HasApiKey` only), creates/updates embeddings for `Available` and `Reserved` dogs, removes stale embeddings for `Adopted` and `InTreatment` dogs, skips unchanged content hashes, and reports created/updated/unchanged/removed/failed counts. If OpenAI embeddings are disabled, missing an API key, or fail, the table may remain empty and Copilot/search continues through rule-based or keyword fallback without crashing.
 
 Scheduled report organization:
 
@@ -877,7 +897,7 @@ Notification organization:
 1. The user opens `/dogs`.
 2. `Dogs.razor` loads public dog data through `IDogService`.
 3. `DogService.GetAvailableDogsAsync` or `SearchDogsAsync` returns only dogs whose status is `Available` or `Reserved`.
-4. The page displays a compact Filter/Sort toolbar with active filter chips, shelter filtering, optional nearby radius filtering, sorting, dog cards with compact public-safe shelter name/city information, images/placeholders, status chips, distance labels when a nearby filter is active, and view details actions.
+4. The page displays a compact Filter/Sort toolbar with active filter chips, shelter and neighborhood filtering, optional nearby radius filtering, sorting, dog cards with compact public-safe shelter name/neighborhood/city information, images/placeholders, status chips, distance labels when a nearby filter is active, and view details actions.
 5. Clicking a dog image or View Details navigates to `/dogs/{id:int}`.
 6. `DogDetails.razor` loads detailed dog data through `GetDogDetailsAsync`, including shelter, images, medical records, and preferred food type.
 7. Public and non-adopter users see only view-safe dog information and login/register prompts where relevant.
@@ -911,6 +931,21 @@ Notification organization:
 9. OpenAI may re-rank and rewrite reasons only for provided candidate dog IDs. Unknown dog IDs are ignored, and OpenAI cannot add unavailable/private dogs.
 10. If the OpenAI call fails or returns invalid output, PawConnect logs a safe warning and returns rule-based recommendations.
 
+### Semantic Dog Search and Adoption Copilot Flow
+
+1. An adopter opens `/adopter/copilot` or follows the "Ask Copilot" entry point from `/dogs` or `/adopter/recommendations`.
+2. The user enters a natural-language request such as "friendly medium dog for a beginner" or "find me a dog in Zorilor".
+3. `AdoptionCopilotService` detects deterministic constraints such as explicit sizes and neighborhood phrases before any OpenAI call.
+4. If OpenAI is enabled and configured, `OpenAiAdoptionCopilotClient` sends the prompt to the Responses API with function tools. The model can request `search_dogs`, `get_adopter_profile_summary`, `get_favorite_and_recent_preferences`, or `get_dog_details_public`.
+5. PawConnect executes tool calls in application code. `search_dogs` applies hard filters before ranking: only `Available` and `Reserved` dogs are eligible, explicit size/neighborhood constraints must match exactly, and `Adopted` or `InTreatment` dogs are excluded.
+6. If OpenAI embeddings are enabled and indexed dog embeddings exist, tool ranking can reuse `SemanticDogSearchService`; otherwise it falls back to keyword/rule-based scoring.
+7. The sanitized tool outputs are returned to OpenAI through `function_call_output` items so the model can write a short final JSON response with dog IDs, labels, scores, and reasons.
+8. The final OpenAI response is validated against candidate dog IDs returned by PawConnect tools. Unknown IDs are ignored, and if no valid IDs remain PawConnect falls back to app-ranked tool results.
+9. If OpenAI is disabled, missing a key, or fails, Copilot still returns safe rule-based/keyword results.
+10. The request/tool DTOs exclude adopter full name, email, phone, exact address, additional notes, private notes, passwords, tokens, security fields, audit logs, SMTP credentials, and shelter internal notes.
+11. The page renders real database-backed dog cards with View Details and favorite actions, plus applied constraint chips. It never creates adoption requests automatically or makes final adoption decisions.
+12. If a user explicitly requests a neighborhood with no matching eligible dogs, the Copilot returns a friendly no-results message instead of silently substituting dogs from another neighborhood.
+
 ### Shelter Location Map Flow
 
 1. A shelter record may store optional `Latitude` and `Longitude` coordinates.
@@ -929,18 +964,18 @@ The public map is read-only. Address lookup and explicit address updates from th
 ### Shelter Registration Request Flow
 
 1. A public shelter representative opens `/shelters/apply`. Anonymous users can submit applications, and logged-in adopters may submit if they are acting as shelter representatives.
-2. The public application form collects shelter name, contact person, email, phone, city, address, description, and optional website/opening hours/reason.
+2. The public application form collects shelter name, contact person, email, phone, city, address, optional neighborhood, description, and optional website/opening hours/reason.
 3. Latitude and longitude are optional internal fields. The applicant may click "Find location" to run a manual Nominatim lookup from address + city + Romania.
 4. If Nominatim returns a result, the form fills `Latitude` and `Longitude` and the editable map marker moves to that location.
 5. If the marker needs adjustment, the user can drag the marker or click the map to update `Latitude` and `Longitude` internally. The public form shows friendly selected/missing location messages instead of raw coordinate values.
 6. Moving the marker does not automatically overwrite the address/city fields.
-7. After the user moves the marker or clicks the map, the app can perform a reverse lookup from the selected marker location and show a suggested address. The address/city fields are updated only when the user clicks "Update address from pin".
+7. After the user moves the marker or clicks the map, the app can perform a reverse lookup from the selected marker location and show a suggested address/neighborhood. The address/city fields are updated only when the user clicks "Update address from pin"; neighborhood can be auto-filled from the suggestion and still edited manually.
 8. If Nominatim fails, the user can submit without coordinates or set them with the map marker.
 9. `ShelterRegistrationRequestService.SubmitRequestAsync` validates the form, blocks Admin/Shelter users from submitting public applications, and blocks duplicate pending applications for the same email.
 10. The service saves a `ShelterRegistrationRequest` with `Pending` status before sending any email.
 11. The service attempts to notify admin users by email and attach `ShelterRegistrationRequest.pdf`. Email/PDF failure is logged and does not delete or cancel the request.
 12. Admins review applications at `/admin/shelter-requests`.
-13. Accepting a pending request is admin-only and creates an `ApplicationUser`, assigns the `Shelter` role, creates a linked `Shelter` profile, and copies optional coordinates when present.
+13. Accepting a pending request is admin-only and creates an `ApplicationUser`, assigns the `Shelter` role, creates a linked `Shelter` profile, and copies optional neighborhood/coordinates when present.
 14. Rejecting a pending request is admin-only, marks it as `Rejected`, and does not create a user or shelter profile.
 
 ### Adoption Request Flow
@@ -1552,7 +1587,7 @@ Current test coverage includes:
 - Duplicate shelter resource stock items blocked.
 - Food resources require a food type.
 - Clearing `FoodTypeId` for non-food resources.
-- Shelter registration request submission with optional coordinates.
+- Shelter registration request submission with optional neighborhood/coordinates.
 - Invalid shelter application latitude/longitude rejected when provided.
 - Duplicate pending shelter request emails blocked case-insensitively.
 - Existing shelter account/profile emails blocked for shelter applications.
@@ -1564,7 +1599,7 @@ Current test coverage includes:
 - Admin accept/reject shelter application behavior.
 - Blocking non-admin users from accepting or rejecting shelter applications.
 - Creating shelter users, assigning the `Shelter` role, and linked shelter profile creation after approval.
-- Nominatim geocoding response parsing and failure handling using fake HTTP responses.
+- Nominatim geocoding/reverse-geocoding response parsing, neighborhood extraction, and failure handling using fake HTTP responses.
 - Identity email sender behavior for password reset and account confirmation emails without sending real SMTP messages.
 - SMTP email delivery preserves branded HTML/plain text bodies, PDF/CSV attachments, and `text/calendar` invite parts without requiring real SMTP in automated tests.
 - PDF report generation returns non-empty bytes.
@@ -1598,6 +1633,7 @@ Current test coverage includes:
 - Notification records are created for selected adoption, shelter application, resource, and report events.
 - Notification unread counts, newest-first ordering, category filtering, and owner-only mark-as-read behavior are tested.
 - Dog recommendations exclude unavailable statuses, score same-city and housing/yard matches, normalize match percentages, categorize reasons, keep favorites/recent views as a smaller bonus, fall back when OpenAI is disabled/missing/failing, ignore unknown OpenAI dog IDs, map optional OpenAI summaries/categories, and verify sensitive adopter fields are not included in the sanitized OpenAI request DTO.
+- Semantic dog search and Copilot tests cover public-safe search document generation including neighborhood, embedding refresh hash skipping, cosine similarity ranking, unavailable dog exclusion, disabled/failing OpenAI fallback, profile-bonus ranking, embedding-backed ordering, tool-based public-safe dog search, deterministic size/neighborhood safeguards, explicit Copilot neighborhood constraints, Copilot unknown dog ID filtering, and sanitized Copilot request DTO privacy.
 - Integration-style service flows for public visibility, favorites/deletion, adoption notifications, dog image/age, resources, and fake PDF/email attachment behavior.
 
 The README documents running tests with:
