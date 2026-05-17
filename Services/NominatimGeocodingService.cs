@@ -147,6 +147,12 @@ public class NominatimGeocodingService(HttpClient httpClient, ILogger<NominatimG
                 result.Address?.Village,
                 result.Address?.Municipality,
                 result.Address?.County);
+            var neighborhood = FirstNonEmpty(
+                result.Address?.Neighbourhood,
+                result.Address?.Suburb,
+                result.Address?.Quarter,
+                result.Address?.CityDistrict,
+                result.Address?.District);
 
             return new ReverseGeocodingResult(
                 latitude,
@@ -154,7 +160,8 @@ public class NominatimGeocodingService(HttpClient httpClient, ILogger<NominatimG
                 result.DisplayName,
                 city,
                 result.Address?.Road,
-                result.Address?.HouseNumber);
+                result.Address?.HouseNumber,
+                neighborhood);
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
@@ -209,6 +216,21 @@ public class NominatimGeocodingService(HttpClient httpClient, ILogger<NominatimG
 
         [JsonPropertyName("county")]
         public string? County { get; set; }
+
+        [JsonPropertyName("neighbourhood")]
+        public string? Neighbourhood { get; set; }
+
+        [JsonPropertyName("suburb")]
+        public string? Suburb { get; set; }
+
+        [JsonPropertyName("quarter")]
+        public string? Quarter { get; set; }
+
+        [JsonPropertyName("city_district")]
+        public string? CityDistrict { get; set; }
+
+        [JsonPropertyName("district")]
+        public string? District { get; set; }
     }
 
     private static string? FirstNonEmpty(params string?[] values)

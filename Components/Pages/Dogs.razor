@@ -51,6 +51,15 @@
                             <MudMenuItem OnClick="@(() => SetSortAsync(DogSortOption.NearestFirst))">Nearest first</MudMenuItem>
                         }
                     </MudMenu>
+                    @if (_currentUserIsAdopter)
+                    {
+                        <MudButton Href="/adopter/copilot"
+                                   Variant="Variant.Outlined"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Assistant">
+                            Ask Copilot
+                        </MudButton>
+                    }
                     <MudSpacer />
                     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="result-count-text">@ResultCountText</MudText>
                     @if (HasActiveFilters)
@@ -119,6 +128,15 @@
                             @foreach (var location in _locations)
                             {
                                 <MudSelectItem Value="@location">@location</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12" sm="6" md="3">
+                        <MudSelect T="string" Label="Neighborhood" @bind-Value="_selectedNeighborhood" Variant="Variant.Outlined" Margin="Margin.Dense">
+                            <MudSelectItem Value="@string.Empty">All neighborhoods</MudSelectItem>
+                            @foreach (var neighborhood in _neighborhoods)
+                            {
+                                <MudSelectItem Value="@neighborhood">@neighborhood</MudSelectItem>
                             }
                         </MudSelect>
                     </MudItem>
@@ -337,6 +355,7 @@
     private List<PawConnect.Entities.Shelter> _shelters = [];
     private List<string> _breeds = [];
     private List<string> _locations = [];
+    private List<string> _neighborhoods = [];
     private Dictionary<int, double> _dogDistancesKm = [];
     private bool _isLoading = true;
     private bool _isFindingNearby;
@@ -358,6 +377,7 @@
     private int _selectedRadiusKm = 25;
     private string _selectedSize = string.Empty;
     private string _selectedLocation = string.Empty;
+    private string _selectedNeighborhood = string.Empty;
     private string _selectedStatus = string.Empty;
     private DogSortOption _sortOption = DogSortOption.NameAsc;
     private string? _currentUserId;
@@ -422,6 +442,13 @@
             _dogs = availableDogs;
             _breeds = availableDogs.Select(d => d.Breed).Distinct().OrderBy(b => b).ToList();
             _locations = availableDogs.Select(d => d.Location).Distinct().OrderBy(l => l).ToList();
+            _neighborhoods = availableDogs
+                .Select(d => d.Shelter?.Neighborhood)
+                .Where(neighborhood => !string.IsNullOrWhiteSpace(neighborhood))
+                .Select(neighborhood => neighborhood!)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(neighborhood => neighborhood)
+                .ToList();
             await LoadFavoriteStateAsync();
         }
         catch
@@ -453,7 +480,8 @@
                 EmptyToNull(_selectedLocation),
                 ParsePublicStatus(_selectedStatus),
                 serviceSortOption,
-                _selectedShelterId);
+                _selectedShelterId,
+                EmptyToNull(_selectedNeighborhood));
             _dogs = ApplyNearbyFilterAndSort(_dogs);
             await LoadFavoriteStateAsync();
         }
@@ -481,6 +509,7 @@
         _selectedShelterId = null;
         _selectedSize = string.Empty;
         _selectedLocation = string.Empty;
+        _selectedNeighborhood = string.Empty;
         _selectedStatus = string.Empty;
         _sortOption = DogSortOption.NameAsc;
         _nearbySearchTerm = null;
@@ -542,6 +571,11 @@
             chips.Add(new ActiveFilterChip($"Location: {ShortChipText(_selectedLocation)}", ClearLocationFilterAsync));
         }
 
+        if (!string.IsNullOrWhiteSpace(_selectedNeighborhood))
+        {
+            chips.Add(new ActiveFilterChip($"Neighborhood: {ShortChipText(_selectedNeighborhood)}", ClearNeighborhoodFilterAsync));
+        }
+
         if (!string.IsNullOrWhiteSpace(_selectedStatus))
         {
             chips.Add(new ActiveFilterChip($"Status: {_selectedStatus}", ClearStatusFilterAsync));
@@ -588,6 +622,12 @@
     private async Task ClearLocationFilterAsync()
     {
         _selectedLocation = string.Empty;
+        await ApplyFiltersAsync();
+    }
+
+    private async Task ClearNeighborhoodFilterAsync()
+    {
+        _selectedNeighborhood = string.Empty;
         await ApplyFiltersAsync();
     }
 
@@ -929,13 +969,20 @@
     private static string? GetShelterLine(Dog dog)
     {
         var shelterName = dog.Shelter?.Name?.Trim();
+        var shelterNeighborhood = dog.Shelter?.Neighborhood?.Trim();
         var shelterCity = dog.Shelter?.City?.Trim();
+        var shelterLocation = string.Join(", ", new[] { shelterNeighborhood, shelterCity }
+            .Where(value => !string.IsNullOrWhiteSpace(value)));
 
-        return (string.IsNullOrWhiteSpace(shelterName), string.IsNullOrWhiteSpace(shelterCity)) switch
+        if (!string.IsNullOrWhiteSpace(shelterName) && !string.IsNullOrWhiteSpace(shelterLocation))
         {
-            (false, false) => $"{shelterName} · {shelterCity}",
+            return $"{shelterName} · {shelterLocation}";
+        }
+
+        return (string.IsNullOrWhiteSpace(shelterName), string.IsNullOrWhiteSpace(shelterLocation)) switch
+        {
             (false, true) => shelterName,
-            (true, false) => shelterCity,
+            (true, false) => shelterLocation,
             _ => null
         };
     }

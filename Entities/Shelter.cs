@@ -19,6 +19,9 @@ public class Shelter
     [Required, StringLength(80)]
     public string City { get; set; } = string.Empty;
 
+    [StringLength(80)]
+    public string? Neighborhood { get; set; }
+
     [Phone, StringLength(30)]
     public string? PhoneNumber { get; set; }
 

@@ -84,6 +84,17 @@ public class ShelterRegistrationRequestServiceTests
     }
 
     [Fact]
+    public async Task SubmitRequestAsync_StoresOptionalNeighborhood()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        var service = CreateService(context);
+
+        var request = await service.SubmitRequestAsync(CreateRequest(neighborhood: " Zorilor "));
+
+        Assert.Equal("Zorilor", request.Neighborhood);
+    }
+
+    [Fact]
     public async Task SubmitRequestAsync_SendsAdminEmailWithPdfAttachment()
     {
         await using var context = TestDbContextFactory.CreateContext();
@@ -154,6 +165,7 @@ public class ShelterRegistrationRequestServiceTests
         Assert.Equal(user!.Id, shelter.ApplicationUserId);
         Assert.Equal(46.75, shelter.Latitude);
         Assert.Equal(23.6, shelter.Longitude);
+        Assert.Equal("Buna Ziua", shelter.Neighborhood);
         Assert.Equal(ShelterRegistrationRequestStatus.Accepted, context.ShelterRegistrationRequests.Single(r => r.Id == request.Id).Status);
     }
 
@@ -229,7 +241,8 @@ public class ShelterRegistrationRequestServiceTests
         double? latitude = 46.75,
         double? longitude = 23.6,
         string email = "new-shelter@example.test",
-        string address = "Strada Test 10")
+        string address = "Strada Test 10",
+        string? neighborhood = "Buna Ziua")
     {
         return new ShelterRegistrationRequest
         {
@@ -238,6 +251,7 @@ public class ShelterRegistrationRequestServiceTests
             Email = email,
             PhoneNumber = "+40 700 000 005",
             City = "Cluj-Napoca",
+            Neighborhood = neighborhood,
             Address = address,
             Description = "A demo shelter application for testing.",
             Website = "https://example.test",

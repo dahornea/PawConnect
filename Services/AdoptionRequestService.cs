@@ -13,7 +13,8 @@ public class AdoptionRequestService(
     UserManager<ApplicationUser> userManager,
     INotificationService? notificationService = null,
     IAuditLogService? auditLogService = null,
-    IReportHistoryService? reportHistoryService = null) : IAdoptionRequestService
+    IReportHistoryService? reportHistoryService = null,
+    IDogSearchEmbeddingService? dogSearchEmbeddingService = null) : IAdoptionRequestService
 {
     public Task<List<AdoptionRequest>> GetAllAsync()
     {
@@ -263,6 +264,7 @@ public class AdoptionRequestService(
         }
 
         await context.SaveChangesAsync();
+        await RefreshDogSearchEmbeddingBestEffortAsync(request.Dog.Id);
         await LogAsync(
             AuditActions.VisitConfirmed,
             "AdoptionRequest",
@@ -341,6 +343,7 @@ public class AdoptionRequestService(
         }
 
         await context.SaveChangesAsync();
+        await RefreshDogSearchEmbeddingBestEffortAsync(request.Dog.Id);
         await LogAsync(
             AuditActions.VisitCompleted,
             "AdoptionRequest",
@@ -405,6 +408,10 @@ public class AdoptionRequestService(
         }
 
         await context.SaveChangesAsync();
+        if (request.Dog is not null)
+        {
+            await RefreshDogSearchEmbeddingBestEffortAsync(request.Dog.Id);
+        }
         await LogAsync(
             AuditActions.AdoptionRequestRejected,
             "AdoptionRequest",
@@ -840,5 +847,22 @@ public class AdoptionRequestService(
             link,
             relatedEntityName,
             relatedEntityId) ?? Task.CompletedTask;
+    }
+
+    private async Task RefreshDogSearchEmbeddingBestEffortAsync(int dogId)
+    {
+        if (dogSearchEmbeddingService is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await dogSearchEmbeddingService.RefreshDogEmbeddingAsync(dogId);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Dog search embedding refresh failed after adoption request status change for DogId {DogId}.", dogId);
+        }
     }
 }

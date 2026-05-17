@@ -11,6 +11,10 @@
                 <MudText Typo="Typo.body2"><strong>Email:</strong> @Request.Email</MudText>
                 <MudText Typo="Typo.body2"><strong>Phone:</strong> @Request.PhoneNumber</MudText>
                 <MudText Typo="Typo.body2"><strong>Address:</strong> @Request.Address, @Request.City</MudText>
+                @if (!string.IsNullOrWhiteSpace(Request.Neighborhood))
+                {
+                    <MudText Typo="Typo.body2"><strong>Neighborhood:</strong> @Request.Neighborhood</MudText>
+                }
                 <MudText Typo="Typo.body2"><strong>Description:</strong> @Request.Description</MudText>
                 @if (!string.IsNullOrWhiteSpace(Request.Website))
                 {

@@ -46,6 +46,10 @@
                             <MudDivider />
                             <MudText Typo="Typo.body2"><strong>Address:</strong> @_shelter.Address</MudText>
                             <MudText Typo="Typo.body2"><strong>City:</strong> @_shelter.City</MudText>
+                            @if (!string.IsNullOrWhiteSpace(_shelter.Neighborhood))
+                            {
+                                <MudText Typo="Typo.body2"><strong>Neighborhood:</strong> @_shelter.Neighborhood</MudText>
+                            }
                             @if (!string.IsNullOrWhiteSpace(_shelter.PhoneNumber))
                             {
                                 <MudText Typo="Typo.body2"><strong>Phone:</strong> @_shelter.PhoneNumber</MudText>

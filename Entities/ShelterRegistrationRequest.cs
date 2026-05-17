@@ -22,6 +22,9 @@ public class ShelterRegistrationRequest
     [Required, StringLength(80)]
     public string City { get; set; } = string.Empty;
 
+    [StringLength(80)]
+    public string? Neighborhood { get; set; }
+
     [Required, StringLength(160)]
     public string Address { get; set; } = string.Empty;
 

@@ -15,7 +15,8 @@ public sealed record ReverseGeocodingResult(
     string DisplayName,
     string? City,
     string? Road,
-    string? HouseNumber)
+    string? HouseNumber,
+    string? Neighborhood)
 {
     public string? SuggestedAddress
     {

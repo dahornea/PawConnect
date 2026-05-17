@@ -153,6 +153,7 @@ public static class IdentitySeedData
             Description = "Fictional demo shelter used for PawConnect development and presentation data.",
             Address = "Strada Observatorului 12",
             City = "Cluj-Napoca",
+            Neighborhood = "Zorilor",
             PhoneNumber = "+40 700 000 001",
             Email = "u8878233525@id.gle",
             Latitude = 46.7556,
@@ -176,12 +177,12 @@ public static class IdentitySeedData
                 Age = 3,
                 AgeYears = 3,
                 Size = DogSize.Medium,
-                Location = "Bucharest",
+                Location = "Cluj-Napoca",
                 Status = DogStatus.Available,
                 PreferredFoodTypeId = AdultDryFoodTypeId,
                 DailyFoodAmountGrams = 350,
-                Description = "Friendly and playful dog looking for an active family.",
-                BehaviorDescription = "Energetic, social, and good on walks.",
+                Description = "Max is a lively dog who enjoys longer walks and games that let him use his energy. He likes exploring open areas and would do best with an adopter who enjoys regular outdoor time. After activity, he settles well with people he knows, especially when his day has included a clear routine.",
+                BehaviorDescription = "Playful and social with familiar volunteers. He responds well to praise, training games, and structured walks. Fast-moving cats or smaller animals can hold his attention too much.",
                 MedicalStatus = "Vaccinated and dewormed.",
                 Images = [new DogImage { ImageUrl = "https://placedog.net/800/500?id=11", IsMainImage = true }],
                 MedicalRecords =
@@ -201,13 +202,13 @@ public static class IdentitySeedData
                 Breed = "Labrador Mix",
                 Age = 5,
                 AgeYears = 5,
-                Size = DogSize.Large,
-                Location = "Bucharest",
+                Size = DogSize.Medium,
+                Location = "Cluj-Napoca",
                 Status = DogStatus.Reserved,
                 PreferredFoodTypeId = SeniorFoodTypeId,
-                DailyFoodAmountGrams = 420,
-                Description = "Calm, affectionate, and good with people.",
-                BehaviorDescription = "Gentle and patient.",
+                DailyFoodAmountGrams = 320,
+                Description = "Bella enjoys slow walks and settles down quickly after exploring. She likes staying close to people without demanding constant activity. A predictable routine and relaxed evenings suit her well, even in a smaller home.",
+                BehaviorDescription = "Gentle and patient during handling. She is friendly with familiar people and prefers quiet routines with soft attention. Calm dogs are easier for her than pushy playmates.",
                 MedicalStatus = "Healthy.",
                 Images = [new DogImage { ImageUrl = "https://placedog.net/800/500?id=22", IsMainImage = true }]
             },
@@ -222,8 +223,8 @@ public static class IdentitySeedData
                 Status = DogStatus.InTreatment,
                 PreferredFoodTypeId = MedicalDietFoodTypeId,
                 DailyFoodAmountGrams = 180,
-                Description = "Young dog currently receiving basic medical care.",
-                BehaviorDescription = "Curious but shy around new people.",
+                Description = "Luna is a young dog currently receiving basic medical care. She can be cautious in new places but relaxes when routines are predictable. Her profile is kept in the demo data to test that dogs in treatment stay out of public adopter searches.",
+                BehaviorDescription = "Curious but shy around new people. She needs calm introductions and patient handling.",
                 MedicalStatus = "Under treatment for a minor skin condition.",
                 MedicalRecords =
                 [
@@ -242,12 +243,12 @@ public static class IdentitySeedData
                 Age = 4,
                 AgeYears = 4,
                 Size = DogSize.Large,
-                Location = "Brasov",
+                Location = "Cluj-Napoca",
                 Status = DogStatus.Available,
                 PreferredFoodTypeId = AdultDryFoodTypeId,
                 DailyFoodAmountGrams = 500,
-                Description = "Loyal dog suitable for an experienced adopter.",
-                BehaviorDescription = "Protective, smart, and active.",
+                Description = "Rocky enjoys training games, brisk walks, and chances to stretch his legs outside. He would benefit from space to run and an adopter who likes working with smart, energetic dogs. He bonds strongly once he understands the routine, but a very quiet flat would not be his best match.",
+                BehaviorDescription = "Alert, clever, and motivated by structured activity. He is better suited to an experienced adopter who can offer consistent outdoor play. He can be too intense for shy dogs or very noisy young children.",
                 MedicalStatus = "Vaccinated.",
                 Images = [new DogImage { ImageUrl = "https://placedog.net/800/500?id=33", IsMainImage = true }]
             },
@@ -258,12 +259,12 @@ public static class IdentitySeedData
                 Age = 2,
                 AgeYears = 2,
                 Size = DogSize.Medium,
-                Location = "Sibiu",
+                Location = "Cluj-Napoca",
                 Status = DogStatus.Available,
                 PreferredFoodTypeId = AdultDryFoodTypeId,
                 DailyFoodAmountGrams = 340,
-                Description = "Bright and affectionate dog who enjoys walks, training, and gentle play.",
-                BehaviorDescription = "Smart, attentive, and eager to bond with people.",
+                Description = "Nala enjoys short daily walks, gentle play, and indoor rest after she has had time with people. She approaches visitors with curiosity and a wagging tail, then settles close by. Her medium size and steady routine make her easy to imagine in a quieter home or a calm family setting.",
+                BehaviorDescription = "Friendly and attentive around people. She has done well around older children during supervised visits and responds well to positive handling.",
                 MedicalStatus = "Vaccinated and healthy.",
                 Images = [new DogImage { ImageUrl = "https://placedog.net/800/500?id=66", IsMainImage = true }]
             },
@@ -278,8 +279,8 @@ public static class IdentitySeedData
                 Status = DogStatus.Adopted,
                 PreferredFoodTypeId = WetFoodTypeId,
                 DailyFoodAmountGrams = 300,
-                Description = "Cheerful dog used as an adopted example in demo data.",
-                BehaviorDescription = "Playful and food motivated.",
+                Description = "Milo is a cheerful dog used as an adopted example in demo data. He enjoys puzzle toys and food games, but he should no longer appear in adopter-facing search results. His record helps verify that adopted dogs remain hidden from Copilot suggestions.",
+                BehaviorDescription = "Playful and food motivated with people he knows.",
                 MedicalStatus = "Healthy.",
                 AdoptedAt = new DateTime(2026, 4, 20, 0, 0, 0, DateTimeKind.Utc),
                 SuccessStoryText = "Milo found a patient family who loves long walks and training games.",
@@ -303,6 +304,7 @@ public static class IdentitySeedData
                 Description = "Fictional demo rescue profile for map and listing demonstrations.",
                 Address = "Strada Fabricii 45",
                 City = "Cluj-Napoca",
+                Neighborhood = "Marasti",
                 PhoneNumber = "+40 700 000 002",
                 Email = "hope-tails@example.test",
                 Latitude = 46.7842,
@@ -321,6 +323,7 @@ public static class IdentitySeedData
                 Description = "Fictional demo shelter profile with an approximate Cluj-Napoca marker.",
                 Address = "Strada Buna Ziua 22",
                 City = "Cluj-Napoca",
+                Neighborhood = "Buna Ziua",
                 PhoneNumber = "+40 700 000 003",
                 Email = "safe-haven@example.test",
                 Latitude = 46.7509,
@@ -339,6 +342,7 @@ public static class IdentitySeedData
                 Description = "Fictional demo shelter profile for public shelter map testing.",
                 Address = "Strada Donath 60",
                 City = "Cluj-Napoca",
+                Neighborhood = "Grigorescu",
                 PhoneNumber = "+40 700 000 004",
                 Email = "green-yard@example.test",
                 Latitude = 46.7719,
@@ -351,6 +355,7 @@ public static class IdentitySeedData
                 VisitsAllowedThursday = true,
                 VisitsAllowedFriday = true
             });
+        await EnsureAdditionalDemoDogsAsync(context);
         await context.SaveChangesAsync();
     }
 
@@ -391,6 +396,7 @@ public static class IdentitySeedData
             shelter.Description = "Fictional demo shelter used for PawConnect development and presentation data.";
             shelter.Address = "Strada Observatorului 12";
             shelter.City = "Cluj-Napoca";
+            shelter.Neighborhood = "Zorilor";
             shelter.PhoneNumber = "+40 700 000 001";
             shelter.Email = "u8878233525@id.gle";
             shelter.Latitude = 46.7556;
@@ -402,6 +408,7 @@ public static class IdentitySeedData
                 "Hope Tails Rescue",
                 "Fictional demo rescue profile for map and listing demonstrations.",
                 "Strada Fabricii 45",
+                "Marasti",
                 "+40 700 000 002",
                 "hope-tails@example.test",
                 46.7842,
@@ -412,6 +419,7 @@ public static class IdentitySeedData
                 "Safe Haven Dogs",
                 "Fictional demo shelter profile with an approximate Cluj-Napoca marker.",
                 "Strada Buna Ziua 22",
+                "Buna Ziua",
                 "+40 700 000 003",
                 "safe-haven@example.test",
                 46.7509,
@@ -422,6 +430,7 @@ public static class IdentitySeedData
                 "Green Yard Shelter",
                 "Fictional demo shelter profile for public shelter map testing.",
                 "Strada Donath 60",
+                "Grigorescu",
                 "+40 700 000 004",
                 "green-yard@example.test",
                 46.7719,
@@ -450,6 +459,7 @@ public static class IdentitySeedData
             }
 
             await UpdateDemoDogImagesAsync(context, dog);
+            ApplyDemoDogSearchText(dog);
 
             if (dog.PreferredFoodTypeId is not null)
             {
@@ -495,8 +505,8 @@ public static class IdentitySeedData
                     Status = DogStatus.Adopted,
                     PreferredFoodTypeId = AdultDryFoodTypeId,
                     DailyFoodAmountGrams = 360,
-                    Description = "Gentle and social dog who quickly became a favorite with volunteers.",
-                    BehaviorDescription = "Friendly, calm, and comfortable around children.",
+                    Description = "Daisy quickly became a favorite with volunteers because she enjoys gentle attention and predictable routines. She has done well around older children during supervised visits. Her adopted record helps keep success stories visible without affecting public search results.",
+                    BehaviorDescription = "Friendly and relaxed with familiar people. She is comfortable around children who approach calmly.",
                     MedicalStatus = "Vaccinated and healthy.",
                     AdoptedAt = new DateTime(2026, 4, 28, 0, 0, 0, DateTimeKind.Utc),
                     SuccessStoryText = "Daisy was adopted by a family who first met her through PawConnect and followed up with the shelter the same week.",
@@ -514,19 +524,245 @@ public static class IdentitySeedData
                     Age = 2,
                     AgeYears = 2,
                     Size = DogSize.Medium,
-                    Location = "Sibiu",
+                    Location = "Cluj-Napoca",
                     Status = DogStatus.Available,
                     PreferredFoodTypeId = AdultDryFoodTypeId,
                     DailyFoodAmountGrams = 340,
-                    Description = "Bright and affectionate dog who enjoys walks, training, and gentle play.",
-                    BehaviorDescription = "Smart, attentive, and eager to bond with people.",
+                    Description = "Nala enjoys short daily walks, gentle play, and indoor rest after she has had time with people. She approaches visitors with curiosity and a wagging tail, then settles close by. Her medium size and steady routine make her easy to imagine in a quieter home or a calm family setting.",
+                    BehaviorDescription = "Friendly and attentive around people. She has done well around older children during supervised visits and responds well to positive handling.",
                     MedicalStatus = "Vaccinated and healthy.",
                     Images = [new DogImage { ImageUrl = "https://placedog.net/800/500?id=66", IsMainImage = true }]
                 });
             }
+
+            await EnsureAdditionalDemoDogsAsync(context);
         }
 
         await context.SaveChangesAsync();
+    }
+
+    private static void ApplyDemoDogSearchText(Dog dog)
+    {
+        switch (dog.Name)
+        {
+            case "Max":
+                dog.Size = DogSize.Medium;
+                dog.Location = "Cluj-Napoca";
+                dog.Description = "Max is a lively dog who enjoys longer walks and games that let him use his energy. He likes exploring open areas and would do best with an adopter who enjoys regular outdoor time. After activity, he settles well with people he knows, especially when his day has included a clear routine.";
+                dog.BehaviorDescription = "Playful and social with familiar volunteers. He responds well to praise, training games, and structured walks. Fast-moving cats or smaller animals can hold his attention too much.";
+                break;
+            case "Bella":
+                dog.Size = DogSize.Medium;
+                dog.Location = "Cluj-Napoca";
+                dog.Description = "Bella enjoys slow walks and settles down quickly after exploring. She likes staying close to people without demanding constant activity. A predictable routine and relaxed evenings suit her well, even in a smaller home.";
+                dog.BehaviorDescription = "Gentle and patient during handling. She is friendly with familiar people and prefers quiet routines with soft attention. Calm dogs are easier for her than pushy playmates.";
+                break;
+            case "Rocky":
+                dog.Size = DogSize.Large;
+                dog.Location = "Cluj-Napoca";
+                dog.Description = "Rocky enjoys training games, brisk walks, and chances to stretch his legs outside. He would benefit from space to run and an adopter who likes working with smart, energetic dogs. He bonds strongly once he understands the routine, but a very quiet flat would not be his best match.";
+                dog.BehaviorDescription = "Alert, clever, and motivated by structured activity. He is better suited to an experienced adopter who can offer consistent outdoor play. He can be too intense for shy dogs or very noisy young children.";
+                break;
+            case "Nala":
+                dog.Size = DogSize.Medium;
+                dog.Location = "Cluj-Napoca";
+                dog.Description = "Nala enjoys short daily walks, gentle play, and indoor rest after she has had time with people. She approaches visitors with curiosity and a wagging tail, then settles close by. Her medium size and steady routine make her easy to imagine in a quieter home or a calm family setting.";
+                dog.BehaviorDescription = "Friendly and attentive around people. She has done well around older children during supervised visits and responds well to positive handling.";
+                break;
+            case "Luna":
+                dog.Description = "Luna is a young dog currently receiving basic medical care. She can be cautious in new places but relaxes when routines are predictable. Her profile is kept in the demo data to test that dogs in treatment stay out of public adopter searches.";
+                dog.BehaviorDescription = "Curious but shy around new people. She needs calm introductions and patient handling.";
+                break;
+            case "Milo":
+                dog.Description = "Milo is a cheerful dog used as an adopted example in demo data. He enjoys puzzle toys and food games, but he should no longer appear in adopter-facing search results. His record helps verify that adopted dogs remain hidden from Copilot suggestions.";
+                dog.BehaviorDescription = "Playful and food motivated with people he knows.";
+                break;
+            case "Toby":
+                dog.Size = DogSize.Small;
+                dog.Location = "Cluj-Napoca";
+                dog.Description = "Toby is a small dog from Buna Ziua who likes leash walks and quiet indoor rest. He enjoys gentle interaction but needs a little time before fully relaxing with new people. He may suit someone looking for a softer companion outside the busiest parts of the city.";
+                dog.BehaviorDescription = "Friendly once introduced slowly. He is more comfortable with calm dogs than very energetic ones.";
+                break;
+            case "Mira":
+                dog.Size = DogSize.Small;
+                dog.Location = "Cluj-Napoca";
+                dog.Description = "Mira is a small dog from Marasti who enjoys short neighborhood walks and quiet evenings indoors. During feeding time she has passed the shelter cats calmly, then returned her attention to the handler. She settles near familiar people when the daily rhythm is predictable.";
+                dog.BehaviorDescription = "Gentle handling suits her well. She walks politely beside familiar calm dogs and takes guidance easily.";
+                break;
+            case "Bruno":
+                dog.Size = DogSize.Large;
+                dog.Location = "Cluj-Napoca";
+                dog.Description = "Bruno likes longer walks, fetch, and training games that give him a job to do. He would benefit from regular outdoor play and enough room to run before settling. Fast-moving small animals hold his attention too much for homes with cats.";
+                dog.BehaviorDescription = "He enjoys sturdy, playful dogs after a proper introduction. Noisy, chaotic play with very young children may be too much for him.";
+                break;
+            case "Sasha":
+                dog.Size = DogSize.Medium;
+                dog.Location = "Cluj-Napoca";
+                dog.Description = "Sasha watches new people carefully before approaching, then relaxes when the routine becomes familiar. She notices cats and smaller animals but can be redirected with treats and a calm voice. A patient adopter would see more of her playful side over time.";
+                dog.BehaviorDescription = "She prefers steady dogs over bouncy playmates and needs slow introductions. Quiet encouragement works better than pressure.";
+                break;
+            case "Lili":
+                dog.Size = DogSize.Small;
+                dog.Location = "Cluj-Napoca";
+                dog.Description = "Lili enjoys short walks, soft praise, and resting close to people in the evening. She has stayed relaxed during supervised visits with older children when playtime was guided. Her predictable habits make her a useful demo match for smaller homes.";
+                dog.BehaviorDescription = "She takes treats gently and responds well to routine. Pushy dogs can make her retreat, so introductions should stay calm.";
+                break;
+            case "Rex":
+                dog.Size = DogSize.Large;
+                dog.Location = "Cluj-Napoca";
+                dog.Description = "Rex is happiest when he has a chance to move, sniff, and work through training games. He needs regular outdoor play and space to run before he can fully settle. Quick cats or small animals are likely too exciting for him.";
+                dog.BehaviorDescription = "He can overwhelm shy dogs and does best with confident handling. He is a weaker fit for quiet flats or very low-activity homes.";
+                break;
+            case "Oscar":
+                dog.Size = DogSize.Medium;
+                dog.Location = "Cluj-Napoca";
+                dog.Description = "Oscar greets familiar volunteers with a loose body and a wagging tail. He enjoys play sessions with steady dogs and settles after a medium walk. He could fit an adopter who wants a sociable companion without extreme activity needs.";
+                dog.BehaviorDescription = "He likes playful dogs that respect pauses. He is easy to redirect with praise and simple cues.";
+                break;
+        }
+    }
+
+    private static async Task EnsureAdditionalDemoDogsAsync(ApplicationDbContext context)
+    {
+        await EnsureDemoDogAsync(context, "Safe Haven Dogs", new Dog
+        {
+            Name = "Toby",
+            Breed = "Poodle Mix",
+            Age = 2,
+            AgeYears = 2,
+            Size = DogSize.Small,
+            Location = "Cluj-Napoca",
+            Status = DogStatus.Available,
+            PreferredFoodTypeId = AdultDryFoodTypeId,
+            DailyFoodAmountGrams = 190,
+            MedicalStatus = "Vaccinated and healthy.",
+            Images = [new DogImage { ImageUrl = "https://placedog.net/800/500?id=77", IsMainImage = true }]
+        });
+
+        await EnsureDemoDogAsync(context, "Hope Tails Rescue", new Dog
+        {
+            Name = "Mira",
+            Breed = "Bichon Mix",
+            Age = 3,
+            AgeYears = 3,
+            Size = DogSize.Small,
+            Location = "Cluj-Napoca",
+            Status = DogStatus.Available,
+            PreferredFoodTypeId = AdultDryFoodTypeId,
+            DailyFoodAmountGrams = 180,
+            MedicalStatus = "Vaccinated and healthy.",
+            Images = [new DogImage { ImageUrl = "https://placedog.net/800/500?id=88", IsMainImage = true }]
+        });
+
+        await EnsureDemoDogAsync(context, "Green Yard Shelter", new Dog
+        {
+            Name = "Bruno",
+            Breed = "Labrador Shepherd Mix",
+            Age = 4,
+            AgeYears = 4,
+            Size = DogSize.Large,
+            Location = "Cluj-Napoca",
+            Status = DogStatus.Available,
+            PreferredFoodTypeId = AdultDryFoodTypeId,
+            DailyFoodAmountGrams = 520,
+            MedicalStatus = "Vaccinated and healthy.",
+            Images = [new DogImage { ImageUrl = "https://placedog.net/800/500?id=89", IsMainImage = true }]
+        });
+
+        await EnsureDemoDogAsync(context, "Hope Tails Rescue", new Dog
+        {
+            Name = "Sasha",
+            Breed = "Spaniel Mix",
+            Age = 2,
+            AgeYears = 2,
+            Size = DogSize.Medium,
+            Location = "Cluj-Napoca",
+            Status = DogStatus.Reserved,
+            PreferredFoodTypeId = AdultDryFoodTypeId,
+            DailyFoodAmountGrams = 280,
+            MedicalStatus = "Vaccinated and healthy.",
+            Images = [new DogImage { ImageUrl = "https://placedog.net/800/500?id=90", IsMainImage = true }]
+        });
+
+        await EnsureDemoDogAsync(context, "Safe Haven Dogs", new Dog
+        {
+            Name = "Lili",
+            Breed = "Corgi Mix",
+            Age = 5,
+            AgeYears = 5,
+            Size = DogSize.Small,
+            Location = "Cluj-Napoca",
+            Status = DogStatus.Available,
+            PreferredFoodTypeId = SeniorFoodTypeId,
+            DailyFoodAmountGrams = 220,
+            MedicalStatus = "Vaccinated and healthy.",
+            Images = [new DogImage { ImageUrl = "https://placedog.net/800/500?id=91", IsMainImage = true }]
+        });
+
+        await EnsureDemoDogAsync(context, "Green Yard Shelter", new Dog
+        {
+            Name = "Rex",
+            Breed = "Husky Mix",
+            Age = 3,
+            AgeYears = 3,
+            Size = DogSize.Large,
+            Location = "Cluj-Napoca",
+            Status = DogStatus.Available,
+            PreferredFoodTypeId = AdultDryFoodTypeId,
+            DailyFoodAmountGrams = 540,
+            MedicalStatus = "Vaccinated and healthy.",
+            Images = [new DogImage { ImageUrl = "https://placedog.net/800/500?id=92", IsMainImage = true }]
+        });
+
+        await EnsureDemoDogAsync(context, "Hope Tails Rescue", new Dog
+        {
+            Name = "Oscar",
+            Breed = "Setter Mix",
+            Age = 2,
+            AgeYears = 2,
+            Size = DogSize.Medium,
+            Location = "Cluj-Napoca",
+            Status = DogStatus.Available,
+            PreferredFoodTypeId = AdultDryFoodTypeId,
+            DailyFoodAmountGrams = 310,
+            MedicalStatus = "Vaccinated and healthy.",
+            Images = [new DogImage { ImageUrl = "https://placedog.net/800/500?id=93", IsMainImage = true }]
+        });
+    }
+
+    private static async Task EnsureDemoDogAsync(ApplicationDbContext context, string shelterName, Dog demoDog)
+    {
+        var shelter = context.Shelters.Local.FirstOrDefault(s => s.Name == shelterName) ??
+            await context.Shelters.FirstOrDefaultAsync(s => s.Name == shelterName);
+
+        if (shelter is null)
+        {
+            return;
+        }
+
+        var existingDog = await context.Dogs.FirstOrDefaultAsync(d => d.Name == demoDog.Name);
+        if (existingDog is null)
+        {
+            demoDog.Shelter = shelter;
+            ApplyDemoDogSearchText(demoDog);
+            context.Dogs.Add(demoDog);
+            return;
+        }
+
+        existingDog.Shelter = shelter;
+        existingDog.ShelterId = shelter.Id;
+        existingDog.Breed = demoDog.Breed;
+        existingDog.Age = demoDog.Age;
+        existingDog.AgeYears = demoDog.AgeYears;
+        existingDog.AgeMonths = demoDog.AgeMonths;
+        existingDog.Size = demoDog.Size;
+        existingDog.Location = demoDog.Location;
+        existingDog.Status = demoDog.Status;
+        existingDog.PreferredFoodTypeId = demoDog.PreferredFoodTypeId;
+        existingDog.DailyFoodAmountGrams = demoDog.DailyFoodAmountGrams;
+        existingDog.MedicalStatus = demoDog.MedicalStatus;
+        ApplyDemoDogSearchText(existingDog);
+        await UpdateDemoDogImagesAsync(context, existingDog);
     }
 
     private static async Task EnsureDemoShelterAsync(
@@ -534,6 +770,7 @@ public static class IdentitySeedData
         string name,
         string description,
         string address,
+        string neighborhood,
         string phoneNumber,
         string email,
         double latitude,
@@ -548,6 +785,7 @@ public static class IdentitySeedData
                 Description = description,
                 Address = address,
                 City = "Cluj-Napoca",
+                Neighborhood = neighborhood,
                 PhoneNumber = phoneNumber,
                 Email = email,
                 Latitude = latitude,
@@ -561,6 +799,7 @@ public static class IdentitySeedData
         shelter.Description = description;
         shelter.Address = address;
         shelter.City = "Cluj-Napoca";
+        shelter.Neighborhood = neighborhood;
         shelter.PhoneNumber = phoneNumber;
         shelter.Email = email;
         shelter.Latitude = latitude;
@@ -600,6 +839,13 @@ public static class IdentitySeedData
             "Rocky" => "https://placedog.net/800/500?id=33",
             "Milo" => "https://placedog.net/800/500?id=44",
             "Nala" => "https://placedog.net/800/500?id=66",
+            "Toby" => "https://placedog.net/800/500?id=77",
+            "Mira" => "https://placedog.net/800/500?id=88",
+            "Bruno" => "https://placedog.net/800/500?id=89",
+            "Sasha" => "https://placedog.net/800/500?id=90",
+            "Lili" => "https://placedog.net/800/500?id=91",
+            "Rex" => "https://placedog.net/800/500?id=92",
+            "Oscar" => "https://placedog.net/800/500?id=93",
             _ => null
         };
 

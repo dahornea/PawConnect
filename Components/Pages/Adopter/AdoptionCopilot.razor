@@ -1,0 +1,685 @@
+@page "/adopter/copilot"
+@using Microsoft.AspNetCore.Identity
+@using PawConnect.Data
+@attribute [Authorize(Roles = "Adopter")]
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject UserManager<ApplicationUser> UserManager
+@inject IAdoptionCopilotService AdoptionCopilotService
+@inject ICopilotStateService CopilotStateService
+@inject IDogService DogService
+@inject IFavoriteDogService FavoriteDogService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<PageTitle>Adoption Copilot</PageTitle>
+
+<div class="adoption-copilot-page">
+<MudContainer MaxWidth="MaxWidth.False" Class="px-0">
+    <MudStack Spacing="3">
+        <div class="page-header">
+            <MudText Typo="Typo.h4">Adoption Copilot</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Describe the kind of dog you are looking for, and PawConnect will suggest suitable real matches.</MudText>
+        </div>
+
+        <MudPaper Elevation="0" Class="section-surface copilot-search-card pa-4">
+            <MudStack Spacing="3">
+                <MudTextField @bind-Value="_query"
+                              Label="What kind of dog are you looking for?"
+                              Placeholder="Example: calm medium dog for apartment living near Cluj"
+                              Variant="Variant.Outlined"
+                              Margin="Margin.Dense"
+                              Lines="3"
+                              Immediate="true"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.AutoAwesome"
+                              UserAttributes="@CopilotInputAttributes" />
+
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="copilot-actions">
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Search"
+                               Disabled="@(!CanAsk)"
+                               OnClick="AskCopilotAsync">
+                        @(_isAsking ? "Searching..." : "Ask Copilot")
+                    </MudButton>
+                    <MudButton Variant="Variant.Text" Color="Color.Default" Disabled="_isAsking" OnClick="ClearConversation">Clear</MudButton>
+                    <MudSpacer />
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">OpenAI is optional. PawConnect falls back to safe rule-based search.</MudText>
+                </MudStack>
+
+                <div class="suggested-prompts" aria-label="Suggested Copilot prompts">
+                    @foreach (var prompt in SuggestedPrompts)
+                    {
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="Color.Default"
+                                   Size="Size.Small"
+                                   Disabled="_isAsking"
+                                   OnClick="@(() => UsePromptAsync(prompt))">
+                            @prompt
+                        </MudButton>
+                    }
+                </div>
+            </MudStack>
+        </MudPaper>
+
+        @if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <MudAlert Severity="Severity.Error">@_error</MudAlert>
+        }
+
+        @if (_isAsking)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="py-8">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Finding PawConnect matches...</MudText>
+            </MudStack>
+        }
+        else if (_response is not null)
+        {
+            <MudPaper Elevation="0" Class="section-surface copilot-response-card pa-4">
+                <MudStack Row="true" AlignItems="AlignItems.Start" Spacing="2">
+                    <span class="copilot-response-icon"><MudIcon Icon="@Icons.Material.Filled.Assistant" /></span>
+                    <div>
+                        <MudText Typo="Typo.h6">Copilot suggestions</MudText>
+                        <MudText Typo="Typo.body2" Class="copilot-message">@_response.AssistantMessage</MudText>
+                        <MudStack Row="true" Spacing="1" Class="copilot-source-chips">
+                            @if (_response.UsedAiEnhancement)
+                            {
+                                <MudChip T="string" Color="Color.Info" Size="Size.Small" Variant="Variant.Outlined">AI-assisted explanation</MudChip>
+                            }
+                            else
+                            {
+                                <MudChip T="string" Color="Color.Default" Size="Size.Small" Variant="Variant.Outlined">Rule-based fallback</MudChip>
+                            }
+                            @if (_response.UsedSemanticSearch)
+                            {
+                                <MudChip T="string" Color="Color.Primary" Size="Size.Small" Variant="Variant.Outlined">Semantic search</MudChip>
+                            }
+                            @if (_response.UsedToolCalling)
+                            {
+                                <MudChip T="string" Color="Color.Success" Size="Size.Small" Variant="Variant.Outlined">Used PawConnect data</MudChip>
+                            }
+                        </MudStack>
+                        @if (!string.IsNullOrWhiteSpace(_response.FallbackReason))
+                        {
+                            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true" Class="mt-2">@_response.FallbackReason</MudAlert>
+                        }
+                        @if (_response.AppliedConstraints?.Count > 0)
+                        {
+                            <MudStack Row="true" Spacing="1" Class="copilot-source-chips mt-2">
+                                @foreach (var constraint in _response.AppliedConstraints)
+                                {
+                                    <MudChip T="string" Color="Color.Default" Size="Size.Small" Variant="Variant.Outlined">@FormatConstraintChip(constraint)</MudChip>
+                                }
+                            </MudStack>
+                        }
+                    </div>
+                </MudStack>
+            </MudPaper>
+
+            @if (_response.Results.Count == 0)
+            {
+                <MudPaper Elevation="0" Class="empty-state pa-5">
+                    <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                        <MudIcon Icon="@Icons.Material.Filled.SearchOff" Color="Color.Secondary" Size="Size.Large" />
+                        <MudText Typo="Typo.h6">No matching dogs found</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Try a broader request or browse the full dog list.</MudText>
+                        <MudButton Href="/dogs" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Pets">Browse Dogs</MudButton>
+                    </MudStack>
+                </MudPaper>
+            }
+            else
+            {
+                <MudGrid Spacing="3">
+                    @foreach (var result in _response.Results)
+                    {
+                        var dog = result.Dog;
+                        var imageUrl = GetDogImageUrl(dog);
+                        var matchedLabels = result.MatchedCriteria?.Select(criteria => criteria.Label).ToHashSet(StringComparer.OrdinalIgnoreCase) ?? [];
+                        var evidenceDisplays = GetEvidenceDisplays(result.DisplayTags, result.Reasons, matchedLabels);
+                        var cautionDisplays = GetCautionDisplays(result.CautionTags, dog.Status);
+                        var chipReasons = evidenceDisplays.Where(IsShortReasonChip).Take(3).ToList();
+                        var textReasons = evidenceDisplays.Where(reason => !IsShortReasonChip(reason)).Take(2).ToList();
+
+                        <MudItem xs="12" sm="6" md="4">
+                            <MudCard Class="copilot-dog-card h-100">
+                                <a class="dog-image-link" href="@GetDogDetailsUrl(dog.Id)" aria-label="@($"View details for {dog.Name}")">
+                                    @if (imageUrl is null)
+                                    {
+                                        <div class="dog-image dog-image-placeholder">
+                                            <MudIcon Icon="@Icons.Material.Filled.Pets" Color="Color.Primary" />
+                                            <MudText Typo="Typo.caption">No image available</MudText>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <MudCardMedia Image="@imageUrl" Class="dog-image" />
+                                    }
+                                </a>
+
+                                <MudCardContent>
+                                    <MudStack Spacing="1">
+                                        <MudStack Row="true" AlignItems="AlignItems.Start">
+                                            <div>
+                                                <MudText Typo="Typo.h6">@dog.Name</MudText>
+                                                <MudText Typo="Typo.body2">@dog.Breed, @DogAgeFormatter.Format(dog)</MudText>
+                                            </div>
+                                            <MudSpacer />
+                                            <MudChip T="string" Color="@GetStatusColor(dog.Status)" Size="Size.Small">@dog.Status</MudChip>
+                                        </MudStack>
+
+                                        <MudText Typo="Typo.body2" Class="dog-shelter-line">@GetShelterLine(dog)</MudText>
+                                        @if (result.DistanceKm.HasValue)
+                                        {
+                                            <MudText Typo="Typo.caption" Class="distance-line">@($"{result.DistanceKm.Value:0.#} km away")</MudText>
+                                        }
+
+                                        <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Class="match-chip-row">
+                                            <span class="match-score-badge">@result.ScorePercent% match</span>
+                                            <MudChip T="string" Color="@GetMatchColor(result.MatchLabel)" Size="Size.Small">@result.MatchLabel</MudChip>
+                                        </MudStack>
+
+                                        <MudText Typo="Typo.body2" Class="next-action">@result.SuggestedNextAction</MudText>
+                                        @if (chipReasons.Count > 0)
+                                        {
+                                            <div class="reason-list">
+                                                @foreach (var reason in chipReasons)
+                                                {
+                                                    <span>@reason</span>
+                                                }
+                                            </div>
+                                        }
+                                        @if (textReasons.Count > 0)
+                                        {
+                                            <ul class="reason-text-list">
+                                            @foreach (var reason in textReasons)
+                                            {
+                                                <li>@reason</li>
+                                            }
+                                            </ul>
+                                        }
+                                        @if (cautionDisplays.Count > 0)
+                                        {
+                                            <div class="reason-list caution-list">
+                                                @foreach (var caution in cautionDisplays)
+                                                {
+                                                    <span>@caution</span>
+                                                }
+                                            </div>
+                                        }
+                                    </MudStack>
+                                </MudCardContent>
+
+                                <MudCardActions>
+                                    <MudButton Href="@GetDogDetailsUrl(dog.Id)" Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Visibility">View Details</MudButton>
+                                    <MudSpacer />
+                                    <MudButton Variant="Variant.Text"
+                                               Color="@GetFavoriteColor(dog.Id)"
+                                               StartIcon="@GetFavoriteIcon(dog.Id)"
+                                               OnClick="@(() => ToggleFavoriteAsync(dog))">
+                                        @GetFavoriteText(dog.Id)
+                                    </MudButton>
+                                </MudCardActions>
+                            </MudCard>
+                        </MudItem>
+                    }
+                </MudGrid>
+            }
+        }
+    </MudStack>
+</MudContainer>
+</div>
+
+@code {
+    private static readonly string[] SuggestedPrompts =
+    [
+        "Find a calm dog for an apartment",
+        "Show me friendly dogs near Cluj",
+        "I want an active dog for a house with a yard",
+        "Find dogs similar to my favorites"
+    ];
+
+    private static readonly Dictionary<string, object> CopilotInputAttributes = new()
+    {
+        ["spellcheck"] = "false",
+        ["autocomplete"] = "off",
+        ["autocapitalize"] = "off",
+        ["autocorrect"] = "off"
+    };
+
+    private string? _query;
+    private string? _currentUserId;
+    private string? _error;
+    private bool _isAsking;
+    private HashSet<int> _favoriteDogIds = [];
+    private AdoptionCopilotResponse? _response;
+
+    private bool CanAsk => !_isAsking && !string.IsNullOrWhiteSpace(_query);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCurrentUserAsync();
+        await LoadFavoriteStateAsync();
+        await RestoreCopilotStateAsync();
+    }
+
+    private async Task AskCopilotAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_currentUserId))
+        {
+            _error = "Current adopter account could not be found.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_query))
+        {
+            _error = "Describe the kind of dog you are looking for.";
+            return;
+        }
+
+        _isAsking = true;
+        _error = null;
+
+        try
+        {
+            _response = await AdoptionCopilotService.AskAsync(_currentUserId, _query);
+            CopilotStateService.SaveState(_currentUserId, _query, _response);
+            await LoadFavoriteStateAsync();
+        }
+        catch
+        {
+            _error = "The Adoption Copilot could not load suggestions right now.";
+        }
+        finally
+        {
+            _isAsking = false;
+        }
+    }
+
+    private async Task UsePromptAsync(string prompt)
+    {
+        _query = prompt;
+        await AskCopilotAsync();
+    }
+
+    private void ClearConversation()
+    {
+        _query = null;
+        _error = null;
+        _response = null;
+        CopilotStateService.ClearState(_currentUserId);
+    }
+
+    private async Task LoadCurrentUserAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = await UserManager.GetUserAsync(authState.User);
+        _currentUserId = user?.Id;
+    }
+
+    private async Task LoadFavoriteStateAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_currentUserId))
+        {
+            _favoriteDogIds = [];
+            return;
+        }
+
+        _favoriteDogIds = await FavoriteDogService.GetFavoriteDogIdsForUserAsync(_currentUserId);
+    }
+
+    private async Task RestoreCopilotStateAsync()
+    {
+        var state = CopilotStateService.GetState(_currentUserId);
+        if (state is null)
+        {
+            return;
+        }
+
+        _query = state.LastQuery;
+        _response = await BuildResponseFromStateAsync(state);
+    }
+
+    private async Task<AdoptionCopilotResponse> BuildResponseFromStateAsync(CopilotSessionState state)
+    {
+        var results = new List<AdoptionCopilotDogResult>();
+        foreach (var savedResult in state.LastResults)
+        {
+            var dog = await DogService.GetDogDetailsAsync(savedResult.DogId);
+            if (dog?.Status is not (DogStatus.Available or DogStatus.Reserved))
+            {
+                continue;
+            }
+
+            results.Add(new AdoptionCopilotDogResult(
+                dog.Id,
+                dog,
+                savedResult.ScorePercent,
+                savedResult.MatchLabel,
+                savedResult.Reasons,
+                savedResult.SuggestedNextAction,
+                savedResult.DistanceKm,
+                savedResult.UsedAiEnhancement,
+                savedResult.MatchedCriteria,
+                savedResult.DisplayTags,
+                savedResult.CautionTags));
+        }
+
+        return new AdoptionCopilotResponse(
+            state.LastAssistantMessage,
+            results,
+            state.LastUsedOpenAi,
+            state.LastUsedSemanticSearch,
+            state.LastUsedToolCalling,
+            state.LastFallbackReason,
+            state.LastAppliedConstraints);
+    }
+
+    private async Task ToggleFavoriteAsync(Dog dog)
+    {
+        if (string.IsNullOrWhiteSpace(_currentUserId))
+        {
+            Snackbar.Add("Please log in with an adopter account to save favorite dogs.", Severity.Info);
+            NavigationManager.NavigateTo($"/Account/Login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}");
+            return;
+        }
+
+        try
+        {
+            if (_favoriteDogIds.Contains(dog.Id))
+            {
+                await FavoriteDogService.RemoveFavoriteAsync(_currentUserId, dog.Id);
+                _favoriteDogIds.Remove(dog.Id);
+                Snackbar.Add("Dog removed from favorites.", Severity.Success);
+            }
+            else
+            {
+                await FavoriteDogService.AddFavoriteAsync(_currentUserId, dog.Id);
+                _favoriteDogIds.Add(dog.Id);
+                Snackbar.Add("Dog added to favorites.", Severity.Success);
+            }
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch
+        {
+            Snackbar.Add("Could not update favorites. Please try again.", Severity.Error);
+        }
+    }
+
+    private static string? GetDogImageUrl(Dog dog)
+    {
+        return dog.Images
+            .Where(image => IsValidImageUrl(image.ImageUrl))
+            .OrderByDescending(image => image.IsMainImage)
+            .ThenBy(image => image.Id)
+            .Select(image => image.ImageUrl)
+            .FirstOrDefault();
+    }
+
+    private static bool IsValidImageUrl(string? imageUrl)
+    {
+        if (string.IsNullOrWhiteSpace(imageUrl) ||
+            imageUrl.Contains("placehold.co", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return Uri.TryCreate(imageUrl, UriKind.Absolute, out var uri) &&
+            (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
+    }
+
+    private static string GetShelterLine(Dog dog)
+    {
+        var shelterName = dog.Shelter?.Name?.Trim();
+        var shelterNeighborhood = dog.Shelter?.Neighborhood?.Trim();
+        var shelterCity = dog.Shelter?.City?.Trim();
+        var shelterLocation = string.Join(", ", new[] { shelterNeighborhood, shelterCity }
+            .Where(value => !string.IsNullOrWhiteSpace(value)));
+
+        return (string.IsNullOrWhiteSpace(shelterName), string.IsNullOrWhiteSpace(shelterLocation)) switch
+        {
+            (false, false) => $"{shelterName} · {shelterLocation}",
+            (false, true) => shelterName!,
+            (true, false) => shelterLocation,
+            _ => "Shelter details available on profile"
+        };
+    }
+
+    private static Color GetStatusColor(DogStatus status)
+    {
+        return status switch
+        {
+            DogStatus.Available => Color.Success,
+            DogStatus.Reserved => Color.Warning,
+            _ => Color.Default
+        };
+    }
+
+    private static Color GetMatchColor(string matchLevel)
+    {
+        return matchLevel switch
+        {
+            "Excellent match" => Color.Success,
+            "Good match" => Color.Primary,
+            _ => Color.Default
+        };
+    }
+
+    private static IReadOnlyList<string> GetReasonDisplays(IReadOnlyList<string> reasons, IReadOnlySet<string> matchedLabels)
+    {
+        return reasons
+            .Where(reason => !string.IsNullOrWhiteSpace(reason))
+            .Select(ShortenReason)
+            .Where(reason => !IsDuplicateMatchedReason(reason, matchedLabels))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(3)
+            .ToList();
+    }
+
+    private static IReadOnlyList<string> GetEvidenceDisplays(
+        IReadOnlyList<string>? displayTags,
+        IReadOnlyList<string> fallbackReasons,
+        IReadOnlySet<string> matchedLabels)
+    {
+        var tags = displayTags?
+            .Where(tag => !string.IsNullOrWhiteSpace(tag))
+            .Select(tag => tag.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList() ?? [];
+
+        return tags.Count > 0
+            ? tags.Take(4).ToList()
+            : GetReasonDisplays(fallbackReasons, matchedLabels);
+    }
+
+    private static IReadOnlyList<string> GetCautionDisplays(IReadOnlyList<string>? cautionTags, DogStatus status)
+    {
+        var tags = cautionTags?
+            .Where(tag => !string.IsNullOrWhiteSpace(tag))
+            .Select(tag => tag.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList() ?? [];
+
+        if (status == DogStatus.Reserved &&
+            !tags.Contains("Reserved - availability may change", StringComparer.OrdinalIgnoreCase))
+        {
+            tags.Add("Reserved - availability may change");
+        }
+
+        return tags.Take(2).ToList();
+    }
+
+    private static string FormatConstraintChip(AdoptionCopilotConstraint constraint)
+    {
+        var label = (constraint.Label ?? string.Empty).Trim();
+        var value = (constraint.Value ?? string.Empty).Trim();
+        return string.IsNullOrWhiteSpace(label)
+            ? value
+            : string.IsNullOrWhiteSpace(value)
+                ? label
+                : $"{label}: {value}";
+    }
+
+    private static bool IsDuplicateMatchedReason(string reason, IReadOnlySet<string> matchedLabels)
+    {
+        if (matchedLabels.Count == 0)
+        {
+            return false;
+        }
+
+        var lower = reason.ToLowerInvariant();
+        return matchedLabels.Contains("Age") && lower.Contains("age") ||
+            matchedLabels.Contains("Size") && lower.Contains("size") ||
+            (matchedLabels.Contains("Neighborhood") || matchedLabels.Contains("Location")) && (lower.Contains("neighborhood") || lower.StartsWith("in ", StringComparison.OrdinalIgnoreCase)) ||
+            matchedLabels.Contains("Status") && (lower.Contains("available") || lower.Contains("reserved") || lower.Contains("status")) ||
+            matchedLabels.Contains("Temperament") && lower.Contains("temperament");
+    }
+
+    private static string ShortenReason(string reason)
+    {
+        var normalized = reason.Trim();
+        var lower = normalized.ToLowerInvariant();
+
+        if (lower.Contains("short walks") || lower.Contains("slow walks"))
+        {
+            return "Short walks";
+        }
+
+        if (lower.Contains("indoor rest") || lower.Contains("smaller spaces"))
+        {
+            return "Indoor rest";
+        }
+
+        if (lower.Contains("settles"))
+        {
+            return "Settles quickly";
+        }
+
+        if (lower.Contains("quiet routine") || lower.Contains("predictable"))
+        {
+            return "Quiet routine";
+        }
+
+        if (lower.Contains("lower activity") || lower.Contains("low activity"))
+        {
+            return "Lower activity fit";
+        }
+
+        if (lower.Contains("apartment lifestyle") || lower.Contains("apartment-friendly fit"))
+        {
+            return "Apartment lifestyle fit";
+        }
+
+        if (lower.Contains("small size"))
+        {
+            return "Small size";
+        }
+
+        if (lower.Contains("medium size"))
+        {
+            return "Medium size";
+        }
+
+        if (lower.Contains("relaxed") || lower.Contains("calm"))
+        {
+            return "Relaxed temperament";
+        }
+
+        if (lower.Contains("experience"))
+        {
+            return "Experienced adopter fit";
+        }
+
+        if (lower.Contains("beginner") || lower.Contains("first time"))
+        {
+            return "Easier first-dog fit";
+        }
+
+        if (lower.Contains("social"))
+        {
+            return "Social temperament";
+        }
+
+        if (lower.Contains("friendly"))
+        {
+            return "Friendly temperament";
+        }
+
+        if (lower.Contains("saved") || lower.Contains("favorite") || lower.Contains("recently viewed"))
+        {
+            return "Matches saved dogs";
+        }
+
+        if (lower.Contains("same city") || lower.Contains("near") || lower.Contains("close") || lower.Contains("distance"))
+        {
+            return "Near your area";
+        }
+
+        if (lower.Contains("yard") || lower.Contains("house"))
+        {
+            return "Yard fit";
+        }
+
+        if (lower.Contains("older children") || lower.Contains("supervised"))
+        {
+            return "Older-child visits";
+        }
+
+        if (lower.Contains("family") || lower.Contains("children") || lower.Contains("kids"))
+        {
+            return "Child-specific notes";
+        }
+
+        if (lower.Contains("pet") || lower.Contains("cat") || lower.Contains("good with dogs"))
+        {
+            return "Pet-friendly";
+        }
+
+        if (lower.Contains("longer walks"))
+        {
+            return "Enjoys longer walks";
+        }
+
+        if (lower.Contains("outdoor play"))
+        {
+            return "Outdoor play";
+        }
+
+        if (lower.Contains("energetic") || lower.Contains("active"))
+        {
+            return "Active lifestyle fit";
+        }
+
+        return normalized;
+    }
+
+    private static bool IsShortReasonChip(string reason)
+    {
+        return reason.Length <= 34;
+    }
+
+    private string GetFavoriteIcon(int dogId)
+    {
+        return _favoriteDogIds.Contains(dogId)
+            ? Icons.Material.Filled.Favorite
+            : Icons.Material.Outlined.FavoriteBorder;
+    }
+
+    private Color GetFavoriteColor(int dogId)
+    {
+        return _favoriteDogIds.Contains(dogId) ? Color.Secondary : Color.Default;
+    }
+
+    private string GetFavoriteText(int dogId)
+    {
+        return _favoriteDogIds.Contains(dogId) ? "Saved" : "Save";
+    }
+
+    private static string GetDogDetailsUrl(int dogId)
+    {
+        return $"/dogs/{dogId}?returnUrl={Uri.EscapeDataString("/adopter/copilot")}";
+    }
+}

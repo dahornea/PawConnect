@@ -4,7 +4,11 @@ using PawConnect.Entities;
 
 namespace PawConnect.Services;
 
-public class ShelterService(IDbContextFactory<ApplicationDbContext> contextFactory, IAuditLogService? auditLogService = null) : IShelterService
+public class ShelterService(
+    IDbContextFactory<ApplicationDbContext> contextFactory,
+    IAuditLogService? auditLogService = null,
+    IDogSearchEmbeddingService? dogSearchEmbeddingService = null,
+    ILogger<ShelterService>? logger = null) : IShelterService
 {
     public Task<List<Shelter>> GetAllAsync()
     {
@@ -120,6 +124,7 @@ public class ShelterService(IDbContextFactory<ApplicationDbContext> contextFacto
         existingShelter.Description = shelter.Description;
         existingShelter.Address = shelter.Address;
         existingShelter.City = shelter.City;
+        existingShelter.Neighborhood = shelter.Neighborhood;
         existingShelter.PhoneNumber = shelter.PhoneNumber;
         existingShelter.Email = shelter.Email;
         existingShelter.Latitude = shelter.Latitude;
@@ -134,12 +139,18 @@ public class ShelterService(IDbContextFactory<ApplicationDbContext> contextFacto
         existingShelter.VisitsAllowedSaturday = shelter.VisitsAllowedSaturday;
         existingShelter.VisitsAllowedSunday = shelter.VisitsAllowedSunday;
 
+        var dogIds = await context.Dogs
+            .Where(dog => dog.ShelterId == existingShelter.Id)
+            .Select(dog => dog.Id)
+            .ToListAsync();
+
         await context.SaveChangesAsync();
         await LogAsync(
             AuditActions.ShelterUpdated,
             "Shelter",
             existingShelter.Id.ToString(),
             $"Shelter {existingShelter.Name} profile was updated.");
+        await RefreshShelterDogSearchEmbeddingsBestEffortAsync(dogIds);
     }
 
     private static void ValidateShelterProfile(Shelter shelter)
@@ -210,6 +221,7 @@ public class ShelterService(IDbContextFactory<ApplicationDbContext> contextFacto
     {
         shelter.Name = shelter.Name.Trim();
         shelter.City = shelter.City.Trim();
+        shelter.Neighborhood = NormalizeOptional(shelter.Neighborhood);
         shelter.Address = NormalizeAddressWithoutCity(shelter.Address, shelter.City);
         shelter.Description = string.IsNullOrWhiteSpace(shelter.Description) ? null : shelter.Description.Trim();
         shelter.PhoneNumber = string.IsNullOrWhiteSpace(shelter.PhoneNumber) ? null : shelter.PhoneNumber.Trim();
@@ -236,5 +248,30 @@ public class ShelterService(IDbContextFactory<ApplicationDbContext> contextFacto
     private Task LogAsync(string action, string entityName, string? entityId, string description)
     {
         return auditLogService?.LogAsync(action, entityName, entityId, description) ?? Task.CompletedTask;
+    }
+
+    private async Task RefreshShelterDogSearchEmbeddingsBestEffortAsync(IReadOnlyList<int> dogIds)
+    {
+        if (dogSearchEmbeddingService is null || dogIds.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var dogId in dogIds)
+        {
+            try
+            {
+                await dogSearchEmbeddingService.RefreshDogEmbeddingAsync(dogId);
+            }
+            catch (Exception ex)
+            {
+                logger?.LogWarning(ex, "Dog search embedding refresh failed after shelter profile change for DogId {DogId}.", dogId);
+            }
+        }
+    }
+
+    private static string? NormalizeOptional(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     }
 }

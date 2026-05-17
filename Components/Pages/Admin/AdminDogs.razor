@@ -3,6 +3,7 @@
 @inject IDogService DogService
 @inject IExportService ExportService
 @inject IBrowserFileDownloadService FileDownloadService
+@inject IDogSearchEmbeddingService DogSearchEmbeddingService
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 
@@ -17,17 +18,32 @@
 
         <MudPaper Elevation="0" Class="section-surface pa-3">
             <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Spacing="2" Class="flex-wrap">
-                <MudText Typo="Typo.body2" Color="Color.Secondary">Export all dog records with shelter, status, age, food, and success story summary fields.</MudText>
-                <MudButton Variant="Variant.Outlined"
-                           Color="Color.Primary"
-                           Size="Size.Small"
-                           StartIcon="@Icons.Material.Filled.FileDownload"
-                           Disabled="_isLoading || _isExporting"
-                           OnClick="ExportDogsCsvAsync">
-                    Export CSV
-                </MudButton>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Export dog records or rebuild the semantic search index for public-safe dog discovery.</MudText>
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="flex-wrap">
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Primary"
+                               Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.ManageSearch"
+                               Disabled="_isLoading || _isRebuildingSearchIndex"
+                               OnClick="RebuildDogSearchIndexAsync">
+                        @(_isRebuildingSearchIndex ? "Rebuilding..." : "Rebuild Dog Search Index")
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Primary"
+                               Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.FileDownload"
+                               Disabled="_isLoading || _isExporting"
+                               OnClick="ExportDogsCsvAsync">
+                        Export CSV
+                    </MudButton>
+                </MudStack>
             </MudStack>
         </MudPaper>
+
+        @if (!string.IsNullOrWhiteSpace(_searchIndexMessage))
+        {
+            <MudAlert Severity="_searchIndexSeverity" Variant="Variant.Outlined" Dense="true">@_searchIndexMessage</MudAlert>
+        }
 
         @if (_isLoading)
         {
@@ -190,6 +206,9 @@
     private bool _isDeleting;
     private bool _isHistoryLoading;
     private bool _isExporting;
+    private bool _isRebuildingSearchIndex;
+    private string? _searchIndexMessage;
+    private Severity _searchIndexSeverity = Severity.Info;
     private string? _error;
     private string? _historyError;
     private Dog? _selectedHistoryDog;
@@ -214,6 +233,50 @@
     private async Task ExportDogsCsvAsync()
     {
         await ExportAsync(() => ExportService.GenerateDogsCsvAsync());
+    }
+
+    private async Task RebuildDogSearchIndexAsync()
+    {
+        _isRebuildingSearchIndex = true;
+
+        try
+        {
+            var result = await DogSearchEmbeddingService.RebuildDogSearchIndexAsync();
+            if (!result.IsConfigured)
+            {
+                _searchIndexSeverity = Severity.Warning;
+                _searchIndexMessage = "OpenAI embeddings are disabled or not configured.";
+                Snackbar.Add(_searchIndexMessage, Severity.Warning);
+            }
+            else if (result.HasFailures && result.GeneratedRows == 0)
+            {
+                _searchIndexSeverity = Severity.Error;
+                _searchIndexMessage = "Could not rebuild dog search index. Please check OpenAI configuration.";
+                Snackbar.Add(_searchIndexMessage, Severity.Error);
+            }
+            else if (result.GeneratedRows == 0 && result.SkippedUnchanged > 0 && result.Failed == 0)
+            {
+                _searchIndexSeverity = Severity.Info;
+                _searchIndexMessage = $"Dog search index is already up to date. {result.SkippedUnchanged} dog record(s) checked.";
+                Snackbar.Add(_searchIndexMessage, Severity.Info);
+            }
+            else
+            {
+                _searchIndexSeverity = result.HasFailures ? Severity.Warning : Severity.Success;
+                _searchIndexMessage = result.HasFailures
+                    ? $"Dog search index partially rebuilt: {result.Created} created, {result.Updated} updated, {result.SkippedUnchanged} unchanged, {result.Removed} removed, {result.Failed} failed."
+                    : $"Dog search index rebuilt successfully. {result.Created} created, {result.Updated} updated, {result.SkippedUnchanged} unchanged, {result.Removed} removed.";
+                Snackbar.Add(_searchIndexMessage, result.HasFailures ? Severity.Warning : Severity.Success);
+            }
+        }
+        catch
+        {
+            Snackbar.Add("Could not rebuild the dog search index right now.", Severity.Error);
+        }
+        finally
+        {
+            _isRebuildingSearchIndex = false;
+        }
     }
 
     private async Task ExportAsync(Func<Task<ExportFile>> exportAction)

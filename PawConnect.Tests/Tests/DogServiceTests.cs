@@ -155,4 +155,35 @@ public class DogServiceTests
         Assert.DoesNotContain(dogs, d => d.Name == "Shelter One Adopted Dog");
         Assert.All(dogs, dog => Assert.Equal(TestDbContextFactory.ShelterId, dog.ShelterId));
     }
+
+    [Fact]
+    public async Task SearchDogsAsync_FiltersPublicDogsByShelterNeighborhood()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        var testShelter = await context.Shelters.FindAsync(TestDbContextFactory.ShelterId);
+        var otherShelter = await context.Shelters.FindAsync(TestDbContextFactory.OtherShelterId);
+        testShelter!.Neighborhood = "Zorilor";
+        otherShelter!.Neighborhood = "Manastur";
+        context.Dogs.AddRange(
+            TestDbContextFactory.CreateDog("Zorilor Dog", DogStatus.Available, TestDbContextFactory.ShelterId),
+            TestDbContextFactory.CreateDog("Manastur Dog", DogStatus.Available, TestDbContextFactory.OtherShelterId),
+            TestDbContextFactory.CreateDog("Adopted Zorilor Dog", DogStatus.Adopted, TestDbContextFactory.ShelterId));
+        await context.SaveChangesAsync();
+
+        var service = new DogService(context);
+
+        var dogs = await service.SearchDogsAsync(
+            searchTerm: null,
+            breed: null,
+            maxAge: null,
+            size: null,
+            location: null,
+            status: null,
+            sortOption: DogSortOption.NameAsc,
+            neighborhood: "zorilor");
+
+        Assert.Contains(dogs, d => d.Name == "Zorilor Dog");
+        Assert.DoesNotContain(dogs, d => d.Name == "Manastur Dog");
+        Assert.DoesNotContain(dogs, d => d.Name == "Adopted Zorilor Dog");
+    }
 }

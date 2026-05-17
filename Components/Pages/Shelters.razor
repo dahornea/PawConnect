@@ -141,7 +141,7 @@
                                           Variant="Variant.Outlined"
                                           Adornment="Adornment.Start"
                                           AdornmentIcon="@Icons.Material.Filled.Search"
-                                          Placeholder="Search by name, city, or address" />
+                                          Placeholder="Search by name, neighborhood, city, or address" />
                         </MudItem>
                         <MudItem xs="12" md="6">
                             <MudAutocomplete T="AddressSuggestion"
@@ -283,7 +283,7 @@
                                                     <span class="shelter-icon"><MudIcon Icon="@Icons.Material.Filled.Business" /></span>
                                                     <div class="shelter-heading">
                                                         <MudText Typo="Typo.h6" Class="shelter-name">@shelter.Name</MudText>
-                                                        <MudText Typo="Typo.body2" Color="Color.Secondary">@shelter.City</MudText>
+                                                        <MudText Typo="Typo.body2" Color="Color.Secondary">@GetShelterLocationLine(shelter)</MudText>
                                                     </div>
                                                 </MudStack>
 
@@ -396,6 +396,7 @@
             var term = _searchTerm.Trim();
             query = query.Where(shelter =>
                 Contains(shelter.Name, term) ||
+                Contains(shelter.Neighborhood, term) ||
                 Contains(shelter.City, term) ||
                 Contains(shelter.Address, term));
         }
@@ -761,6 +762,12 @@
     private static bool HasMapLocation(PawConnect.Entities.Shelter shelter)
     {
         return shelter.Latitude.HasValue && shelter.Longitude.HasValue;
+    }
+
+    private static string GetShelterLocationLine(PawConnect.Entities.Shelter shelter)
+    {
+        return string.Join(", ", new[] { shelter.Neighborhood, shelter.City }
+            .Where(value => !string.IsNullOrWhiteSpace(value)));
     }
 
     private bool TryGetShelterDistanceKm(PawConnect.Entities.Shelter shelter, out double distance)

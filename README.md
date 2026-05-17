@@ -34,6 +34,7 @@ PawConnect is a beginner-friendly ASP.NET Core Blazor Server skeleton for a stra
 - Dog status history tracking for shelter/admin review
 - Internal shelter notes for adoption requests, visible only to shelter users and admins
 - Recently viewed dogs for adopter dashboard quick access
+- Semantic dog search and an adopter-only AI Adoption Copilot with safe fallback
 - Public adoption success stories for adopted dogs
 - Dog ages support years and months for puppy-friendly display
 - Adopter-selected shelter visit scheduling for adoption requests
@@ -72,6 +73,7 @@ The shelter application form stores a `ShelterRegistrationRequest` with `Pending
 - Phone number
 - City
 - Street/address
+- Neighborhood (optional)
 - Description
 - Optional website, opening hours, reason for joining, latitude, and longitude
 
@@ -97,11 +99,12 @@ Important rules include:
 - Shelter review is split into visit confirmation and final adoption. Confirming a visit reserves the dog and sends the adopter an email/in-app notification with an `.ics` calendar attachment. Marking as adopted happens later, after the visit.
 - Shelter users can manage adoption requests only for dogs owned by their shelter. Adopters can cancel only their own pending requests.
 - Dog recommendations use public-safe dog data only. Adopted and in-treatment dogs are excluded before any optional OpenAI enhancement is considered.
+- Semantic Dog Search and the AI Adoption Copilot return only real public-safe PawConnect dogs. OpenAI cannot add dog IDs that were not already retrieved by the app.
 - Dog image URLs are trimmed, empty URLs are ignored, and the same image URL cannot be added twice to the same dog.
 - Dog forms validate required identity fields, non-negative age/food values, valid month ranges, and avoid saving unusable dog age data.
 - Dogs with adoption request history cannot be hard deleted. Favorites and recently viewed rows do not block deletion when no adoption request history exists.
 - Resource stock validates name, category, unit, non-negative quantity/threshold, required food type for food resources, cleared food type for non-food resources, and duplicate shelter stock items.
-- Shelter address and city remain separate. Latitude/Longitude are optional internal map fields and are range-checked when present; missing or failed geocoding does not block application or shelter creation.
+- Shelter address, city, and optional neighborhood remain separate. Latitude/Longitude are optional internal map fields and are range-checked when present; missing or failed geocoding does not block application or shelter creation.
 - Admin and Shelter exports are role-protected and scoped to the correct data. Sensitive Identity fields such as password hashes, security stamps, concurrency stamps, and tokens are intentionally excluded.
 - In-app notification read/delete operations check ownership, and audit logging avoids sensitive values such as passwords, reset tokens, security stamps, and SMTP credentials.
 
@@ -133,7 +136,9 @@ Configuration:
 "OpenAI": {
   "Enabled": false,
   "ApiKey": "",
-  "Model": "gpt-5.4-mini"
+  "Model": "gpt-5.4-mini",
+  "ChatModel": "gpt-5.4-mini",
+  "EmbeddingModel": "text-embedding-3-small"
 }
 ```
 
@@ -143,6 +148,64 @@ Do not commit API keys. Use User Secrets or environment variables when testing O
 dotnet user-secrets set "OpenAI:ApiKey" "sk-..."
 dotnet user-secrets set "OpenAI:Enabled" "true"
 ```
+
+## Semantic Dog Search and Adoption Copilot
+
+Adopter users can open:
+
+```text
+/adopter/copilot
+```
+
+The Adoption Copilot accepts natural language searches such as "calm apartment dog near Cluj", "friendly medium dog for a beginner", or "find me a dog in Zorilor" and returns real PawConnect dog cards with match scores, reasons, favorite actions, and links to dog details. The public `/dogs` page also includes a compact "Ask Copilot" entry point for adopters.
+
+The search architecture is hybrid and tool-based:
+
+- `DogSearchDocumentService` builds public-safe dog search documents.
+- `DogSearchEmbeddingService` stores one `DogSearchEmbedding` per searchable dog, with content hash tracking to avoid unnecessary regeneration.
+- `SemanticDogSearchService` compares query embeddings with stored dog embeddings, then applies hard filters and rule-based profile bonuses.
+- `AdoptionCopilotService` can optionally ask `gpt-5.4-mini` through OpenAI Responses API function calling/tools for a short adopter-friendly response and refined explanations.
+- The Copilot exposes controlled application tools such as `search_dogs`, sanitized adopter profile summary, aggregate favorite/recent preferences, and public dog details. The model can request these tools, but PawConnect executes them in C#.
+- Shelter neighborhood is included in search documents, and explicit neighborhood requests are applied as hard filters before semantic ranking or AI explanation.
+- If OpenAI is disabled, missing an API key, embeddings are unavailable, or the OpenAI call fails, PawConnect falls back to keyword/rule-based search.
+- Exact constraints such as `Medium` size or `Zorilor` neighborhood are enforced by the application even if the model omits or broadens them in a tool call.
+
+Semantic search uses the `DogSearchEmbeddings` table. That table is populated only when OpenAI embeddings are enabled and an API key is configured. Admin users can rebuild it from:
+
+```text
+/admin/dogs
+```
+
+Use **Rebuild Dog Search Index** after enabling OpenAI or after importing/editing demo dog data. The rebuild creates or updates embeddings for `Available` and `Reserved` dogs, skips unchanged content hashes, removes stale embeddings for `Adopted`/`InTreatment` dogs, and reports whether OpenAI is disabled or the API key is missing. If the table is empty, Copilot and semantic search continue with the safe rule-based/keyword fallback.
+
+OpenAI configuration:
+
+```json
+"OpenAI": {
+  "Enabled": false,
+  "ApiKey": "",
+  "Model": "gpt-5.4-mini",
+  "ChatModel": "gpt-5.4-mini",
+  "EmbeddingModel": "text-embedding-3-small"
+}
+```
+
+OpenAI remains disabled by default. Store the API key through User Secrets or environment variables, not committed JSON:
+
+```bash
+dotnet user-secrets set "OpenAI:ApiKey" "sk-..."
+dotnet user-secrets set "OpenAI:Enabled" "true"
+```
+
+Privacy safeguards:
+
+- Only sanitized adopter profile fields are sent: city, housing type, yard/pets/children flags, and dog experience.
+- Tool calls never accept an arbitrary user id; profile/preference tools always use the current authenticated adopter.
+- PawConnect does not send adopter full name, email, phone, exact address, additional notes, passwords, tokens, audit logs, SMTP credentials, shelter internal notes, or adoption request private notes.
+- Copilot responses can only reference candidate dog IDs already returned by PawConnect, and unknown IDs are ignored.
+- OpenAI prompts/responses are not stored in the database.
+
+Admin users can rebuild the dog search index from `/admin/dogs`. Dog creation/editing is not blocked if embedding generation fails; the app logs a safe warning and keeps normal dog management working.
 
 ## Adoption Visit Scheduling
 
@@ -391,11 +454,11 @@ The public shelter pages are:
 - `/shelters`
 - `/shelters/{id:int}`
 
-The public `/shelters` page lists approved shelter profiles with public-safe contact/location details, public dog counts, a simple search by shelter name/city/address, and an "Apply as a Shelter" call-to-action that points to `/shelters/apply`. The application CTA is hidden for Admin and Shelter users because those roles either review applications or already have active shelter accounts.
+The public `/shelters` page lists approved shelter profiles with public-safe contact/location details, optional neighborhood, public dog counts, a simple search by shelter name/neighborhood/city/address, and an "Apply as a Shelter" call-to-action that points to `/shelters/apply`. The application CTA is hidden for Admin and Shelter users because those roles either review applications or already have active shelter accounts.
 
 Demo shelters use approximate, fictional Cluj-Napoca, Romania locations for development and testing. The demo addresses and coordinates are not real shelter addresses and should not be treated as public contact/location data for real organizations.
 
-Public dog and shelter browsing uses a compact Filter/Sort toolbar with active filter chips instead of a large always-visible filter form. Nearby search remains available from the filter panel: users can type a city or address and choose a radius such as 5, 10, 25, 50, or 100 km. The Near input shows lightweight address suggestions after at least 3 characters with a debounce, using OpenStreetMap/Nominatim with a small result limit and in-memory caching for repeated queries. Selecting a suggestion fills the input and immediately applies nearby filtering with the selected coordinates and current radius; users can still type a custom address and use the compact search icon as a fallback. PawConnect geocodes only explicit nearby searches/suggestions with Nominatim/OpenStreetMap, then uses a local Haversine distance calculation against stored shelter coordinates. Users can also click "Use my location" to grant one-time browser location permission; those coordinates are used only in memory for filtering and are not stored or sent to Nominatim. Dogs are filtered by their shelter location, and shelters without coordinates are excluded only while a nearby filter is active. Nearby results show active chips, distance labels, and helpful no-result guidance such as increasing the radius. PawConnect does not use Google Maps API, Google Places API, or route planning for this feature.
+Public dog and shelter browsing uses a compact Filter/Sort toolbar with active filter chips instead of a large always-visible filter form. Shelter profiles can store an optional neighborhood, derived from Nominatim address details when possible and editable manually by applicants/admins/shelters. Dog cards prefer compact shelter neighborhood text such as `Happy Paws Shelter - Zorilor, Cluj-Napoca`, and `/dogs` can filter by distinct shelter neighborhoods. Nearby search remains available from the filter panel: users can type a city or address and choose a radius such as 5, 10, 25, 50, or 100 km. The Near input shows lightweight address suggestions after at least 3 characters with a debounce, using OpenStreetMap/Nominatim with a small result limit and in-memory caching for repeated queries. Selecting a suggestion fills the input and immediately applies nearby filtering with the selected coordinates and current radius; users can still type a custom address and use the compact search icon as a fallback. PawConnect geocodes only explicit nearby searches/suggestions with Nominatim/OpenStreetMap, then uses a local Haversine distance calculation against stored shelter coordinates. Users can also click "Use my location" to grant one-time browser location permission; those coordinates are used only in memory for filtering and are not stored or sent to Nominatim. Dogs are filtered by their shelter location, and shelters without coordinates are excluded only while a nearby filter is active. Nearby and neighborhood filters can be combined. Nearby results show active chips, distance labels, and helpful no-result guidance such as increasing the radius. PawConnect does not use Google Maps API, Google Places API, or route planning for this feature.
 
 After adding the map coordinate fields, apply migrations with:
 

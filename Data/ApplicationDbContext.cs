@@ -39,6 +39,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
     public DbSet<ReportHistory> ReportHistories => Set<ReportHistory>();
 
+    public DbSet<DogSearchEmbedding> DogSearchEmbeddings => Set<DogSearchEmbedding>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -72,6 +74,19 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .HasForeignKey(d => d.PreferredFoodTypeId)
             .IsRequired(false)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<DogSearchEmbedding>()
+            .HasOne(embedding => embedding.Dog)
+            .WithOne()
+            .HasForeignKey<DogSearchEmbedding>(embedding => embedding.DogId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<DogSearchEmbedding>()
+            .HasIndex(embedding => embedding.DogId)
+            .IsUnique();
+
+        builder.Entity<DogSearchEmbedding>()
+            .HasIndex(embedding => embedding.UpdatedAt);
 
         builder.Entity<DogImage>()
             .HasOne(i => i.Dog)

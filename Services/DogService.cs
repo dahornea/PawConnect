@@ -4,7 +4,11 @@ using PawConnect.Entities;
 
 namespace PawConnect.Services;
 
-public class DogService(ApplicationDbContext context, IAuditLogService? auditLogService = null) : IDogService
+public class DogService(
+    ApplicationDbContext context,
+    IAuditLogService? auditLogService = null,
+    IDogSearchEmbeddingService? dogSearchEmbeddingService = null,
+    ILogger<DogService>? logger = null) : IDogService
 {
     public Task<List<Dog>> GetAllAsync()
     {
@@ -27,6 +31,7 @@ public class DogService(ApplicationDbContext context, IAuditLogService? auditLog
         context.Dogs.Update(dog);
         await context.SaveChangesAsync();
         await LogAsync(AuditActions.DogUpdated, "Dog", dog.Id.ToString(), $"Dog {dog.Name} was updated.");
+        await RefreshDogSearchEmbeddingBestEffortAsync(dog.Id);
     }
 
     public async Task DeleteAsync(int id)
@@ -66,7 +71,7 @@ public class DogService(ApplicationDbContext context, IAuditLogService? auditLog
             .ToListAsync();
     }
 
-    public Task<List<Dog>> SearchDogsAsync(string? searchTerm, string? breed, int? maxAge, DogSize? size, string? location, DogStatus? status, DogSortOption sortOption = DogSortOption.NameAsc, int? shelterId = null)
+    public Task<List<Dog>> SearchDogsAsync(string? searchTerm, string? breed, int? maxAge, DogSize? size, string? location, DogStatus? status, DogSortOption sortOption = DogSortOption.NameAsc, int? shelterId = null, string? neighborhood = null)
     {
         var query = context.Dogs
             .Include(d => d.Shelter)
@@ -110,6 +115,15 @@ public class DogService(ApplicationDbContext context, IAuditLogService? auditLog
             query = query.Where(d => d.ShelterId == shelterId.Value);
         }
 
+        if (!string.IsNullOrWhiteSpace(neighborhood))
+        {
+            var normalizedNeighborhood = neighborhood.Trim().ToUpper();
+            query = query.Where(d =>
+                d.Shelter != null &&
+                d.Shelter.Neighborhood != null &&
+                d.Shelter.Neighborhood.Trim().ToUpper() == normalizedNeighborhood);
+        }
+
         return ApplyDogSorting(query, sortOption)
             .AsNoTracking()
             .ToListAsync();
@@ -146,6 +160,7 @@ public class DogService(ApplicationDbContext context, IAuditLogService? auditLog
         context.Dogs.Add(dog);
         await context.SaveChangesAsync();
         await LogAsync(AuditActions.DogCreated, "Dog", dog.Id.ToString(), $"Dog {dog.Name} was created.");
+        await RefreshDogSearchEmbeddingBestEffortAsync(dog.Id);
     }
 
     public async Task UpdateSuccessStoryAsync(int dogId, int shelterId, string? successStoryText, DateTime? adoptedAt)
@@ -166,6 +181,7 @@ public class DogService(ApplicationDbContext context, IAuditLogService? auditLog
 
         await context.SaveChangesAsync();
         await LogAsync(AuditActions.DogUpdated, "Dog", dog.Id.ToString(), $"Success story information was updated for dog {dog.Name}.");
+        await RefreshDogSearchEmbeddingBestEffortAsync(dog.Id);
     }
 
     public Task<List<Dog>> GetDogsForShelterAsync(int shelterId)
@@ -205,6 +221,7 @@ public class DogService(ApplicationDbContext context, IAuditLogService? auditLog
             dog.Id.ToString(),
             $"Dog {dog.Name} was created by a shelter.",
             additionalData: $"ShelterId={shelterId}");
+        await RefreshDogSearchEmbeddingBestEffortAsync(dog.Id);
     }
 
     public async Task UpdateDogAsync(Dog dog, int shelterId, string? changedByUserId = null)
@@ -247,6 +264,7 @@ public class DogService(ApplicationDbContext context, IAuditLogService? auditLog
             $"Dog {existingDog.Name} was updated by a shelter.",
             userId: changedByUserId,
             additionalData: $"ShelterId={shelterId}");
+        await RefreshDogSearchEmbeddingBestEffortAsync(existingDog.Id);
 
         if (oldStatus != existingDog.Status)
         {
@@ -472,5 +490,22 @@ public class DogService(ApplicationDbContext context, IAuditLogService? auditLog
         string? additionalData = null)
     {
         return auditLogService?.LogAsync(action, entityName, entityId, description, userId: userId, additionalData: additionalData) ?? Task.CompletedTask;
+    }
+
+    private async Task RefreshDogSearchEmbeddingBestEffortAsync(int dogId)
+    {
+        if (dogSearchEmbeddingService is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await dogSearchEmbeddingService.RefreshDogEmbeddingAsync(dogId);
+        }
+        catch (Exception ex)
+        {
+            logger?.LogWarning(ex, "Dog search embedding refresh failed after dog change for DogId {DogId}.", dogId);
+        }
     }
 }
