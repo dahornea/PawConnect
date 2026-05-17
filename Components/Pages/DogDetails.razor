@@ -10,6 +10,7 @@
 @inject UserManager<ApplicationUser> UserManager
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
+@inject IDialogService DialogService
 
 <PageTitle>Dog Details</PageTitle>
 
@@ -161,9 +162,18 @@ else
                             }
                             else if (_currentUserIsAdmin)
                             {
-                                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
-                                    Admin accounts can view public dog information here and use admin moderation pages for internal actions.
-                                    <MudButton Href="/admin/dogs" Variant="Variant.Text" Color="Color.Primary" Class="ml-2">Admin Dogs</MudButton>
+                                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="role-note">
+                                    Admin accounts can review this dog from the public details view. Status changes remain in the shelter workflow, but status history is available here.
+                                    <MudStack Row="true" Spacing="1" Class="mt-2 flex-wrap">
+                                        <MudButton Href="/admin/dogs" Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.AdminPanelSettings">Admin Dogs</MudButton>
+                                        <MudButton Variant="Variant.Text"
+                                                   Color="Color.Info"
+                                                   StartIcon="@Icons.Material.Filled.History"
+                                                   Disabled="_isHistoryLoading"
+                                                   OnClick="OpenStatusHistoryDialogAsync">
+                                            View Status History
+                                        </MudButton>
+                                    </MudStack>
                                 </MudAlert>
                             }
 
@@ -399,6 +409,7 @@ else
     private bool _hasPendingRequest;
     private bool _showAdoptionForm;
     private bool _isSubmittingRequest;
+    private bool _isHistoryLoading;
     private AdopterProfile? _adopterProfile;
     private MudForm? _adoptionForm;
     private string? _reasonForAdoption;
@@ -418,10 +429,14 @@ else
     private bool HasPreferredVisitTimeError => !string.IsNullOrWhiteSpace(_preferredVisitTimeError);
     private bool HasReasonForAdoptionError => !string.IsNullOrWhiteSpace(_reasonForAdoptionError);
     private bool HasHoursAloneError => !string.IsNullOrWhiteSpace(_hoursAloneError);
-    private string BackHref => IsSafeLocalReturnUrl(ReturnUrl) ? ReturnUrl!.Trim() : "/dogs";
-    private string BackButtonText => string.Equals(BackHref, "/adopter/copilot", StringComparison.OrdinalIgnoreCase)
+    private string BackHref => LocalReturnUrlHelper.GetSafeLocalPath(ReturnUrl, "/dogs");
+    private string BackButtonText => BackHref.Equals("/adopter/copilot", StringComparison.OrdinalIgnoreCase)
         ? "Back to Copilot"
-        : "Back to Dogs";
+        : BackHref.Equals("/admin/dogs", StringComparison.OrdinalIgnoreCase)
+            ? "Back to Admin Dogs"
+            : BackHref.Equals("/admin/adoption-requests", StringComparison.OrdinalIgnoreCase)
+                ? "Back to Adoption Requests"
+                : "Back to Dogs";
 
     protected override async Task OnInitializedAsync()
     {
@@ -478,21 +493,6 @@ else
             DogStatus.InTreatment => Color.Info,
             _ => Color.Default
         };
-    }
-
-    private static bool IsSafeLocalReturnUrl(string? returnUrl)
-    {
-        if (string.IsNullOrWhiteSpace(returnUrl))
-        {
-            return false;
-        }
-
-        var trimmed = returnUrl.Trim();
-        return trimmed.StartsWith('/') &&
-            !trimmed.StartsWith("//", StringComparison.Ordinal) &&
-            !trimmed.Contains('\\') &&
-            !trimmed.Contains('\r') &&
-            !trimmed.Contains('\n');
     }
 
     private async Task LoadCurrentUserAsync()
@@ -596,6 +596,36 @@ else
         ClearAdoptionValidationErrors();
         _preferredVisitDate ??= DateTime.Today.AddDays(1);
         _preferredVisitTime ??= VisitSchedulingHelper.GetVisitStartTime(_dog.Shelter);
+    }
+
+    private async Task OpenStatusHistoryDialogAsync()
+    {
+        if (_dog is null)
+        {
+            return;
+        }
+
+        _isHistoryLoading = true;
+
+        try
+        {
+            var statusHistory = await DogService.GetStatusHistoryForDogAsync(_dog.Id);
+            var parameters = new DialogParameters
+            {
+                ["DogName"] = _dog.Name,
+                ["Histories"] = statusHistory
+            };
+
+            await DialogService.ShowAsync<DogStatusHistoryDialog>("Status History", parameters);
+        }
+        catch
+        {
+            Snackbar.Add("Status history could not be loaded right now.", Severity.Error);
+        }
+        finally
+        {
+            _isHistoryLoading = false;
+        }
     }
 
     private async Task SubmitAdoptionRequestAsync()

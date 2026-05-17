@@ -1,0 +1,81 @@
+<MudDialog>
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.History" Color="Color.Info" />
+            <div>
+                <MudText Typo="Typo.h6">Status History</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">@DogName</MudText>
+            </div>
+        </MudStack>
+    </TitleContent>
+    <DialogContent>
+        @if (Histories.Count == 0)
+        {
+            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+                No status changes have been recorded for this dog yet.
+            </MudAlert>
+        }
+        else
+        {
+            <MudTable Items="Histories" Dense="true" Hover="true" Class="status-history-table">
+                <HeaderContent>
+                    <MudTh>From</MudTh>
+                    <MudTh>To</MudTh>
+                    <MudTh>Changed</MudTh>
+                    <MudTh>Changed By</MudTh>
+                    <MudTh>Notes</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="From">
+                        <MudChip T="string" Color="@GetStatusColor(context.OldStatus)" Size="Size.Small">@context.OldStatus</MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="To">
+                        <MudChip T="string" Color="@GetStatusColor(context.NewStatus)" Size="Size.Small">@context.NewStatus</MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Changed">@context.ChangedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
+                    <MudTd DataLabel="Changed By">@FormatChangedBy(context)</MudTd>
+                    <MudTd DataLabel="Notes">@(string.IsNullOrWhiteSpace(context.Notes) ? "-" : context.Notes)</MudTd>
+                </RowTemplate>
+            </MudTable>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Close">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter]
+    public string DogName { get; set; } = "Selected dog";
+
+    [Parameter]
+    public IReadOnlyList<DogStatusHistory> Histories { get; set; } = [];
+
+    private void Close()
+    {
+        MudDialog.Close();
+    }
+
+    private static string FormatChangedBy(DogStatusHistory history)
+    {
+        return history.ChangedByUser?.Email ??
+            history.ChangedByUser?.UserName ??
+            history.ChangedByUserId ??
+            "-";
+    }
+
+    private static Color GetStatusColor(DogStatus status)
+    {
+        return status switch
+        {
+            DogStatus.Available => Color.Success,
+            DogStatus.Reserved => Color.Warning,
+            DogStatus.Adopted => Color.Default,
+            DogStatus.InTreatment => Color.Info,
+            _ => Color.Default
+        };
+    }
+}

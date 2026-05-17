@@ -1,0 +1,270 @@
+@using PawConnect.Data
+
+<MudDialog>
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.FactCheck" Color="Color.Primary" />
+            <div>
+                <MudText Typo="Typo.h6">Adoption Request Details</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">@RequestTitle</MudText>
+            </div>
+        </MudStack>
+    </TitleContent>
+    <DialogContent>
+        @if (Request is null)
+        {
+            <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">The selected adoption request could not be loaded.</MudAlert>
+        }
+        else
+        {
+            var profile = Request.Adopter?.AdopterProfile;
+
+            <MudStack Spacing="3">
+                <MudGrid Spacing="2">
+                    <MudItem xs="12" md="4">
+                        <MudPaper Elevation="0" Class="pa-3 request-detail-card h-100">
+                            <MudText Typo="Typo.subtitle1">Dog</MudText>
+                            <MudDivider Class="my-2" />
+                            <MudStack Spacing="1">
+                                <MudText Typo="Typo.body2"><strong>Name:</strong> @Display(Request.Dog?.Name)</MudText>
+                                <MudText Typo="Typo.body2"><strong>Breed:</strong> @Display(Request.Dog?.Breed)</MudText>
+                                <MudText Typo="Typo.body2"><strong>Age:</strong> @FormatDogAge(Request.Dog)</MudText>
+                                <MudText Typo="Typo.body2"><strong>Size:</strong> @Display(Request.Dog?.Size.ToString())</MudText>
+                                <MudText Typo="Typo.body2"><strong>Shelter:</strong> @Display(Request.Dog?.Shelter?.Name)</MudText>
+                                @if (Request.Dog is not null)
+                                {
+                                    <MudChip T="string" Color="@GetDogStatusColor(Request.Dog.Status)" Size="Size.Small">@Request.Dog.Status</MudChip>
+                                }
+                                @if (Request.Dog is not null)
+                                {
+                                    <MudButton Href="@($"/dogs/{Request.Dog.Id}?returnUrl={Uri.EscapeDataString(ReturnUrl)}")"
+                                               Variant="Variant.Text"
+                                               Color="Color.Primary"
+                                               StartIcon="@Icons.Material.Filled.Visibility">
+                                        View Dog
+                                    </MudButton>
+                                }
+                            </MudStack>
+                        </MudPaper>
+                    </MudItem>
+
+                    <MudItem xs="12" md="4">
+                        <MudPaper Elevation="0" Class="pa-3 request-detail-card h-100">
+                            <MudText Typo="Typo.subtitle1">Adopter</MudText>
+                            <MudDivider Class="my-2" />
+                            <MudStack Spacing="1">
+                                <MudText Typo="Typo.body2"><strong>Name:</strong> @Display(GetAdopterName(Request.Adopter))</MudText>
+                                <MudText Typo="Typo.body2"><strong>Email:</strong> @Display(Request.Adopter?.Email)</MudText>
+                                <MudText Typo="Typo.body2"><strong>Phone:</strong> @Display(profile?.PhoneNumber ?? Request.Adopter?.PhoneNumber)</MudText>
+                                @if (profile is null)
+                                {
+                                    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true">No adopter profile completed.</MudAlert>
+                                }
+                                else
+                                {
+                                    <MudText Typo="Typo.body2"><strong>City:</strong> @Display(profile.City)</MudText>
+                                    <MudText Typo="Typo.body2"><strong>Housing:</strong> @profile.HousingType</MudText>
+                                    <MudText Typo="Typo.body2"><strong>Yard:</strong> @FormatYesNo(profile.HasYard)</MudText>
+                                    <MudText Typo="Typo.body2"><strong>Other pets:</strong> @FormatYesNo(profile.HasOtherPets)</MudText>
+                                    <MudText Typo="Typo.body2"><strong>Children:</strong> @FormatYesNo(profile.HasChildren)</MudText>
+                                    @if (!string.IsNullOrWhiteSpace(profile.ExperienceWithDogs))
+                                    {
+                                        <MudText Typo="Typo.body2"><strong>Dog experience:</strong> @profile.ExperienceWithDogs</MudText>
+                                    }
+                                }
+                            </MudStack>
+                        </MudPaper>
+                    </MudItem>
+
+                    <MudItem xs="12" md="4">
+                        <MudPaper Elevation="0" Class="pa-3 request-detail-card h-100">
+                            <MudText Typo="Typo.subtitle1">Request</MudText>
+                            <MudDivider Class="my-2" />
+                            <MudStack Spacing="1">
+                                <MudText Typo="Typo.body2"><strong>Status:</strong></MudText>
+                                <MudChip T="string" Color="@GetRequestStatusColor(Request.Status)" Size="Size.Small">@GetRequestStatusText(Request.Status)</MudChip>
+                                <MudText Typo="Typo.body2"><strong>Preferred visit:</strong> @FormatVisitDateTime(Request.PreferredVisitDateTime)</MudText>
+                                <MudText Typo="Typo.body2"><strong>Visit status:</strong> @GetVisitStatusText(Request.VisitStatus)</MudText>
+                                @if (Request.VisitConfirmedAt.HasValue)
+                                {
+                                    <MudText Typo="Typo.body2"><strong>Visit confirmed:</strong> @FormatDateTime(Request.VisitConfirmedAt.Value)</MudText>
+                                }
+                                @if (Request.VisitConfirmedByUser is not null)
+                                {
+                                    <MudText Typo="Typo.body2"><strong>Confirmed by:</strong> @Display(Request.VisitConfirmedByUser.Email ?? Request.VisitConfirmedByUser.UserName)</MudText>
+                                }
+                                <MudText Typo="Typo.body2"><strong>Created:</strong> @FormatDateTime(Request.CreatedAt)</MudText>
+                                <MudText Typo="Typo.body2"><strong>Updated:</strong> @FormatDateTime(Request.UpdatedAt)</MudText>
+                            </MudStack>
+                        </MudPaper>
+                    </MudItem>
+                </MudGrid>
+
+                <MudGrid Spacing="2">
+                    <MudItem xs="12" md="6">
+                        <MudPaper Elevation="0" Class="pa-3 request-detail-card h-100">
+                            <MudText Typo="Typo.subtitle1">Questionnaire</MudText>
+                            <MudDivider Class="my-2" />
+                            <MudStack Spacing="2">
+                                <div>
+                                    <MudText Typo="Typo.subtitle2">Reason for adoption</MudText>
+                                    <MudText Typo="Typo.body2">@Display(Request.ReasonForAdoption)</MudText>
+                                </div>
+                                <MudText Typo="Typo.body2"><strong>Hours alone per day:</strong> @(Request.HoursAlonePerDay?.ToString() ?? "-")</MudText>
+                                @if (!string.IsNullOrWhiteSpace(Request.Message))
+                                {
+                                    <div>
+                                        <MudText Typo="Typo.subtitle2">Original message</MudText>
+                                        <MudText Typo="Typo.body2">@Request.Message</MudText>
+                                    </div>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(Request.AdditionalInformation))
+                                {
+                                    <div>
+                                        <MudText Typo="Typo.subtitle2">Additional information</MudText>
+                                        <MudText Typo="Typo.body2">@Request.AdditionalInformation</MudText>
+                                    </div>
+                                }
+                            </MudStack>
+                        </MudPaper>
+                    </MudItem>
+
+                    <MudItem xs="12" md="6">
+                        <MudPaper Elevation="0" Class="pa-3 request-detail-card h-100">
+                            <MudStack Row="true" AlignItems="AlignItems.Center">
+                                <MudText Typo="Typo.subtitle1">Internal Shelter Notes</MudText>
+                                <MudSpacer />
+                                <MudChip T="string" Color="Color.Info" Size="Size.Small" Variant="Variant.Outlined">Private</MudChip>
+                            </MudStack>
+                            <MudDivider Class="my-2" />
+                            @if (string.IsNullOrWhiteSpace(Request.ShelterInternalNotes))
+                            {
+                                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">No internal notes have been added.</MudAlert>
+                            }
+                            else
+                            {
+                                <MudText Typo="Typo.body2">@Request.ShelterInternalNotes</MudText>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(Request.VisitNotes))
+                            {
+                                <MudDivider Class="my-2" />
+                                <MudText Typo="Typo.subtitle2">Visit notes</MudText>
+                                <MudText Typo="Typo.body2">@Request.VisitNotes</MudText>
+                            }
+                        </MudPaper>
+                    </MudItem>
+                </MudGrid>
+            </MudStack>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Close">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter]
+    public AdoptionRequest? Request { get; set; }
+
+    [Parameter]
+    public string ReturnUrl { get; set; } = "/admin/adoption-requests";
+
+    private string RequestTitle => Request?.Dog?.Name is { Length: > 0 } dogName
+        ? $"Request for {dogName}"
+        : "Request review";
+
+    private void Close()
+    {
+        MudDialog.Close();
+    }
+
+    private static string Display(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? "-" : value;
+    }
+
+    private static string FormatDogAge(Dog? dog)
+    {
+        return dog is null ? "-" : DogAgeFormatter.Format(dog);
+    }
+
+    private static string FormatVisitDateTime(DateTime? visitDateTime)
+    {
+        return VisitSchedulingHelper.FormatVisitDateTime(visitDateTime);
+    }
+
+    private static string FormatDateTime(DateTime dateTime)
+    {
+        return dateTime.ToLocalTime().ToString("dd MMM yyyy HH:mm");
+    }
+
+    private static string GetAdopterName(ApplicationUser? adopter)
+    {
+        if (adopter is null)
+        {
+            return string.Empty;
+        }
+
+        return string.IsNullOrWhiteSpace(adopter.FullName)
+            ? adopter.Email ?? adopter.UserName ?? string.Empty
+            : adopter.FullName;
+    }
+
+    private static string FormatYesNo(bool value)
+    {
+        return value ? "Yes" : "No";
+    }
+
+    private static Color GetRequestStatusColor(AdoptionRequestStatus status)
+    {
+        return status switch
+        {
+            AdoptionRequestStatus.Pending => Color.Warning,
+            AdoptionRequestStatus.VisitConfirmed => Color.Info,
+            AdoptionRequestStatus.Accepted => Color.Success,
+            AdoptionRequestStatus.Rejected => Color.Error,
+            AdoptionRequestStatus.Cancelled => Color.Default,
+            _ => Color.Default
+        };
+    }
+
+    private static string GetRequestStatusText(AdoptionRequestStatus status)
+    {
+        return status switch
+        {
+            AdoptionRequestStatus.Pending => "Pending",
+            AdoptionRequestStatus.VisitConfirmed => "Visit confirmed",
+            AdoptionRequestStatus.Accepted => "Adopted",
+            AdoptionRequestStatus.Rejected => "Rejected",
+            AdoptionRequestStatus.Cancelled => "Cancelled",
+            _ => status.ToString()
+        };
+    }
+
+    private static string GetVisitStatusText(AdoptionVisitStatus status)
+    {
+        return status switch
+        {
+            AdoptionVisitStatus.Requested => "Visit requested",
+            AdoptionVisitStatus.Confirmed => "Visit confirmed",
+            AdoptionVisitStatus.Completed => "Completed",
+            AdoptionVisitStatus.Cancelled => "Cancelled",
+            _ => "Not scheduled"
+        };
+    }
+
+    private static Color GetDogStatusColor(DogStatus status)
+    {
+        return status switch
+        {
+            DogStatus.Available => Color.Success,
+            DogStatus.Reserved => Color.Warning,
+            DogStatus.Adopted => Color.Default,
+            DogStatus.InTreatment => Color.Info,
+            _ => Color.Default
+        };
+    }
+}

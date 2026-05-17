@@ -339,6 +339,48 @@ public class AdoptionRequestServiceTests
         Assert.Equal(AdoptionRequestStatus.Pending, (await context.AdoptionRequests.FindAsync(request.Id))!.Status);
     }
 
+    [Fact]
+    public async Task GetByIdAsync_LoadsAdminDetailsGraph()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        var dog = TestDbContextFactory.CreateDog("Details Dog");
+        context.Dogs.Add(dog);
+        context.AdopterProfiles.Add(new AdopterProfile
+        {
+            ApplicationUserId = TestDbContextFactory.AdopterId,
+            FullName = "Profile Adopter",
+            City = "Cluj-Napoca",
+            PhoneNumber = "0700000000",
+            HousingType = HousingType.Apartment
+        });
+        await context.SaveChangesAsync();
+        var request = new AdoptionRequest
+        {
+            DogId = dog.Id,
+            AdopterId = TestDbContextFactory.AdopterId,
+            ReasonForAdoption = "I can provide a stable home.",
+            Status = AdoptionRequestStatus.VisitConfirmed,
+            VisitStatus = AdoptionVisitStatus.Confirmed,
+            VisitConfirmedByUserId = TestDbContextFactory.ShelterUserId,
+            PreferredVisitDateTime = FutureVisit(),
+            ShelterInternalNotes = "Private shelter note.",
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        context.AdoptionRequests.Add(request);
+        await context.SaveChangesAsync();
+        var service = CreateService(context);
+
+        var details = await service.GetByIdAsync(request.Id);
+
+        Assert.NotNull(details);
+        Assert.Equal("Details Dog", details!.Dog?.Name);
+        Assert.Equal("Test Shelter", details.Dog?.Shelter?.Name);
+        Assert.Equal("Profile Adopter", details.Adopter?.AdopterProfile?.FullName);
+        Assert.Equal("shelter@test.com", details.VisitConfirmedByUser?.Email);
+        Assert.Equal("Private shelter note.", details.ShelterInternalNotes);
+    }
+
     private static AdoptionRequestService CreateService(ApplicationDbContext context, TestEmailService? emailService = null)
     {
         return new AdoptionRequestService(

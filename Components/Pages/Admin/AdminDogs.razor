@@ -133,7 +133,7 @@
                     <MudTd DataLabel="Actions" Class="actions-cell">
                         <MudStack Row="true" Spacing="1" Justify="Justify.FlexEnd" Class="actions-stack">
                             <MudTooltip Text="View dog details">
-                                <MudIconButton Href="@($"/dogs/{context.Id}")" Icon="@Icons.Material.Filled.Visibility" Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" aria-label="View dog details" />
+                                <MudIconButton Href="@GetAdminDogDetailsUrl(context.Id)" Icon="@Icons.Material.Filled.Visibility" Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" aria-label="View dog details" />
                             </MudTooltip>
                             <MudTooltip Text="View status history">
                                 <MudIconButton Icon="@Icons.Material.Filled.History" Variant="Variant.Text" Color="Color.Info" Size="Size.Small" Disabled="_isHistoryLoading" OnClick="@(() => LoadStatusHistoryAsync(context))" aria-label="View status history" />
@@ -146,56 +146,6 @@
                 </RowTemplate>
             </MudTable>
 
-            @if (_selectedHistoryDog is not null)
-            {
-                <MudPaper Elevation="0" Class="section-surface history-panel pa-4">
-                    <MudStack Spacing="3">
-                        <div>
-                            <MudText Typo="Typo.h5">Status History: @_selectedHistoryDog.Name</MudText>
-                            <MudText Typo="Typo.body2" Color="Color.Secondary">Internal status changes recorded for this dog.</MudText>
-                        </div>
-
-                        @if (_isHistoryLoading)
-                        {
-                            <MudStack AlignItems="AlignItems.Center" Class="py-4">
-                                <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
-                                <MudText Typo="Typo.body2" Color="Color.Secondary">Loading status history...</MudText>
-                            </MudStack>
-                        }
-                        else if (!string.IsNullOrWhiteSpace(_historyError))
-                        {
-                            <MudAlert Severity="Severity.Error">@_historyError</MudAlert>
-                        }
-                        else if (_statusHistory.Count == 0)
-                        {
-                            <MudAlert Severity="Severity.Info">No status changes have been recorded for this dog yet.</MudAlert>
-                        }
-                        else
-                        {
-                            <MudTable Items="_statusHistory" Dense="true" Hover="true" Class="table-shell">
-                                <HeaderContent>
-                                    <MudTh>From</MudTh>
-                                    <MudTh>To</MudTh>
-                                    <MudTh>Changed</MudTh>
-                                    <MudTh>Changed By</MudTh>
-                                    <MudTh>Notes</MudTh>
-                                </HeaderContent>
-                                <RowTemplate>
-                                    <MudTd DataLabel="From">
-                                        <MudChip T="string" Color="@GetStatusColor(context.OldStatus)" Size="Size.Small">@context.OldStatus</MudChip>
-                                    </MudTd>
-                                    <MudTd DataLabel="To">
-                                        <MudChip T="string" Color="@GetStatusColor(context.NewStatus)" Size="Size.Small">@context.NewStatus</MudChip>
-                                    </MudTd>
-                                    <MudTd DataLabel="Changed">@context.ChangedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
-                                    <MudTd DataLabel="Changed By">@(context.ChangedByUser?.Email ?? "-")</MudTd>
-                                    <MudTd DataLabel="Notes">@(string.IsNullOrWhiteSpace(context.Notes) ? "-" : context.Notes)</MudTd>
-                                </RowTemplate>
-                            </MudTable>
-                        }
-                    </MudStack>
-                </MudPaper>
-            }
         }
     </MudStack>
 </MudContainer>
@@ -210,9 +160,6 @@
     private string? _searchIndexMessage;
     private Severity _searchIndexSeverity = Severity.Info;
     private string? _error;
-    private string? _historyError;
-    private Dog? _selectedHistoryDog;
-    private List<DogStatusHistory> _statusHistory = [];
 
     protected override async Task OnInitializedAsync()
     {
@@ -340,18 +287,22 @@
 
     private async Task LoadStatusHistoryAsync(Dog dog)
     {
-        _selectedHistoryDog = dog;
-        _statusHistory = [];
-        _historyError = null;
         _isHistoryLoading = true;
 
         try
         {
-            _statusHistory = await DogService.GetStatusHistoryForDogAsync(dog.Id);
+            var statusHistory = await DogService.GetStatusHistoryForDogAsync(dog.Id);
+            var parameters = new DialogParameters
+            {
+                ["DogName"] = dog.Name,
+                ["Histories"] = statusHistory
+            };
+
+            await DialogService.ShowAsync<DogStatusHistoryDialog>("Status History", parameters);
         }
         catch
         {
-            _historyError = "Status history could not be loaded right now.";
+            Snackbar.Add("Status history could not be loaded right now.", Severity.Error);
         }
         finally
         {
@@ -398,6 +349,11 @@
     private static bool HasSuccessStory(Dog dog)
     {
         return !string.IsNullOrWhiteSpace(dog.SuccessStoryText) || dog.AdoptedAt.HasValue;
+    }
+
+    private static string GetAdminDogDetailsUrl(int dogId)
+    {
+        return $"/dogs/{dogId}?returnUrl={Uri.EscapeDataString("/admin/dogs")}";
     }
 
     private async Task OpenSuccessStoryDialogAsync(Dog dog)
