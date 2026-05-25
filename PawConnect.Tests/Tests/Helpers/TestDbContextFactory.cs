@@ -138,6 +138,14 @@ public static class TestDbContextFactory
             context.FoodTypes.Add(new FoodType { Id = AdultFoodTypeId, Name = "Adult dry food" });
         }
 
+        foreach (var seedBreed in DogBreedSeedData.CreateSeedEntities())
+        {
+            if (!context.DogBreeds.Any(breed => breed.Id == seedBreed.Id))
+            {
+                context.DogBreeds.Add(seedBreed);
+            }
+        }
+
         context.SaveChanges();
     }
 

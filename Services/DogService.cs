@@ -27,7 +27,7 @@ public class DogService(
 
     public async Task UpdateAsync(Dog dog)
     {
-        NormalizeDogAge(dog);
+        await ValidateAndNormalizeDogAsync(dog);
         context.Dogs.Update(dog);
         await context.SaveChangesAsync();
         await LogAsync(AuditActions.DogUpdated, "Dog", dog.Id.ToString(), $"Dog {dog.Name} was updated.");
@@ -51,6 +51,8 @@ public class DogService(
     {
         return context.Dogs
             .Include(d => d.Shelter)
+            .Include(d => d.DogBreed)
+            .Include(d => d.SecondaryBreed)
             .Include(d => d.Images)
             .Include(d => d.PreferredFoodType)
             .Where(d => d.Status == DogStatus.Available || d.Status == DogStatus.Reserved)
@@ -63,6 +65,8 @@ public class DogService(
     {
         return context.Dogs
             .Include(d => d.Shelter)
+            .Include(d => d.DogBreed)
+            .Include(d => d.SecondaryBreed)
             .Include(d => d.Images)
             .Where(d => d.Status == DogStatus.Adopted)
             .OrderByDescending(d => d.AdoptedAt)
@@ -75,6 +79,8 @@ public class DogService(
     {
         var query = context.Dogs
             .Include(d => d.Shelter)
+            .Include(d => d.DogBreed)
+            .Include(d => d.SecondaryBreed)
             .Include(d => d.Images)
             .Include(d => d.PreferredFoodType)
             .Where(d => d.Status == DogStatus.Available || d.Status == DogStatus.Reserved)
@@ -87,7 +93,14 @@ public class DogService(
 
         if (!string.IsNullOrWhiteSpace(breed))
         {
-            query = query.Where(d => d.Breed == breed);
+            var normalizedBreed = breed.Trim().ToUpper();
+            query = query.Where(d =>
+                d.Breed.ToUpper().Contains(normalizedBreed) ||
+                (d.CustomBreedName != null && d.CustomBreedName.ToUpper().Contains(normalizedBreed)) ||
+                (d.DogBreed != null && d.DogBreed.Name.ToUpper().Contains(normalizedBreed)) ||
+                (d.SecondaryBreed != null && d.SecondaryBreed.Name.ToUpper().Contains(normalizedBreed)) ||
+                (d.IsMixedBreed && d.DogBreed != null && d.SecondaryBreed != null && (d.DogBreed.Name + " " + d.SecondaryBreed.Name + " Mix").ToUpper().Contains(normalizedBreed)) ||
+                (d.IsMixedBreed && d.DogBreed != null && (d.DogBreed.Name + " Mix").ToUpper().Contains(normalizedBreed)));
         }
 
         if (maxAge.HasValue)
@@ -133,6 +146,8 @@ public class DogService(
     {
         return context.Dogs
             .Include(d => d.Shelter)
+            .Include(d => d.DogBreed)
+            .Include(d => d.SecondaryBreed)
             .Include(d => d.Images)
             .AsNoTracking()
             .ToListAsync();
@@ -147,6 +162,8 @@ public class DogService(
     {
         return context.Dogs
             .Include(d => d.Shelter)
+            .Include(d => d.DogBreed)
+            .Include(d => d.SecondaryBreed)
             .Include(d => d.Images)
             .Include(d => d.MedicalRecords)
             .Include(d => d.PreferredFoodType)
@@ -156,7 +173,7 @@ public class DogService(
 
     public async Task CreateDogAsync(Dog dog)
     {
-        NormalizeDogAge(dog);
+        await ValidateAndNormalizeDogAsync(dog);
         context.Dogs.Add(dog);
         await context.SaveChangesAsync();
         await LogAsync(AuditActions.DogCreated, "Dog", dog.Id.ToString(), $"Dog {dog.Name} was created.");
@@ -188,6 +205,8 @@ public class DogService(
     {
         return context.Dogs
             .Include(d => d.Shelter)
+            .Include(d => d.DogBreed)
+            .Include(d => d.SecondaryBreed)
             .Include(d => d.Images)
             .Include(d => d.PreferredFoodType)
             .Where(d => d.ShelterId == shelterId)
@@ -200,6 +219,8 @@ public class DogService(
     {
         return context.Dogs
             .Include(d => d.Shelter)
+            .Include(d => d.DogBreed)
+            .Include(d => d.SecondaryBreed)
             .Include(d => d.Images)
             .Include(d => d.PreferredFoodType)
             .AsNoTracking()
@@ -208,10 +229,12 @@ public class DogService(
 
     public async Task CreateDogAsync(Dog dog, int shelterId)
     {
-        ValidateDog(dog);
+        await ValidateAndNormalizeDogAsync(dog);
         dog.Id = 0;
         dog.ShelterId = shelterId;
         dog.Shelter = null;
+        dog.DogBreed = null;
+        dog.SecondaryBreed = null;
 
         context.Dogs.Add(dog);
         await context.SaveChangesAsync();
@@ -226,7 +249,7 @@ public class DogService(
 
     public async Task UpdateDogAsync(Dog dog, int shelterId, string? changedByUserId = null)
     {
-        ValidateDog(dog);
+        await ValidateAndNormalizeDogAsync(dog);
 
         var existingDog = await context.Dogs.FirstOrDefaultAsync(d => d.Id == dog.Id && d.ShelterId == shelterId);
         if (existingDog is null)
@@ -242,6 +265,10 @@ public class DogService(
 
         existingDog.Name = dog.Name.Trim();
         existingDog.Breed = dog.Breed.Trim();
+        existingDog.DogBreedId = dog.DogBreedId;
+        existingDog.SecondaryBreedId = dog.SecondaryBreedId;
+        existingDog.IsMixedBreed = dog.IsMixedBreed;
+        existingDog.CustomBreedName = dog.CustomBreedName;
         existingDog.AgeYears = dog.AgeYears;
         existingDog.AgeMonths = dog.AgeMonths;
         existingDog.Age = dog.AgeYears;
@@ -311,6 +338,8 @@ public class DogService(
     {
         return context.Dogs
             .Include(d => d.Shelter)
+            .Include(d => d.DogBreed)
+            .Include(d => d.SecondaryBreed)
             .Include(d => d.Images)
             .Include(d => d.PreferredFoodType)
             .OrderBy(d => d.Name)
@@ -403,7 +432,7 @@ public class DogService(
             DogSortOption.NameDesc => query.OrderByDescending(d => d.Name),
             DogSortOption.AgeAsc => query.OrderBy(d => d.AgeYears).ThenBy(d => d.AgeMonths).ThenBy(d => d.Name),
             DogSortOption.AgeDesc => query.OrderByDescending(d => d.AgeYears).ThenByDescending(d => d.AgeMonths).ThenBy(d => d.Name),
-            DogSortOption.BreedAsc => query.OrderBy(d => d.Breed).ThenBy(d => d.Name),
+            DogSortOption.BreedAsc => query.OrderBy(d => d.DogBreed != null ? d.DogBreed.Name : d.CustomBreedName ?? d.Breed).ThenBy(d => d.Name),
             DogSortOption.LocationAsc => query.OrderBy(d => d.Location).ThenBy(d => d.Name),
             DogSortOption.Status => query.OrderBy(d => d.Status).ThenBy(d => d.Name),
             DogSortOption.NewestFirst => query.OrderByDescending(d => d.Id),
@@ -412,7 +441,7 @@ public class DogService(
         };
     }
 
-    private static void ValidateDog(Dog dog)
+    private async Task ValidateAndNormalizeDogAsync(Dog dog)
     {
         NormalizeDogAge(dog);
 
@@ -420,6 +449,8 @@ public class DogService(
         {
             throw new InvalidOperationException("Dog name is required.");
         }
+
+        await NormalizeDogBreedAsync(dog);
 
         if (string.IsNullOrWhiteSpace(dog.Breed))
         {
@@ -453,8 +484,69 @@ public class DogService(
 
         dog.Name = dog.Name.Trim();
         dog.Breed = dog.Breed.Trim();
+        dog.CustomBreedName = string.IsNullOrWhiteSpace(dog.CustomBreedName) ? null : dog.CustomBreedName.Trim();
         dog.Location = dog.Location.Trim();
         dog.Age = dog.AgeYears;
+    }
+
+    private async Task NormalizeDogBreedAsync(Dog dog)
+    {
+        var breeds = await context.DogBreeds.AsNoTracking().ToListAsync();
+
+        if (!dog.DogBreedId.HasValue && string.IsNullOrWhiteSpace(dog.CustomBreedName) && !string.IsNullOrWhiteSpace(dog.Breed))
+        {
+            var parsed = DogBreedFormatter.Parse(dog.Breed, breeds);
+            dog.DogBreedId = parsed.DogBreedId;
+            dog.SecondaryBreedId = parsed.SecondaryBreedId;
+            dog.IsMixedBreed = parsed.IsMixedBreed;
+            dog.CustomBreedName = parsed.CustomBreedName;
+            dog.Breed = parsed.DisplayName;
+        }
+
+        var selectedBreed = dog.DogBreedId.HasValue
+            ? breeds.FirstOrDefault(breed => breed.Id == dog.DogBreedId.Value)
+            : null;
+        var selectedSecondaryBreed = dog.SecondaryBreedId.HasValue
+            ? breeds.FirstOrDefault(breed => breed.Id == dog.SecondaryBreedId.Value)
+            : null;
+
+        if (dog.DogBreedId.HasValue && selectedBreed is null)
+        {
+            throw new InvalidOperationException("Selected breed was not found.");
+        }
+
+        if (dog.SecondaryBreedId.HasValue && selectedSecondaryBreed is null)
+        {
+            throw new InvalidOperationException("Selected secondary breed was not found.");
+        }
+
+        dog.CustomBreedName = string.IsNullOrWhiteSpace(dog.CustomBreedName) ? null : dog.CustomBreedName.Trim();
+        if (!dog.DogBreedId.HasValue && string.IsNullOrWhiteSpace(dog.CustomBreedName))
+        {
+            var unknownBreed = breeds.FirstOrDefault(breed => breed.Name.Equals("Unknown", StringComparison.OrdinalIgnoreCase));
+            dog.DogBreedId = unknownBreed?.Id;
+            selectedBreed = unknownBreed;
+        }
+
+        if (!dog.IsMixedBreed ||
+            IsSpecialBreed(selectedBreed) ||
+            IsSpecialBreed(selectedSecondaryBreed) ||
+            selectedBreed?.Id == selectedSecondaryBreed?.Id)
+        {
+            dog.SecondaryBreedId = null;
+            selectedSecondaryBreed = null;
+        }
+
+        dog.DogBreed = null;
+        dog.SecondaryBreed = null;
+        dog.Breed = DogBreedFormatter.Format(selectedBreed?.Name, selectedSecondaryBreed?.Name, dog.IsMixedBreed, dog.CustomBreedName, dog.Breed);
+    }
+
+    private static bool IsSpecialBreed(DogBreed? breed)
+    {
+        return breed is not null &&
+            (breed.Name.Equals("Mixed Breed", StringComparison.OrdinalIgnoreCase) ||
+             breed.Name.Equals("Unknown", StringComparison.OrdinalIgnoreCase));
     }
 
     private static void NormalizeDogAge(Dog dog)

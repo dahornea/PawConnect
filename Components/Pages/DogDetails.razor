@@ -47,39 +47,67 @@ else
 
             @{
                 var validImages = GetValidImages(_dog);
-                var mainImage = validImages.FirstOrDefault();
-                var galleryImages = validImages.Skip(1).ToList();
+                var selectedImageIndex = GetSafeSelectedImageIndex(validImages.Count);
+                var selectedImage = validImages.Count == 0 ? null : validImages[selectedImageIndex];
             }
 
             <MudGrid Spacing="3" Class="details-hero-grid">
                 <MudItem xs="12" md="5">
-                    <MudCard Class="section-surface">
-                        @if (mainImage is null)
+                    <MudPaper Elevation="0" Class="section-surface dog-gallery">
+                        <div class="dog-gallery-main">
+                        @if (selectedImage is null)
                         {
-                            <div class="dog-detail-image dog-image-placeholder">
+                            <div class="dog-gallery-placeholder">
                                 <MudIcon Icon="@Icons.Material.Filled.Pets" Color="Color.Primary" />
-                                <MudText Typo="Typo.body2">No image available</MudText>
+                                <MudText Typo="Typo.subtitle2">No photo available</MudText>
                             </div>
                         }
                         else
                         {
-                            <MudCardMedia Image="@mainImage.ImageUrl" Class="dog-detail-image" />
-                        }
-                    </MudCard>
+                            <button type="button"
+                                    class="dog-gallery-main-button"
+                                    aria-label="@($"Open photo preview for {_dog.Name}")"
+                                    @onclick="() => OpenImagePreviewAsync(validImages, selectedImageIndex)">
+                                <img src="@selectedImage.ImageUrl"
+                                     alt="@GetDogImageAlt(_dog)"
+                                     class="dog-gallery-image"
+                                     @onerror="@(() => MarkImageUnavailable(selectedImage.ImageUrl))" />
+                                <span class="dog-gallery-zoom-overlay" aria-hidden="true">
+                                    <MudIcon Icon="@Icons.Material.Filled.ZoomIn" />
+                                    <span>View photo</span>
+                                </span>
 
-                    @if (galleryImages.Count > 0)
-                    {
-                        <MudGrid Spacing="2" Class="mt-2">
-                            @foreach (var image in galleryImages)
+                                @if (validImages.Count > 1)
+                                {
+                                    <span class="dog-gallery-count">@($"{selectedImageIndex + 1} / {validImages.Count}")</span>
+                                }
+                            </button>
+                        }
+                        </div>
+
+                        @if (validImages.Count > 1)
+                        {
+                            <div class="dog-gallery-thumbnails" role="list" aria-label="@($"{_dog.Name} photos")">
+                            @for (var index = 0; index < validImages.Count; index++)
                             {
-                                <MudItem xs="6" sm="4">
-                                    <MudCard Class="section-surface">
-                                        <MudCardMedia Image="@image.ImageUrl" Class="gallery-image" />
-                                    </MudCard>
-                                </MudItem>
+                                var thumbnailIndex = index;
+                                var image = validImages[thumbnailIndex];
+                                var isSelected = thumbnailIndex == selectedImageIndex;
+
+                                <button type="button"
+                                        class="dog-gallery-thumbnail @(isSelected ? "selected" : null)"
+                                        aria-label="@($"Show photo {thumbnailIndex + 1} of {_dog.Name}")"
+                                        aria-current="@(isSelected ? "true" : "false")"
+                                        @onclick="() => SelectGalleryImage(thumbnailIndex)">
+                                    <img src="@image.ImageUrl"
+                                         alt=""
+                                         loading="lazy"
+                                         @onerror="@(() => MarkImageUnavailable(image.ImageUrl))" />
+                                </button>
                             }
-                        </MudGrid>
-                    }
+                            </div>
+                        }
+                    </MudPaper>
                 </MudItem>
 
                 <MudItem xs="12" md="7">
@@ -88,7 +116,7 @@ else
                             <MudStack Row="true" AlignItems="AlignItems.Start" Class="summary-heading">
                                 <div>
                                     <MudText Typo="Typo.h3" Class="dog-title">@_dog.Name</MudText>
-                                    <MudText Typo="Typo.subtitle1" Class="dog-subtitle">@_dog.Breed, @DogAgeFormatter.Format(_dog)</MudText>
+                                    <MudText Typo="Typo.subtitle1" Class="dog-subtitle">@DogBreedFormatter.Format(_dog), @DogAgeFormatter.Format(_dog)</MudText>
                                 </div>
                                 <MudSpacer />
                                 <MudChip T="string" Color="@GetStatusColor(_dog.Status)" Class="status-chip">@_dog.Status</MudChip>
@@ -292,6 +320,95 @@ else
             </MudGrid>
 
             <MudGrid Spacing="3">
+                <MudItem xs="12">
+                    <MudPaper Elevation="0" Class="section-surface breed-info-panel pa-4">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                            <MudIcon Icon="@Icons.Material.Filled.Pets" Color="Color.Primary" />
+                            <MudText Typo="Typo.h6" Class="content-title">Breed Information</MudText>
+                        </MudStack>
+                        <MudDivider Class="my-2" />
+                        <MudGrid Spacing="3" Class="breed-info-grid">
+                            <MudItem xs="12" md="4">
+                                <MudStack Spacing="1">
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="flex-wrap">
+                                        <MudText Typo="Typo.subtitle1" Class="breed-info-name">@DogBreedFormatter.Format(_dog)</MudText>
+                                        @if (DogBreedInformationFormatter.IsMixedBreed(_dog))
+                                        {
+                                            <MudChip T="string" Color="Color.Secondary" Variant="Variant.Outlined" Size="Size.Small">Mixed breed</MudChip>
+                                        }
+                                    </MudStack>
+                                    <MudText Typo="Typo.body2" Class="breed-info-muted">
+                                        @DogBreedInformationFormatter.GetDisclaimer(_dog)
+                                    </MudText>
+                                </MudStack>
+                            </MudItem>
+                            <MudItem xs="12" md="4">
+                                <MudStack Spacing="2">
+                                    <div class="breed-info-block">
+                                        <MudText Typo="Typo.caption" Class="breed-info-label">Overview</MudText>
+                                        @foreach (var overviewNote in DogBreedInformationFormatter.GetGeneralNotes(_dog))
+                                        {
+                                            <MudText Typo="Typo.body2">@overviewNote</MudText>
+                                        }
+                                    </div>
+                                    @{
+                                        var typicalTraitNotes = DogBreedInformationFormatter.GetTypicalTraitNotes(_dog);
+                                    }
+                                    @if (typicalTraitNotes.Count > 0)
+                                    {
+                                        <div class="breed-info-block">
+                                            <MudText Typo="Typo.caption" Class="breed-info-label">Typical traits</MudText>
+                                            @foreach (var traitNote in typicalTraitNotes)
+                                            {
+                                                <MudText Typo="Typo.body2">@traitNote</MudText>
+                                            }
+                                        </div>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(DogBreedInformationFormatter.GetCareContext(_dog)))
+                                    {
+                                        <div class="breed-info-block">
+                                            <MudText Typo="Typo.caption" Class="breed-info-label">Care context</MudText>
+                                            <MudText Typo="Typo.body2">@DogBreedInformationFormatter.GetCareContext(_dog)</MudText>
+                                        </div>
+                                    }
+                                </MudStack>
+                            </MudItem>
+                            <MudItem xs="12" md="4">
+                                <MudStack Spacing="2">
+                                    <div class="breed-info-health">
+                                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                            <MudIcon Icon="@Icons.Material.Filled.HealthAndSafety" Color="Color.Info" Size="Size.Small" />
+                                            <MudText Typo="Typo.caption" Class="breed-info-label">Common health considerations</MudText>
+                                        </MudStack>
+                                        @{
+                                            var healthItems = DogBreedInformationFormatter.GetHealthConsiderationItems(_dog);
+                                        }
+                                        @if (healthItems.Count > 0)
+                                        {
+                                            <MudText Typo="Typo.body2" Class="breed-health-intro">@DogBreedInformationFormatter.GetHealthConsiderationsIntro(_dog)</MudText>
+                                            <ul class="breed-health-list">
+                                                @foreach (var healthItem in healthItems)
+                                                {
+                                                    <li>@healthItem</li>
+                                                }
+                                            </ul>
+                                            <MudText Typo="Typo.body2" Class="breed-info-muted">@DogBreedInformationFormatter.GetHealthFollowUp(_dog)</MudText>
+                                        }
+                                        else
+                                        {
+                                            <MudText Typo="Typo.body2" Class="breed-health-paragraph">@DogBreedInformationFormatter.GetHealthNote(_dog)</MudText>
+                                        }
+                                    </div>
+                                    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true" Class="breed-info-note">
+                                        <MudText Typo="Typo.caption" Class="breed-info-label">Important note</MudText>
+                                        <MudText Typo="Typo.body2">@DogBreedInformationFormatter.GetImportantNote(_dog)</MudText>
+                                    </MudAlert>
+                                </MudStack>
+                            </MudItem>
+                        </MudGrid>
+                    </MudPaper>
+                </MudItem>
+
                 <MudItem xs="12" md="4">
                     <MudPaper Elevation="0" Class="section-surface info-panel pa-4 h-100">
                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
@@ -410,6 +527,8 @@ else
     private bool _showAdoptionForm;
     private bool _isSubmittingRequest;
     private bool _isHistoryLoading;
+    private int _selectedImageIndex;
+    private readonly HashSet<string> _unavailableImageUrls = new(StringComparer.OrdinalIgnoreCase);
     private AdopterProfile? _adopterProfile;
     private MudForm? _adoptionForm;
     private string? _reasonForAdoption;
@@ -462,25 +581,70 @@ else
         }
     }
 
-    private static List<DogImage> GetValidImages(Dog dog)
+    private List<DogImage> GetValidImages(Dog dog)
     {
         return dog.Images
-            .Where(i => IsValidImageUrl(i.ImageUrl))
+            .Where(i => DogImageUrlValidator.IsValidDisplayImageUrl(i.ImageUrl))
+            .Where(i => !_unavailableImageUrls.Contains(i.ImageUrl.Trim()))
             .OrderByDescending(i => i.IsMainImage)
             .ThenBy(i => i.Id)
             .ToList();
     }
 
-    private static bool IsValidImageUrl(string? imageUrl)
+    private void MarkImageUnavailable(string? imageUrl)
     {
-        if (string.IsNullOrWhiteSpace(imageUrl) ||
-            imageUrl.Contains("placehold.co", StringComparison.OrdinalIgnoreCase))
+        if (string.IsNullOrWhiteSpace(imageUrl))
         {
-            return false;
+            return;
         }
 
-        return Uri.TryCreate(imageUrl, UriKind.Absolute, out var uri) &&
-            (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
+        _unavailableImageUrls.Add(imageUrl.Trim());
+    }
+
+    private int GetSafeSelectedImageIndex(int imageCount)
+    {
+        if (imageCount <= 0)
+        {
+            return 0;
+        }
+
+        return Math.Clamp(_selectedImageIndex, 0, imageCount - 1);
+    }
+
+    private void SelectGalleryImage(int imageIndex)
+    {
+        _selectedImageIndex = imageIndex;
+    }
+
+    private async Task OpenImagePreviewAsync(IReadOnlyList<DogImage> images, int initialIndex)
+    {
+        if (_dog is null || images.Count == 0)
+        {
+            return;
+        }
+
+        var parameters = new DialogParameters
+        {
+            ["DogName"] = _dog.Name,
+            ["FormattedBreed"] = DogBreedFormatter.Format(_dog),
+            ["Images"] = images,
+            ["InitialIndex"] = initialIndex
+        };
+
+        var options = new DialogOptions
+        {
+            MaxWidth = MaxWidth.False,
+            NoHeader = true,
+            CloseOnEscapeKey = true,
+            BackgroundClass = "dog-image-lightbox-backdrop"
+        };
+
+        await DialogService.ShowAsync<DogImagePreviewDialog>(_dog.Name, parameters, options);
+    }
+
+    private static string GetDogImageAlt(Dog dog)
+    {
+        return $"Photo of {dog.Name}, {DogBreedFormatter.Format(dog)}";
     }
 
     private static Color GetStatusColor(DogStatus status)

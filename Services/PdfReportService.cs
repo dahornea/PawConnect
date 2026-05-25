@@ -19,6 +19,10 @@ public class PdfReportService(ApplicationDbContext context, ILogger<PdfReportSer
         var request = await context.AdoptionRequests
             .Include(r => r.Dog)
             .ThenInclude(d => d!.Shelter)
+            .Include(r => r.Dog)
+            .ThenInclude(d => d!.DogBreed)
+            .Include(r => r.Dog)
+            .ThenInclude(d => d!.SecondaryBreed)
             .Include(r => r.Adopter)
             .ThenInclude(a => a!.AdopterProfile)
             .AsNoTracking()
@@ -38,7 +42,7 @@ public class PdfReportService(ApplicationDbContext context, ILogger<PdfReportSer
             {
                 AddSection(content, "Dog Information", [
                     ("Dog name", dog?.Name),
-                    ("Breed", dog?.Breed),
+                    ("Breed", DogBreedFormatter.Format(dog)),
                     ("Age", dog is null ? null : DogAgeFormatter.Format(dog)),
                     ("Size", dog?.Size.ToString()),
                     ("Current status", dog?.Status.ToString()),
@@ -73,6 +77,10 @@ public class PdfReportService(ApplicationDbContext context, ILogger<PdfReportSer
         var request = await context.AdoptionRequests
             .Include(r => r.Dog)
             .ThenInclude(d => d!.Shelter)
+            .Include(r => r.Dog)
+            .ThenInclude(d => d!.DogBreed)
+            .Include(r => r.Dog)
+            .ThenInclude(d => d!.SecondaryBreed)
             .Include(r => r.Adopter)
             .AsNoTracking()
             .FirstOrDefaultAsync(r => r.Id == adoptionRequestId);
@@ -99,7 +107,7 @@ public class PdfReportService(ApplicationDbContext context, ILogger<PdfReportSer
 
                 AddSection(content, "Dog Information", [
                     ("Dog name", dog?.Name),
-                    ("Breed", dog?.Breed),
+                    ("Breed", DogBreedFormatter.Format(dog)),
                     ("Age", dog is null ? null : DogAgeFormatter.Format(dog)),
                     ("Size", dog?.Size.ToString()),
                     ("Shelter name", shelter?.Name)
@@ -218,10 +226,14 @@ public class PdfReportService(ApplicationDbContext context, ILogger<PdfReportSer
             .ToListAsync();
 
         var dogs = await context.Dogs
+            .Include(d => d.DogBreed)
+            .Include(d => d.SecondaryBreed)
             .Where(d => d.ShelterId == shelterId)
-            .Select(d => new ShelterSummaryDogRow(d.Name, d.Breed, d.Status, d.AdoptedAt))
             .AsNoTracking()
             .ToListAsync();
+        var dogRows = dogs
+            .Select(d => new ShelterSummaryDogRow(d.Name, DogBreedFormatter.Format(d), d.Status, d.AdoptedAt))
+            .ToList();
 
         var lowStockResources = await context.ResourceStocks
             .Include(r => r.ResourceCategory)
@@ -232,7 +244,7 @@ public class PdfReportService(ApplicationDbContext context, ILogger<PdfReportSer
             .AsNoTracking()
             .ToListAsync();
 
-        var recentlyAdoptedDogs = dogs
+        var recentlyAdoptedDogs = dogRows
             .Where(d => d.AdoptedAt.HasValue && d.AdoptedAt.Value >= fromDate && d.AdoptedAt.Value <= toDate)
             .OrderByDescending(d => d.AdoptedAt)
             .ToList();

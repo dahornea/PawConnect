@@ -27,7 +27,7 @@
                             <MudDivider Class="my-2" />
                             <MudStack Spacing="1">
                                 <MudText Typo="Typo.body2"><strong>Name:</strong> @Display(Request.Dog?.Name)</MudText>
-                                <MudText Typo="Typo.body2"><strong>Breed:</strong> @Display(Request.Dog?.Breed)</MudText>
+                                <MudText Typo="Typo.body2"><strong>Breed:</strong> @Display(DogBreedFormatter.Format(Request.Dog))</MudText>
                                 <MudText Typo="Typo.body2"><strong>Age:</strong> @FormatDogAge(Request.Dog)</MudText>
                                 <MudText Typo="Typo.body2"><strong>Size:</strong> @Display(Request.Dog?.Size.ToString())</MudText>
                                 <MudText Typo="Typo.body2"><strong>Shelter:</strong> @Display(Request.Dog?.Shelter?.Name)</MudText>

@@ -76,9 +76,9 @@
                                         <MudText Typo="Typo.h6" Class="request-dog-name">@DisplayOrFallback(request.Dog?.Name, "Unknown dog")</MudText>
                                         <MudText Typo="Typo.body2" Class="request-shelter-name">@DisplayOrFallback(request.Dog?.Shelter?.Name, "Shelter not available")</MudText>
                                         <MudStack Row="true" Spacing="1" Class="request-dog-tags">
-                                            @if (!string.IsNullOrWhiteSpace(request.Dog?.Breed))
+                                            @if (request.Dog is not null)
                                             {
-                                                <span class="dog-mini-tag">@request.Dog.Breed</span>
+                                                <span class="dog-mini-tag">@DogBreedFormatter.Format(request.Dog)</span>
                                             }
                                             @if (request.Dog is not null)
                                             {

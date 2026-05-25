@@ -3,6 +3,7 @@
 @using PawConnect.Data
 @attribute [Authorize(Roles = "Shelter")]
 @inject IDogService DogService
+@inject IDogBreedService DogBreedService
 @inject IDogImageService DogImageService
 @inject IFoodTypeService FoodTypeService
 @inject IShelterService ShelterService
@@ -54,14 +55,67 @@
                                               Variant="Variant.Outlined" />
                             </MudItem>
                             <MudItem xs="12" md="6">
-                                <MudTextField Label="Breed"
-                                              @bind-Value="_model.Breed"
-                                              @bind-Value:after="ClearBreedError"
-                                              Required="true"
-                                              RequiredError="Breed is required."
-                                              Error="@HasBreedError"
-                                              ErrorText="@_breedError"
-                                              Variant="Variant.Outlined" />
+                                <MudStack Spacing="1">
+                                    <MudAutocomplete T="DogBreed"
+                                                     Label="Breed"
+                                                     Value="_selectedBreed"
+                                                     ValueChanged="OnBreedSelected"
+                                                     SearchFunc="SearchBreedOptionsAsync"
+                                                     ToStringFunc="FormatBreedOption"
+                                                     Clearable="true"
+                                                     CoerceText="true"
+                                                     ResetValueOnEmptyText="true"
+                                                     Required="@(!_useCustomBreed)"
+                                                     RequiredError="Select a breed or use a custom breed name."
+                                                     Error="@HasBreedError"
+                                                     ErrorText="@_breedError"
+                                                     Variant="Variant.Outlined"
+                                                     Disabled="@_useCustomBreed"
+                                                     Adornment="Adornment.Start"
+                                                     AdornmentIcon="@Icons.Material.Filled.Pets"
+                                                     Placeholder="Search breed" />
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                        <MudCheckBox T="bool"
+                                                     Label="Mixed breed"
+                                                     Value="_model.IsMixedBreed"
+                                                     ValueChanged="OnMixedBreedChanged"
+                                                     Disabled="@IsMixedBreedDisabled"
+                                                     Color="Color.Primary" />
+                                        <MudCheckBox T="bool"
+                                                     Label="Use custom breed name"
+                                                     Value="_useCustomBreed"
+                                                     ValueChanged="OnUseCustomBreedChanged"
+                                                     Color="Color.Primary" />
+                                    </MudStack>
+                                    @if (CanUseSecondaryBreed)
+                                    {
+                                        <MudAutocomplete T="DogBreed"
+                                                         Label="Secondary breed (optional)"
+                                                         Value="_selectedSecondaryBreed"
+                                                         ValueChanged="OnSecondaryBreedSelected"
+                                                         SearchFunc="SearchSecondaryBreedOptionsAsync"
+                                                         ToStringFunc="FormatBreedOption"
+                                                         Clearable="true"
+                                                         CoerceText="true"
+                                                         ResetValueOnEmptyText="true"
+                                                         Variant="Variant.Outlined"
+                                                         Adornment="Adornment.Start"
+                                                         AdornmentIcon="@Icons.Material.Filled.Pets"
+                                                         Placeholder="Optional second known breed" />
+                                    }
+                                    @if (_useCustomBreed)
+                                    {
+                                        <MudTextField Label="Custom breed name"
+                                                      @bind-Value="_model.CustomBreedName"
+                                                      @bind-Value:after="ClearBreedError"
+                                                      Required="true"
+                                                      RequiredError="Custom breed name is required."
+                                                      Error="@HasBreedError"
+                                                      ErrorText="@_breedError"
+                                                      Variant="Variant.Outlined"
+                                                      HelperText="Use this only when the breed is not available in the list." />
+                                    }
+                                </MudStack>
                             </MudItem>
                             <MudItem xs="12" md="2">
                                 <MudNumericField T="int" Label="Age Years"
@@ -148,6 +202,7 @@
                                                       Error="@HasImageUrlError"
                                                       ErrorText="@_imageUrlError"
                                                       Variant="Variant.Outlined"
+                                                      HelperText="Use a direct .jpg, .jpeg, .png, .webp, or .gif image link."
                                                       Placeholder="https://example.com/dog-photo.jpg" />
                                     </MudItem>
                                     <MudItem xs="12" md="3">
@@ -186,6 +241,9 @@
 @code {
     private readonly Dog _model = new() { Size = DogSize.Medium, Status = DogStatus.Available };
     private List<FoodType> _foodTypes = [];
+    private List<DogBreed> _breedOptions = [];
+    private DogBreed? _selectedBreed;
+    private DogBreed? _selectedSecondaryBreed;
     private MudForm? _form;
     private bool _isLoading = true;
     private bool _isSaving;
@@ -201,6 +259,9 @@
     private string? _imageUrlError;
     private int? _shelterId;
     private List<string> _pendingImageUrls = [];
+    private bool _useCustomBreed;
+    private bool IsMixedBreedDisabled => _useCustomBreed ? false : IsSpecialBreed(_selectedBreed);
+    private bool CanUseSecondaryBreed => _model.IsMixedBreed && !_useCustomBreed && _selectedBreed is not null && !IsSpecialBreed(_selectedBreed);
     private bool HasNameError => !string.IsNullOrWhiteSpace(_nameError);
     private bool HasBreedError => !string.IsNullOrWhiteSpace(_breedError);
     private bool HasAgeYearsError => !string.IsNullOrWhiteSpace(_ageYearsError);
@@ -221,6 +282,7 @@
             }
 
             _foodTypes = await FoodTypeService.GetAllAsync();
+            _breedOptions = await DogBreedService.GetActiveBreedsAsync();
         }
         catch
         {
@@ -259,6 +321,7 @@
                 return;
             }
 
+            ApplyBreedSelectionToModel();
             await DogService.CreateDogAsync(_model, _shelterId.Value);
             await SavePendingImagesAsync();
             Snackbar.Add("Dog profile saved.", Severity.Success);
@@ -301,19 +364,19 @@
         }
 
         var imageUrl = _newImageUrl.Trim();
-        if (!IsValidImageUrl(imageUrl))
+        if (!DogImageUrlValidator.TryNormalize(imageUrl, out var normalizedImageUrl))
         {
-            _imageUrlError = "Image URL must be a valid http or https web address.";
+            _imageUrlError = DogImageUrlValidator.ValidationMessage;
             return false;
         }
 
-        if (_pendingImageUrls.Contains(imageUrl, StringComparer.OrdinalIgnoreCase))
+        if (_pendingImageUrls.Contains(normalizedImageUrl, StringComparer.OrdinalIgnoreCase))
         {
             _imageUrlError = "This image has already been added for this dog.";
             return false;
         }
 
-        _pendingImageUrls.Add(imageUrl);
+        _pendingImageUrls.Add(normalizedImageUrl);
         _newImageUrl = null;
         return true;
     }
@@ -344,6 +407,119 @@
     {
         _breedError = null;
         _formError = null;
+    }
+
+    private Task<IEnumerable<DogBreed>> SearchBreedOptionsAsync(string? value, CancellationToken cancellationToken)
+    {
+        IEnumerable<DogBreed> results = _breedOptions;
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            results = results.Where(breed => breed.Name.Contains(value, StringComparison.OrdinalIgnoreCase));
+        }
+
+        return Task.FromResult(results.Take(20));
+    }
+
+    private Task<IEnumerable<DogBreed>> SearchSecondaryBreedOptionsAsync(string? value, CancellationToken cancellationToken)
+    {
+        IEnumerable<DogBreed> results = _breedOptions
+            .Where(breed => !IsSpecialBreed(breed) && breed.Id != _selectedBreed?.Id);
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            results = results.Where(breed => breed.Name.Contains(value, StringComparison.OrdinalIgnoreCase));
+        }
+
+        return Task.FromResult(results.Take(20));
+    }
+
+    private static string FormatBreedOption(DogBreed? breed)
+    {
+        return breed?.Name ?? string.Empty;
+    }
+
+    private void OnBreedSelected(DogBreed? breed)
+    {
+        _selectedBreed = breed;
+        _model.DogBreedId = breed?.Id;
+        if (IsSpecialBreed(breed))
+        {
+            _model.IsMixedBreed = false;
+            _selectedSecondaryBreed = null;
+            _model.SecondaryBreedId = null;
+        }
+        else if (_selectedSecondaryBreed?.Id == breed?.Id)
+        {
+            _selectedSecondaryBreed = null;
+            _model.SecondaryBreedId = null;
+        }
+
+        ClearBreedError();
+    }
+
+    private void OnSecondaryBreedSelected(DogBreed? breed)
+    {
+        _selectedSecondaryBreed = breed;
+        _model.SecondaryBreedId = breed?.Id;
+        ClearBreedError();
+    }
+
+    private void OnMixedBreedChanged(bool isMixedBreed)
+    {
+        _model.IsMixedBreed = isMixedBreed;
+        if (!isMixedBreed)
+        {
+            _selectedSecondaryBreed = null;
+            _model.SecondaryBreedId = null;
+        }
+
+        ClearBreedError();
+    }
+
+    private void OnUseCustomBreedChanged(bool useCustomBreed)
+    {
+        _useCustomBreed = useCustomBreed;
+        if (useCustomBreed)
+        {
+            _selectedBreed = null;
+            _selectedSecondaryBreed = null;
+            _model.DogBreedId = null;
+            _model.SecondaryBreedId = null;
+        }
+        else
+        {
+            _model.CustomBreedName = null;
+        }
+
+        ClearBreedError();
+    }
+
+    private void ApplyBreedSelectionToModel()
+    {
+        if (_useCustomBreed)
+        {
+            _model.DogBreedId = null;
+            _model.SecondaryBreedId = null;
+            _model.Breed = DogBreedFormatter.Format(null, _model.IsMixedBreed, _model.CustomBreedName, _model.Breed);
+            return;
+        }
+
+        _model.DogBreedId = _selectedBreed?.Id;
+        _model.SecondaryBreedId = CanUseSecondaryBreed ? _selectedSecondaryBreed?.Id : null;
+        _model.CustomBreedName = null;
+        if (IsSpecialBreed(_selectedBreed))
+        {
+            _model.IsMixedBreed = false;
+            _model.SecondaryBreedId = null;
+        }
+
+        _model.Breed = DogBreedFormatter.Format(_selectedBreed?.Name, _selectedSecondaryBreed?.Name, _model.IsMixedBreed, null, _model.Breed);
+    }
+
+    private static bool IsSpecialBreed(DogBreed? breed)
+    {
+        return breed is not null &&
+            (breed.Name.Equals("Mixed Breed", StringComparison.OrdinalIgnoreCase) ||
+             breed.Name.Equals("Unknown", StringComparison.OrdinalIgnoreCase));
     }
 
     private void ClearAgeErrors()
@@ -398,7 +574,7 @@
                 return true;
             case "This image has already been added for this dog.":
             case "Image URL is required.":
-            case "Image URL must be a valid web address.":
+            case DogImageUrlValidator.ValidationMessage:
                 _imageUrlError = message;
                 return true;
             default:
@@ -420,8 +596,7 @@
 
     private static bool IsValidImageUrl(string imageUrl)
     {
-        return Uri.TryCreate(imageUrl, UriKind.Absolute, out var uri) &&
-            (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
+        return DogImageUrlValidator.IsValidDisplayImageUrl(imageUrl);
     }
 
     private async Task<int?> GetCurrentShelterIdAsync()

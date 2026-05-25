@@ -12,6 +12,19 @@ public class Dog
     [Required, StringLength(80)]
     public string Breed { get; set; } = string.Empty;
 
+    public int? DogBreedId { get; set; }
+
+    public DogBreed? DogBreed { get; set; }
+
+    public int? SecondaryBreedId { get; set; }
+
+    public DogBreed? SecondaryBreed { get; set; }
+
+    public bool IsMixedBreed { get; set; }
+
+    [StringLength(80)]
+    public string? CustomBreedName { get; set; }
+
     [Range(0, 30)]
     public int Age { get; set; }
 

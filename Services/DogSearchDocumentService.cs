@@ -10,7 +10,7 @@ public class DogSearchDocumentService : IDogSearchDocumentService
     {
         var parts = new List<string>
         {
-            $"{dog.Name} is a {DogAgeFormatter.Format(dog)} {dog.Size.ToString().ToLowerInvariant()} {dog.Breed} dog.",
+            $"{dog.Name} is a {DogAgeFormatter.Format(dog)} {dog.Size.ToString().ToLowerInvariant()} {DogBreedFormatter.Format(dog)} dog.",
             $"Status: {dog.Status}.",
             $"Location: {dog.Location}."
         };

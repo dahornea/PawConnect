@@ -111,7 +111,7 @@
                                         <MudStack Row="true" AlignItems="AlignItems.Start">
                                             <div>
                                                 <MudText Typo="Typo.h6">@dog.Name</MudText>
-                                                <MudText Typo="Typo.body2">@dog.Breed, @DogAgeFormatter.Format(dog)</MudText>
+                                                <MudText Typo="Typo.body2">@DogBreedFormatter.Format(dog), @DogAgeFormatter.Format(dog)</MudText>
                                             </div>
                                             <MudSpacer />
                                             <MudChip T="string" Color="@GetStatusColor(dog.Status)" Size="Size.Small">@dog.Status</MudChip>

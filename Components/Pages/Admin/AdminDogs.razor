@@ -99,7 +99,7 @@
                             <MudText Typo="Typo.body2" Class="dog-name">@context.Name</MudText>
                         </MudStack>
                     </MudTd>
-                    <MudTd DataLabel="Breed" Class="nowrap-cell">@context.Breed</MudTd>
+                    <MudTd DataLabel="Breed" Class="nowrap-cell">@DogBreedFormatter.Format(context)</MudTd>
                     <MudTd DataLabel="Age" Class="nowrap-cell">@FormatAge(context)</MudTd>
                     <MudTd DataLabel="Size" Class="nowrap-cell">@context.Size</MudTd>
                     <MudTd DataLabel="Location" Class="nowrap-cell">@context.Location</MudTd>
@@ -361,7 +361,7 @@
         var parameters = new DialogParameters
         {
             ["DogName"] = dog.Name,
-            ["Breed"] = dog.Breed,
+            ["Breed"] = DogBreedFormatter.Format(dog),
             ["ShelterName"] = dog.Shelter?.Name,
             ["AdoptedAt"] = dog.AdoptedAt,
             ["SuccessStoryText"] = dog.SuccessStoryText

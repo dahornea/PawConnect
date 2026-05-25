@@ -142,6 +142,8 @@ public class SemanticDogSearchService(
     {
         var dogs = await context.Dogs
             .Include(d => d.Shelter)
+            .Include(d => d.DogBreed)
+            .Include(d => d.SecondaryBreed)
             .Include(d => d.Images)
             .Include(d => d.PreferredFoodType)
             .Where(d => d.Status == DogStatus.Available || d.Status == DogStatus.Reserved)

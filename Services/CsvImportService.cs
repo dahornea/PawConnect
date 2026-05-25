@@ -135,13 +135,19 @@ public class CsvImportService(
         }
 
         var foodTypes = await GetFoodTypesAsync();
+        var dogBreeds = await context.DogBreeds.AsNoTracking().ToListAsync();
         foreach (var row in preview.RowResults)
         {
             var preferredFoodType = FindFoodType(foodTypes, row.PreviewData["PreferredFoodType"]);
+            var parsedBreed = DogBreedFormatter.Parse(row.PreviewData["Breed"], dogBreeds);
             var dog = new Dog
             {
                 Name = row.PreviewData["Name"]!,
-                Breed = row.PreviewData["Breed"]!,
+                Breed = parsedBreed.DisplayName,
+                DogBreedId = parsedBreed.DogBreedId,
+                SecondaryBreedId = parsedBreed.SecondaryBreedId,
+                IsMixedBreed = parsedBreed.IsMixedBreed,
+                CustomBreedName = parsedBreed.CustomBreedName,
                 AgeYears = int.Parse(row.PreviewData["AgeYears"]!, CultureInfo.InvariantCulture),
                 AgeMonths = int.Parse(row.PreviewData["AgeMonths"]!, CultureInfo.InvariantCulture),
                 Age = int.Parse(row.PreviewData["AgeYears"]!, CultureInfo.InvariantCulture),
@@ -157,9 +163,14 @@ public class CsvImportService(
             var imageUrls = SplitImageUrls(row.PreviewData["ImageUrls"]);
             foreach (var imageUrl in imageUrls)
             {
+                if (!DogImageUrlValidator.TryNormalize(imageUrl, out var normalizedImageUrl))
+                {
+                    continue;
+                }
+
                 dog.Images.Add(new DogImage
                 {
-                    ImageUrl = imageUrl,
+                    ImageUrl = normalizedImageUrl,
                     IsMainImage = dog.Images.Count == 0
                 });
             }
@@ -442,20 +453,26 @@ public class CsvImportService(
         }
 
         var imageUrls = SplitImageUrls(row.PreviewData["ImageUrls"]);
+        var normalizedImageUrls = new List<string>();
         var uniqueImageUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var imageUrl in imageUrls)
         {
-            if (!Uri.TryCreate(imageUrl, UriKind.Absolute, out var uri) ||
-                (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+            if (!DogImageUrlValidator.TryNormalize(imageUrl, out var normalizedImageUrl))
             {
-                AddError(row, "ImageUrls", $"Image URL '{imageUrl}' must be a valid http or https URL.");
+                AddError(row, "ImageUrls", $"Image URL '{imageUrl}' must be a valid direct image URL starting with http:// or https://.");
+                continue;
             }
 
-            if (!uniqueImageUrls.Add(imageUrl))
+            if (!uniqueImageUrls.Add(normalizedImageUrl))
             {
                 AddError(row, "ImageUrls", "Duplicate image URL in this row.");
+                continue;
             }
+
+            normalizedImageUrls.Add(normalizedImageUrl);
         }
+
+        row.PreviewData["ImageUrls"] = string.Join(";", normalizedImageUrls);
 
         if (string.IsNullOrWhiteSpace(name) ||
             string.IsNullOrWhiteSpace(breed) ||

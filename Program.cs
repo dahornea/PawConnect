@@ -56,6 +56,7 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
 
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(EfRepository<>));
 builder.Services.AddScoped<IDogService, DogService>();
+builder.Services.AddScoped<IDogBreedService, DogBreedService>();
 builder.Services.AddScoped<IAdoptionRequestService, AdoptionRequestService>();
 builder.Services.AddScoped<IFavoriteDogService, FavoriteDogService>();
 builder.Services.AddScoped<IShelterService, ShelterService>();

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" role="img" aria-label="Demo dog portrait">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#f4eee6"/>
+      <stop offset="1" stop-color="#d7e7df"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="500" fill="url(#bg)"/>
+  <rect x="0" y="340" width="800" height="160" fill="#b9ceb8" opacity=".4"/>
+  <circle cx="400" cy="265" r="133" fill="#f4efe4"/>
+  <circle cx="303" cy="233" r="55" fill="#ebe0ce"/>
+  <circle cx="497" cy="233" r="55" fill="#ebe0ce"/>
+  <circle cx="331" cy="271" r="15" fill="#15221e"/>
+  <circle cx="469" cy="271" r="15" fill="#15221e"/>
+  <path d="M382 317c0-12 36-12 36 0 0 14-18 23-18 23s-18-9-18-23Z" fill="#33251f"/>
+  <path d="M347 350c33 27 73 27 106 0" fill="none" stroke="#8a6b59" stroke-width="12" stroke-linecap="round"/>
+  <path d="M290 176c59-79 161-79 220 0-61-25-159-25-220 0Z" fill="#fffaf0"/>
+  <path d="M277 320c-25-38-40-80-30-119-68 34-91 127-44 158 33 22 61-4 74-39Zm246 0c25-38 40-80 30-119 68 34 91 127 44 158-33 22-61-4-74-39Z" fill="#dcc8ad"/>
+</svg>

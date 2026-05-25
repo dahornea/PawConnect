@@ -1,0 +1,221 @@
+::deep .dog-image-lightbox-dialog {
+    width: fit-content;
+    max-width: 92vw;
+    background: transparent !important;
+    box-shadow: none !important;
+    overflow: visible;
+}
+
+::deep .dog-image-lightbox-dialog .mud-dialog-content {
+    padding: 0 !important;
+    overflow: visible;
+    background: transparent;
+}
+
+.dog-image-preview {
+    width: fit-content;
+    max-width: 92vw;
+    max-height: 92vh;
+    outline: none;
+    color: #ffffff;
+}
+
+.preview-image-stage {
+    position: relative;
+    display: flex;
+    width: fit-content;
+    max-width: 92vw;
+    max-height: 92vh;
+    align-items: center;
+    justify-content: center;
+}
+
+.preview-image-frame {
+    position: relative;
+    display: inline-flex;
+    max-width: 92vw;
+    max-height: 88vh;
+    align-items: center;
+    justify-content: center;
+    border-radius: 18px;
+    background: rgba(13, 27, 23, 0.34);
+    box-shadow: 0 28px 70px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+}
+
+.preview-image {
+    display: block;
+    max-width: min(92vw, 1180px);
+    max-height: 82vh;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    border-radius: 18px;
+}
+
+.preview-caption {
+    position: absolute;
+    left: 14px;
+    right: 14px;
+    bottom: 14px;
+    display: inline-flex;
+    width: fit-content;
+    max-width: calc(100% - 28px);
+    align-items: center;
+    border-radius: 999px;
+    padding: 7px 12px;
+    background: rgba(13, 27, 23, 0.72);
+    color: #ffffff;
+    font-size: 0.86rem;
+    font-weight: 700;
+    line-height: 1.2;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+}
+
+::deep .preview-close-button {
+    position: absolute;
+    top: -16px;
+    right: -16px;
+    z-index: 4;
+    background: rgba(13, 27, 23, 0.78);
+    color: #ffffff;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.34);
+}
+
+::deep .preview-close-button:hover,
+::deep .preview-close-button:focus-visible,
+::deep .preview-nav:hover,
+::deep .preview-nav:focus-visible {
+    background: rgba(47, 111, 94, 0.95);
+    color: #ffffff;
+}
+
+::deep .preview-nav {
+    position: absolute;
+    top: 50%;
+    z-index: 3;
+    width: 46px;
+    height: 46px;
+    background: rgba(13, 27, 23, 0.64);
+    color: #ffffff;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.3);
+    transform: translateY(-50%);
+}
+
+::deep .preview-nav.previous {
+    left: 12px;
+}
+
+::deep .preview-nav.next {
+    right: 12px;
+}
+
+.preview-thumbnail-row {
+    display: flex;
+    max-width: 92vw;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 12px;
+    padding: 2px 2px 8px;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.36) transparent;
+}
+
+.preview-thumbnail {
+    flex: 0 0 auto;
+    width: 74px;
+    height: 56px;
+    border: 2px solid rgba(255, 255, 255, 0.22);
+    border-radius: 10px;
+    padding: 0;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+    cursor: pointer;
+    transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+}
+
+.preview-thumbnail:hover,
+.preview-thumbnail:focus-visible {
+    border-color: rgba(255, 255, 255, 0.72);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.34);
+    outline: none;
+    transform: translateY(-1px);
+}
+
+.preview-thumbnail.selected {
+    border-color: #67d5b5;
+    box-shadow: 0 0 0 3px rgba(103, 213, 181, 0.2), 0 12px 28px rgba(0, 0, 0, 0.34);
+}
+
+.preview-thumbnail img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.preview-empty-state {
+    position: relative;
+    display: flex;
+    width: min(520px, 88vw);
+    min-height: 280px;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 10px;
+    border-radius: 18px;
+    background: rgba(13, 27, 23, 0.82);
+    color: #ffffff;
+    box-shadow: 0 28px 70px rgba(0, 0, 0, 0.5);
+}
+
+.preview-empty-state > .mud-icon-root {
+    font-size: 2.6rem;
+    color: #67d5b5;
+}
+
+@media (max-width: 700px) {
+    ::deep .dog-image-lightbox-dialog,
+    .dog-image-preview,
+    .preview-image-stage,
+    .preview-image-frame {
+        max-width: 96vw;
+    }
+
+    .preview-image {
+        max-width: 96vw;
+        max-height: 78vh;
+    }
+
+    .preview-caption {
+        left: 10px;
+        right: 10px;
+        bottom: 10px;
+        max-width: calc(100% - 20px);
+        font-size: 0.78rem;
+    }
+
+    ::deep .preview-close-button {
+        top: 8px;
+        right: 8px;
+    }
+
+    ::deep .preview-nav {
+        width: 40px;
+        height: 40px;
+    }
+
+    ::deep .preview-nav.previous {
+        left: 8px;
+    }
+
+    ::deep .preview-nav.next {
+        right: 8px;
+    }
+
+    .preview-thumbnail-row {
+        display: none;
+    }
+}

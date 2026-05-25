@@ -157,6 +157,32 @@ public class DogServiceTests
     }
 
     [Fact]
+    public async Task CreateDogAsync_AllowsCustomBreedName()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        var service = new DogService(context);
+        var dog = new Dog
+        {
+            Name = "Custom Breed Dog",
+            CustomBreedName = "Rare Mountain Dog",
+            IsMixedBreed = true,
+            AgeYears = 2,
+            AgeMonths = 0,
+            Size = DogSize.Medium,
+            Location = "Cluj-Napoca",
+            Status = DogStatus.Available
+        };
+
+        await service.CreateDogAsync(dog, TestDbContextFactory.ShelterId);
+
+        var savedDog = await context.Dogs.SingleAsync(item => item.Name == "Custom Breed Dog");
+        Assert.Null(savedDog.DogBreedId);
+        Assert.Equal("Rare Mountain Dog", savedDog.CustomBreedName);
+        Assert.True(savedDog.IsMixedBreed);
+        Assert.Equal("Rare Mountain Dog Mix", savedDog.Breed);
+    }
+
+    [Fact]
     public async Task SearchDogsAsync_FiltersPublicDogsByShelterNeighborhood()
     {
         await using var context = TestDbContextFactory.CreateContext();
