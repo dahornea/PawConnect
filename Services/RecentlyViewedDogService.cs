@@ -53,6 +53,10 @@ public class RecentlyViewedDogService(ApplicationDbContext context) : IRecentlyV
             .Include(v => v.Dog)
             .ThenInclude(d => d!.Shelter)
             .Include(v => v.Dog)
+            .ThenInclude(d => d!.DogBreed)
+            .Include(v => v.Dog)
+            .ThenInclude(d => d!.SecondaryBreed)
+            .Include(v => v.Dog)
             .ThenInclude(d => d!.PreferredFoodType)
             .Where(v =>
                 v.AdopterId == adopterId &&

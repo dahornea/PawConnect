@@ -62,6 +62,8 @@ public class DogRecommendationService(
 
         var dogs = await context.Dogs
             .Include(dog => dog.Shelter)
+            .Include(dog => dog.DogBreed)
+            .Include(dog => dog.SecondaryBreed)
             .Include(dog => dog.Images)
             .Include(dog => dog.PreferredFoodType)
             .Where(dog => dog.Status == DogStatus.Available || dog.Status == DogStatus.Reserved)
@@ -73,19 +75,25 @@ public class DogRecommendationService(
             return [];
         }
 
-        var favoriteTraits = await context.FavoriteDogs
+        var favoriteDogs = await context.FavoriteDogs
             .Include(favorite => favorite.Dog)
+            .ThenInclude(dog => dog!.DogBreed)
+            .Include(favorite => favorite.Dog)
+            .ThenInclude(dog => dog!.SecondaryBreed)
             .Where(favorite => favorite.AdopterId == adopterUserId && favorite.Dog != null)
-            .Select(favorite => new DogTrait(favorite.Dog!.Breed, favorite.Dog.Size))
             .AsNoTracking()
             .ToListAsync();
 
-        var recentTraits = await context.RecentlyViewedDogs
+        var recentDogs = await context.RecentlyViewedDogs
             .Include(view => view.Dog)
+            .ThenInclude(dog => dog!.DogBreed)
+            .Include(view => view.Dog)
+            .ThenInclude(dog => dog!.SecondaryBreed)
             .Where(view => view.AdopterId == adopterUserId && view.Dog != null)
-            .Select(view => new DogTrait(view.Dog!.Breed, view.Dog.Size))
             .AsNoTracking()
             .ToListAsync();
+        var favoriteTraits = favoriteDogs.Select(favorite => new DogTrait(DogBreedFormatter.Format(favorite.Dog), favorite.Dog!.Size)).ToList();
+        var recentTraits = recentDogs.Select(view => new DogTrait(DogBreedFormatter.Format(view.Dog), view.Dog!.Size)).ToList();
 
         return dogs
             .Select(dog => ScoreDog(profile, dog, favoriteTraits, recentTraits))
@@ -276,7 +284,8 @@ public class DogRecommendationService(
         }
 
         var preferenceTraits = favoriteTraits.Concat(recentTraits).ToList();
-        var breedMatches = preferenceTraits.Count(trait => string.Equals(trait.Breed, dog.Breed, StringComparison.OrdinalIgnoreCase));
+        var dogBreed = DogBreedFormatter.Format(dog);
+        var breedMatches = preferenceTraits.Count(trait => string.Equals(trait.Breed, dogBreed, StringComparison.OrdinalIgnoreCase));
         var sizeMatches = preferenceTraits.Count(trait => trait.Size == dog.Size);
         if (breedMatches >= 2)
         {
@@ -341,7 +350,7 @@ public class DogRecommendationService(
                 SafeTrim(profile.ExperienceWithDogs, 300)),
             candidates.Select(candidate => new RecommendationDogCandidateInput(
                     candidate.DogId,
-                    candidate.Dog.Breed,
+                    DogBreedFormatter.Format(candidate.Dog),
                     DogAgeFormatter.Format(candidate.Dog),
                     candidate.Dog.Size.ToString(),
                     candidate.Dog.Status.ToString(),

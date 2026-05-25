@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" role="img" aria-label="Demo dog portrait">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#cfe7f4"/>
+      <stop offset="1" stop-color="#e8efc8"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="500" fill="url(#bg)"/>
+  <path d="M0 373c97-36 181-31 255-11 111 31 222 31 333 0 74-20 138-25 212 11v127H0Z" fill="#7fb06c" opacity=".45"/>
+  <path d="M208 325c41-98 110-146 216-143 89 2 150 44 184 129-42 46-103 74-194 74-94 0-158-19-206-60Z" fill="#d8a04b"/>
+  <path d="M302 192c-37-32-80-39-128-22 35 28 60 66 81 114Zm194 0c37-32 80-39 128-22-35 28-60 66-81 114Z" fill="#b97732"/>
+  <circle cx="344" cy="267" r="15" fill="#15221e"/>
+  <circle cx="455" cy="267" r="15" fill="#15221e"/>
+  <path d="M383 311c0-13 34-13 34 0 0 13-17 22-17 22s-17-9-17-22Z" fill="#2c211a"/>
+  <path d="M360 349c28 21 52 21 80 0" fill="none" stroke="#724527" stroke-width="12" stroke-linecap="round"/>
+  <circle cx="637" cy="130" r="34" fill="#d97706" opacity=".85"/>
+</svg>

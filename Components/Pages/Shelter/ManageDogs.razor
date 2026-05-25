@@ -228,7 +228,7 @@
                                 <MudText Typo="Typo.body2">@context.Name</MudText>
                             </MudStack>
                         </MudTd>
-                        <MudTd DataLabel="Breed">@context.Breed</MudTd>
+                        <MudTd DataLabel="Breed">@DogBreedFormatter.Format(context)</MudTd>
                         <MudTd DataLabel="Age">@DogAgeFormatter.Format(context)</MudTd>
                         <MudTd DataLabel="Size">@context.Size</MudTd>
                         <MudTd DataLabel="Location">@context.Location</MudTd>

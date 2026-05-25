@@ -614,7 +614,7 @@ public class AdoptionCopilotService(
                 "Size" => dog.Size.ToString(),
                 "Neighborhood" => EmptyToNull(dog.Shelter?.Neighborhood),
                 "Status" => dog.Status.ToString(),
-                "Breed" => dog.Breed,
+                "Breed" => DogBreedFormatter.Format(dog),
                 "City" => EmptyToNull(dog.Shelter?.City) ?? EmptyToNull(dog.Location),
                 "Shelter" => EmptyToNull(dog.Shelter?.Name),
                 "Near" => distanceKm.HasValue ? $"{distanceKm.Value:0.#} km away" : null,
@@ -855,7 +855,7 @@ public class AdoptionCopilotService(
         return new AdoptionCopilotDogToolDto(
             dog.Id,
             dog.Name,
-            dog.Breed,
+            DogBreedFormatter.Format(dog),
             DogAgeFormatter.Format(dog),
             dog.Size.ToString(),
             dog.Status.ToString(),

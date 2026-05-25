@@ -115,7 +115,7 @@
                         <MudTd DataLabel="Dog">
                             <MudStack Spacing="0" Class="request-primary-cell">
                                 <MudText Typo="Typo.body2" Class="request-primary-text">@DisplayOrFallback(context.Dog?.Name)</MudText>
-                                <MudText Typo="Typo.caption" Color="Color.Secondary">@DisplayOrFallback(context.Dog?.Breed)</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">@DisplayOrFallback(DogBreedFormatter.Format(context.Dog))</MudText>
                             </MudStack>
                         </MudTd>
                         <MudTd DataLabel="Shelter">@DisplayOrFallback(context.Dog?.Shelter?.Name)</MudTd>

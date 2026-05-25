@@ -152,7 +152,7 @@
                                             <MudSpacer />
                                             <MudChip T="string" Color="@GetStatusColor(dog.Status)" Size="Size.Small">@dog.Status</MudChip>
                                         </MudStack>
-                                        <MudText Typo="Typo.body2">@dog.Breed</MudText>
+                                        <MudText Typo="Typo.body2">@DogBreedFormatter.Format(dog)</MudText>
                                         <MudText Typo="Typo.body2" Color="Color.Secondary">@dog.Location</MudText>
                                     </MudStack>
                                 </MudCardContent>

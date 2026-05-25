@@ -90,6 +90,8 @@ public class ExportService(
     {
         var dogs = await context.Dogs
             .Include(d => d.Shelter)
+            .Include(d => d.DogBreed)
+            .Include(d => d.SecondaryBreed)
             .Include(d => d.PreferredFoodType)
             .OrderBy(d => d.Name)
             .AsNoTracking()
@@ -99,7 +101,7 @@ public class ExportService(
         {
             d.Id.ToString(CultureInfo.InvariantCulture),
             d.Name,
-            d.Breed,
+            DogBreedFormatter.Format(d),
             DogAgeFormatter.Format(d),
             d.Size.ToString(),
             d.Location,
@@ -247,6 +249,8 @@ public class ExportService(
     public async Task<ExportFile> GenerateShelterDogsCsvAsync(int shelterId)
     {
         var dogs = await context.Dogs
+            .Include(d => d.DogBreed)
+            .Include(d => d.SecondaryBreed)
             .Include(d => d.PreferredFoodType)
             .Where(d => d.ShelterId == shelterId)
             .OrderBy(d => d.Name)
@@ -257,7 +261,7 @@ public class ExportService(
         {
             d.Id.ToString(CultureInfo.InvariantCulture),
             d.Name,
-            d.Breed,
+            DogBreedFormatter.Format(d),
             DogAgeFormatter.Format(d),
             d.Size.ToString(),
             d.Location,

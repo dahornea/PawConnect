@@ -128,6 +128,13 @@
     object-fit: cover;
 }
 
+.dogs-page .dog-image {
+    display: block;
+    width: 100%;
+    height: 210px;
+    object-fit: cover;
+}
+
 .dogs-page .dog-image-link {
     display: block;
     color: inherit;
@@ -136,11 +143,13 @@
     text-decoration: none;
 }
 
+.dogs-page .dog-image-link .dog-image,
 .dogs-page .dog-image-link ::deep .dog-image,
 .dogs-page .dog-image-link .dog-image-placeholder {
     transition: transform 160ms ease, filter 160ms ease;
 }
 
+.dogs-page .dog-image-link:hover .dog-image,
 .dogs-page .dog-image-link:hover ::deep .dog-image,
 .dogs-page .dog-image-link:hover .dog-image-placeholder {
     filter: saturate(1.05);

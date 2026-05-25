@@ -163,8 +163,47 @@ public class CsvImportServiceTests
         Assert.Equal(1, result.ImportedRows);
         Assert.Equal(TestDbContextFactory.ShelterId, dog.ShelterId);
         Assert.Equal(DogStatus.Available, dog.Status);
+        Assert.Equal("Labrador Retriever Mix", dog.Breed);
+        Assert.True(dog.IsMixedBreed);
+        Assert.Equal(DogBreedSeedData.Breeds.First(breed => breed.Name == "Labrador Retriever").Id, dog.DogBreedId);
         Assert.Equal(2, context.DogImages.Count(image => image.DogId == dog.Id));
         Assert.True(context.DogImages.Any(image => image.DogId == dog.Id && image.IsMainImage));
+    }
+
+    [Fact]
+    public async Task ImportShelterDogsAsync_UnmatchedBreedStoresCustomBreed()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        var service = new CsvImportService(context);
+
+        await service.ImportShelterDogsAsync(StreamFrom("""
+            Name,Breed,AgeYears,AgeMonths,Size,Status,Location,Description,PreferredFoodType,DailyFoodAmount,ImageUrls
+            Nova,Rare Mountain Dog Mix,3,0,Medium,Available,Cluj-Napoca,Steady dog,Adult dry food,300,
+            """), TestDbContextFactory.ShelterId);
+
+        var dog = Assert.Single(context.Dogs.Where(dog => dog.Name == "Nova"));
+        Assert.Null(dog.DogBreedId);
+        Assert.True(dog.IsMixedBreed);
+        Assert.Equal("Rare Mountain Dog", dog.CustomBreedName);
+        Assert.Equal("Rare Mountain Dog Mix", dog.Breed);
+    }
+
+    [Fact]
+    public async Task ImportShelterDogsAsync_KnownMixedBreedPairStoresPrimaryAndSecondaryBreeds()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        var service = new CsvImportService(context);
+
+        await service.ImportShelterDogsAsync(StreamFrom("""
+            Name,Breed,AgeYears,AgeMonths,Size,Status,Location,Description,PreferredFoodType,DailyFoodAmount,ImageUrls
+            Bailey,Labrador Retriever x Border Collie,2,0,Medium,Available,Cluj-Napoca,Smart and social dog,Adult dry food,360,
+            """), TestDbContextFactory.ShelterId);
+
+        var dog = Assert.Single(context.Dogs.Where(dog => dog.Name == "Bailey"));
+        Assert.Equal(DogBreedSeedData.Breeds.First(breed => breed.Name == "Labrador Retriever").Id, dog.DogBreedId);
+        Assert.Equal(DogBreedSeedData.Breeds.First(breed => breed.Name == "Border Collie").Id, dog.SecondaryBreedId);
+        Assert.True(dog.IsMixedBreed);
+        Assert.Equal("Labrador Retriever \u00d7 Border Collie Mix", dog.Breed);
     }
 
     [Fact]
@@ -213,6 +252,22 @@ public class CsvImportServiceTests
         var row = Assert.Single(result.RowResults);
         Assert.False(row.IsValid);
         Assert.Contains(row.Errors, error => error.Message == "Duplicate image URL in this row.");
+    }
+
+    [Fact]
+    public async Task PreviewShelterDogsImportAsync_InvalidImageUrlFailsValidation()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        var service = new CsvImportService(context);
+
+        var result = await service.PreviewShelterDogsImportAsync(StreamFrom("""
+            Name,Breed,AgeYears,AgeMonths,Size,Status,Location,Description,PreferredFoodType,DailyFoodAmount,ImageUrls
+            Buddy,Labrador Mix,2,6,Large,Available,Cluj-Napoca,Friendly dog,Adult dry food,480,"https://example.com/not-an-image"
+            """), TestDbContextFactory.ShelterId);
+
+        var row = Assert.Single(result.RowResults);
+        Assert.False(row.IsValid);
+        Assert.Contains(row.Errors, error => error.Message == "Image URL 'https://example.com/not-an-image' must be a valid direct image URL starting with http:// or https://.");
     }
 
     [Fact]

@@ -15,7 +15,10 @@ public class SemanticDogSearchServiceTests
     public void DogSearchDocument_IncludesPublicFieldsAndExcludesSensitiveShelterContactFields()
     {
         var dog = TestDbContextFactory.CreateDog("Max");
-        dog.Breed = "Labrador Mix";
+        dog.Breed = "Labrador Retriever \u00d7 Border Collie Mix";
+        dog.DogBreed = DogBreedSeedData.CreateSeedEntities().First(breed => breed.Name == "Labrador Retriever");
+        dog.SecondaryBreed = DogBreedSeedData.CreateSeedEntities().First(breed => breed.Name == "Border Collie");
+        dog.IsMixedBreed = true;
         dog.BehaviorDescription = "Friendly, calm, and social.";
         dog.Shelter = new Shelter
         {
@@ -30,7 +33,8 @@ public class SemanticDogSearchServiceTests
         var document = service.BuildDocument(dog);
 
         Assert.Contains("Max", document);
-        Assert.Contains("Labrador Mix", document);
+        Assert.Contains("Labrador Retriever \u00d7 Border Collie Mix", document);
+        Assert.Contains("Border Collie", document);
         Assert.Contains("Friendly, calm, and social.", document);
         Assert.Contains("Happy Paws", document);
         Assert.Contains("Zorilor", document);

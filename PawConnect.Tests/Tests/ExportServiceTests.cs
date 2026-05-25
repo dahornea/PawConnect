@@ -43,7 +43,10 @@ public class ExportServiceTests
         context.Dogs.Add(new Dog
         {
             Name = "Milo",
-            Breed = "Mixed Breed",
+            Breed = "Poodle \u00d7 Bichon Mix",
+            DogBreedId = DogBreedSeedData.Breeds.First(breed => breed.Name == "Poodle").Id,
+            SecondaryBreedId = DogBreedSeedData.Breeds.First(breed => breed.Name == "Bichon").Id,
+            IsMixedBreed = true,
             AgeYears = 2,
             AgeMonths = 6,
             Age = 2,
@@ -63,6 +66,7 @@ public class ExportServiceTests
 
         Assert.Contains("Dog Id,Name,Breed,Age,Size,Location,Shelter Name,Status,Preferred Food Type,Daily Food Amount Grams,Success Story,AdoptedAt", csv);
         Assert.Contains("Milo", csv);
+        Assert.Contains("Poodle \u00d7 Bichon Mix", csv);
         Assert.Contains("2 years, 6 months old", csv);
         Assert.Contains("Test Shelter", csv);
         Assert.Contains("Available", csv);

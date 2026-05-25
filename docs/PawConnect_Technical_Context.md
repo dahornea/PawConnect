@@ -125,7 +125,7 @@ Admin pages are protected with `[Authorize(Roles = "Admin")]`. Advanced role edi
 - **Home page**: Presents the platform, how adoption works, featured public dogs, and shelter-oriented features.
 - **Dog browsing**: Public users can browse dogs with public-safe statuses: `Available` and `Reserved`, see compact shelter name/neighborhood/city information on each dog card, use a compact Filter/Sort toolbar with active chips, filter the public dog list by shelter or neighborhood, and search for dogs near a manually entered city/address or optional browser-provided location using shelter coordinates.
 - **Dog recommendations and Copilot**: Adopter users can open `/adopter/recommendations` for explainable recommendations or `/adopter/copilot` for natural-language searches such as "calm apartment dog near Cluj". The system uses deterministic rule-based scoring and public-safe dog retrieval first, then can optionally use OpenAI for re-ranking/explanation. OpenAI is disabled by default and fallback behavior remains available.
-- **Dog details**: Public users can view dog information, images, shelter information, medical summary, and food information where available.
+- **Dog details**: Public users can view dog information, images, shelter information, medical summary, food information, and a public-safe Breed Information section with formatted breed context and general breed-level health considerations.
 - **Shelter listing and details**: Public users can browse approved shelter cards with public contact/location information, optional neighborhood, public dog counts, a compact Filter/Sort toolbar with active chips, search by shelter name/neighborhood/city/address, and filter shelters near a manually entered city/address or optional browser-provided location. The listing includes a compact application CTA pointing to `/shelters/apply`, hidden for Admin and Shelter roles. Shelter details include address/city/neighborhood information and, when coordinates exist, a read-only Leaflet map using OpenStreetMap tiles. If coordinates are missing, the UI shows a friendly fallback message instead of a broken map. The Location card also includes an external "Open in Google Maps" link for easier navigation.
 - **Success stories**: Public page showing adopted dogs, success story text, adoption dates, and shelter information.
 - **Authentication**: Users can register and log in through Identity account pages. New registrations are assigned the `Adopter` role by default in the register flow.
@@ -147,6 +147,7 @@ Admin pages are protected with `[Authorize(Roles = "Admin")]`. Advanced role edi
 
 - **Shelter dashboard**: Shows shelter operational summary such as dog counts, pending requests, and low-stock resources.
 - **Dog management**: Shelters can create, edit, and delete dogs belonging to their own shelter, subject to deletion rules.
+- **Dog breed handling**: Dog create/edit forms use the `DogBreed` lookup table with autocomplete, optional mixed-breed marking, optional secondary known breed for mixed dogs, and custom breed fallback for unlisted breeds.
 - **Dog images**: Shelters can add image URLs, delete image records, and set one main image.
 - **Medical records**: Shelters can add, edit, and delete medical records for their own non-adopted dogs.
 - **Read-only adopted dogs**: Adopted dogs are read-only for shelter users in the dog edit flow.
@@ -270,6 +271,10 @@ Important fields:
 
 - `Name`
 - `Breed`
+- `DogBreedId`
+- `SecondaryBreedId`
+- `IsMixedBreed`
+- `CustomBreedName`
 - `Age`
 - `AgeYears`
 - `AgeMonths`
@@ -288,6 +293,8 @@ Important fields:
 Relationships:
 
 - Belongs to one `Shelter`.
+- Optionally references one primary `DogBreed`.
+- Optionally references one secondary `DogBreed` when the dog is a known mixed breed.
 - Optionally references one `FoodType` as preferred food type.
 - Has many `DogImages`.
 - Has many `MedicalRecords`.
@@ -297,6 +304,32 @@ Relationships:
 - Has many `DogStatusHistory` records.
 
 The old `Age` integer still exists and is synchronized to `AgeYears` for backward compatibility. UI and formatting use `AgeYears` and `AgeMonths`.
+
+`Breed` is kept as a legacy/display string, but current UI and exports use `DogBreedFormatter.Format(dog)` instead of trusting raw breed text. The formatter supports normal lookup breeds, generic `Mixed Breed`, `Unknown`, custom breed names, and known mixed-breed pairs such as `Labrador Retriever × Border Collie Mix`. It avoids awkward output such as `Unknown Mix`, `Mixed Breed Mix`, or `Labrador Retriever × Unknown Mix`.
+
+### DogBreed
+
+Lookup entity for consistent dog breed data.
+
+Important fields:
+
+- `Name`
+- `IsActive`
+- `CreatedAt`
+- `GeneralDescription`
+- `TypicalTraits`
+- `CareNotes`
+- `CommonHealthConsiderations`
+
+Relationships:
+
+- One `DogBreed` can be used as the primary breed for many dogs through `Dog.DogBreedId`.
+- A `DogBreed` can also be used as a secondary likely breed through `Dog.SecondaryBreedId`.
+- Delete behavior is restricted when dogs reference the breed.
+
+`DogBreed` replaces free-text-only breed entry with a controlled lookup list while still supporting shelter uncertainty. Shelter users select a primary breed from a MudBlazor autocomplete. If `Mixed breed` is checked, they can optionally select a secondary breed. They can also use a custom breed name when the breed is not in the lookup table. Special lookup values such as `Mixed Breed` and `Unknown` remain available and do not allow a secondary breed because they are already generic.
+
+The Breed Information section on `/dogs/{id:int}` uses the formatted breed name, mixed-breed chip, general breed notes, typical traits, care context, and cautious common health considerations. These notes are educational only; actual `MedicalStatus` and `MedicalRecord` data remain the source of truth for the individual dog.
 
 ### DogImage
 
@@ -831,10 +864,22 @@ Dog recommendation organization:
 - `Components/Pages/Adopter/Recommendations.razor`: Adopter-only recommendations page showing match percentage, match labels, concise explanations, reason categories, status, shelter information, and links to dog details.
 - `Components/Pages/Adopter/AdopterDashboard.razor`: Shows a compact top-3 "Recommended for you" section with score and strongest reason.
 
+Dog breed organization:
+
+- `Entities/DogBreed.cs`: Lookup entity for known breeds and educational breed notes.
+- `Data/DogBreedSeedData.cs`: Seeds `Mixed Breed`, `Unknown`, common international breeds, Romanian shepherd breeds, and extra demo-friendly breeds such as `Shar Pei`.
+- `Services/IDogBreedService.cs` and `Services/DogBreedService.cs`: Return active breed lookup values for shelter create/edit autocomplete fields.
+- `Services/DogBreedFormatter.cs`: Formats the public/display breed string and parses legacy/CSV breed text into primary breed, optional secondary breed, mixed flag, and custom breed fallback.
+- `Services/DogBreedInformationFormatter.cs`: Builds concise dog details Breed Information text, combined known-breed notes, scannable health consideration items, and the educational disclaimer.
+- `Components/Pages/Shelter/CreateDog.razor` and `Components/Pages/Shelter/EditDog.razor`: Use primary breed autocomplete, mixed-breed checkbox, optional secondary breed autocomplete, and optional custom breed name.
+- `Components/Pages/DogDetails.razor`: Displays the formatted breed and full-width Breed Information card.
+
+Known mixed breeds are stored with `DogBreedId` as the primary breed and `SecondaryBreedId` as the optional second likely breed. Example: a dog can display as `Labrador Retriever × Border Collie Mix`. Generic `Mixed Breed`, `Unknown`, and custom breed values are still supported for shelter data that is uncertain or not in the lookup list.
+
 Semantic dog search and Copilot organization:
 
 - `Entities/DogSearchEmbedding.cs`: Stores one current search embedding per dog, including public-safe content, content hash, embedding JSON, embedding model, and update timestamp.
-- `Services/IDogSearchDocumentService.cs` and `Services/DogSearchDocumentService.cs`: Build public-safe dog search documents from dog name, breed, age, size, public description, behavior text, status, shelter name/neighborhood/city, location, and compact public-safe summaries. Sensitive adopter data, private shelter notes, emails, phone numbers, tokens, audit logs, and private request notes are excluded.
+- `Services/IDogSearchDocumentService.cs` and `Services/DogSearchDocumentService.cs`: Build public-safe dog search documents from dog name, formatted breed including known mixed-breed pairs, age, size, public description, behavior text, status, shelter name/neighborhood/city, location, and compact public-safe summaries. Sensitive adopter data, private shelter notes, emails, phone numbers, tokens, audit logs, and private request notes are excluded.
 - `Services/IEmbeddingService.cs` and `Services/OpenAiEmbeddingService.cs`: Generate embeddings with the configured OpenAI embedding model and provide deterministic cosine similarity. If OpenAI is disabled, missing a key, or fails, embedding generation returns a safe fallback result instead of breaking dog management.
 - `Services/IDogSearchEmbeddingService.cs` and `Services/DogSearchEmbeddingService.cs`: Refresh missing/all dog embeddings, skip unchanged content hashes, remove embeddings for dogs no longer public-searchable, and return searchable embedding rows with dog/shelter/image data.
 - `Services/ISemanticDogSearchService.cs` and `Services/SemanticDogSearchService.cs`: Handles natural-language search by generating a query embedding, comparing it with stored dog embeddings, applying hard public-safe dog and optional neighborhood filters, adding rule-based adopter profile bonuses, and falling back to keyword/rule-based search when embeddings are unavailable.
@@ -1025,14 +1070,15 @@ The public map is read-only. Address lookup and explicit address updates from th
 2. The page resolves the current shelter through `IShelterService.GetShelterForUserAsync`.
 3. `IDogService.GetDogsForShelterAsync` loads only dogs belonging to that shelter.
 4. The shelter can create a dog at `/shelter/dogs/create`.
-5. `DogService.CreateDogAsync(dog, shelterId)` validates required fields, age, daily food amount, and assigns the shelter automatically.
-6. Optional image URLs can be added through `IDogImageService`.
-7. The shelter can edit a dog at `/shelter/dogs/edit/{id:int}`.
-8. `DogService.UpdateDogAsync` checks shelter ownership, validates fields, blocks edits to adopted dogs, and records status history when status changes.
-9. Dog images can be added, set as main image, or deleted for non-adopted dogs.
-10. Medical records can be added, edited, or deleted for non-adopted dogs.
-11. Dog deletion is allowed only when there is no adoption request history.
-12. Favorites and recently viewed records are removed safely when deleting a dog without adoption requests.
+5. The breed area uses `DogBreedService` lookup data. Shelters select a primary breed, can mark the dog as mixed, can optionally select a secondary known breed, or can enter a custom breed name for unlisted breeds.
+6. `DogService.CreateDogAsync(dog, shelterId)` validates required fields, age, daily food amount, normalizes breed data through `DogBreedFormatter`, and assigns the shelter automatically.
+7. Optional image URLs can be added through `IDogImageService`.
+8. The shelter can edit a dog at `/shelter/dogs/edit/{id:int}`.
+9. `DogService.UpdateDogAsync` checks shelter ownership, validates fields, blocks edits to adopted dogs, normalizes breed fields, and records status history when status changes.
+10. Dog images can be added, set as main image, or deleted for non-adopted dogs.
+11. Medical records can be added, edited, or deleted for non-adopted dogs.
+12. Dog deletion is allowed only when there is no adoption request history.
+13. Favorites and recently viewed records are removed safely when deleting a dog without adoption requests.
 
 ### Resource Stock Flow
 
@@ -1141,8 +1187,9 @@ Shelter-owned operational imports:
 7. The confirm action is available only when the preview has no blocking row errors.
 8. Resource imports create or update resource stock for the current shelter based on name, category, and food type. Non-food resources ignore/clear food type values.
 9. Dog imports create dog records for the current shelter and add optional semicolon-separated HTTP/HTTPS image URLs as `DogImage` records.
-10. Invalid rows are not imported silently. The workflow is all-or-nothing for simplicity and clear user feedback.
-11. Successful imports are recorded in `AuditLogs` with the imported row count, without storing full CSV content.
+10. Dog imports keep the user-friendly `Breed` CSV column but parse it into lookup-backed breed fields when possible. Supported examples include `Labrador Mix`, `Labrador Retriever x Border Collie`, `Labrador Retriever × Border Collie`, `Labrador Retriever / Border Collie`, and `Labrador Border Collie Mix`. Unmatched breed text is stored safely in `CustomBreedName`.
+11. Invalid rows are not imported silently. The workflow is all-or-nothing for simplicity and clear user feedback.
+12. Successful imports are recorded in `AuditLogs` with the imported row count, without storing full CSV content.
 
 Admin shelter request imports:
 
@@ -1608,7 +1655,7 @@ Current test coverage includes:
 - Scheduled shelter report logic respects `ScheduledReports:Enabled = false`.
 - Scheduled shelter report logic sends reports to all shelters with an email when enabled.
 - Admin users CSV includes user/role data and excludes sensitive Identity fields.
-- Admin dogs CSV includes dog, shelter, status, food, and formatted age data.
+- Admin dogs CSV includes dog, shelter, status, food, formatted age data, and formatted breed display data.
 - Admin adoption request and shelter request CSV exports include expected business fields.
 - Admin adoption request and shelter request PDF exports return non-empty PDF bytes.
 - Shelter dogs CSV includes only dogs from the current shelter.
@@ -1616,7 +1663,10 @@ Current test coverage includes:
 - Shelter resources CSV includes only current shelter resources and low-stock status.
 - Shelter adoption request and resource PDF exports return non-empty PDF bytes.
 - Shelter resource CSV import validates required fields, duplicate rows, negative values, food/non-food rules, existing resource updates, and current-shelter scoping.
-- Shelter dog CSV import validates age/status rules, required fields, optional image URLs, duplicate image URLs, and current-shelter ownership.
+- Dog breed formatter tests cover selected lookup breeds, mixed lookup breeds, generic `Mixed Breed`, `Unknown`, custom breed names, known mixed-breed pairs, and parsing legacy/CSV text such as `Labrador Retriever x Border Collie`.
+- Dog Breed Information formatter tests cover fallback notes, mixed-breed disclaimers, combined known-breed notes, scannable health consideration items, and source-of-truth medical disclaimer text.
+- Shelter dog CSV import validates age/status rules, required fields, optional image URLs, duplicate image URLs, current-shelter ownership, custom breed fallback, and known mixed-breed pair parsing.
+- CSV export tests verify formatted breed display values are exported, including known mixed-breed pairs.
 - Admin shelter request CSV import creates pending `ShelterRegistrationRequest` rows without creating users or approved shelters directly.
 - Admin shelter request CSV import blocks duplicate pending emails, existing shelter/user emails, invalid email values, invalid coordinate values, and duplicated city/address storage.
 - Imported shelter request rows can still be accepted through the existing admin approval flow, creating the shelter user, role assignment, and linked shelter profile at approval time.
@@ -1704,6 +1754,7 @@ PawConnect is suitable for a bachelor thesis because it demonstrates:
 - Approval-based shelter onboarding with admin review.
 - Third-party map/location integration using Leaflet, OpenStreetMap, and manual Nominatim geocoding.
 - Service-layer validation and ownership checks.
+- Lookup-backed dog breed handling with autocomplete, known mixed-breed pairs, custom fallback, and educational breed context.
 - CSV import/export workflows for shelter operational data and admin platform data.
 - Email communication using local SMTP catchers for development testing.
 - Persistent role-based in-app notifications grouped by adoption, shelter application, resource, report, and system categories.
@@ -1801,6 +1852,8 @@ Evaluate project outcomes and list future improvements such as real uploads, dep
 - Apply-as-shelter CTAs are intended for anonymous/public and general public-facing use, not for Admin or Shelter users.
 - `ShelterInternalNotes` are private to shelter/admin views and are not shown to adopters or public users.
 - `Age` still exists on `Dog`, but the current age display uses `AgeYears` and `AgeMonths` through `DogAgeFormatter`.
+- Dog breed display is lookup-backed through `DogBreed`, optional `SecondaryBreedId`, `IsMixedBreed`, and `CustomBreedName`; use `DogBreedFormatter.Format(dog)` for UI, exports, search documents, recommendations, and Copilot data.
+- `Dog.Breed` remains as a legacy/display string for compatibility, not as the source of truth for new breed UI.
 - Dog deletion is blocked by adoption request history, not favorites.
 - Favorites and recently viewed records are removed when deleting a dog with no adoption requests.
 - Dog status history records track only status changes, not all dog edits.

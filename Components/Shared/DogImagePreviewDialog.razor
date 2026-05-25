@@ -1,0 +1,216 @@
+<MudDialog Class="dog-image-lightbox-dialog">
+    <DialogContent>
+        <div class="dog-image-preview"
+             tabindex="0"
+             autofocus
+             @onkeydown="HandleKeyDown">
+            @{
+                var displayImages = GetDisplayImages();
+                var selectedIndex = GetSafeSelectedImageIndex(displayImages.Count);
+                var selectedImage = displayImages.Count == 0 ? null : displayImages[selectedIndex];
+                var hasMultipleImages = displayImages.Count > 1;
+                var currentPhotoNumber = displayImages.Count == 0 ? 0 : selectedIndex + 1;
+            }
+
+            @if (selectedImage is not null)
+            {
+                <div class="preview-image-stage">
+                    <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                   Color="Color.Default"
+                                   Size="Size.Medium"
+                                   OnClick="Close"
+                                   Class="preview-close-button"
+                                   aria-label="Close image preview" />
+
+                    @if (hasMultipleImages)
+                    {
+                        <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft"
+                                       Color="Color.Default"
+                                       Size="Size.Large"
+                                       OnClick="ShowPreviousImage"
+                                       Class="preview-nav previous"
+                                       aria-label="Previous photo" />
+                    }
+
+                    <div class="preview-image-frame">
+                        <img src="@selectedImage.ImageUrl"
+                             alt="@GetSelectedImageAlt(currentPhotoNumber)"
+                             class="preview-image"
+                             @onerror="@(() => MarkImageUnavailable(selectedImage.ImageUrl))" />
+                        <div class="preview-caption">
+                            @DogName · @FormattedBreed
+                            @if (hasMultipleImages)
+                            {
+                                <span> · @currentPhotoNumber / @displayImages.Count</span>
+                            }
+                        </div>
+                    </div>
+
+                    @if (hasMultipleImages)
+                    {
+                        <MudIconButton Icon="@Icons.Material.Filled.ChevronRight"
+                                       Color="Color.Default"
+                                       Size="Size.Large"
+                                       OnClick="ShowNextImage"
+                                       Class="preview-nav next"
+                                       aria-label="Next photo" />
+                    }
+                </div>
+
+                @if (hasMultipleImages)
+                {
+                    <div class="preview-thumbnail-row" aria-label="@($"{DogName} photo thumbnails")">
+                        @for (var index = 0; index < displayImages.Count; index++)
+                        {
+                            var thumbnailIndex = index;
+                            var image = displayImages[thumbnailIndex];
+                            var isSelected = thumbnailIndex == selectedIndex;
+
+                            <button type="button"
+                                    class="preview-thumbnail @(isSelected ? "selected" : null)"
+                                    aria-label="@($"Show photo {thumbnailIndex + 1} of {DogName}")"
+                                    aria-current="@(isSelected ? "true" : "false")"
+                                    @onclick="() => SelectImage(thumbnailIndex)">
+                                <img src="@image.ImageUrl"
+                                     alt=""
+                                     loading="lazy"
+                                     @onerror="@(() => MarkImageUnavailable(image.ImageUrl))" />
+                            </button>
+                        }
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="preview-empty-state">
+                    <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                   Color="Color.Default"
+                                   Size="Size.Medium"
+                                   OnClick="Close"
+                                   Class="preview-close-button"
+                                   aria-label="Close image preview" />
+                    <MudIcon Icon="@Icons.Material.Filled.Pets" />
+                    <MudText Typo="Typo.subtitle1">No photo available</MudText>
+                </div>
+            }
+        </div>
+    </DialogContent>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter]
+    public string DogName { get; set; } = "Selected dog";
+
+    [Parameter]
+    public string FormattedBreed { get; set; } = "Unknown";
+
+    [Parameter]
+    public IReadOnlyList<DogImage> Images { get; set; } = [];
+
+    [Parameter]
+    public int InitialIndex { get; set; }
+
+    private int _selectedIndex;
+    private bool _hasInitialized;
+    private readonly HashSet<string> _failedImageUrls = new(StringComparer.OrdinalIgnoreCase);
+
+    protected override void OnParametersSet()
+    {
+        if (_hasInitialized)
+        {
+            return;
+        }
+
+        var displayImages = GetDisplayImages();
+        _selectedIndex = displayImages.Count == 0
+            ? 0
+            : Math.Clamp(InitialIndex, 0, displayImages.Count - 1);
+        _hasInitialized = true;
+    }
+
+    private void SelectImage(int index)
+    {
+        var imageCount = GetDisplayImages().Count;
+        if (imageCount == 0)
+        {
+            return;
+        }
+
+        _selectedIndex = Math.Clamp(index, 0, imageCount - 1);
+    }
+
+    private void ShowPreviousImage()
+    {
+        var imageCount = GetDisplayImages().Count;
+        if (imageCount <= 1)
+        {
+            return;
+        }
+
+        _selectedIndex = (_selectedIndex - 1 + imageCount) % imageCount;
+    }
+
+    private void ShowNextImage()
+    {
+        var imageCount = GetDisplayImages().Count;
+        if (imageCount <= 1)
+        {
+            return;
+        }
+
+        _selectedIndex = (_selectedIndex + 1) % imageCount;
+    }
+
+    private void HandleKeyDown(KeyboardEventArgs args)
+    {
+        switch (args.Key)
+        {
+            case "ArrowLeft":
+                ShowPreviousImage();
+                break;
+            case "ArrowRight":
+                ShowNextImage();
+                break;
+            case "Escape":
+                Close();
+                break;
+        }
+    }
+
+    private void Close()
+    {
+        MudDialog.Close();
+    }
+
+    private List<DogImage> GetDisplayImages()
+    {
+        return Images
+            .Where(image => DogImageUrlValidator.IsValidDisplayImageUrl(image.ImageUrl))
+            .Where(image => !_failedImageUrls.Contains(image.ImageUrl.Trim()))
+            .ToList();
+    }
+
+    private int GetSafeSelectedImageIndex(int imageCount)
+    {
+        return imageCount <= 0 ? 0 : Math.Clamp(_selectedIndex, 0, imageCount - 1);
+    }
+
+    private void MarkImageUnavailable(string? imageUrl)
+    {
+        if (string.IsNullOrWhiteSpace(imageUrl))
+        {
+            return;
+        }
+
+        _failedImageUrls.Add(imageUrl.Trim());
+        _selectedIndex = GetSafeSelectedImageIndex(GetDisplayImages().Count);
+    }
+
+    private string GetSelectedImageAlt(int photoNumber)
+    {
+        return $"Photo {photoNumber} of {DogName}, {FormattedBreed}";
+    }
+}

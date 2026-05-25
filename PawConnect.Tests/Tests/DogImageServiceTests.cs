@@ -28,6 +28,77 @@ public class DogImageServiceTests
         Assert.True(image.IsMainImage);
     }
 
+    [Theory]
+    [InlineData("https://example.com/dog.jpg")]
+    [InlineData("https://example.com/dog.jpeg")]
+    [InlineData("https://example.com/dog.png")]
+    [InlineData("https://example.com/dog.webp")]
+    [InlineData("https://example.com/dog.gif")]
+    [InlineData("https://example.com/dog.jpg?width=800")]
+    public async Task AddDogImageAsync_AcceptsValidDirectImageUrls(string imageUrl)
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        var dog = TestDbContextFactory.CreateDog($"Valid Image Dog {Guid.NewGuid():N}");
+        context.Dogs.Add(dog);
+        await context.SaveChangesAsync();
+
+        var service = new DogImageService(context);
+
+        await service.AddDogImageAsync(dog.Id, TestDbContextFactory.ShelterId, new DogImage
+        {
+            ImageUrl = imageUrl
+        });
+
+        Assert.True(await context.DogImages.AnyAsync(image => image.DogId == dog.Id && image.ImageUrl == imageUrl));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task AddDogImageAsync_RejectsEmptyImageUrls(string imageUrl)
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        var dog = TestDbContextFactory.CreateDog("Empty Image Dog");
+        context.Dogs.Add(dog);
+        await context.SaveChangesAsync();
+
+        var service = new DogImageService(context);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.AddDogImageAsync(dog.Id, TestDbContextFactory.ShelterId, new DogImage
+            {
+                ImageUrl = imageUrl
+            }));
+
+        Assert.Equal("Image URL is required.", exception.Message);
+        Assert.False(await context.DogImages.AnyAsync(image => image.DogId == dog.Id));
+    }
+
+    [Theory]
+    [InlineData("/images/dog.jpg")]
+    [InlineData("ftp://example.com/dog.jpg")]
+    [InlineData("https://example.com/dog")]
+    [InlineData("https://example.com/dog.txt")]
+    [InlineData("https://placehold.co/800x500?text=Dog")]
+    public async Task AddDogImageAsync_RejectsInvalidImageUrls(string imageUrl)
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        var dog = TestDbContextFactory.CreateDog("Invalid Image Dog");
+        context.Dogs.Add(dog);
+        await context.SaveChangesAsync();
+
+        var service = new DogImageService(context);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.AddDogImageAsync(dog.Id, TestDbContextFactory.ShelterId, new DogImage
+            {
+                ImageUrl = imageUrl
+            }));
+
+        Assert.Equal(DogImageUrlValidator.ValidationMessage, exception.Message);
+        Assert.False(await context.DogImages.AnyAsync(image => image.DogId == dog.Id));
+    }
+
     [Fact]
     public async Task AddDogImageAsync_BlocksDuplicateImageUrlForSameDog()
     {

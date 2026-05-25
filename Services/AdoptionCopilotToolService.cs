@@ -130,6 +130,8 @@ public class AdoptionCopilotToolService(
 
         var dogs = await context.Dogs
             .Include(dog => dog.Shelter)
+            .Include(dog => dog.DogBreed)
+            .Include(dog => dog.SecondaryBreed)
             .Include(dog => dog.Images)
             .AsNoTracking()
             .Where(dog => dog.Status == DogStatus.Available || dog.Status == DogStatus.Reserved)
@@ -209,6 +211,10 @@ public class AdoptionCopilotToolService(
     {
         var favoriteDogs = await context.FavoriteDogs
             .Include(favorite => favorite.Dog)
+            .ThenInclude(dog => dog!.DogBreed)
+            .Include(favorite => favorite.Dog)
+            .ThenInclude(dog => dog!.SecondaryBreed)
+            .Include(favorite => favorite.Dog)
             .ThenInclude(dog => dog!.Shelter)
             .AsNoTracking()
             .Where(favorite => favorite.AdopterId == adopterUserId &&
@@ -218,6 +224,10 @@ public class AdoptionCopilotToolService(
             .ToListAsync(cancellationToken);
 
         var recentDogs = await context.RecentlyViewedDogs
+            .Include(view => view.Dog)
+            .ThenInclude(dog => dog!.DogBreed)
+            .Include(view => view.Dog)
+            .ThenInclude(dog => dog!.SecondaryBreed)
             .Include(view => view.Dog)
             .ThenInclude(dog => dog!.Shelter)
             .AsNoTracking()
@@ -232,7 +242,7 @@ public class AdoptionCopilotToolService(
         var dogs = favoriteDogs.Concat(recentDogs).ToList();
         return new AdoptionCopilotPreferenceToolResult(
             MostCommon(dogs.Select(dog => dog.Size.ToString())),
-            MostCommon(dogs.Select(dog => dog.Breed)),
+            MostCommon(dogs.Select(DogBreedFormatter.Format)),
             MostCommon(dogs.Select(dog => dog.Shelter?.City)));
     }
 
@@ -242,6 +252,8 @@ public class AdoptionCopilotToolService(
     {
         var dog = await context.Dogs
             .Include(d => d.Shelter)
+            .Include(d => d.DogBreed)
+            .Include(d => d.SecondaryBreed)
             .Include(d => d.Images)
             .AsNoTracking()
             .FirstOrDefaultAsync(d => d.Id == dogId &&
@@ -319,9 +331,10 @@ public class AdoptionCopilotToolService(
             return false;
         }
 
+        var dogBreed = DogBreedFormatter.Format(dog);
         if (args.Breeds?.Count > 0 &&
-            !args.Breeds.Any(breed => string.Equals(dog.Breed, breed, StringComparison.OrdinalIgnoreCase) ||
-                dog.Breed.Contains(breed, StringComparison.OrdinalIgnoreCase)))
+            !args.Breeds.Any(breed => string.Equals(dogBreed, breed, StringComparison.OrdinalIgnoreCase) ||
+                dogBreed.Contains(breed, StringComparison.OrdinalIgnoreCase)))
         {
             return false;
         }
@@ -2335,7 +2348,7 @@ public class AdoptionCopilotToolService(
         return string.Join(' ', new[]
         {
             dog.Name,
-            dog.Breed,
+            DogBreedFormatter.Format(dog),
             dog.Size.ToString(),
             dog.Description,
             dog.BehaviorDescription,

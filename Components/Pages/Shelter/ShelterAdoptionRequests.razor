@@ -117,7 +117,7 @@
                                 </div>
                                 <div class="request-dog-copy">
                                     <MudText Typo="Typo.body2" Class="request-primary-text request-line-clamp">@context.Dog?.Name</MudText>
-                                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="request-line-clamp request-secondary-text">@context.Dog?.Breed</MudText>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="request-line-clamp request-secondary-text">@DogBreedFormatter.Format(context.Dog)</MudText>
                                 </div>
                             </MudStack>
                         </MudTd>
@@ -253,7 +253,7 @@
                                                 </MudAvatar>
                                                 <div>
                                                     <MudText Typo="Typo.subtitle1">@(_selectedRequest.Dog?.Name ?? "Unknown dog")</MudText>
-                                                    <MudText Typo="Typo.body2" Color="Color.Secondary">@(_selectedRequest.Dog?.Breed ?? "-")</MudText>
+                                                    <MudText Typo="Typo.body2" Color="Color.Secondary">@DogBreedFormatter.Format(_selectedRequest.Dog)</MudText>
                                                 </div>
                                             </MudStack>
                                             <MudDivider />

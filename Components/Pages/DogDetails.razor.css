@@ -30,33 +30,151 @@
     box-shadow: 0 12px 32px rgba(31, 47, 42, 0.07);
 }
 
-.dog-details-page ::deep .dog-detail-image {
-    height: 430px;
-    object-fit: cover;
-    border-radius: 14px;
+.dog-details-page ::deep .dog-gallery {
+    background: linear-gradient(180deg, #ffffff, #f8fbf7);
+    overflow: hidden;
+    padding: 10px;
 }
 
-.dog-details-page .dog-image-placeholder {
-    display: flex;
-    min-height: 430px;
-    align-items: center;
-    justify-content: center;
-    flex-direction: column;
-    gap: 10px;
-    color: #2f6f5e;
+.dog-details-page .dog-gallery-main {
+    position: relative;
+    aspect-ratio: 4 / 3;
+    min-height: 320px;
+    overflow: hidden;
+    border-radius: 12px;
     background:
         linear-gradient(135deg, rgba(47, 111, 94, 0.11), rgba(217, 119, 6, 0.08)),
         #f4f7f2;
 }
 
-.dog-details-page .dog-image-placeholder .mud-icon-root {
-    font-size: 2.4rem;
+.dog-details-page .dog-gallery-main-button {
+    position: relative;
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    padding: 0;
+    overflow: hidden;
+    background: transparent;
+    cursor: pointer;
 }
 
-.dog-details-page ::deep .gallery-image {
-    height: 108px;
+.dog-details-page .dog-gallery-image {
+    display: block;
+    width: 100%;
+    height: 100%;
     object-fit: cover;
+    transition: transform 0.18s ease, filter 0.18s ease;
+}
+
+.dog-details-page .dog-gallery-main-button:hover .dog-gallery-image,
+.dog-details-page .dog-gallery-main-button:focus-visible .dog-gallery-image {
+    filter: brightness(0.88);
+    transform: scale(1.015);
+}
+
+.dog-details-page .dog-gallery-main-button:focus-visible {
+    outline: 3px solid rgba(47, 111, 94, 0.34);
+    outline-offset: -3px;
+}
+
+.dog-details-page .dog-gallery-zoom-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: rgba(22, 53, 45, 0.18);
+    color: #ffffff;
+    font-weight: 800;
+    opacity: 0;
+    transition: opacity 0.18s ease;
+    pointer-events: none;
+    text-shadow: 0 2px 8px rgba(22, 53, 45, 0.36);
+}
+
+.dog-details-page .dog-gallery-zoom-overlay .mud-icon-root {
+    font-size: 1.5rem;
+}
+
+.dog-details-page .dog-gallery-main-button:hover .dog-gallery-zoom-overlay,
+.dog-details-page .dog-gallery-main-button:focus-visible .dog-gallery-zoom-overlay {
+    opacity: 1;
+}
+
+.dog-details-page .dog-gallery-placeholder {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    min-height: inherit;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 10px;
+    color: #2f6f5e;
+}
+
+.dog-details-page .dog-gallery-placeholder .mud-icon-root {
+    font-size: 2.6rem;
+}
+
+.dog-details-page .dog-gallery-count {
+    position: absolute;
+    right: 12px;
+    bottom: 12px;
+    border-radius: 999px;
+    padding: 4px 10px;
+    background: rgba(22, 53, 45, 0.78);
+    color: #ffffff;
+    font-size: 0.78rem;
+    font-weight: 800;
+    line-height: 1.2;
+    box-shadow: 0 8px 20px rgba(22, 53, 45, 0.18);
+}
+
+.dog-details-page .dog-gallery-thumbnails {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+    padding: 2px 2px 6px;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(47, 111, 94, 0.35) transparent;
+}
+
+.dog-details-page .dog-gallery-thumbnail {
+    flex: 0 0 auto;
+    width: 76px;
+    height: 60px;
+    border: 2px solid transparent;
     border-radius: 10px;
+    padding: 0;
+    overflow: hidden;
+    background: #ffffff;
+    box-shadow: 0 6px 16px rgba(31, 47, 42, 0.08);
+    cursor: pointer;
+    transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+}
+
+.dog-details-page .dog-gallery-thumbnail:hover,
+.dog-details-page .dog-gallery-thumbnail:focus-visible {
+    border-color: rgba(47, 111, 94, 0.45);
+    box-shadow: 0 8px 20px rgba(31, 47, 42, 0.12);
+    outline: none;
+    transform: translateY(-1px);
+}
+
+.dog-details-page .dog-gallery-thumbnail.selected {
+    border-color: #2f6f5e;
+    box-shadow: 0 0 0 3px rgba(47, 111, 94, 0.16), 0 8px 20px rgba(31, 47, 42, 0.12);
+}
+
+.dog-details-page .dog-gallery-thumbnail img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 .dog-details-page ::deep .dog-summary {
@@ -130,6 +248,78 @@
     background: linear-gradient(180deg, #ffffff, #fbfcfa);
 }
 
+.dog-details-page ::deep .breed-info-panel {
+    background:
+        linear-gradient(180deg, rgba(240, 253, 244, 0.72), rgba(255, 255, 255, 0.96)),
+        #ffffff;
+}
+
+.dog-details-page ::deep .breed-info-grid {
+    align-items: stretch;
+}
+
+.dog-details-page .breed-info-name {
+    font-weight: 800;
+    color: #16352d;
+}
+
+.dog-details-page .breed-info-muted {
+    color: #66756f;
+    line-height: 1.45;
+    max-width: 34rem;
+}
+
+.dog-details-page .breed-info-block {
+    min-width: 0;
+}
+
+.dog-details-page .breed-info-label {
+    display: block;
+    color: #2f6f5e;
+    font-weight: 800;
+    letter-spacing: 0;
+    text-transform: uppercase;
+    margin-bottom: 3px;
+}
+
+.dog-details-page .breed-info-health {
+    border: 1px solid rgba(22, 105, 122, 0.14);
+    border-radius: 10px;
+    background: rgba(239, 246, 255, 0.62);
+    padding: 12px 14px;
+    line-height: 1.45;
+}
+
+.dog-details-page ::deep .breed-info-note {
+    border-radius: 10px;
+}
+
+.dog-details-page .breed-health-intro {
+    margin-top: 6px;
+    margin-bottom: 4px;
+}
+
+.dog-details-page .breed-health-list {
+    margin: 4px 0 8px 18px;
+    padding: 0;
+    color: #16352d;
+    line-height: 1.45;
+}
+
+.dog-details-page .breed-health-list li {
+    margin-bottom: 3px;
+}
+
+.dog-details-page .breed-health-paragraph {
+    margin-top: 6px;
+    line-height: 1.5;
+}
+
+.dog-details-page .breed-info-disclaimer {
+    color: #66756f;
+    line-height: 1.45;
+}
+
 .dog-details-page ::deep .medical-record {
     border: 1px solid rgba(47, 111, 94, 0.1);
     border-radius: 8px;
@@ -137,15 +327,27 @@
 }
 
 @media (max-width: 960px) {
-    .dog-details-page ::deep .dog-detail-image {
-        height: 320px;
-    }
-
-    .dog-details-page .dog-image-placeholder {
-        min-height: 320px;
+    .dog-details-page .dog-gallery-main {
+        min-height: 260px;
     }
 
     .dog-details-page ::deep .dog-summary {
         position: static;
+    }
+}
+
+@media (max-width: 600px) {
+    .dog-details-page ::deep .dog-gallery {
+        padding: 8px;
+    }
+
+    .dog-details-page .dog-gallery-main {
+        aspect-ratio: 16 / 11;
+        min-height: 220px;
+    }
+
+    .dog-details-page .dog-gallery-thumbnail {
+        width: 66px;
+        height: 52px;
     }
 }

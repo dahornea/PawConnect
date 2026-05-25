@@ -11,6 +11,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
     public DbSet<Dog> Dogs => Set<Dog>();
 
+    public DbSet<DogBreed> DogBreeds => Set<DogBreed>();
+
     public DbSet<DogImage> DogImages => Set<DogImage>();
 
     public DbSet<MedicalRecord> MedicalRecords => Set<MedicalRecord>();
@@ -66,6 +68,24 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .HasOne(d => d.Shelter)
             .WithMany(s => s.Dogs)
             .HasForeignKey(d => d.ShelterId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<DogBreed>()
+            .HasIndex(breed => breed.Name)
+            .IsUnique();
+
+        builder.Entity<Dog>()
+            .HasOne(d => d.DogBreed)
+            .WithMany(breed => breed.Dogs)
+            .HasForeignKey(d => d.DogBreedId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Dog>()
+            .HasOne(d => d.SecondaryBreed)
+            .WithMany()
+            .HasForeignKey(d => d.SecondaryBreedId)
+            .IsRequired(false)
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.Entity<Dog>()
@@ -314,6 +334,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
     private static void SeedLookupData(ModelBuilder builder)
     {
+        builder.Entity<DogBreed>().HasData(DogBreedSeedData.CreateSeedEntities());
+
         builder.Entity<ResourceCategory>().HasData(
             new ResourceCategory { Id = 1, Name = "Food", Description = "Food supplies for dogs." },
             new ResourceCategory { Id = 2, Name = "Medicine", Description = "Medication and medical supplies." },

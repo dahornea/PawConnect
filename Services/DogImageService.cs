@@ -24,12 +24,14 @@ public class DogImageService(ApplicationDbContext context, IAuditLogService? aud
 
     public async Task CreateAsync(DogImage dogImage)
     {
+        dogImage.ImageUrl = NormalizeImageUrlOrThrow(dogImage.ImageUrl);
         context.DogImages.Add(dogImage);
         await context.SaveChangesAsync();
     }
 
     public async Task UpdateAsync(DogImage dogImage)
     {
+        dogImage.ImageUrl = NormalizeImageUrlOrThrow(dogImage.ImageUrl);
         context.DogImages.Update(dogImage);
         await context.SaveChangesAsync();
     }
@@ -60,7 +62,7 @@ public class DogImageService(ApplicationDbContext context, IAuditLogService? aud
     {
         var dog = await EnsureDogCanBeManagedAsync(dogId, shelterId);
         image.ImageUrl = image.ImageUrl?.Trim() ?? string.Empty;
-        ValidateDogImage(image);
+        image.ImageUrl = NormalizeImageUrlOrThrow(image.ImageUrl);
 
         var normalizedImageUrl = image.ImageUrl.ToUpperInvariant();
         var duplicateExists = await context.DogImages.AnyAsync(i =>
@@ -164,18 +166,19 @@ public class DogImageService(ApplicationDbContext context, IAuditLogService? aud
         }
     }
 
-    private static void ValidateDogImage(DogImage image)
+    private static string NormalizeImageUrlOrThrow(string? imageUrl)
     {
-        if (string.IsNullOrWhiteSpace(image.ImageUrl))
+        if (string.IsNullOrWhiteSpace(imageUrl))
         {
             throw new InvalidOperationException("Image URL is required.");
         }
 
-        if (!Uri.TryCreate(image.ImageUrl, UriKind.Absolute, out var uri) ||
-            uri.Scheme is not ("http" or "https"))
+        if (!DogImageUrlValidator.TryNormalize(imageUrl, out var normalizedImageUrl))
         {
-            throw new InvalidOperationException("Image URL must be a valid web address.");
+            throw new InvalidOperationException(DogImageUrlValidator.ValidationMessage);
         }
+
+        return normalizedImageUrl;
     }
 
     private Task LogAsync(string action, string entityName, string? entityId, string description, string? additionalData = null)

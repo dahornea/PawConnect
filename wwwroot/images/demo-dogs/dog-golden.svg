@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" role="img" aria-label="Demo dog portrait">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#dff0dc"/>
+      <stop offset="1" stop-color="#f8deb2"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="70%" cy="18%" r="45%">
+      <stop offset="0" stop-color="#fff7cf" stop-opacity=".9"/>
+      <stop offset="1" stop-color="#fff7cf" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="800" height="500" fill="url(#bg)"/>
+  <rect width="800" height="500" fill="url(#sun)"/>
+  <ellipse cx="400" cy="392" rx="310" ry="55" fill="#7ca678" opacity=".22"/>
+  <path d="M268 290c-13-70 37-132 121-132s135 62 121 132c-12 66-61 107-121 107s-109-41-121-107Z" fill="#d99b45"/>
+  <path d="M257 205c-60 8-86 67-77 126 7 47 49 31 75-10 23-36 31-79 2-116Zm266 0c60 8 86 67 77 126-7 47-49 31-75-10-23-36-31-79-2-116Z" fill="#c78636"/>
+  <circle cx="351" cy="266" r="16" fill="#14231f"/>
+  <circle cx="448" cy="266" r="16" fill="#14231f"/>
+  <path d="M383 309c0-12 34-12 34 0 0 13-17 23-17 23s-17-10-17-23Z" fill="#2b1d18"/>
+  <path d="M345 342c32 29 78 29 110 0" fill="none" stroke="#5f3f2d" stroke-width="13" stroke-linecap="round"/>
+  <path d="M320 188c44-34 117-35 160 2-21-54-139-55-160-2Z" fill="#e6b664" opacity=".75"/>
+</svg>

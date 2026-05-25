@@ -299,7 +299,7 @@
                     <MudItem xs="12" sm="6" md="4">
                         <MudCard Class="dog-card">
                             <a class="dog-image-link" href="@($"/dogs/{dog.Id}")" aria-label="@($"View details for {dog.Name}")">
-                                @if (imageUrl is null)
+                                @if (imageUrl is null || _unavailableImageUrls.Contains(imageUrl))
                                 {
                                     <div class="dog-image dog-image-placeholder">
                                         <MudIcon Icon="@Icons.Material.Filled.Pets" Color="Color.Primary" />
@@ -308,7 +308,11 @@
                                 }
                                 else
                                 {
-                                    <MudCardMedia Image="@imageUrl" Class="dog-image" />
+                                    <img src="@imageUrl"
+                                         alt="@GetDogImageAlt(dog)"
+                                         class="dog-image"
+                                         loading="lazy"
+                                         @onerror="@(() => MarkImageUnavailable(imageUrl))" />
                                 }
                             </a>
                             <MudCardContent>
@@ -322,7 +326,7 @@
                                         }
                                         <MudChip T="string" Color="@GetStatusColor(dog.Status)" Size="Size.Small">@dog.Status</MudChip>
                                     </MudStack>
-                                    <MudText Typo="Typo.body2">@dog.Breed, @DogAgeFormatter.Format(dog)</MudText>
+                                    <MudText Typo="Typo.body2">@DogBreedFormatter.Format(dog), @DogAgeFormatter.Format(dog)</MudText>
                                     @if (!string.IsNullOrWhiteSpace(shelterLine))
                                     {
                                         <MudText Typo="Typo.body2" Class="dog-shelter-line">@shelterLine</MudText>
@@ -357,6 +361,7 @@
     private List<string> _locations = [];
     private List<string> _neighborhoods = [];
     private Dictionary<int, double> _dogDistancesKm = [];
+    private readonly HashSet<string> _unavailableImageUrls = new(StringComparer.OrdinalIgnoreCase);
     private bool _isLoading = true;
     private bool _isFindingNearby;
     private bool _isUsingBrowserLocation;
@@ -440,7 +445,7 @@
             var availableDogs = await DogService.GetAvailableDogsAsync();
             _shelters = await ShelterService.GetAllSheltersAsync();
             _dogs = availableDogs;
-            _breeds = availableDogs.Select(d => d.Breed).Distinct().OrderBy(b => b).ToList();
+            _breeds = availableDogs.Select(DogBreedFormatter.Format).Distinct().OrderBy(b => b).ToList();
             _locations = availableDogs.Select(d => d.Location).Distinct().OrderBy(l => l).ToList();
             _neighborhoods = availableDogs
                 .Select(d => d.Shelter?.Neighborhood)
@@ -939,26 +944,30 @@
         return true;
     }
 
-    private static string? GetMainImageUrl(Dog dog)
+    private string? GetMainImageUrl(Dog dog)
     {
         return dog.Images
-            .Where(i => IsValidImageUrl(i.ImageUrl))
+            .Where(i => DogImageUrlValidator.IsValidDisplayImageUrl(i.ImageUrl))
+            .Where(i => !_unavailableImageUrls.Contains(i.ImageUrl.Trim()))
             .OrderByDescending(i => i.IsMainImage)
             .ThenBy(i => i.Id)
             .Select(i => i.ImageUrl)
             .FirstOrDefault();
     }
 
-    private static bool IsValidImageUrl(string? imageUrl)
+    private void MarkImageUnavailable(string? imageUrl)
     {
-        if (string.IsNullOrWhiteSpace(imageUrl) ||
-            imageUrl.Contains("placehold.co", StringComparison.OrdinalIgnoreCase))
+        if (string.IsNullOrWhiteSpace(imageUrl))
         {
-            return false;
+            return;
         }
 
-        return Uri.TryCreate(imageUrl, UriKind.Absolute, out var uri) &&
-            (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
+        _unavailableImageUrls.Add(imageUrl.Trim());
+    }
+
+    private static string GetDogImageAlt(Dog dog)
+    {
+        return $"Photo of {dog.Name}, {DogBreedFormatter.Format(dog)}";
     }
 
     private static string GetShortDescription(string description)

@@ -175,7 +175,7 @@
                                             <MudStack Row="true" AlignItems="AlignItems.Start">
                                                 <div>
                                                     <MudText Typo="Typo.subtitle1">@dog.Name</MudText>
-                                                    <MudText Typo="Typo.body2" Color="Color.Secondary">@dog.Breed, @DogAgeFormatter.Format(dog)</MudText>
+                                                    <MudText Typo="Typo.body2" Color="Color.Secondary">@DogBreedFormatter.Format(dog), @DogAgeFormatter.Format(dog)</MudText>
                                                 </div>
                                                 <MudSpacer />
                                                 <span class="match-score-badge">@recommendation.MatchPercentage% match</span>
@@ -262,7 +262,7 @@
                                                     </a>
                                                     <div>
                                                         <MudText Typo="Typo.subtitle1">@favorite.Dog.Name</MudText>
-                                                        <MudText Typo="Typo.body2" Color="Color.Secondary">@favorite.Dog.Breed | @favorite.Dog.Location</MudText>
+                                                        <MudText Typo="Typo.body2" Color="Color.Secondary">@DogBreedFormatter.Format(favorite.Dog) | @favorite.Dog.Location</MudText>
                                                     </div>
                                                     <MudSpacer />
                                                     <MudButton Href="@($"/dogs/{favorite.Dog.Id}")" Variant="Variant.Text" Color="Color.Primary">View Details</MudButton>
@@ -323,7 +323,7 @@
                                                 <MudStack Row="true" AlignItems="AlignItems.Start">
                                                     <div>
                                                         <MudText Typo="Typo.subtitle1">@recentView.Dog.Name</MudText>
-                                                        <MudText Typo="Typo.body2" Color="Color.Secondary">@recentView.Dog.Breed | @recentView.Dog.Location</MudText>
+                                                        <MudText Typo="Typo.body2" Color="Color.Secondary">@DogBreedFormatter.Format(recentView.Dog) | @recentView.Dog.Location</MudText>
                                                     </div>
                                                     <MudSpacer />
                                                     <MudChip T="string" Color="@GetDogStatusColor(recentView.Dog.Status)" Size="Size.Small">@recentView.Dog.Status</MudChip>

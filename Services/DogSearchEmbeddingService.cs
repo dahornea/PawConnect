@@ -135,6 +135,10 @@ public class DogSearchEmbeddingService(
             .Include(e => e.Dog)
             .ThenInclude(d => d!.Shelter)
             .Include(e => e.Dog)
+            .ThenInclude(d => d!.DogBreed)
+            .Include(e => e.Dog)
+            .ThenInclude(d => d!.SecondaryBreed)
+            .Include(e => e.Dog)
             .ThenInclude(d => d!.Images)
             .Include(e => e.Dog)
             .ThenInclude(d => d!.PreferredFoodType)
@@ -151,6 +155,8 @@ public class DogSearchEmbeddingService(
     {
         var dog = await context.Dogs
             .Include(d => d.Shelter)
+            .Include(d => d.DogBreed)
+            .Include(d => d.SecondaryBreed)
             .Include(d => d.PreferredFoodType)
             .FirstOrDefaultAsync(d => d.Id == dogId, cancellationToken);
 
