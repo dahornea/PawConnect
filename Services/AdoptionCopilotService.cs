@@ -85,6 +85,8 @@ public class AdoptionCopilotService(
                             }
                         }
 
+                        appliedConstraints = AdoptionCopilotConstraintNormalizer.Normalize(appliedConstraints).ToList();
+
                         foreach (var candidate in output.SearchResult.Dogs)
                         {
                             candidateMap[candidate.DogId] = candidate;
@@ -120,7 +122,7 @@ public class AdoptionCopilotService(
                     : fallback with
                     {
                         FallbackReason = openAiResponse.ErrorMessage ?? fallback.FallbackReason,
-                        AppliedConstraints = appliedConstraints
+                        AppliedConstraints = AdoptionCopilotConstraintNormalizer.Normalize(appliedConstraints)
                     };
             }
 
@@ -157,7 +159,7 @@ public class AdoptionCopilotService(
                 usedSemanticSearch,
                 true,
                 null,
-                appliedConstraints);
+                AdoptionCopilotConstraintNormalizer.Normalize(appliedConstraints));
         }
         catch (Exception ex) when (ex is JsonException or InvalidOperationException or HttpRequestException or TaskCanceledException)
         {
@@ -229,6 +231,7 @@ public class AdoptionCopilotService(
         CancellationToken cancellationToken)
     {
         var sizes = DetectSizes(query);
+        var coatColors = DogCoatColorOptions.DetectInText(query);
         var statuses = DetectStatuses(query);
         var ageConstraint = DetectAgeConstraint(query);
         var neighborhood = await DetectExplicitNeighborhoodAsync(query, cancellationToken);
@@ -250,6 +253,7 @@ public class AdoptionCopilotService(
             Query = query,
             PrimaryIntent = primaryIntent,
             Sizes = sizes.Count > 0 ? sizes : null,
+            CoatColors = coatColors.Count > 0 ? coatColors.ToList() : null,
             Statuses = statuses.Count > 0 ? statuses : [DogStatus.Available.ToString(), DogStatus.Reserved.ToString()],
             City = city,
             MaxAgeYears = ageConstraint.MaxAgeYears,
@@ -278,7 +282,7 @@ public class AdoptionCopilotService(
             AvoidTraits = avoid,
             Avoid = avoid,
             EvidenceToLookFor = DetectEvidenceToLookFor(query, compatibility),
-            DisplayChipIntent = BuildDisplayChipIntent(primaryIntent, compatibilityTarget, homeType, activityLevel, sizes, statuses),
+            DisplayChipIntent = BuildDisplayChipIntent(primaryIntent, compatibilityTarget, homeType, activityLevel, sizes, coatColors, statuses),
             Count = 16,
             Limit = 16
         };
@@ -292,6 +296,11 @@ public class AdoptionCopilotService(
         if (deterministic.Sizes?.Count > 0)
         {
             target.Sizes = deterministic.Sizes;
+        }
+
+        if (deterministic.CoatColors?.Count > 0)
+        {
+            target.CoatColors = deterministic.CoatColors;
         }
 
         if (deterministic.Statuses?.Count > 0)
@@ -376,8 +385,16 @@ public class AdoptionCopilotService(
             target.DisplayChipIntent = MergeListValues(target.DisplayChipIntent, deterministic.DisplayChipIntent);
         }
 
-        target.EnergyLevel ??= deterministic.EnergyLevel;
-        target.ActivityLevel ??= deterministic.ActivityLevel;
+        if (HasExplicitActivityPreference(deterministic.Query ?? string.Empty))
+        {
+            target.EnergyLevel = deterministic.EnergyLevel;
+            target.ActivityLevel = deterministic.ActivityLevel;
+        }
+        else
+        {
+            target.EnergyLevel ??= deterministic.EnergyLevel;
+            target.ActivityLevel ??= deterministic.ActivityLevel;
+        }
         target.HomeType ??= deterministic.HomeType;
         target.HousingPreference ??= deterministic.HousingPreference;
         target.ApartmentFriendly ??= deterministic.ApartmentFriendly;
@@ -418,22 +435,23 @@ public class AdoptionCopilotService(
         string? fallbackReason,
         string? emptyReason = null)
     {
+        var normalizedConstraints = AdoptionCopilotConstraintNormalizer.Normalize(appliedConstraints);
         var results = candidates
             .OrderByDescending(candidate => candidate.ScorePercent)
             .Take(6)
-            .Select(candidate => BuildFallbackDogResult(candidate, appliedConstraints))
+            .Select(candidate => BuildFallbackDogResult(candidate, normalizedConstraints))
             .ToList();
 
         return new AdoptionCopilotResponse(
             results.Count == 0
                 ? BuildNoResultsMessage(emptyReason)
-                : BuildAssistantMessage(query, results.FirstOrDefault()?.Dog.Name, appliedConstraints),
+                : BuildAssistantMessage(query, results.FirstOrDefault()?.Dog.Name, normalizedConstraints),
             results,
             false,
             usedSemanticSearch,
             usedToolCalling,
             fallbackReason,
-            appliedConstraints);
+            normalizedConstraints);
     }
 
     private static string BuildNoResultsMessage(string? emptyReason)
@@ -471,12 +489,28 @@ public class AdoptionCopilotService(
             ["from provided dogs"] = "from available PawConnect dogs",
             ["from the candidate dogs"] = "from the available PawConnect dogs",
             ["from candidate dogs"] = "from available PawConnect dogs",
+            ["strongest"] = "closest",
             ["database"] = "PawConnect"
         };
 
         foreach (var replacement in replacements)
         {
             normalized = normalized.Replace(replacement.Key, replacement.Value, StringComparison.OrdinalIgnoreCase);
+        }
+
+        var filterMessage = BuildFilterAssistantMessage(query, appliedConstraints);
+        if (filterMessage is not null &&
+            (IsFilterOnlySummary(query, appliedConstraints) ||
+                (!HasExplicitStatusRequest(query) && ContainsAny(normalized, ["status filter", "status filters"]))))
+        {
+            return filterMessage;
+        }
+
+        if (!HasExplicitStatusRequest(query) && ContainsAny(normalized, ["status filter", "status filters"]))
+        {
+            normalized = normalized
+                .Replace("status filters", "requested filters", StringComparison.OrdinalIgnoreCase)
+                .Replace("status filter", "requested filter", StringComparison.OrdinalIgnoreCase);
         }
 
         return normalized;
@@ -497,9 +531,119 @@ public class AdoptionCopilotService(
             return "These dogs seem more suitable for a home with an older dog because they show calmer dog-to-dog signals. Please confirm introductions and fit with the shelter.";
         }
 
+        var filterMessage = BuildFilterAssistantMessage(query, appliedConstraints);
+        if (filterMessage is not null)
+        {
+            return filterMessage;
+        }
+
         return string.IsNullOrWhiteSpace(topDogName)
             ? "These dogs are the closest PawConnect matches. Review each profile before sending a request."
-            : $"{topDogName} looks like the strongest match. Review the profile and shelter details before sending a request.";
+            : $"{topDogName} looks like the closest match. Review the profile and shelter details before sending a request.";
+    }
+
+    private static string? BuildFilterAssistantMessage(
+        string query,
+        IReadOnlyList<AdoptionCopilotConstraint> appliedConstraints)
+    {
+        var coatColor = GetAppliedConstraintValue(appliedConstraints, "Coat color");
+        if (!string.IsNullOrWhiteSpace(coatColor))
+        {
+            var colors = coatColor
+                .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (colors.Count == 1)
+            {
+                return $"I found dogs with the coat color {colors[0]}. Review each profile before sending a request.";
+            }
+
+            if (colors.Contains("Black", StringComparer.OrdinalIgnoreCase) &&
+                colors.Contains("Black and tan", StringComparer.OrdinalIgnoreCase))
+            {
+                return "I found dogs with black or black-and-tan coat colors. Review each profile before sending a request.";
+            }
+
+            return "I found dogs matching the requested coat colors. Review each profile before sending a request.";
+        }
+
+        if (!IsFilterOnlySummary(query, appliedConstraints))
+        {
+            return null;
+        }
+
+        if (!string.IsNullOrWhiteSpace(GetAppliedConstraintValue(appliedConstraints, "Size")))
+        {
+            return "I found dogs matching the requested size. Review each profile before sending a request.";
+        }
+
+        if (!string.IsNullOrWhiteSpace(GetAppliedConstraintValue(appliedConstraints, "Breed")))
+        {
+            return "I found dogs matching the requested breed. Review each profile before sending a request.";
+        }
+
+        if (!string.IsNullOrWhiteSpace(GetAppliedConstraintValue(appliedConstraints, "Location")))
+        {
+            return "I found dogs matching the requested location. Review each profile before sending a request.";
+        }
+
+        if (HasExplicitStatusRequest(query) &&
+            !string.IsNullOrWhiteSpace(GetAppliedConstraintValue(appliedConstraints, "Status")))
+        {
+            return "I found dogs matching the requested status. Review each profile before sending a request.";
+        }
+
+        return null;
+    }
+
+    private static string? GetAppliedConstraintValue(
+        IReadOnlyList<AdoptionCopilotConstraint> constraints,
+        string label)
+    {
+        return constraints
+            .FirstOrDefault(constraint => constraint.Label.Equals(label, StringComparison.OrdinalIgnoreCase))
+            ?.Value;
+    }
+
+    private static bool IsFilterOnlySummary(
+        string query,
+        IReadOnlyList<AdoptionCopilotConstraint> appliedConstraints)
+    {
+        var hasHardFilter = appliedConstraints.Any(constraint =>
+            constraint.Label.Equals("Coat color", StringComparison.OrdinalIgnoreCase) ||
+            constraint.Label.Equals("Size", StringComparison.OrdinalIgnoreCase) ||
+            constraint.Label.Equals("Breed", StringComparison.OrdinalIgnoreCase) ||
+            constraint.Label.Equals("Location", StringComparison.OrdinalIgnoreCase) ||
+            constraint.Label.Equals("Shelter", StringComparison.OrdinalIgnoreCase) ||
+            constraint.Label.Equals("Age", StringComparison.OrdinalIgnoreCase) ||
+            constraint.Label.Equals("Near", StringComparison.OrdinalIgnoreCase) ||
+            (constraint.Label.Equals("Status", StringComparison.OrdinalIgnoreCase) && HasExplicitStatusRequest(query)));
+
+        if (!hasHardFilter)
+        {
+            return false;
+        }
+
+        return !appliedConstraints.Any(constraint =>
+            constraint.Label.Equals("Temperament", StringComparison.OrdinalIgnoreCase) ||
+            constraint.Label.Equals("Compatibility", StringComparison.OrdinalIgnoreCase) ||
+            constraint.Label.Equals("Lifestyle", StringComparison.OrdinalIgnoreCase) ||
+            constraint.Label.Equals("Home", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool HasExplicitStatusRequest(string query)
+    {
+        var normalized = NormalizeForNeighborhoodMatch(query);
+        return ContainsAny(normalized,
+            [
+                "available",
+                "reserved",
+                "adopted",
+                "in treatment",
+                "intreatment",
+                "status"
+            ]);
     }
 
     private static bool HasAppliedConstraint(
@@ -541,10 +685,28 @@ public class AdoptionCopilotService(
         var displayTags = ChooseTrustedTags(aiResult.DisplayTags, searchResult.DisplayTags);
         var cautionTags = ChooseTrustedTags(aiResult.CautionTags, searchResult.CautionTags);
 
-        var safeScore = Math.Clamp(Math.Min(Math.Clamp(aiResult.ScorePercent, 45, 96), searchResult.ScorePercent + 4), 45, 96);
+        if (IsFilterMatchLabel(searchResult.MatchLabel))
+        {
+            return new AdoptionCopilotDogResult(
+                searchResult.DogId,
+                searchResult.Dog,
+                searchResult.ScorePercent,
+                searchResult.MatchLabel,
+                PolishReasons(reasons, matchedCriteria).Take(3).ToList(),
+                string.IsNullOrWhiteSpace(aiResult.SuggestedNextAction)
+                    ? searchResult.SuggestedNextAction
+                    : aiResult.SuggestedNextAction,
+                searchResult.DistanceKm,
+                true,
+                matchedCriteria,
+                displayTags,
+                cautionTags);
+        }
+
+        var safeScore = Math.Clamp(Math.Min(Math.Clamp(aiResult.ScorePercent, 25, 92), searchResult.ScorePercent + 3), 25, 92);
         if (searchResult.Dog.Status == DogStatus.Reserved)
         {
-            safeScore = Math.Min(safeScore, 89);
+            safeScore = Math.Min(safeScore, 84);
         }
 
         if (HasUncertainPrimaryEvidence(searchResult))
@@ -856,6 +1018,7 @@ public class AdoptionCopilotService(
             dog.Id,
             dog.Name,
             DogBreedFormatter.Format(dog),
+            EmptyToNull(dog.CoatColor),
             DogAgeFormatter.Format(dog),
             dog.Size.ToString(),
             dog.Status.ToString(),
@@ -1289,6 +1452,8 @@ public class AdoptionCopilotService(
         var normalized = NormalizeForNeighborhoodMatch(query);
         var values = new List<string>();
         AddTermIfAny(values, "short walks", normalized, "short walks", "slow walks");
+        AddTermIfAny(values, "longer walks", normalized, "longer walks", "long walks", "active walks", "brisk walks", "hiking");
+        AddTermIfAny(values, "daily walks", normalized, "daily walks", "regular walks");
         AddTermIfAny(values, "indoor rest", normalized, "indoor rest", "quiet indoors");
         AddTermIfAny(values, "quiet routine", normalized, "quiet", "not too much activity", "does not need much activity", "doesn t need much activity");
         AddTermIfAny(values, "outdoor play", normalized, "outdoor play", "yard", "garden");
@@ -1388,14 +1553,22 @@ public class AdoptionCopilotService(
             values.AddRange(["supervised visits with children", "older children", "gentle treat taking", "calm family routine"]);
         }
 
-        if (ContainsAny(normalized, ["apartment", "flat", "low activity", "not too much activity", "short walks"]))
+        if (ContainsAny(normalized, ["apartment", "flat", "low activity", "not too much activity", "short walks"]) &&
+            !HasExplicitLongerWalksRequest(normalized) &&
+            !HasExplicitDailyWalksRequest(normalized) &&
+            !HasExplicitModerateActivityRequest(normalized))
         {
             values.AddRange(["short walks", "indoor rest", "settles quickly", "quiet routine"]);
         }
 
-        if (ContainsAny(normalized, ["active", "yard", "garden", "house with a yard"]))
+        if (ContainsAny(normalized, ["active", "yard", "garden", "house with a yard", "longer walks", "long walks", "active walks", "brisk walks", "hiking"]))
         {
             values.AddRange(["outdoor play", "longer walks", "training games", "space to run"]);
+        }
+
+        if (ContainsAny(normalized, ["daily walks", "regular walks"]))
+        {
+            values.Add("daily walks");
         }
 
         return values.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
@@ -1407,6 +1580,7 @@ public class AdoptionCopilotService(
         string? homeType,
         string? activityLevel,
         IReadOnlyCollection<string> sizes,
+        IReadOnlyCollection<string> coatColors,
         IReadOnlyCollection<string> statuses)
     {
         var values = new List<string> { primaryIntent };
@@ -1426,6 +1600,7 @@ public class AdoptionCopilotService(
         }
 
         values.AddRange(sizes);
+        values.AddRange(coatColors);
         values.AddRange(statuses);
         return values.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
     }
@@ -1441,18 +1616,8 @@ public class AdoptionCopilotService(
     private static string? DetectEnergyLevel(string query)
     {
         var normalized = NormalizeForNeighborhoodMatch(query);
-        if (ContainsAny(normalized, ["active", "energetic", "playful", "running", "hiking", "high energy", "long walks", "outdoor play"]))
-        {
-            return "High";
-        }
-
         if (ContainsAny(normalized,
             [
-                "calm",
-                "quiet",
-                "gentle",
-                "relaxed",
-                "low energy",
                 "low activity",
                 "less activity",
                 "not too active",
@@ -1464,13 +1629,82 @@ public class AdoptionCopilotService(
                 "does not need too much exercise",
                 "not much exercise",
                 "short walks",
+                "short daily walks",
                 "slow walks"
             ]))
         {
             return "Low";
         }
 
+        if (ContainsAny(normalized, ["active", "energetic", "playful", "running", "hiking", "high energy", "active walks", "outdoor play"]))
+        {
+            return "High";
+        }
+
+        if (HasExplicitLongerWalksRequest(normalized) ||
+            HasExplicitDailyWalksRequest(normalized) ||
+            HasExplicitModerateActivityRequest(normalized))
+        {
+            return "Medium";
+        }
+
+        if (ContainsAny(normalized,
+            [
+                "calm",
+                "quiet",
+                "gentle",
+                "relaxed",
+                "low energy"
+            ]))
+        {
+            return "Low";
+        }
+
         return null;
+    }
+
+    private static bool HasExplicitLongerWalksRequest(string normalizedQuery)
+    {
+        return ContainsAny(normalizedQuery,
+            [
+                "longer walks",
+                "long walks",
+                "active walks",
+                "brisk walks",
+                "hiking"
+            ]);
+    }
+
+    private static bool HasExplicitDailyWalksRequest(string normalizedQuery)
+    {
+        return ContainsAny(normalizedQuery, ["daily walks", "regular walks"]);
+    }
+
+    private static bool HasExplicitModerateActivityRequest(string normalizedQuery)
+    {
+        return ContainsAny(normalizedQuery, ["moderate activity", "moderate exercise"]);
+    }
+
+    private static bool HasExplicitActivityPreference(string query)
+    {
+        var normalized = NormalizeForNeighborhoodMatch(query);
+        return HasExplicitLongerWalksRequest(normalized) ||
+            HasExplicitDailyWalksRequest(normalized) ||
+            HasExplicitModerateActivityRequest(normalized) ||
+            ContainsAny(normalized,
+            [
+                "low activity",
+                "less activity",
+                "not too active",
+                "not much exercise",
+                "short walks",
+                "slow walks",
+                "active walks",
+                "active",
+                "energetic",
+                "playful",
+                "high energy"
+            ]);
     }
 
     private static string? DetectHouseholdDogActivityLevel(string query)
@@ -1590,6 +1824,7 @@ public class AdoptionCopilotService(
     {
         var constraints = new List<AdoptionCopilotConstraint>();
         AddListConstraint("Size", args.Sizes);
+        AddListConstraint("Coat color", args.CoatColors);
         AddListConstraint("Status", args.Statuses);
         var ageConstraint = FormatAgeConstraint(args);
         if (!string.IsNullOrWhiteSpace(ageConstraint))
@@ -1601,9 +1836,10 @@ public class AdoptionCopilotService(
         AddListConstraint("Temperament", NormalizeTemperamentValues(MergeListValues(args.Temperaments, (args.TemperamentTags ?? []).Concat(args.BehaviorTerms ?? []))));
         AddListConstraint("Compatibility", NormalizeCompatibilityValues(args.Compatibility));
         AddSingleConstraint("Lifestyle", FormatLifestyleConstraint(args));
+        AddListConstraint("Activity", FormatActivityConstraints(args));
         AddListConstraint("Home", FormatHomeConstraints(args));
 
-        return constraints;
+        return AdoptionCopilotConstraintNormalizer.Normalize(constraints);
 
         void AddListConstraint(string label, IEnumerable<string>? values)
         {
@@ -1650,13 +1886,24 @@ public class AdoptionCopilotService(
                     "dog",
                     "children",
                     "kids",
+                    "walk",
+                    "walks",
+                    "exercise",
                     "introduction",
                     "introductions",
                     "settle",
                     "settles",
                     "short walk",
+                    "long walk",
+                    "longer walk",
+                    "daily walk",
+                    "regular walk",
+                    "brisk walk",
                     "indoor",
                     "routine",
+                    "low activity",
+                    "moderate activity",
+                    "high activity",
                     "activity"
                 ]))
             .Select(value => value switch
@@ -1729,6 +1976,32 @@ public class AdoptionCopilotService(
         return FormatLifestyleConstraint(energyLevel);
     }
 
+    private static IReadOnlyList<string> FormatActivityConstraints(AdoptionCopilotSearchDogsArgs args)
+    {
+        var normalized = NormalizeForNeighborhoodMatch(args.Query ?? string.Empty);
+        var values = new List<string>();
+        if (ContainsAny(normalized, ["short walks", "short daily walks", "slow walks", "leash walks"]) ||
+            ContainsAny(string.Join(' ', args.MustHave ?? []), ["short walks", "short daily walks", "slow walks", "leash walks"]))
+        {
+            values.Add("Short walks");
+        }
+        else if (HasExplicitLongerWalksRequest(normalized))
+        {
+            values.Add("Longer walks");
+        }
+        else if (HasExplicitDailyWalksRequest(normalized))
+        {
+            values.Add("Daily walks");
+        }
+
+        if (HasExplicitModerateActivityRequest(normalized))
+        {
+            values.Add("Moderate activity");
+        }
+
+        return values.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
     private static IReadOnlyList<string> FormatHomeConstraints(AdoptionCopilotSearchDogsArgs args)
     {
         var values = new List<string>();
@@ -1779,9 +2052,17 @@ public class AdoptionCopilotService(
     {
         return label?.Trim() switch
         {
-            "Excellent match" => "Excellent match",
+            "Excellent match" => "Strong match",
+            "Strong match" => "Strong match",
             "Good match" => "Good match",
             "Possible match" => "Possible match",
+            "Potential match" => "Possible match",
+            "Low match" => "Low match",
+            "Weak match" => "Low match",
+            "Exact match" => "Exact match",
+            "Matches request" => "Matches request",
+            "Exact filter match" => "Exact filter match",
+            "Matching result" => "Matching result",
             _ => "Good match"
         };
     }
@@ -1790,10 +2071,16 @@ public class AdoptionCopilotService(
     {
         return scorePercent switch
         {
-            >= 90 => "Excellent match",
-            >= 74 => "Good match",
-            _ => "Possible match"
+            >= 80 => "Strong match",
+            >= 65 => "Good match",
+            >= 45 => "Possible match",
+            _ => "Low match"
         };
+    }
+
+    private static bool IsFilterMatchLabel(string? label)
+    {
+        return label is "Exact match" or "Matches request" or "Exact filter match" or "Matching result";
     }
 
     private static readonly string[] KnownClujNeighborhoods =

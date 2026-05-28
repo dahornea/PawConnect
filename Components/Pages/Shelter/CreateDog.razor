@@ -153,6 +153,14 @@
                                     }
                                 </MudSelect>
                             </MudItem>
+                            <MudItem xs="12" md="4">
+                                <MudSelect T="string" Label="Coat color" @bind-Value="_model.CoatColor" Clearable="true" Variant="Variant.Outlined">
+                                    @foreach (var coatColor in DogCoatColorOptions.Values)
+                                    {
+                                        <MudSelectItem Value="@coatColor">@coatColor</MudSelectItem>
+                                    }
+                                </MudSelect>
+                            </MudItem>
                             <MudItem xs="12">
                                 <MudTextField Label="Location"
                                               @bind-Value="_model.Location"

@@ -436,6 +436,23 @@ h1:focus {
     background: rgba(47, 111, 94, 0.055);
 }
 
+.dog-card-image {
+    display: block;
+    width: 100%;
+    object-fit: cover;
+    object-position: var(--dog-image-position, center center);
+    background-position: var(--dog-image-position, center center);
+    background-repeat: no-repeat;
+    background-size: cover;
+}
+
+.dog-inspection-image,
+.dog-edit-preview-image {
+    object-fit: contain;
+    object-position: center center;
+    background: #f5f8f4;
+}
+
 .auth-field {
     display: grid;
     gap: 9px;

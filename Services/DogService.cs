@@ -75,7 +75,7 @@ public class DogService(
             .ToListAsync();
     }
 
-    public Task<List<Dog>> SearchDogsAsync(string? searchTerm, string? breed, int? maxAge, DogSize? size, string? location, DogStatus? status, DogSortOption sortOption = DogSortOption.NameAsc, int? shelterId = null, string? neighborhood = null)
+    public Task<List<Dog>> SearchDogsAsync(string? searchTerm, string? breed, int? maxAge, DogSize? size, string? location, DogStatus? status, DogSortOption sortOption = DogSortOption.NameAsc, int? shelterId = null, string? neighborhood = null, string? coatColor = null)
     {
         var query = context.Dogs
             .Include(d => d.Shelter)
@@ -135,6 +135,13 @@ public class DogService(
                 d.Shelter != null &&
                 d.Shelter.Neighborhood != null &&
                 d.Shelter.Neighborhood.Trim().ToUpper() == normalizedNeighborhood);
+        }
+
+        var normalizedCoatColor = DogCoatColorOptions.Normalize(coatColor);
+        if (!string.IsNullOrWhiteSpace(normalizedCoatColor))
+        {
+            var upperCoatColor = normalizedCoatColor.ToUpper();
+            query = query.Where(d => d.CoatColor != null && d.CoatColor.ToUpper() == upperCoatColor);
         }
 
         return ApplyDogSorting(query, sortOption)
@@ -269,6 +276,7 @@ public class DogService(
         existingDog.SecondaryBreedId = dog.SecondaryBreedId;
         existingDog.IsMixedBreed = dog.IsMixedBreed;
         existingDog.CustomBreedName = dog.CustomBreedName;
+        existingDog.CoatColor = dog.CoatColor;
         existingDog.AgeYears = dog.AgeYears;
         existingDog.AgeMonths = dog.AgeMonths;
         existingDog.Age = dog.AgeYears;
@@ -485,6 +493,7 @@ public class DogService(
         dog.Name = dog.Name.Trim();
         dog.Breed = dog.Breed.Trim();
         dog.CustomBreedName = string.IsNullOrWhiteSpace(dog.CustomBreedName) ? null : dog.CustomBreedName.Trim();
+        dog.CoatColor = DogCoatColorOptions.Normalize(dog.CoatColor);
         dog.Location = dog.Location.Trim();
         dog.Age = dog.AgeYears;
     }

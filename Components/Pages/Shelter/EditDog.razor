@@ -16,7 +16,7 @@
 
 <PageTitle>Edit Dog</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.Medium" Class="px-0">
+<MudContainer MaxWidth="MaxWidth.Medium" Class="px-0 edit-dog-page">
     <MudStack Spacing="3">
         <div class="page-header">
             <MudText Typo="Typo.h4">Edit Dog</MudText>
@@ -169,6 +169,14 @@
                                     }
                                 </MudSelect>
                             </MudItem>
+                            <MudItem xs="12" md="4">
+                                <MudSelect T="string" Label="Coat color" @bind-Value="_model.CoatColor" Clearable="true" Variant="Variant.Outlined" Disabled="@IsReadOnly">
+                                    @foreach (var coatColor in DogCoatColorOptions.Values)
+                                    {
+                                        <MudSelectItem Value="@coatColor">@coatColor</MudSelectItem>
+                                    }
+                                </MudSelect>
+                            </MudItem>
                             <MudItem xs="12">
                                 <MudTextField Label="Location"
                                               @bind-Value="_model.Location"
@@ -211,10 +219,6 @@
                         </MudGrid>
                     </MudForm>
                 </MudCardContent>
-                <MudCardActions>
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save" Disabled="@(_isSaving || IsReadOnly)" OnClick="SaveAsync">Save Changes</MudButton>
-                    <MudButton Href="/shelter/dogs" Variant="Variant.Text" Disabled="_isSaving">Back</MudButton>
-                </MudCardActions>
             </MudCard>
 
             <MudPaper Elevation="0" Class="section-surface management-section pa-4">
@@ -311,8 +315,6 @@
                                 <MudTextField Label="Image URL"
                                               @bind-Value="_newImage.ImageUrl"
                                               @bind-Value:after="ClearImageUrlError"
-                                              Required="true"
-                                              RequiredError="Image URL is required."
                                               Error="@HasImageUrlError"
                                               ErrorText="@_imageUrlError"
                                               Variant="Variant.Outlined"
@@ -323,7 +325,7 @@
                                 <MudCheckBox T="bool" Label="Main image" @bind-Value="_newImage.IsMainImage" Color="Color.Primary" Disabled="@IsReadOnly" />
                             </MudItem>
                             <MudItem xs="12" md="2">
-                                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.AddPhotoAlternate" Disabled="@(_isImageSaving || IsReadOnly)" OnClick="AddImageAsync">Add Image</MudButton>
+                                <MudButton ButtonType="ButtonType.Button" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.AddPhotoAlternate" Disabled="@(_isImageSaving || IsReadOnly)" OnClick="AddImageAsync">Add Image</MudButton>
                             </MudItem>
                         </MudGrid>
                     </MudForm>
@@ -331,7 +333,11 @@
                     @if (!string.IsNullOrWhiteSpace(_newImage.ImageUrl) && IsValidImageUrl(_newImage.ImageUrl))
                     {
                         <MudCard Class="image-card image-preview-card">
-                            <MudCardMedia Image="@_newImage.ImageUrl" Height="150" />
+                            <div class="dog-edit-image-frame">
+                                <img src="@_newImage.ImageUrl"
+                                     alt="@($"Preview of a new photo for {_model.Name}")"
+                                     class="dog-edit-preview-image" />
+                            </div>
                             <MudCardContent>
                                 <MudText Typo="Typo.caption" Color="Color.Secondary">Preview for the new image URL</MudText>
                             </MudCardContent>
@@ -349,7 +355,11 @@
                             {
                                 <MudItem xs="12" sm="6" md="4">
                                     <MudCard Class="image-card">
-                                        <MudCardMedia Image="@image.ImageUrl" Height="160" />
+                                        <div class="dog-edit-image-frame dog-edit-image-frame--compact">
+                                            <img src="@image.ImageUrl"
+                                                 alt="@($"Photo of {_model.Name}")"
+                                                 class="dog-edit-preview-image" />
+                                        </div>
                                         <MudCardContent>
                                             @if (image.IsMainImage)
                                             {
@@ -432,6 +442,19 @@
                     }
                 </MudStack>
             </MudPaper>
+
+            <div class="edit-dog-action-bar" role="region" aria-label="Dog edit actions">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="edit-dog-action-content">
+                    <MudIcon Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" />
+                    <div class="edit-dog-action-copy">
+                        <MudText Typo="Typo.subtitle2">Dog profile changes</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Save changes made to the dog profile.</MudText>
+                    </div>
+                    <MudSpacer />
+                    <MudButton Href="/shelter/dogs" Variant="Variant.Outlined" Color="Color.Default" StartIcon="@Icons.Material.Filled.ArrowBack" Disabled="_isSaving">Back</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save" Disabled="@(_isSaving || IsReadOnly)" OnClick="SaveAsync">Save Changes</MudButton>
+                </MudStack>
+            </div>
         }
     </MudStack>
 </MudContainer>
@@ -658,17 +681,20 @@
             return;
         }
 
-        if (_imageForm is not null)
+        _imageUrlError = null;
+        if (string.IsNullOrWhiteSpace(_newImage.ImageUrl))
         {
-            await _imageForm.ValidateAsync();
-            if (!_imageForm.IsValid)
-            {
-                return;
-            }
+            _imageUrlError = "Image URL is required.";
+            return;
+        }
+
+        if (!DogImageUrlValidator.TryNormalize(_newImage.ImageUrl, out var normalizedImageUrl))
+        {
+            _imageUrlError = DogImageUrlValidator.ValidationMessage;
+            return;
         }
 
         _isImageSaving = true;
-        _imageUrlError = null;
 
         try
         {
@@ -677,12 +703,14 @@
                 _newImage.IsMainImage = true;
             }
 
+            _newImage.ImageUrl = normalizedImageUrl;
             await DogImageService.AddDogImageAsync(Id, _shelterId.Value, _newImage);
             _newImage = new DogImage();
             if (_imageForm is not null)
             {
                 await _imageForm.ResetValidationAsync();
             }
+            _imageUrlError = null;
             await LoadDogManagementDataAsync();
             Snackbar.Add("Dog image added.", Severity.Success);
         }

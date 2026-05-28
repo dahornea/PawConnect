@@ -36,8 +36,9 @@ public class OpenAiAdoptionCopilotClient(
                 PawConnect application code performs the actual filtering, scoring, and validation.
                 Never invent dogs, dog IDs, statuses, shelters, or private facts.
                 Only recommend dog IDs returned by PawConnect tools.
-                Respect exact user constraints such as size, neighborhood, city, status, age, and radius.
+                Respect exact user constraints such as size, coat color, neighborhood, city, status, age, and radius.
                 Use primaryIntent, homeType, activityLevel, compatibilityTarget, compatibility, desiredTraits, avoidTraits, evidenceToLookFor, mustHave, niceToHave, and avoid to express user intent.
+                Use coatColors for visible coat-color requests such as black dog, white small dog, brown Labrador, golden dog, tricolor dog, or black and tan dog.
                 Keep home/lifestyle/compatibility separate: apartment is Home, low activity is Lifestyle, cats/children/other dogs are Compatibility.
                 For "I have a cat at home", set primaryIntent=Compatibility, compatibilityTarget=Cats, desiredTraits around calm/redirectable cats, and avoid chase behavior.
                 For "I have kids", set primaryIntent=Compatibility and compatibilityTarget=Children or OlderChildren.
@@ -56,16 +57,18 @@ public class OpenAiAdoptionCopilotClient(
                 Use only displayTags and cautionTags returned by PawConnect tools. Do not invent tags.
                 Do not use generic positive traits as enough evidence for compatibility requests.
                 Do not invent evidence. If compatibility evidence is missing, use an "Ask shelter about..." tag and lower confidence.
-                For SeniorDog or SensitiveDog requests, Excellent match requires direct dog-to-dog evidence such as calm dog company or respectful around dogs.
+                Use match labels conservatively: Strong match, Good match, Possible match, or Low match.
+                For simple filter-only requests, such as black and tan dogs or medium dogs in Zorilor, prefer Exact match or another PawConnect filter label and do not overstate lifestyle compatibility.
+                For SeniorDog or SensitiveDog requests, Strong match requires direct dog-to-dog evidence such as calm dog company or respectful around dogs.
                 If a SeniorDog or SensitiveDog candidate only has indirect calm evidence, missing dog compatibility evidence, or an "Ask shelter about..." tag, use Good match or Possible match.
                 Reserved dogs and dogs needing slow introductions should be described cautiously, not as certain fits.
                 Do not assign apartment/low-activity tags unless the dog evidence includes short walks, indoor rest, quiet routine, small/medium size, or settles quickly.
                 Do not assign cats/children/other-dogs tags unless the dog evidence supports them.
                 If evidence for a compatibility target is missing, prefer the PawConnect "Ask shelter about..." tag and keep confidence conservative.
-                If evidence is weak, use "Possible match" or do not select the dog.
+                If evidence is weak, use "Possible match" or "Low match", or do not select the dog.
                 Reserved dogs may be selected but must include the Reserved caution tag when it is available.
                 Return valid JSON only with this shape:
-                {"assistantMessage":"Nala looks like the strongest fit. Review each profile before sending a request.","results":[{"dogId":1,"rank":1,"matchLabel":"Good match","scorePercent":82,"displayTags":["Short walks","Indoor rest"],"cautionTags":[],"shortSelectionRationale":"Evidence points to short walks and indoor rest.","reasons":["Short walks","Indoor rest"],"suggestedNextAction":"View the profile to confirm the energy level and shelter details."}]}
+                {"assistantMessage":"Nala looks like the strongest fit. Review each profile before sending a request.","results":[{"dogId":1,"rank":1,"matchLabel":"Good match","scorePercent":76,"displayTags":["Short walks","Indoor rest"],"cautionTags":[],"shortSelectionRationale":"Evidence points to short walks and indoor rest.","reasons":["Short walks","Indoor rest"],"suggestedNextAction":"View the profile to confirm the energy level and shelter details."}]}
                 """
             },
             new
@@ -105,7 +108,7 @@ public class OpenAiAdoptionCopilotClient(
                             item.DogId,
                             item.Rank <= 0 ? int.MaxValue : item.Rank,
                             NormalizeMatchLabel(item.MatchLabel),
-                            Math.Clamp(item.ScorePercent, 45, 96),
+                            Math.Clamp(item.ScorePercent, 25, 92),
                             NormalizeReasons(item.Reasons),
                             SafeTrim(item.SuggestedNextAction, 160) ?? "View the dog profile and check the shelter details.",
                             NormalizeReasons(item.DisplayTags),
@@ -211,8 +214,8 @@ public class OpenAiAdoptionCopilotClient(
                             {
                                 dogId = NumberSchema("A dog ID from the candidate list."),
                                 rank = NumberSchema("1-based rank among selected candidates."),
-                                matchLabel = StringSchema("Excellent match, Good match, or Possible match."),
-                                scorePercent = NumberSchema("Evidence-based score from 45 to 96."),
+                                matchLabel = StringSchema("Strong match, Good match, Possible match, Low match, or a PawConnect filter label such as Exact match or Matches request."),
+                                scorePercent = NumberSchema("Conservative evidence-based score from 25 to 86."),
                                 displayTags = ArraySchema("Supported display tags copied from the candidate only."),
                                 cautionTags = ArraySchema("Supported caution tags copied from the candidate only."),
                                 shortSelectionRationale = StringSchema("Short internal rationale based only on provided evidence."),
@@ -258,6 +261,7 @@ public class OpenAiAdoptionCopilotClient(
                         primaryIntent = StringSchema("Primary user intent: HomeSuitability, ActivityLevel, Temperament, Compatibility, Location, Size, or ExperienceLevel."),
                         sizes = ArraySchema("Dog sizes such as Small, Medium, or Large."),
                         breeds = ArraySchema("Breed names or breed fragments."),
+                        coatColors = ArraySchema("Coat colors such as Black, White, Brown, Golden, Tricolor, Black and tan, or Brown and white. Use for requests like black dog, white small dog, brown Labrador, or tricolor dog."),
                         city = StringSchema("Shelter city or dog location city."),
                         neighborhood = StringSchema("Shelter neighborhood/cartier such as Zorilor or Manastur."),
                         shelterName = StringSchema("Shelter name."),
@@ -265,9 +269,9 @@ public class OpenAiAdoptionCopilotClient(
                         minAgeYears = NumberSchema("Minimum age in years. Use for senior/older/at least/over age requests only."),
                         ageComparison = StringSchema("Use Under for strict phrases like 'under 2' or 'younger than 2'; Max for inclusive phrases like 'max 2' or '2 years or younger'; AtLeast for older/senior minimum-age requests."),
                         statuses = ArraySchema("Dog statuses. Public-safe values are Available and Reserved. If the user asks specifically for reserved or available dogs, pass only that requested status."),
-                        behaviorTerms = ArraySchema("Temperament/behavior terms such as calm, gentle, friendly, social, beginner, children, cats, or dogs. Do not put apartment, flat, house, yard, or garden here."),
-                        temperamentTags = ArraySchema("Normalized temperament tags such as Calm, Friendly, Playful, Beginner, Children, Cats, or Dogs. Use energyLevel for active/low-activity requests."),
-                        temperaments = ArraySchema("Structured temperament values: Calm, Gentle, Friendly, Playful, Shy, or Anxious. Do not put apartment, cats, children, or yard here."),
+                        behaviorTerms = ArraySchema("Temperament/behavior terms such as calm, gentle, friendly, social, patient, shy, or anxious. Do not put apartment, flat, house, yard, garden, cats, children, dogs, short walks, daily walks, or longer walks here."),
+                        temperamentTags = ArraySchema("Normalized temperament tags such as Calm, Gentle, Friendly, Playful, Shy, or Anxious. Do not put walk/activity preferences here; use activityLevel/energyLevel and mustHave for short walks, daily walks, longer walks, or low/moderate/high activity."),
+                        temperaments = ArraySchema("Structured temperament values: Calm, Gentle, Friendly, Playful, Shy, or Anxious. Do not put apartment, cats, children, yard, short walks, daily walks, longer walks, or activity level here."),
                         energyLevel = StringSchema("Lifestyle energy level inferred from the request: Low for low-activity/short-walk requests, Medium, or High for active/outdoor requests."),
                         activityLevel = StringSchema("Structured activity level: Low, Medium, High, or Any."),
                         homeType = StringSchema("Home setting inferred from the request, such as Apartment or House with yard. Do not also put this value in behaviorTerms."),
@@ -463,9 +467,17 @@ public class OpenAiAdoptionCopilotClient(
     {
         return label?.Trim() switch
         {
-            "Excellent match" => "Excellent match",
+            "Excellent match" => "Strong match",
+            "Strong match" => "Strong match",
             "Good match" => "Good match",
             "Possible match" => "Possible match",
+            "Potential match" => "Possible match",
+            "Low match" => "Low match",
+            "Weak match" => "Low match",
+            "Exact match" => "Exact match",
+            "Matches request" => "Matches request",
+            "Exact filter match" => "Exact filter match",
+            "Matching result" => "Matching result",
             _ => "Good match"
         };
     }

@@ -185,16 +185,18 @@
                                               Variant="Variant.Outlined" />
                             </MudItem>
                             <MudItem xs="12" md="4">
-                                <MudSelect T="int" Label="Category"
-                                           Value="_model.ResourceCategoryId"
+                                <MudSelect T="int?" Label="Category"
+                                           Value="_selectedCategoryId"
                                            ValueChanged="OnCategoryChanged"
                                            Required="true"
+                                           RequiredError="Category is required."
+                                           Placeholder="Select category"
                                            Error="@HasResourceCategoryError"
                                            ErrorText="@_resourceCategoryError"
                                            Variant="Variant.Outlined">
                                     @foreach (var category in _categories)
                                     {
-                                        <MudSelectItem Value="@category.Id">@category.Name</MudSelectItem>
+                                        <MudSelectItem T="int?" Value="@((int?)category.Id)">@category.Name</MudSelectItem>
                                     }
                                 </MudSelect>
                             </MudItem>
@@ -214,10 +216,13 @@
                                 </MudSelect>
                             </MudItem>
                             <MudItem xs="12" md="3">
-                                <MudNumericField T="int" Label="Quantity"
-                                                 @bind-Value="_model.Quantity"
+                                <MudNumericField T="int?" Label="Quantity"
+                                                 @bind-Value="_quantity"
                                                  @bind-Value:after="ClearQuantityError"
-                                                 Min="0"
+                                                 Required="true"
+                                                 RequiredError="Quantity is required."
+                                                 Placeholder="Enter quantity"
+                                                 Min="1"
                                                  Error="@HasQuantityError"
                                                  ErrorText="@_quantityError"
                                                  Variant="Variant.Outlined" />
@@ -233,9 +238,12 @@
                                               Variant="Variant.Outlined" />
                             </MudItem>
                             <MudItem xs="12" md="3">
-                                <MudNumericField T="int" Label="Low-Stock Threshold"
-                                                 @bind-Value="_model.LowStockThreshold"
+                                <MudNumericField T="int?" Label="Low-Stock Threshold"
+                                                 @bind-Value="_lowStockThreshold"
                                                  @bind-Value:after="ClearLowStockThresholdError"
+                                                 Required="true"
+                                                 RequiredError="Low-stock threshold is required."
+                                                 Placeholder="Enter threshold"
                                                  Min="0"
                                                  Error="@HasLowStockThresholdError"
                                                  ErrorText="@_lowStockThresholdError"
@@ -325,6 +333,9 @@
     private string? _quantityError;
     private string? _unitError;
     private string? _lowStockThresholdError;
+    private int? _selectedCategoryId;
+    private int? _quantity;
+    private int? _lowStockThreshold;
     private int? _shelterId;
     private IBrowserFile? _resourceImportFile;
     private CsvImportResult? _importResult;
@@ -332,7 +343,8 @@
     private const long MaxCsvFileSize = 2 * 1024 * 1024;
 
     private bool IsFoodCategorySelected =>
-        _categories.FirstOrDefault(c => c.Id == _model.ResourceCategoryId)?.Name.Equals("Food", StringComparison.OrdinalIgnoreCase) == true;
+        _selectedCategoryId.HasValue &&
+        _categories.FirstOrDefault(c => c.Id == _selectedCategoryId.Value)?.Name.Equals("Food", StringComparison.OrdinalIgnoreCase) == true;
     private bool HasResourceNameError => !string.IsNullOrWhiteSpace(_resourceNameError);
     private bool HasResourceCategoryError => !string.IsNullOrWhiteSpace(_resourceCategoryError);
     private bool HasFoodTypeError => !string.IsNullOrWhiteSpace(_foodTypeError);
@@ -373,16 +385,23 @@
             return;
         }
 
+        ClearResourceValidationErrors();
+
         if (_form is not null)
         {
             await _form.ValidateAsync();
-            if (!_form.IsValid)
-            {
-                return;
-            }
         }
 
-        ClearResourceValidationErrors();
+        var hasCustomValidationErrors = !ValidateResourceForm();
+        if ((_form is not null && !_form.IsValid) || hasCustomValidationErrors)
+        {
+            return;
+        }
+
+        _model.ResourceCategoryId = _selectedCategoryId!.Value;
+        _model.Quantity = _quantity!.Value;
+        _model.LowStockThreshold = _lowStockThreshold!.Value;
+
         if (!IsFoodCategorySelected)
         {
             _model.FoodTypeId = null;
@@ -576,6 +595,9 @@
             Unit = resource.Unit,
             LowStockThreshold = resource.LowStockThreshold
         };
+        _selectedCategoryId = resource.ResourceCategoryId;
+        _quantity = resource.Quantity;
+        _lowStockThreshold = resource.LowStockThreshold;
     }
 
     private async Task ConfirmDeleteAsync(ResourceStock resource)
@@ -623,9 +645,10 @@
         }
     }
 
-    private void OnCategoryChanged(int categoryId)
+    private void OnCategoryChanged(int? categoryId)
     {
-        _model.ResourceCategoryId = categoryId;
+        _selectedCategoryId = categoryId;
+        _model.ResourceCategoryId = categoryId ?? 0;
         _resourceCategoryError = null;
         _resourceNameError = null;
         _resourceFormError = null;
@@ -639,6 +662,9 @@
     private async Task ResetFormAsync()
     {
         _model = new ResourceStock();
+        _selectedCategoryId = null;
+        _quantity = null;
+        _lowStockThreshold = null;
         ClearResourceValidationErrors();
         if (_form is not null)
         {
@@ -655,6 +681,52 @@
         _quantityError = null;
         _unitError = null;
         _lowStockThresholdError = null;
+    }
+
+    private bool ValidateResourceForm()
+    {
+        var isValid = true;
+        if (string.IsNullOrWhiteSpace(_model.Name))
+        {
+            _resourceNameError = "Name is required.";
+            isValid = false;
+        }
+
+        if (!_selectedCategoryId.HasValue || _selectedCategoryId.Value <= 0)
+        {
+            _resourceCategoryError = "Category is required.";
+            isValid = false;
+        }
+
+        if (!_quantity.HasValue)
+        {
+            _quantityError = "Quantity is required.";
+            isValid = false;
+        }
+        else if (_quantity.Value <= 0)
+        {
+            _quantityError = "Quantity must be greater than zero.";
+            isValid = false;
+        }
+
+        if (string.IsNullOrWhiteSpace(_model.Unit))
+        {
+            _unitError = "Unit is required.";
+            isValid = false;
+        }
+
+        if (!_lowStockThreshold.HasValue)
+        {
+            _lowStockThresholdError = "Low-stock threshold is required.";
+            isValid = false;
+        }
+        else if (_lowStockThreshold.Value < 0)
+        {
+            _lowStockThresholdError = "Low-stock threshold must be zero or greater.";
+            isValid = false;
+        }
+
+        return isValid;
     }
 
     private void ClearResourceNameError()
@@ -701,7 +773,7 @@
             case "Selected food type was not found.":
                 _foodTypeError = message;
                 return true;
-            case "Quantity must be zero or greater.":
+            case "Quantity must be greater than zero.":
                 _quantityError = message;
                 return true;
             case "Low-stock threshold must be zero or greater.":

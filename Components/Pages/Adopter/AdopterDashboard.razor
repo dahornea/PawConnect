@@ -167,7 +167,7 @@
                                         }
                                         else
                                         {
-                                            <MudCardMedia Image="@imageUrl" Class="preview-image" />
+                                            <MudCardMedia Image="@imageUrl" Class="preview-image dog-card-image" />
                                         }
                                     </a>
                                     <MudCardContent>
@@ -315,7 +315,7 @@
                                             }
                                             else
                                             {
-                                                <MudCardMedia Image="@recentImageUrl" Class="preview-image" />
+                                                <MudCardMedia Image="@recentImageUrl" Class="preview-image dog-card-image" />
                                             }
                                         </a>
                                         <MudCardContent>
@@ -469,23 +469,6 @@
 
     private static string? GetDogImageUrl(Dog dog)
     {
-        return dog.Images
-            .Where(i => IsValidImageUrl(i.ImageUrl))
-            .OrderByDescending(i => i.IsMainImage)
-            .ThenBy(i => i.Id)
-            .Select(i => i.ImageUrl)
-            .FirstOrDefault();
-    }
-
-    private static bool IsValidImageUrl(string? imageUrl)
-    {
-        if (string.IsNullOrWhiteSpace(imageUrl) ||
-            imageUrl.Contains("placehold.co", StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        return Uri.TryCreate(imageUrl, UriKind.Absolute, out var uri) &&
-            (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
+        return DogImageUrlValidator.GetPrimaryRealDogImageUrl(dog.Images);
     }
 }

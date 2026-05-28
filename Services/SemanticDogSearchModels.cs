@@ -14,6 +14,8 @@ public sealed class SemanticDogSearchOptions
 
     public string? Neighborhood { get; init; }
 
+    public IReadOnlyList<string>? CoatColors { get; init; }
+
     public double? OriginLatitude { get; init; }
 
     public double? OriginLongitude { get; init; }

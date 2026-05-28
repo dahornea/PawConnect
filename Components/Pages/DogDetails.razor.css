@@ -63,14 +63,15 @@
     display: block;
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
+    object-position: center center;
     transition: transform 0.18s ease, filter 0.18s ease;
 }
 
 .dog-details-page .dog-gallery-main-button:hover .dog-gallery-image,
 .dog-details-page .dog-gallery-main-button:focus-visible .dog-gallery-image {
     filter: brightness(0.88);
-    transform: scale(1.015);
+    transform: scale(1.005);
 }
 
 .dog-details-page .dog-gallery-main-button:focus-visible {
@@ -175,6 +176,7 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
+    object-position: center center;
 }
 
 .dog-details-page ::deep .dog-summary {

@@ -198,6 +198,7 @@
 ::deep .featured-dog-image {
     height: 145px;
     object-fit: cover;
+    object-position: var(--dog-image-position, center center);
 }
 
 .dog-image-link {

@@ -25,6 +25,9 @@ public class Dog
     [StringLength(80)]
     public string? CustomBreedName { get; set; }
 
+    [StringLength(80)]
+    public string? CoatColor { get; set; }
+
     [Range(0, 30)]
     public int Age { get; set; }
 

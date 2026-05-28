@@ -1,3 +1,7 @@
+.edit-dog-page {
+    padding-bottom: 148px;
+}
+
 ::deep .form-card,
 ::deep .image-card {
     border: 1px solid rgba(47, 111, 94, 0.1);
@@ -5,13 +9,65 @@
     box-shadow: 0 10px 30px rgba(31, 47, 42, 0.06);
 }
 
-::deep .form-card .mud-card-actions {
-    border-top: 1px solid rgba(47, 111, 94, 0.08);
-    background: rgba(244, 247, 242, 0.55);
+.edit-dog-action-bar {
+    position: sticky;
+    bottom: 16px;
+    z-index: 60;
+    width: 100%;
+    align-self: stretch;
+    border: 1px solid rgba(47, 111, 94, 0.16);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 -10px 34px rgba(31, 47, 42, 0.18);
+    backdrop-filter: blur(10px);
+}
+
+.edit-dog-action-content {
+    padding: 10px 12px;
+}
+
+.edit-dog-action-copy {
+    min-width: 0;
+}
+
+.edit-dog-action-copy .mud-typography {
+    line-height: 1.25;
 }
 
 ::deep .management-section {
     border-left: 4px solid #2f6f5e;
+}
+
+.dog-edit-image-frame {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 210px;
+    max-height: 380px;
+    padding: 10px;
+    overflow: hidden;
+    border-bottom: 1px solid rgba(47, 111, 94, 0.08);
+    background-color: #f5f8f4;
+    background-image:
+        linear-gradient(135deg, rgba(47, 111, 94, 0.08), rgba(217, 119, 6, 0.06));
+}
+
+.dog-edit-image-frame--compact {
+    min-height: 170px;
+    max-height: 260px;
+}
+
+.dog-edit-preview-image {
+    display: block;
+    width: 100%;
+    max-height: 360px;
+    object-fit: contain;
+    object-position: center center;
+    border-radius: 12px;
+}
+
+.dog-edit-image-frame--compact .dog-edit-preview-image {
+    max-height: 240px;
 }
 
 ::deep .table-shell {
@@ -22,4 +78,23 @@
 
 ::deep .table-shell .mud-table-head {
     background: rgba(47, 111, 94, 0.06);
+}
+
+@media (max-width: 640px) {
+    .edit-dog-page {
+        padding-bottom: 176px;
+    }
+
+    .edit-dog-action-content {
+        align-items: stretch;
+        flex-wrap: wrap;
+    }
+
+    .edit-dog-action-copy {
+        flex: 1 1 calc(100% - 44px);
+    }
+
+    .edit-dog-action-content ::deep .mud-button-root {
+        flex: 1 1 0;
+    }
 }

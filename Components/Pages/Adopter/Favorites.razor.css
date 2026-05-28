@@ -14,6 +14,7 @@
 ::deep .dog-image {
     height: 210px;
     object-fit: cover;
+    object-position: var(--dog-image-position, center center);
 }
 
 .dog-image-link {

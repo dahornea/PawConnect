@@ -53,6 +53,7 @@ public class AdoptionCopilotToolService(
         "Quiet routine",
         "Small size",
         "Medium size",
+        "Daily walks",
         "Longer walks",
         "Outdoor play",
         "Training games",
@@ -87,6 +88,11 @@ public class AdoptionCopilotToolService(
         "Ask shelter about children",
         "May overwhelm sensitive dogs",
         "Very energetic",
+        "Higher activity needs",
+        "Prefers shorter walks",
+        "Ask shelter about apartment fit",
+        "Large dog - confirm apartment fit",
+        "Needs more space",
         "Missing behavior details",
         "Lower activity fit",
         "Space to run"
@@ -104,6 +110,7 @@ public class AdoptionCopilotToolService(
         var appliedConstraints = BuildAppliedConstraints(args, intent);
         var sizes = ParseSizes(args.Sizes);
         var statuses = ParseStatuses(args.Statuses);
+        var coatColors = ParseCoatColors(args.CoatColors);
 
         if (args.Statuses?.Count > 0 && statuses.Count == 0)
         {
@@ -140,7 +147,7 @@ public class AdoptionCopilotToolService(
         var hardFiltered = new List<(Dog Dog, double? DistanceKm)>();
         foreach (var dog in dogs)
         {
-            if (!MatchesHardFilters(dog, args, sizes, statuses, origin, out var distanceKm))
+            if (!MatchesHardFilters(dog, args, sizes, statuses, coatColors, origin, out var distanceKm))
             {
                 continue;
             }
@@ -163,18 +170,19 @@ public class AdoptionCopilotToolService(
 
         var semanticById = await GetSemanticRankingsAsync(adopterUserId, args, origin, count, cancellationToken);
         var queryTerms = BuildQueryTerms(args);
-        var candidates = hardFiltered
+        var candidates = OrderCopilotCandidates(
+            hardFiltered
             .Select(item => BuildCandidate(item.Dog, item.DistanceKm, args, intent, queryTerms, semanticById))
-            .OrderByDescending(candidate => candidate.ScorePercent)
-            .ThenBy(candidate => candidate.Dog.Name)
-            .Take(count)
+            .ToList(),
+            intent,
+            count)
             .ToList();
 
         if (IsNearestSort(args.Sort) && origin is not null)
         {
             candidates = candidates
                 .OrderBy(candidate => candidate.DistanceKm ?? double.MaxValue)
-                .ThenByDescending(candidate => candidate.ScorePercent)
+                .ThenBy(candidate => candidate, Comparer<AdoptionCopilotToolDogCandidate>.Create((left, right) => CompareCopilotCandidates(left, right, intent)))
                 .ThenBy(candidate => candidate.Dog.Name)
                 .Take(count)
                 .ToList();
@@ -184,6 +192,85 @@ public class AdoptionCopilotToolService(
             candidates,
             appliedConstraints,
             candidates.Any(candidate => semanticById.ContainsKey(candidate.DogId)));
+    }
+
+    private static IEnumerable<AdoptionCopilotToolDogCandidate> OrderCopilotCandidates(
+        IEnumerable<AdoptionCopilotToolDogCandidate> candidates,
+        CopilotIntent intent,
+        int count)
+    {
+        return candidates
+            .OrderBy(candidate => candidate, Comparer<AdoptionCopilotToolDogCandidate>.Create((left, right) => CompareCopilotCandidates(left, right, intent)))
+            .Take(count);
+    }
+
+    private static int CompareCopilotCandidates(
+        AdoptionCopilotToolDogCandidate left,
+        AdoptionCopilotToolDogCandidate right,
+        CopilotIntent intent)
+    {
+        var scoreDifference = Math.Abs(left.ScorePercent - right.ScorePercent);
+        if (scoreDifference <= 3)
+        {
+            var signalComparison = CalculateVisibleRankingSignal(right, intent)
+                .CompareTo(CalculateVisibleRankingSignal(left, intent));
+            if (signalComparison != 0)
+            {
+                return signalComparison;
+            }
+        }
+
+        var scoreComparison = right.ScorePercent.CompareTo(left.ScorePercent);
+        if (scoreComparison != 0)
+        {
+            return scoreComparison;
+        }
+
+        var fallbackSignalComparison = CalculateVisibleRankingSignal(right, intent)
+            .CompareTo(CalculateVisibleRankingSignal(left, intent));
+        if (fallbackSignalComparison != 0)
+        {
+            return fallbackSignalComparison;
+        }
+
+        return string.Compare(left.Dog.Name, right.Dog.Name, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static int CalculateVisibleRankingSignal(AdoptionCopilotToolDogCandidate candidate, CopilotIntent intent)
+    {
+        var displayTags = (candidate.DisplayTags ?? []).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var cautionTags = (candidate.CautionTags ?? []).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var signal = 0;
+
+        if (IsModerateApartmentIntent(intent))
+        {
+            signal += displayTags.Contains("Longer walks") ? 8 : 0;
+            signal += displayTags.Contains("Daily walks") ? 5 : 0;
+            signal += displayTags.Contains("Medium size") ? 7 : 0;
+            signal += displayTags.Contains("Small size") ? 6 : 0;
+            signal += displayTags.Contains("Settles quickly") ? 6 : 0;
+            signal += displayTags.Contains("Indoor rest") ? 3 : 0;
+            signal += displayTags.Contains("Quiet routine") ? 3 : 0;
+
+            signal -= cautionTags.Contains("Needs more space") ? 8 : 0;
+            signal -= cautionTags.Contains("Ask shelter about apartment fit") ? 5 : 0;
+            signal -= cautionTags.Contains("Large dog - confirm apartment fit") ? 6 : 0;
+            signal -= cautionTags.Contains("Higher activity needs") ? 6 : 0;
+            signal -= cautionTags.Contains("Patient adopter needed") ? 4 : 0;
+            signal -= cautionTags.Contains("Prefers shorter walks") ? 5 : 0;
+        }
+        else
+        {
+            signal += displayTags.Count * 3;
+            signal -= cautionTags.Count * 2;
+        }
+
+        if (!DogImageUrlValidator.GetRealDogImages(candidate.Dog.Images).Any())
+        {
+            signal -= 1;
+        }
+
+        return signal;
     }
 
     public async Task<AdoptionCopilotProfileToolResult?> GetAdopterProfileSummaryAsync(
@@ -290,6 +377,7 @@ public class AdoptionCopilotToolService(
                 Status = singleStatus,
                 Neighborhood = EmptyToNull(args.Neighborhood),
                 Location = EmptyToNull(args.City),
+                CoatColors = args.CoatColors,
                 OriginLatitude = origin?.Latitude,
                 OriginLongitude = origin?.Longitude,
                 RadiusKm = args.RadiusKm
@@ -312,6 +400,7 @@ public class AdoptionCopilotToolService(
         AdoptionCopilotSearchDogsArgs args,
         IReadOnlySet<DogSize> sizes,
         IReadOnlySet<DogStatus> statuses,
+        IReadOnlySet<string> coatColors,
         GeocodingResult? origin,
         out double? distanceKm)
     {
@@ -337,6 +426,15 @@ public class AdoptionCopilotToolService(
                 dogBreed.Contains(breed, StringComparison.OrdinalIgnoreCase)))
         {
             return false;
+        }
+
+        if (coatColors.Count > 0)
+        {
+            var dogCoatColor = DogCoatColorOptions.Normalize(dog.CoatColor);
+            if (string.IsNullOrWhiteSpace(dogCoatColor) || !coatColors.Contains(dogCoatColor))
+            {
+                return false;
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(args.City) &&
@@ -409,46 +507,56 @@ public class AdoptionCopilotToolService(
         IReadOnlyList<string> queryTerms,
         IReadOnlyDictionary<int, SemanticDogSearchResult> semanticById)
     {
-        var score = 48;
+        var score = 34;
         var reasons = new List<string>();
         var reservedOnlyRequest = ParseStatuses(args.Statuses).SetEquals([DogStatus.Reserved]);
+        var filterOnlyRequest = IsFilterOnlyRequest(args, intent);
+        var hasHardConstraints = HasExplicitHardConstraints(args);
         if (semanticById.TryGetValue(dog.Id, out var semanticResult))
         {
             // Semantic similarity is supporting evidence; deterministic public-safe matching remains the source of truth.
-            score += Math.Clamp((semanticResult.ScorePercent - 55) / 5, 0, 8);
+            score += Math.Clamp((semanticResult.ScorePercent - 55) / 7, 0, 5);
         }
 
         var searchableText = BuildSearchableDogText(dog);
         var keywordMatches = queryTerms.Count(term => searchableText.Contains(term, StringComparison.OrdinalIgnoreCase));
-        score += Math.Min(10, keywordMatches * 2);
+        score += Math.Min(6, keywordMatches * 2);
 
         if (dog.Status == DogStatus.Available)
         {
-            score += 5;
+            score += 2;
         }
         else if (dog.Status == DogStatus.Reserved)
         {
-            score += reservedOnlyRequest ? 2 : -4;
+            score += reservedOnlyRequest ? 1 : -1;
             AddReason(reasons, "Reserved - availability may change.");
         }
 
         if (distanceKm.HasValue)
         {
-            score += distanceKm.Value <= 5 ? 8 : distanceKm.Value <= 25 ? 5 : 2;
+            score += distanceKm.Value <= 5 ? 6 : distanceKm.Value <= 25 ? 4 : 1;
             reasons.Add($"{distanceKm.Value:0.#} km away");
         }
 
         if (args.MaxAgeYears is > 0 || args.MinAgeYears is > 0)
         {
             AddReason(reasons, "Age fits your search");
-            score += 5;
+            score += 7;
         }
 
         var parsedSizes = ParseSizes(args.Sizes);
         if (parsedSizes.Contains(dog.Size))
         {
             AddReason(reasons, "Size matches your search");
-            score += 8;
+            score += 11;
+        }
+
+        var parsedCoatColors = ParseCoatColors(args.CoatColors);
+        var dogCoatColor = DogCoatColorOptions.Normalize(dog.CoatColor);
+        if (!string.IsNullOrWhiteSpace(dogCoatColor) && parsedCoatColors.Contains(dogCoatColor))
+        {
+            AddReason(reasons, $"Coat color: {dogCoatColor}");
+            score += 11;
         }
 
         AddLifestyleScores(dog, args, searchableText, reasons, ref score);
@@ -469,14 +577,14 @@ public class AdoptionCopilotToolService(
             (Contains(dog.Shelter?.City, args.City) || Contains(dog.Location, args.City)))
         {
             AddReason(reasons, $"In {args.City.Trim()}");
-            score += 5;
+            score += 8;
         }
 
         if (!string.IsNullOrWhiteSpace(args.Neighborhood) &&
             string.Equals(dog.Shelter?.Neighborhood, args.Neighborhood.Trim(), StringComparison.OrdinalIgnoreCase))
         {
             AddReason(reasons, $"In {args.Neighborhood.Trim()}");
-            score += 8;
+            score += 10;
         }
 
         if (semanticResult is not null)
@@ -509,19 +617,28 @@ public class AdoptionCopilotToolService(
         score = ApplyCompatibilityEvidenceCaps(intent, evidence, score);
         score = ApplyHomeActivityEvidenceCaps(intent, evidence, score);
 
-        var safeScore = Math.Clamp(score, 45, 96);
-        if (dog.Status == DogStatus.Reserved)
+        var safeScore = filterOnlyRequest
+            ? GetFilterOnlyScore(dog.Status, reservedOnlyRequest)
+            : CalibrateRecommendationScore(score, intent, evidence);
+        if (hasHardConstraints && !filterOnlyRequest && !HasConflictingEnergyForCalmRequest(dog, args))
         {
-            safeScore = Math.Min(safeScore, reservedOnlyRequest ? 92 : 89);
+            safeScore = ApplySatisfiedHardConstraintFloor(safeScore, args, evidence);
         }
+
+        if (!filterOnlyRequest)
+        {
+            safeScore = ApplyFinalVisibleDifferentiation(dog, safeScore, intent, evidence);
+        }
+
+        var matchLabel = filterOnlyRequest ? "Exact match" : GetMatchLabel(safeScore);
 
         return new AdoptionCopilotToolDogCandidate(
             dog.Id,
             dog,
             safeScore,
-            GetMatchLabel(safeScore),
+            matchLabel,
             safeReasons.Take(3).ToList(),
-            "View the dog profile and check the shelter details.",
+            BuildSuggestedNextAction(dog, intent, evidence),
             distanceKm,
             evidence.SupportedDisplayTags,
             evidence.CautionEvidence,
@@ -530,6 +647,38 @@ public class AdoptionCopilotToolService(
             evidence.CautionEvidenceItems,
             evidence.NegativeEvidenceItems,
             evidence.MissingEvidenceItems);
+    }
+
+    private static string BuildSuggestedNextAction(Dog dog, CopilotIntent intent, CopilotDogEvidence evidence)
+    {
+        var displayTags = evidence.SupportedDisplayTags.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var cautionTags = evidence.CautionEvidence.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (IsModerateApartmentIntent(intent))
+        {
+            if (cautionTags.Contains("Large dog - confirm apartment fit"))
+            {
+                return $"Confirm with the shelter whether {dog.Name}'s size and exercise needs fit apartment living.";
+            }
+
+            if (cautionTags.Contains("Needs more space"))
+            {
+                return $"Ask the shelter how much space {dog.Name} needs alongside longer walks.";
+            }
+
+            if (cautionTags.Contains("Ask shelter about apartment fit"))
+            {
+                return $"Ask the shelter to confirm {dog.Name}'s apartment routine and longer-walk needs.";
+            }
+
+            if (displayTags.Contains("Longer walks") &&
+                (displayTags.Contains("Medium size") || displayTags.Contains("Small size") || displayTags.Contains("Settles quickly")))
+            {
+                return $"Review {dog.Name}'s profile for apartment routine and longer-walk details.";
+            }
+        }
+
+        return "View the dog profile and check the shelter details.";
     }
 
     private static int ApplyCompatibilityEvidenceCaps(
@@ -690,6 +839,18 @@ public class AdoptionCopilotToolService(
             return score;
         }
 
+        if (IsModerateApartmentIntent(intent))
+        {
+            var directCount = evidence.DirectEvidence.Count(tag =>
+                tag is "Longer walks" or "Daily walks" or "Medium size" or "Small size");
+            return directCount switch
+            {
+                >= 2 => Math.Min(score, 86),
+                1 => Math.Min(score, 76),
+                _ => Math.Min(score, 62)
+            };
+        }
+
         if (intent.HomeType == "Apartment" || intent.ActivityLevel == "Low")
         {
             var directCount = evidence.DirectEvidence.Count(tag =>
@@ -719,6 +880,511 @@ public class AdoptionCopilotToolService(
         }
 
         return score;
+    }
+
+    private static int CalibrateRecommendationScore(int rawScore, CopilotIntent intent, CopilotDogEvidence evidence)
+    {
+        var calibrated = rawScore switch
+        {
+            >= 120 => 88 + Math.Min(4, (rawScore - 120) / 8),
+            >= 105 => 82 + Math.Min(6, (rawScore - 105) / 3),
+            >= 90 => 75 + Math.Min(7, (rawScore - 90) / 3),
+            >= 75 => 67 + Math.Min(8, (rawScore - 75) / 2),
+            >= 60 => 57 + Math.Min(10, (rawScore - 60) * 2 / 3),
+            >= 45 => 45 + Math.Min(12, (rawScore - 45) * 4 / 5),
+            _ => Math.Clamp(rawScore, 25, 44)
+        };
+
+        var directEvidenceCount = evidence.DirectEvidence.Count;
+        var indirectEvidenceCount = evidence.IndirectEvidence.Count;
+        var primaryEvidenceWeight = CalculatePrimaryIntentEvidenceWeight(intent, evidence);
+
+        calibrated += primaryEvidenceWeight switch
+        {
+            >= 30 => 5,
+            >= 22 => 4,
+            >= 16 => 2,
+            >= 8 => 1,
+            _ => 0
+        };
+
+        calibrated += directEvidenceCount switch
+        {
+            >= 4 => 5,
+            3 => 4,
+            2 => 2,
+            1 => 1,
+            _ => 0
+        };
+
+        calibrated += Math.Min(2, indirectEvidenceCount / 2);
+
+        if (HasStrongPrimaryEvidence(intent, evidence))
+        {
+            calibrated += 2;
+        }
+
+        if (HasUncertainPrimaryEvidence(evidence))
+        {
+            calibrated = Math.Min(calibrated, 80);
+        }
+
+        calibrated -= CalculateCautionPenalty(evidence);
+        calibrated = ApplyIntentConfidenceCaps(intent, evidence, calibrated);
+
+        return Math.Clamp(calibrated, 25, 92);
+    }
+
+    private static int ApplyIntentConfidenceCaps(CopilotIntent intent, CopilotDogEvidence evidence, int scorePercent)
+    {
+        var hasMaterialCaution = HasMaterialCaution(evidence);
+        var evidenceWeight = CalculatePrimaryIntentEvidenceWeight(intent, evidence);
+
+        if (IsModerateApartmentIntent(intent))
+        {
+            var cap = evidenceWeight switch
+            {
+                >= 22 => hasMaterialCaution ? 78 : 84,
+                >= 14 => hasMaterialCaution ? 72 : 78,
+                >= 8 => hasMaterialCaution ? 64 : 70,
+                _ => hasMaterialCaution ? 52 : 60
+            };
+
+            return Math.Min(scorePercent, cap);
+        }
+
+        if (intent.PrimaryIntent is "HomeSuitability" or "ActivityLevel" &&
+            (intent.HomeType == "Apartment" || intent.ActivityLevel == "Low"))
+        {
+            var cap = evidenceWeight switch
+            {
+                >= 30 => hasMaterialCaution ? 80 : 85,
+                >= 22 => hasMaterialCaution ? 76 : 82,
+                >= 16 => hasMaterialCaution ? 72 : 78,
+                >= 8 => hasMaterialCaution ? 64 : 70,
+                _ => hasMaterialCaution ? 52 : 60
+            };
+
+            return Math.Min(scorePercent, cap);
+        }
+
+        if (intent.PrimaryIntent is "HomeSuitability" or "ActivityLevel" &&
+            (intent.HomeType == "House with yard" || intent.ActivityLevel == "High"))
+        {
+            var cap = evidenceWeight switch
+            {
+                >= 30 => hasMaterialCaution ? 80 : 86,
+                >= 22 => hasMaterialCaution ? 78 : 84,
+                >= 16 => hasMaterialCaution ? 72 : 78,
+                >= 8 => hasMaterialCaution ? 64 : 70,
+                _ => hasMaterialCaution ? 54 : 62
+            };
+
+            return Math.Min(scorePercent, cap);
+        }
+
+        return scorePercent;
+    }
+
+    private static int CalculatePrimaryIntentEvidenceWeight(CopilotIntent intent, CopilotDogEvidence evidence)
+    {
+        if (IsModerateApartmentIntent(intent))
+        {
+            return evidence.DirectEvidence.Sum(tag => tag switch
+            {
+                "Longer walks" => 11,
+                "Daily walks" => 7,
+                "Medium size" => 5,
+                "Small size" => 4,
+                "Settles quickly" => 3,
+                _ => 0
+            });
+        }
+
+        if (intent.PrimaryIntent is "HomeSuitability" or "ActivityLevel" &&
+            (intent.HomeType == "Apartment" || intent.ActivityLevel == "Low"))
+        {
+            return evidence.DirectEvidence.Sum(tag => tag switch
+            {
+                "Quiet routine" => 10,
+                "Short walks" => 9,
+                "Indoor rest" => 8,
+                "Settles quickly" => 8,
+                "Lower activity fit" => 8,
+                "Small size" => 5,
+                "Medium size" => 4,
+                _ => 0
+            });
+        }
+
+        if (intent.PrimaryIntent is "HomeSuitability" or "ActivityLevel" &&
+            (intent.HomeType == "House with yard" || intent.ActivityLevel == "High"))
+        {
+            return evidence.DirectEvidence.Sum(tag => tag switch
+            {
+                "Outdoor play" => 10,
+                "Longer walks" => 9,
+                "Training games" => 8,
+                "Active owner fit" => 8,
+                "Space to run" => 8,
+                "Medium size" => 3,
+                _ => 0
+            });
+        }
+
+        return evidence.DirectEvidence.Count * 8 + evidence.IndirectEvidence.Count * 3;
+    }
+
+    private static bool HasMaterialCaution(CopilotDogEvidence evidence)
+    {
+        return evidence.MissingEvidence.Count > 0 ||
+            evidence.CautionEvidence.Any(caution =>
+                caution is not "Reserved - availability may change");
+    }
+
+    private static bool IsModerateApartmentIntent(CopilotIntent intent)
+    {
+        return intent.PrimaryIntent is "HomeSuitability" or "ActivityLevel" &&
+            intent.HomeType == "Apartment" &&
+            intent.ActivityLevel is ("Medium" or "High");
+    }
+
+    private static int ApplySatisfiedHardConstraintFloor(
+        int scorePercent,
+        AdoptionCopilotSearchDogsArgs args,
+        CopilotDogEvidence evidence)
+    {
+        var hardConstraintCount = CountExplicitHardConstraints(args);
+        if (hardConstraintCount == 0)
+        {
+            return scorePercent;
+        }
+
+        var directEvidenceCount = evidence.DirectEvidence.Count;
+        var baseFloor = 55 + Math.Min(10, hardConstraintCount * 3);
+        var directEvidenceFloor = directEvidenceCount switch
+        {
+            >= 4 => 13,
+            3 => 10,
+            2 => 7,
+            1 => 4,
+            _ => 0
+        };
+        var cautionAdjustment = Math.Min(12, CalculateCautionPenalty(evidence) / 2);
+        var floor = Math.Clamp(baseFloor + directEvidenceFloor - cautionAdjustment, 55, 80);
+
+        return Math.Max(scorePercent, floor);
+    }
+
+    private static int CalculateCautionPenalty(CopilotDogEvidence evidence)
+    {
+        var penalty = 0;
+        foreach (var caution in evidence.CautionEvidence.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            penalty += caution switch
+            {
+                "Reserved - availability may change" => 1,
+                "Patient adopter needed" => 7,
+                "Missing behavior details" => 5,
+                "Very energetic" => 14,
+                "Higher activity needs" => 10,
+                "Ask shelter about apartment fit" => 8,
+                "Large dog - confirm apartment fit" => 5,
+                "Prefers shorter walks" => 6,
+                "Needs more space" => 14,
+                "May overwhelm senior dog" or "May overwhelm sensitive dogs" => 16,
+                "May prefer only dog" => 14,
+                "Not suitable with cats" => 18,
+                "Not ideal for young children" => 12,
+                _ when caution.StartsWith("Ask shelter", StringComparison.OrdinalIgnoreCase) => 7,
+                _ when caution.StartsWith("No ", StringComparison.OrdinalIgnoreCase) => 8,
+                _ => 4
+            };
+        }
+
+        foreach (var missing in evidence.MissingEvidence.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            penalty += missing.StartsWith("No ", StringComparison.OrdinalIgnoreCase) ? 6 : 4;
+        }
+
+        return Math.Min(24, penalty);
+    }
+
+    private static int ApplyFinalVisibleDifferentiation(Dog dog, int scorePercent, CopilotIntent intent, CopilotDogEvidence evidence)
+    {
+        var penalty = 0;
+        var positiveBonus = 0;
+        var cautions = evidence.CautionEvidence.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var displayTags = evidence.SupportedDisplayTags.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (cautions.Contains("Higher activity needs"))
+        {
+            penalty += 4;
+        }
+
+        if (cautions.Contains("Needs more space"))
+        {
+            penalty += 5;
+        }
+
+        if (cautions.Contains("Patient adopter needed"))
+        {
+            penalty += 5;
+        }
+
+        if (cautions.Contains("Reserved - availability may change"))
+        {
+            penalty += 2;
+        }
+
+        if (cautions.Contains("Ask shelter about apartment fit"))
+        {
+            penalty += 3;
+        }
+
+        if (cautions.Contains("Large dog - confirm apartment fit"))
+        {
+            penalty += 3;
+        }
+
+        if (cautions.Contains("Prefers shorter walks"))
+        {
+            penalty += 3;
+        }
+
+        if (cautions.Contains("Missing behavior details") ||
+            evidence.MissingEvidence.Count > 0)
+        {
+            penalty += 2;
+        }
+
+        if (!DogImageUrlValidator.GetRealDogImages(dog.Images).Any())
+        {
+            penalty += 3;
+        }
+
+        var apartmentSupport = IsModerateApartmentIntent(intent)
+            ? CountApartmentSupportSignals(displayTags)
+            : 0;
+
+        if (IsModerateApartmentIntent(intent))
+        {
+            positiveBonus += displayTags.Contains("Longer walks") ? 2 : 0;
+            positiveBonus += displayTags.Contains("Daily walks") ? 1 : 0;
+            positiveBonus += displayTags.Contains("Medium size") ? 3 : 0;
+            positiveBonus += displayTags.Contains("Small size") ? 3 : 0;
+            positiveBonus += displayTags.Contains("Settles quickly") ? 3 : 0;
+            positiveBonus += displayTags.Contains("Indoor rest") ? 1 : 0;
+            positiveBonus += displayTags.Contains("Quiet routine") ? 1 : 0;
+            positiveBonus = Math.Min(6, positiveBonus);
+
+            if (cautions.Contains("Needs more space"))
+            {
+                if (apartmentSupport == 0)
+                {
+                    penalty += 3;
+                }
+                else
+                {
+                    penalty -= Math.Min(4, apartmentSupport * 2);
+                }
+            }
+
+            if (cautions.Contains("Ask shelter about apartment fit") && apartmentSupport >= 2)
+            {
+                penalty -= 2;
+            }
+        }
+
+        var adjustedScore = scorePercent + positiveBonus - Math.Min(10, Math.Max(0, penalty));
+        if (IsModerateApartmentIntent(intent) && displayTags.Contains("Longer walks"))
+        {
+            var longerWalkFloor = apartmentSupport switch
+            {
+                >= 2 => 60,
+                1 => 58,
+                _ => cautions.Contains("Needs more space") ? 52 : 57
+            };
+            adjustedScore = Math.Max(adjustedScore, longerWalkFloor);
+        }
+
+        return Math.Clamp(adjustedScore, 25, 92);
+    }
+
+    private static int CountApartmentSupportSignals(IReadOnlySet<string> displayTags)
+    {
+        var count = 0;
+        count += displayTags.Contains("Medium size") || displayTags.Contains("Small size") ? 1 : 0;
+        count += displayTags.Contains("Settles quickly") ? 1 : 0;
+        count += displayTags.Contains("Indoor rest") ? 1 : 0;
+        count += displayTags.Contains("Quiet routine") ? 1 : 0;
+        return count;
+    }
+
+    private static int GetFilterOnlyScore(DogStatus status, bool reservedOnlyRequest)
+    {
+        return status switch
+        {
+            DogStatus.Available => 72,
+            DogStatus.Reserved when reservedOnlyRequest => 72,
+            DogStatus.Reserved => 68,
+            _ => 60
+        };
+    }
+
+    private static bool HasStrongPrimaryEvidence(CopilotIntent intent, CopilotDogEvidence evidence)
+    {
+        if (intent.PrimaryIntent == "Compatibility")
+        {
+            return HasDirectEvidenceForPrimaryCompatibility(intent, evidence) && !HasPrimaryCompatibilityCaution(intent, evidence);
+        }
+
+        if (intent.PrimaryIntent is "HomeSuitability" or "ActivityLevel")
+        {
+            return evidence.DirectEvidence.Count >= 4;
+        }
+
+        return evidence.DirectEvidence.Count >= 2;
+    }
+
+    private static bool IsFilterOnlyRequest(AdoptionCopilotSearchDogsArgs args, CopilotIntent intent)
+    {
+        return HasExplicitHardConstraints(args) &&
+            (!HasSoftSuitabilitySignals(args, intent) || IsClearlyFilterOnlyQuery(args));
+    }
+
+    private static bool IsClearlyFilterOnlyQuery(AdoptionCopilotSearchDogsArgs args)
+    {
+        if (string.IsNullOrWhiteSpace(args.Query))
+        {
+            return false;
+        }
+
+        return HasExplicitHardConstraints(args) &&
+            !ContainsAny(args.Query,
+            [
+                "apartment",
+                "flat",
+                "yard",
+                "garden",
+                "house",
+                "calm",
+                "quiet",
+                "gentle",
+                "friendly",
+                "active",
+                "playful",
+                "energetic",
+                "low activity",
+                "short walk",
+                "long walk",
+                "longer walk",
+                "daily walk",
+                "regular walk",
+                "brisk walk",
+                "children",
+                "kids",
+                "cat",
+                "other dog",
+                "older dog",
+                "sick dog",
+                "beginner",
+                "first time",
+                "favorite",
+                "similar"
+            ]);
+    }
+
+    private static bool HasExplicitHardConstraints(AdoptionCopilotSearchDogsArgs args)
+    {
+        return CountExplicitHardConstraints(args) > 0;
+    }
+
+    private static int CountExplicitHardConstraints(AdoptionCopilotSearchDogsArgs args)
+    {
+        var count = 0;
+        if (args.Sizes?.Count > 0)
+        {
+            count++;
+        }
+
+        if (args.Breeds?.Count > 0)
+        {
+            count++;
+        }
+
+        if (args.CoatColors?.Count > 0)
+        {
+            count++;
+        }
+
+        if (HasExplicitStatusConstraint(args))
+        {
+            count++;
+        }
+
+        if (!string.IsNullOrWhiteSpace(args.City) ||
+            !string.IsNullOrWhiteSpace(args.Neighborhood) ||
+            !string.IsNullOrWhiteSpace(args.ShelterName) ||
+            !string.IsNullOrWhiteSpace(args.NearLocationText))
+        {
+            count++;
+        }
+
+        if (args.MaxAgeYears is > 0 || args.MinAgeYears is > 0)
+        {
+            count++;
+        }
+
+        return count;
+    }
+
+    private static bool HasSoftSuitabilitySignals(AdoptionCopilotSearchDogsArgs args, CopilotIntent intent)
+    {
+        return IsApartmentRequest(args) ||
+            IsYardRequest(args) ||
+            IsCalmRequest(args) ||
+            HasChildrenRequest(args) ||
+            HasCatRequest(args) ||
+            HasOtherDogsRequest(args) ||
+            HasSeniorOrSensitiveHouseholdDogRequest(args) ||
+            HasYoungHouseholdDogRequest(args) ||
+            !string.Equals(intent.PrimaryIntent, "Location", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(intent.PrimaryIntent, "Size", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(intent.PrimaryIntent, "Temperament", StringComparison.OrdinalIgnoreCase) &&
+                (intent.PrimaryIntent is "Compatibility" or "HomeSuitability" or "ActivityLevel" or "ExperienceLevel") ||
+            args.BehaviorTerms?.Count > 0 ||
+            args.TemperamentTags?.Count > 0 ||
+            args.Temperaments?.Count > 0 ||
+            args.Compatibility?.Count > 0 ||
+            !string.IsNullOrWhiteSpace(args.EnergyLevel) ||
+            !string.IsNullOrWhiteSpace(args.ActivityLevel) ||
+            !string.IsNullOrWhiteSpace(args.HomeType) ||
+            !string.IsNullOrWhiteSpace(args.HousingPreference) ||
+            args.ApartmentFriendly == true ||
+            args.YardFriendly == true ||
+            args.YardRequired == true ||
+            args.NeedsYard == true ||
+            args.GoodWithChildren == true ||
+            args.GoodWithPets == true ||
+            !string.IsNullOrWhiteSpace(args.ExperienceLevel) ||
+            args.DesiredTraits?.Count > 0 ||
+            args.MustHave?.Count > 0 ||
+            args.NiceToHave?.Count > 0 ||
+            args.AvoidTraits?.Count > 0 ||
+            args.Avoid?.Count > 0 ||
+            args.EvidenceToLookFor?.Count > 0;
+    }
+
+    private static bool HasExplicitStatusConstraint(AdoptionCopilotSearchDogsArgs args)
+    {
+        if (args.Statuses is null || args.Statuses.Count == 0)
+        {
+            return false;
+        }
+
+        var statuses = ParseStatuses(args.Statuses);
+        return !statuses.SetEquals([DogStatus.Available, DogStatus.Reserved]);
     }
 
     private static bool HasUncertainPrimaryEvidence(CopilotDogEvidence evidence)
@@ -867,7 +1533,7 @@ public class AdoptionCopilotToolService(
 
         if (status == DogStatus.Reserved)
         {
-            score -= 3;
+            score -= 1;
         }
 
         return score;
@@ -885,8 +1551,19 @@ public class AdoptionCopilotToolService(
         var apartmentRequested = IsApartmentRequest(args);
         var yardRequested = IsYardRequest(args);
         var calmRequested = IsCalmRequest(args);
+        var strictLongerWalksRequested = HasExplicitLongerWalksRequest(args);
+        var dailyWalksRequested = HasExplicitDailyWalksRequest(args);
+        var moderateActivityRequested = HasExplicitModerateActivityRequest(args);
+        var activityWalksRequested = strictLongerWalksRequested ||
+            dailyWalksRequested ||
+            moderateActivityRequested ||
+            string.Equals(args.ActivityLevel, "Medium", StringComparison.OrdinalIgnoreCase);
+        var inferLowActivityFromApartment = apartmentRequested &&
+            !activityWalksRequested &&
+            !string.Equals(args.ActivityLevel, "High", StringComparison.OrdinalIgnoreCase);
         var activeRequested = HasIntent(args, "active", "playful", "energetic") ||
-            string.Equals(args.EnergyLevel, "High", StringComparison.OrdinalIgnoreCase);
+            string.Equals(args.EnergyLevel, "High", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(args.ActivityLevel, "High", StringComparison.OrdinalIgnoreCase);
         var beginnerRequested = HasIntent(args, "beginner", "first time", "easy") ||
             string.Equals(args.ExperienceLevel, "Beginner", StringComparison.OrdinalIgnoreCase);
         var childrenRequested = HasChildrenRequest(args);
@@ -904,22 +1581,22 @@ public class AdoptionCopilotToolService(
             }
         }
 
-        if ((apartmentRequested || calmRequested || seniorOrSensitiveDogAtHome) && ContainsAny(searchableText, ["short daily walks", "short walks", "slow walks", "leash walks"]))
+        if ((inferLowActivityFromApartment || calmRequested || seniorOrSensitiveDogAtHome) && ContainsAny(searchableText, ["short daily walks", "short walks", "slow walks", "leash walks"]))
         {
             AddDisplayTag(displayTags, "Short walks");
         }
 
-        if ((apartmentRequested || calmRequested || seniorOrSensitiveDogAtHome) && ContainsAny(searchableText, ["indoor rest", "quiet evenings indoors", "resting close to people"]))
+        if ((inferLowActivityFromApartment || calmRequested || seniorOrSensitiveDogAtHome) && ContainsAny(searchableText, ["indoor rest", "quiet evenings indoors", "resting close to people"]))
         {
             AddDisplayTag(displayTags, "Indoor rest");
         }
 
-        if ((apartmentRequested || calmRequested || seniorOrSensitiveDogAtHome) && ContainsAny(searchableText, ["settles down quickly", "settles quickly", "settles", "settle"]))
+        if ((inferLowActivityFromApartment || calmRequested || seniorOrSensitiveDogAtHome || activityWalksRequested) && ContainsAny(searchableText, ["settles down quickly", "settles quickly", "settles", "settle"]))
         {
             AddDisplayTag(displayTags, "Settles quickly");
         }
 
-        if ((apartmentRequested || calmRequested || seniorOrSensitiveDogAtHome) && ContainsAny(searchableText, ["quiet routine", "predictable routine", "daily rhythm is predictable", "predictable habits", "relaxed evenings"]))
+        if ((inferLowActivityFromApartment || calmRequested || seniorOrSensitiveDogAtHome) && ContainsAny(searchableText, ["quiet routine", "predictable routine", "daily rhythm is predictable", "predictable habits", "relaxed evenings"]))
         {
             AddDisplayTag(displayTags, "Quiet routine");
         }
@@ -933,9 +1610,14 @@ public class AdoptionCopilotToolService(
             AddDisplayTag(displayTags, "Medium size");
         }
 
-        if ((activeRequested || yardRequested || youngDogAtHome) && ContainsAny(searchableText, ["longer walks", "brisk walks"]))
+        if ((activeRequested || yardRequested || youngDogAtHome || strictLongerWalksRequested) && HasLongerWalkEvidence(searchableText))
         {
             AddDisplayTag(displayTags, "Longer walks");
+        }
+
+        if (dailyWalksRequested && HasDailyWalkEvidence(searchableText))
+        {
+            AddDisplayTag(displayTags, "Daily walks");
         }
 
         if ((activeRequested || yardRequested || youngDogAtHome) && ContainsAny(searchableText, ["outdoor play", "space to run", "open areas", "room to run", "stretch his legs"]))
@@ -1061,9 +1743,39 @@ public class AdoptionCopilotToolService(
             AddDisplayTag(cautionTags, "Patient adopter needed");
         }
 
-        if ((apartmentRequested || calmRequested || seniorOrSensitiveDogAtHome) && HasActiveSignal(searchableText) && !HasCalmSignal(searchableText))
+        if ((inferLowActivityFromApartment || calmRequested || seniorOrSensitiveDogAtHome) && HasActiveSignal(searchableText) && !HasCalmSignal(searchableText))
         {
             AddDisplayTag(cautionTags, "Very energetic");
+        }
+
+        if ((inferLowActivityFromApartment || calmRequested) && HasHigherActivityNeedSignal(searchableText))
+        {
+            AddDisplayTag(cautionTags, "Higher activity needs");
+        }
+
+        if (strictLongerWalksRequested && HasShortWalkEvidence(searchableText) && !HasLongerWalkEvidence(searchableText))
+        {
+            AddDisplayTag(cautionTags, "Prefers shorter walks");
+        }
+
+        var hasApartmentSpaceConflict = ContainsAny(searchableText, ["space to run", "room to run", "open areas", "requires a yard", "requires yard"]);
+        if (apartmentRequested && hasApartmentSpaceConflict)
+        {
+            AddDisplayTag(cautionTags, "Needs more space");
+        }
+
+        if (apartmentRequested &&
+            dog.Size == DogSize.Large &&
+            !HasExplicitApartmentFitEvidence(searchableText))
+        {
+            AddDisplayTag(cautionTags, "Large dog - confirm apartment fit");
+        }
+
+        if (apartmentRequested &&
+            !HasExplicitApartmentFitEvidence(searchableText) &&
+            (!activityWalksRequested || dog.Size == DogSize.Large || hasApartmentSpaceConflict))
+        {
+            AddDisplayTag(cautionTags, "Ask shelter about apartment fit");
         }
 
         if (seniorOrSensitiveDogAtHome && HasSeniorDogOverwhelmRisk(searchableText))
@@ -1110,7 +1822,7 @@ public class AdoptionCopilotToolService(
         var indirect = ClassifyIndirectEvidence(intent, display);
         var generic = ClassifyGenericEvidence(intent, searchableText, display, direct);
         var negative = caution
-            .Where(tag => tag is not "Reserved - availability may change" and not "Patient adopter needed" and not "Missing behavior details")
+            .Where(tag => tag is not "Reserved - availability may change" and not "Patient adopter needed" and not "Missing behavior details" and not "Large dog - confirm apartment fit")
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
         var positive = display
@@ -1248,12 +1960,17 @@ public class AdoptionCopilotToolService(
             "Settles quickly" => ["settles", "settle"],
             "Quiet routine" => ["quiet routine", "predictable routine", "relaxed evenings", "predictable"],
             "Outdoor play" => ["outdoor play", "space to run", "open areas", "room to run"],
-            "Longer walks" => ["longer walks", "brisk walks"],
+            "Daily walks" => ["daily walks", "regular walks"],
+            "Longer walks" => ["longer walks", "long walks", "active walks", "brisk walks", "medium walk", "structured walks", "hiking"],
             "Training games" => ["training games", "fetch"],
             "Active owner fit" => ["active", "playful", "energetic", "running"],
             "Reserved - availability may change" => ["reserved"],
             "Patient adopter needed" => ["patient adopter", "quiet encouragement", "needs slow introductions"],
             "Very energetic" => ["very energetic", "active", "running", "space to run"],
+            "Higher activity needs" => ["longer walks", "use his energy", "regular outdoor time", "medium walk", "exercise needs"],
+            "Prefers shorter walks" => ["short walks", "short daily walks", "slow walks"],
+            "Ask shelter about apartment fit" => ["apartment", "smaller home", "smaller spaces", "flat"],
+            "Needs more space" => ["space to run", "room to run", "open areas", "outdoor play"],
             "Missing behavior details" => ["missing behavior details"],
             _ => label.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
         };
@@ -1315,7 +2032,7 @@ public class AdoptionCopilotToolService(
         {
             return displayTags
                 .Where(tag => tag is "Short walks" or "Indoor rest" or "Settles quickly" or "Quiet routine" or
-                    "Small size" or "Medium size" or "Longer walks" or "Outdoor play" or "Training games" or "Active owner fit")
+                    "Small size" or "Medium size" or "Daily walks" or "Longer walks" or "Outdoor play" or "Training games" or "Active owner fit")
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
         }
@@ -1409,6 +2126,16 @@ public class AdoptionCopilotToolService(
         var apartmentRequested = IsApartmentRequest(args);
         var yardRequested = IsYardRequest(args);
         var calmRequested = IsCalmRequest(args);
+        var strictLongerWalksRequested = HasExplicitLongerWalksRequest(args);
+        var dailyWalksRequested = HasExplicitDailyWalksRequest(args);
+        var moderateActivityRequested = HasExplicitModerateActivityRequest(args);
+        var activityWalksRequested = strictLongerWalksRequested ||
+            dailyWalksRequested ||
+            moderateActivityRequested ||
+            string.Equals(args.ActivityLevel, "Medium", StringComparison.OrdinalIgnoreCase);
+        var allowLowApartmentTags = apartmentRequested &&
+            !activityWalksRequested &&
+            !string.Equals(args.ActivityLevel, "High", StringComparison.OrdinalIgnoreCase);
         var activeRequested = HasIntent(args, "active", "playful", "energetic") ||
             string.Equals(args.EnergyLevel, "High", StringComparison.OrdinalIgnoreCase);
         var beginnerRequested = HasIntent(args, "beginner", "first time", "easy") ||
@@ -1420,7 +2147,7 @@ public class AdoptionCopilotToolService(
         var youngDogAtHome = HasYoungHouseholdDogRequest(args);
         var sizeRequested = args.Sizes?.Count > 0;
         var primaryIntent = intent.PrimaryIntent;
-        var allowLifestyleTagsForCompatibility = apartmentRequested || HasExplicitLowActivityRequest(args);
+        var allowLifestyleTagsForCompatibility = allowLowApartmentTags || HasExplicitLowActivityRequest(args);
         var allowActiveTagsForCompatibility = yardRequested || activeRequested;
         var allowDogTagsForCompatibility = dogsRequested || seniorOrSensitiveDogAtHome || youngDogAtHome;
         if (primaryIntent == "Compatibility")
@@ -1497,15 +2224,19 @@ public class AdoptionCopilotToolService(
 
         return tag switch
         {
-            "Short walks" or "Indoor rest" or "Settles quickly" or "Quiet routine" or "Lower activity fit" => apartmentRequested || calmRequested,
+            "Short walks" or "Indoor rest" or "Quiet routine" or "Lower activity fit" => allowLowApartmentTags || calmRequested,
+            "Settles quickly" => allowLowApartmentTags || calmRequested || activityWalksRequested,
             "Small size" or "Medium size" => apartmentRequested || sizeRequested,
-            "Longer walks" or "Outdoor play" or "Training games" or "Active owner fit" or "Space to run" => yardRequested || activeRequested || youngDogAtHome,
+            "Daily walks" => dailyWalksRequested,
+            "Longer walks" => yardRequested || activeRequested || youngDogAtHome || strictLongerWalksRequested,
+            "Outdoor play" or "Training games" or "Active owner fit" or "Space to run" => yardRequested || activeRequested || youngDogAtHome,
             "Gentle handling" => beginnerRequested || childrenRequested || seniorOrSensitiveDogAtHome,
             "Beginner-suitable routine" or "Patient adopter needed" => beginnerRequested,
             "Family routine fit" or "Better with older children" or "Needs calm children" => childrenRequested,
             "Calm near cats" or "Redirectable around cats" or "Needs slow cat introductions" => catsRequested,
             "Calm dog company" or "Respectful around dogs" or "Needs slow dog introductions" or "Needs calm dog introductions" or "Gentle play style" or "Not too energetic" or "Not suited to pushy dogs" => dogsRequested || seniorOrSensitiveDogAtHome || youngDogAtHome,
             "Playful dog friends" => dogsRequested || youngDogAtHome,
+            "Prefers shorter walks" => strictLongerWalksRequested,
             _ => false
         };
     }
@@ -1528,6 +2259,11 @@ public class AdoptionCopilotToolService(
         if (lower.Contains("short walk") || lower.Contains("slow walk"))
         {
             return "Short walks";
+        }
+
+        if (lower.Contains("daily walk") || lower.Contains("regular walk"))
+        {
+            return "Daily walks";
         }
 
         if (lower.Contains("indoor"))
@@ -1555,7 +2291,7 @@ public class AdoptionCopilotToolService(
             return "Medium size";
         }
 
-        if (lower.Contains("longer walk") || lower.Contains("brisk walk"))
+        if (lower.Contains("longer walk") || lower.Contains("long walk") || lower.Contains("active walk") || lower.Contains("brisk walk") || lower.Contains("hiking"))
         {
             return "Longer walks";
         }
@@ -1655,6 +2391,21 @@ public class AdoptionCopilotToolService(
             return dog.Status == DogStatus.Reserved;
         }
 
+        if (tag == "Short walks" || tag == "Prefers shorter walks")
+        {
+            return HasShortWalkEvidence(searchableText);
+        }
+
+        if (tag == "Daily walks")
+        {
+            return HasDailyWalkEvidence(searchableText);
+        }
+
+        if (tag == "Longer walks")
+        {
+            return HasLongerWalkEvidence(searchableText);
+        }
+
         return GetEvidenceTerms(tag).Any(term =>
             searchableText.Contains(term, StringComparison.OrdinalIgnoreCase));
     }
@@ -1672,13 +2423,23 @@ public class AdoptionCopilotToolService(
         var calmRequested = HasIntent(args, "calm", "quiet", "gentle") ||
             string.Equals(args.EnergyLevel, "Low", StringComparison.OrdinalIgnoreCase);
         var friendlyRequested = HasIntent(args, "friendly", "social", "affectionate");
+        var strictLongerWalksRequested = HasExplicitLongerWalksRequest(args);
+        var dailyWalksRequested = HasExplicitDailyWalksRequest(args);
+        var moderateActivityRequested = HasExplicitModerateActivityRequest(args);
+        var activityWalksRequested = strictLongerWalksRequested ||
+            dailyWalksRequested ||
+            moderateActivityRequested ||
+            string.Equals(args.ActivityLevel, "Medium", StringComparison.OrdinalIgnoreCase);
+        var inferLowActivityFromApartment = apartmentRequested &&
+            !activityWalksRequested &&
+            !string.Equals(args.ActivityLevel, "High", StringComparison.OrdinalIgnoreCase);
         var activeRequested = HasIntent(args, "active", "playful", "energetic") ||
             string.Equals(args.EnergyLevel, "High", StringComparison.OrdinalIgnoreCase);
         var beginnerRequested = HasIntent(args, "beginner", "first time", "easy");
         var childrenRequested = HasChildrenRequest(args);
         var petsRequested = args.GoodWithPets == true || HasCatRequest(args) || HasOtherDogsRequest(args) || HasIntent(args, "pets");
 
-        if (apartmentRequested || calmRequested)
+        if (inferLowActivityFromApartment || calmRequested)
         {
             if (ContainsAny(searchableText, ["short daily walks", "short walks", "slow walks", "leash walks"]))
             {
@@ -1722,15 +2483,39 @@ public class AdoptionCopilotToolService(
             }
         }
 
+        if (strictLongerWalksRequested)
+        {
+            if (HasLongerWalkEvidence(searchableText))
+            {
+                AddReason(reasons, "Enjoys longer walks");
+                score += 11;
+            }
+            else if (HasShortWalkEvidence(searchableText) ||
+                ContainsAny(searchableText, ["low energy", "does not need long outdoor sessions"]))
+            {
+                score -= 7;
+            }
+        }
+        else if (dailyWalksRequested && (HasDailyWalkEvidence(searchableText) || HasShortWalkEvidence(searchableText)))
+        {
+            AddReason(reasons, "Daily walks");
+            score += 8;
+        }
+        else if (moderateActivityRequested && (HasLongerWalkEvidence(searchableText) || HasDailyWalkEvidence(searchableText)))
+        {
+            AddReason(reasons, HasLongerWalkEvidence(searchableText) ? "Enjoys longer walks" : "Daily walks");
+            score += 8;
+        }
+
         if (friendlyRequested && ContainsAny(searchableText, ["friendly", "social", "affectionate", "good with people", "good with children", "good with dogs"]))
         {
             AddReason(reasons, "Friendly temperament");
             score += 10;
         }
 
-        if (activeRequested && HasPositiveActiveEvidence(searchableText))
+        if ((activeRequested || activityWalksRequested) && HasPositiveActiveEvidence(searchableText))
         {
-            if (ContainsAny(searchableText, ["longer walks", "brisk walks", "hiking"]))
+            if (HasLongerWalkEvidence(searchableText))
             {
                 AddReason(reasons, "Enjoys longer walks");
                 score += 8;
@@ -2154,7 +2939,9 @@ public class AdoptionCopilotToolService(
 
         if (IsYardRequest(args) ||
             string.Equals(args.ActivityLevel, "High", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(args.EnergyLevel, "High", StringComparison.OrdinalIgnoreCase))
+            string.Equals(args.EnergyLevel, "High", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(args.ActivityLevel, "Medium", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(args.EnergyLevel, "Medium", StringComparison.OrdinalIgnoreCase))
         {
             return "ActivityLevel";
         }
@@ -2227,6 +3014,30 @@ public class AdoptionCopilotToolService(
             "doesn t need too much activity",
             "short walks",
             "slow walks");
+    }
+
+    private static bool HasExplicitLongerWalksRequest(AdoptionCopilotSearchDogsArgs args)
+    {
+        return HasIntent(args,
+            "longer walks",
+            "long walks",
+            "active walks",
+            "brisk walks",
+            "hiking");
+    }
+
+    private static bool HasExplicitDailyWalksRequest(AdoptionCopilotSearchDogsArgs args)
+    {
+        return HasIntent(args,
+            "daily walks",
+            "regular walks");
+    }
+
+    private static bool HasExplicitModerateActivityRequest(AdoptionCopilotSearchDogsArgs args)
+    {
+        return HasIntent(args,
+            "moderate activity",
+            "moderate exercise");
     }
 
     private static bool HasOtherDogsRequest(AdoptionCopilotSearchDogsArgs args)
@@ -2327,6 +3138,69 @@ public class AdoptionCopilotToolService(
         return ContainsAny(searchableText, ActiveConflictSignals);
     }
 
+    private static bool HasShortWalkEvidence(string searchableText)
+    {
+        return ContainsAny(searchableText, ["short daily walks", "short walks", "slow walks", "leash walks"]);
+    }
+
+    private static bool HasDailyWalkEvidence(string searchableText)
+    {
+        return ContainsAny(searchableText, ["daily walks", "regular walks"]) &&
+            !ContainsAny(searchableText, ["short daily walks"]);
+    }
+
+    private static bool HasLongerWalkEvidence(string searchableText)
+    {
+        return ContainsAny(searchableText,
+            [
+                "longer walks",
+                "long walks",
+                "active walks",
+                "brisk walks",
+                "medium walk",
+                "structured walks",
+                "hiking"
+            ]);
+    }
+
+    private static bool HasHigherActivityNeedSignal(string searchableText)
+    {
+        return ContainsAny(searchableText,
+            [
+                "longer walks",
+                "brisk walks",
+                "regular outdoor time",
+                "regular outdoor play",
+                "use his energy",
+                "use her energy",
+                "outdoor play",
+                "space to run",
+                "room to run",
+                "open areas",
+                "training games",
+                "fetch",
+                "medium walk",
+                "exercise needs"
+            ]);
+    }
+
+    private static bool HasExplicitApartmentFitEvidence(string searchableText)
+    {
+        return ContainsAny(searchableText,
+            [
+                "apartment",
+                "flat",
+                "smaller home",
+                "smaller spaces",
+                "small home",
+                "quiet flat",
+                "short daily walks",
+                "indoor rest",
+                "quiet evenings indoors",
+                "does not need long outdoor sessions"
+            ]);
+    }
+
     private static bool IsApartmentRequest(AdoptionCopilotSearchDogsArgs args)
     {
         return args.ApartmentFriendly == true ||
@@ -2350,6 +3224,7 @@ public class AdoptionCopilotToolService(
             dog.Name,
             DogBreedFormatter.Format(dog),
             dog.Size.ToString(),
+            dog.CoatColor,
             dog.Description,
             dog.BehaviorDescription,
             dog.MedicalStatus,
@@ -2386,6 +3261,11 @@ public class AdoptionCopilotToolService(
         if (args.Compatibility is not null)
         {
             terms.AddRange(args.Compatibility.SelectMany(Tokenize));
+        }
+
+        if (args.CoatColors is not null)
+        {
+            terms.AddRange(args.CoatColors.SelectMany(Tokenize));
         }
 
         if (args.MustHave is not null)
@@ -2439,13 +3319,24 @@ public class AdoptionCopilotToolService(
                     "dog",
                     "children",
                     "kids",
+                    "walk",
+                    "walks",
+                    "exercise",
                     "introduction",
                     "introductions",
                     "settle",
                     "settles",
                     "short walk",
+                    "long walk",
+                    "longer walk",
+                    "daily walk",
+                    "regular walk",
+                    "brisk walk",
                     "indoor",
                     "routine",
+                    "low activity",
+                    "moderate activity",
+                    "high activity",
                     "activity"
                 ]))
             .Select(value => value switch
@@ -2541,6 +3432,7 @@ public class AdoptionCopilotToolService(
         var constraints = new List<AdoptionCopilotConstraint>();
         AddConstraint(constraints, "Size", args.Sizes);
         AddConstraint(constraints, "Breed", args.Breeds);
+        AddConstraint(constraints, "Coat color", args.CoatColors);
         AddConstraint(constraints, "Status", intent.Statuses);
         AddConstraint(constraints, "Location", MergeValues(SplitSingle(args.Neighborhood), SplitSingle(args.City)));
         AddConstraint(constraints, "Shelter", args.ShelterName);
@@ -2571,9 +3463,35 @@ public class AdoptionCopilotToolService(
         AddConstraint(constraints, "Lifestyle", intent.ActivityLevel == "Low" && IsCompatibilityTarget(intent, "SeniorDog", "SensitiveDog")
             ? "Calm"
             : FormatLifestyleConstraint(args));
+        AddConstraint(constraints, "Activity", FormatActivityConstraints(args));
+
         AddConstraint(constraints, "Home", FormatHomeConstraints(args));
 
-        return constraints;
+        return AdoptionCopilotConstraintNormalizer.Normalize(constraints);
+    }
+
+    private static IReadOnlyList<string> FormatActivityConstraints(AdoptionCopilotSearchDogsArgs args)
+    {
+        var values = new List<string>();
+        if (HasIntent(args, "short walks", "short daily walks", "slow walks", "leash walks"))
+        {
+            values.Add("Short walks");
+        }
+        else if (HasExplicitLongerWalksRequest(args))
+        {
+            values.Add("Longer walks");
+        }
+        else if (HasExplicitDailyWalksRequest(args))
+        {
+            values.Add("Daily walks");
+        }
+
+        if (HasExplicitModerateActivityRequest(args))
+        {
+            values.Add("Moderate activity");
+        }
+
+        return values.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
     }
 
     private static void AddConstraint(List<AdoptionCopilotConstraint> constraints, string label, IEnumerable<string>? values)
@@ -2681,6 +3599,20 @@ public class AdoptionCopilotToolService(
             return;
         }
 
+        if (homeType == "Apartment" && activityLevel is ("Medium" or "High"))
+        {
+            mustHave.AddRange(["apartment fit", "longer walks", "daily walks", "moderate activity"]);
+            negative.AddRange(["needs lots of outdoor space", "requires a yard"]);
+            return;
+        }
+
+        if (activityLevel == "Medium")
+        {
+            mustHave.AddRange(["longer walks", "daily walks", "moderate activity"]);
+            negative.AddRange(["very low activity", "very high activity"]);
+            return;
+        }
+
         if (homeType == "Apartment" || activityLevel == "Low")
         {
             mustHave.AddRange(["short walks", "indoor rest", "settles quickly", "quiet routine", "small or medium size"]);
@@ -2714,6 +3646,11 @@ public class AdoptionCopilotToolService(
         if (primaryIntent == "Compatibility" && IsCompatibilityTarget(compatibilityTarget, "Children", "OlderChildren"))
         {
             return "The user needs a dog with evidence for safe, predictable family interactions.";
+        }
+
+        if (homeType == "Apartment" && activityLevel is ("Medium" or "High"))
+        {
+            return "The user needs an apartment-suitable dog that can also enjoy regular or longer walks.";
         }
 
         if (homeType == "Apartment" || activityLevel == "Low")
@@ -2764,6 +3701,10 @@ public class AdoptionCopilotToolService(
         {
             chips.Add("Lifestyle: Active");
         }
+        else if (activityLevel == "Medium")
+        {
+            chips.Add("Lifestyle: Moderate activity");
+        }
 
         if (sizes.Count > 0)
         {
@@ -2805,6 +3746,12 @@ public class AdoptionCopilotToolService(
         args.ExperienceLevel = EmptyToNull(args.ExperienceLevel);
         args.TemperamentTags = MergeValues(args.TemperamentTags, args.Temperaments).ToList();
         args.BehaviorTerms = MergeValues(args.BehaviorTerms, args.Temperaments).ToList();
+        args.CoatColors = args.CoatColors?
+            .Select(DogCoatColorOptions.Normalize)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
         args.MustHave = MergeValues(args.MustHave, args.DesiredTraits).ToList();
         args.NiceToHave = MergeValues(args.NiceToHave, args.EvidenceToLookFor).ToList();
         args.Avoid = MergeValues(args.Avoid, args.AvoidTraits).ToList();
@@ -3069,6 +4016,15 @@ public class AdoptionCopilotToolService(
             .ToHashSet() ?? [];
     }
 
+    private static HashSet<string> ParseCoatColors(IEnumerable<string>? values)
+    {
+        return values?
+            .Select(DogCoatColorOptions.Normalize)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value!)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase) ?? [];
+    }
+
     private static DogStatus? ParseStatus(string? value)
     {
         return Enum.TryParse<DogStatus>(value?.Trim().Replace(" ", ""), true, out var status) ? status : null;
@@ -3124,9 +4080,10 @@ public class AdoptionCopilotToolService(
     {
         return scorePercent switch
         {
-            >= 90 => "Excellent match",
-            >= 74 => "Good match",
-            _ => "Possible match"
+            >= 80 => "Strong match",
+            >= 65 => "Good match",
+            >= 45 => "Possible match",
+            _ => "Low match"
         };
     }
 

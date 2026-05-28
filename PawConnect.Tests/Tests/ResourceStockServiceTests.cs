@@ -31,7 +31,7 @@ public class ResourceStockServiceTests
     }
 
     [Fact]
-    public async Task CreateResourceAsync_BlocksNegativeQuantity()
+    public async Task CreateResourceAsync_BlocksNonPositiveQuantity()
     {
         await using var context = TestDbContextFactory.CreateContext();
         var service = CreateService(context);
@@ -42,12 +42,30 @@ public class ResourceStockServiceTests
                 Name = "Invalid Food",
                 ResourceCategoryId = TestDbContextFactory.FoodCategoryId,
                 FoodTypeId = TestDbContextFactory.AdultFoodTypeId,
-                Quantity = -1,
+                Quantity = 0,
                 Unit = "kg",
                 LowStockThreshold = 5
             }, TestDbContextFactory.ShelterId));
 
-        Assert.Equal("Quantity must be zero or greater.", exception.Message);
+        Assert.Equal("Quantity must be greater than zero.", exception.Message);
+    }
+
+    [Fact]
+    public async Task CreateResourceAsync_RequiresCategory()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        var service = CreateService(context);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.CreateResourceAsync(new ResourceStock
+            {
+                Name = "No Category",
+                Quantity = 10,
+                Unit = "pcs",
+                LowStockThreshold = 2
+            }, TestDbContextFactory.ShelterId));
+
+        Assert.Equal("Resource category is required.", exception.Message);
     }
 
     [Fact]

@@ -187,10 +187,7 @@
 
     private List<DogImage> GetDisplayImages()
     {
-        return Images
-            .Where(image => DogImageUrlValidator.IsValidDisplayImageUrl(image.ImageUrl))
-            .Where(image => !_failedImageUrls.Contains(image.ImageUrl.Trim()))
-            .ToList();
+        return DogImageUrlValidator.GetRealDogImages(Images, _failedImageUrls);
     }
 
     private int GetSafeSelectedImageIndex(int imageCount)

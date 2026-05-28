@@ -1,3 +1,5 @@
+using PawConnect.Entities;
+
 namespace PawConnect.Services;
 
 public static class DogImageUrlValidator
@@ -10,6 +12,21 @@ public static class DogImageUrlValidator
         ".webp",
         ".gif"
     };
+
+    private static readonly string[] PlaceholderUrlMarkers =
+    [
+        "placehold.co",
+        "placeholder",
+        "no-photo",
+        "no_image",
+        "no-image",
+        "noimage",
+        "default-dog",
+        "dog-placeholder",
+        "pet-placeholder",
+        "/images/demo-dogs/",
+        "/images/placeholders/"
+    ];
 
     public const string ValidationMessage = "Please enter a valid image URL starting with http:// or https://.";
 
@@ -34,6 +51,50 @@ public static class DogImageUrlValidator
         return TryNormalize(trimmedImageUrl, out _);
     }
 
+    public static bool IsValidRealDogImageUrl(string? imageUrl)
+    {
+        if (!IsValidDisplayImageUrl(imageUrl))
+        {
+            return false;
+        }
+
+        return !IsKnownPlaceholderImageUrl(imageUrl);
+    }
+
+    public static List<DogImage> GetRealDogImages(
+        IEnumerable<DogImage> images,
+        ISet<string>? unavailableImageUrls = null)
+    {
+        var uniqueImages = new List<DogImage>();
+        var seenUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var image in images
+            .Where(image => IsValidRealDogImageUrl(image.ImageUrl))
+            .Where(image => !IsUnavailable(image.ImageUrl, unavailableImageUrls))
+            .OrderByDescending(image => image.IsMainImage)
+            .ThenBy(image => image.Id))
+        {
+            var imageUrlKey = NormalizeImageUrlKey(image.ImageUrl);
+            if (string.IsNullOrWhiteSpace(imageUrlKey) || !seenUrls.Add(imageUrlKey))
+            {
+                continue;
+            }
+
+            uniqueImages.Add(image);
+        }
+
+        return uniqueImages;
+    }
+
+    public static string? GetPrimaryRealDogImageUrl(
+        IEnumerable<DogImage> images,
+        ISet<string>? unavailableImageUrls = null)
+    {
+        return GetRealDogImages(images, unavailableImageUrls)
+            .Select(image => image.ImageUrl)
+            .FirstOrDefault();
+    }
+
     public static bool TryNormalize(string? imageUrl, out string normalizedImageUrl)
     {
         normalizedImageUrl = string.Empty;
@@ -56,6 +117,29 @@ public static class DogImageUrlValidator
 
         var extension = Path.GetExtension(uri.AbsolutePath);
         return !string.IsNullOrWhiteSpace(extension) && AllowedImageExtensions.Contains(extension);
+    }
+
+    private static bool IsKnownPlaceholderImageUrl(string? imageUrl)
+    {
+        if (string.IsNullOrWhiteSpace(imageUrl))
+        {
+            return true;
+        }
+
+        var normalizedImageUrl = imageUrl.Trim().Replace('\\', '/');
+        return PlaceholderUrlMarkers.Any(marker =>
+            normalizedImageUrl.Contains(marker, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsUnavailable(string? imageUrl, ISet<string>? unavailableImageUrls)
+    {
+        return !string.IsNullOrWhiteSpace(imageUrl) &&
+            unavailableImageUrls?.Contains(imageUrl.Trim()) == true;
+    }
+
+    private static string? NormalizeImageUrlKey(string? imageUrl)
+    {
+        return string.IsNullOrWhiteSpace(imageUrl) ? null : imageUrl.Trim();
     }
 
     private static bool IsLocalDisplayImageUrl(string imageUrl)

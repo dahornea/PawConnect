@@ -15,6 +15,11 @@ public class DogSearchDocumentService : IDogSearchDocumentService
             $"Location: {dog.Location}."
         };
 
+        if (!string.IsNullOrWhiteSpace(dog.CoatColor))
+        {
+            parts.Add($"Coat color: {dog.CoatColor.Trim()}.");
+        }
+
         if (!string.IsNullOrWhiteSpace(dog.Shelter?.Name) ||
             !string.IsNullOrWhiteSpace(dog.Shelter?.Neighborhood) ||
             !string.IsNullOrWhiteSpace(dog.Shelter?.City))

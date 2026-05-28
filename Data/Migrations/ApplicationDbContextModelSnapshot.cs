@@ -483,6 +483,10 @@ namespace PawConnect.Migrations
                         .HasMaxLength(80)
                         .HasColumnType("nvarchar(80)");
 
+                    b.Property<string>("CoatColor")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
                     b.Property<int?>("DailyFoodAmountGrams")
                         .HasColumnType("int");
 

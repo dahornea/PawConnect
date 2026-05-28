@@ -277,6 +277,16 @@ public class SemanticDogSearchService(
             return false;
         }
 
+        if (options.CoatColors?.Count > 0)
+        {
+            var dogCoatColor = DogCoatColorOptions.Normalize(dog.CoatColor);
+            if (string.IsNullOrWhiteSpace(dogCoatColor) ||
+                !options.CoatColors.Any(color => string.Equals(DogCoatColorOptions.Normalize(color), dogCoatColor, StringComparison.OrdinalIgnoreCase)))
+            {
+                return false;
+            }
+        }
+
         if (options.OriginLatitude.HasValue && options.OriginLongitude.HasValue)
         {
             if (dog.Shelter?.Latitude is null || dog.Shelter.Longitude is null)

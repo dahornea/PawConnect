@@ -220,9 +220,9 @@ public class ResourceStockService(
             throw new InvalidOperationException("Resource category is required.");
         }
 
-        if (resource.Quantity < 0)
+        if (resource.Quantity <= 0)
         {
-            throw new InvalidOperationException("Quantity must be zero or greater.");
+            throw new InvalidOperationException("Quantity must be greater than zero.");
         }
 
         if (resource.LowStockThreshold < 0)

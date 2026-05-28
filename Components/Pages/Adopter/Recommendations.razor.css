@@ -21,6 +21,7 @@
 .recommendations-page ::deep .dog-image {
     height: 210px;
     object-fit: cover;
+    object-position: var(--dog-image-position, center center);
 }
 
 .recommendations-page .dog-image-link {

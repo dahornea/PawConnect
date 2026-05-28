@@ -363,6 +363,348 @@ public class SemanticDogSearchServiceTests
     }
 
     [Fact]
+    public async Task AdoptionCopilot_AppliesExplicitCoatColorConstraint()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        SeedProfile(context);
+        var blackDog = TestDbContextFactory.CreateDog("Black Coat Match");
+        blackDog.CoatColor = "Black";
+        blackDog.Description = "Gentle medium dog.";
+        var goldenDog = TestDbContextFactory.CreateDog("Golden Coat Dog");
+        goldenDog.CoatColor = "Golden";
+        goldenDog.Description = "Gentle medium dog.";
+        context.Dogs.AddRange(blackDog, goldenDog);
+        await context.SaveChangesAsync();
+        var service = CreateCopilotService(context, new FakeOpenAiAdoptionCopilotClient(), new OpenAiSettings { Enabled = false });
+
+        var response = await service.AskAsync(TestDbContextFactory.AdopterId, "find me a black dog");
+
+        var blackResult = Assert.Single(response.Results, result => result.DogId == blackDog.Id);
+        Assert.Equal("Exact match", blackResult.MatchLabel);
+        Assert.Contains("coat", response.AssistantMessage, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("status filter", response.AssistantMessage, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(response.Results, result => result.DogId == goldenDog.Id);
+        Assert.Contains(response.AppliedConstraints!, constraint =>
+            constraint.Label == "Coat color" && constraint.Value.Contains("Black", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task AdoptionCopilot_BlackDogQueryIncludesBlackAndTanDogs()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        SeedProfile(context);
+        var blackAndTanDog = TestDbContextFactory.CreateDog("Black And Tan Match");
+        blackAndTanDog.CoatColor = "Black and tan";
+        var goldenDog = TestDbContextFactory.CreateDog("Golden Dog");
+        goldenDog.CoatColor = "Golden";
+        context.Dogs.AddRange(blackAndTanDog, goldenDog);
+        await context.SaveChangesAsync();
+        var service = CreateCopilotService(context, new FakeOpenAiAdoptionCopilotClient(), new OpenAiSettings { Enabled = false });
+
+        var response = await service.AskAsync(TestDbContextFactory.AdopterId, "black and tan dogs");
+
+        var blackAndTanResult = Assert.Single(response.Results, result => result.DogId == blackAndTanDog.Id);
+        Assert.Equal("Exact match", blackAndTanResult.MatchLabel);
+        Assert.Contains("coat color Black and tan", response.AssistantMessage, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("status filter", response.AssistantMessage, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(response.Results, result => result.DogId == goldenDog.Id);
+        Assert.Contains(response.AppliedConstraints!, constraint =>
+            constraint.Label == "Coat color" && constraint.Value.Contains("Black and tan", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task AdoptionCopilot_ShortWalksQueryRanksExplicitShortWalkEvidenceHigher()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        SeedProfile(context);
+        var shortWalksMatch = TestDbContextFactory.CreateDog("Short Walks Match");
+        shortWalksMatch.Size = DogSize.Small;
+        shortWalksMatch.Description = "Enjoys short walks, quiet routines, and settling near familiar people.";
+        shortWalksMatch.BehaviorDescription = "Gentle and relaxed with volunteers.";
+        shortWalksMatch.Images.Add(new DogImage
+        {
+            ImageUrl = "https://example.com/short-walks-match.jpg",
+            IsMainImage = true
+        });
+        var singleShortWalkEvidence = TestDbContextFactory.CreateDog("Single Short Walk Evidence");
+        singleShortWalkEvidence.Size = DogSize.Medium;
+        singleShortWalkEvidence.Description = "Enjoys short walks with familiar volunteers.";
+        singleShortWalkEvidence.BehaviorDescription = "Friendly after a steady introduction.";
+        var mediumNoWalkEvidence = TestDbContextFactory.CreateDog("Medium No Walk Evidence");
+        mediumNoWalkEvidence.Size = DogSize.Medium;
+        mediumNoWalkEvidence.Description = "Friendly dog looking for a family.";
+        mediumNoWalkEvidence.BehaviorDescription = "Social with familiar people.";
+        var largeShortWalks = TestDbContextFactory.CreateDog("Large Short Walk Dog");
+        largeShortWalks.Size = DogSize.Large;
+        largeShortWalks.Description = "Enjoys short walks and quiet evenings.";
+        context.Dogs.AddRange(shortWalksMatch, singleShortWalkEvidence, mediumNoWalkEvidence, largeShortWalks);
+        await context.SaveChangesAsync();
+        var service = CreateCopilotService(context, new FakeOpenAiAdoptionCopilotClient(), new OpenAiSettings { Enabled = false });
+
+        var response = await service.AskAsync(TestDbContextFactory.AdopterId, "Show me small or medium dogs that like short walks");
+
+        var shortResult = Assert.Single(response.Results, result => result.DogId == shortWalksMatch.Id);
+        var singleShortResult = Assert.Single(response.Results, result => result.DogId == singleShortWalkEvidence.Id);
+        var mediumResult = Assert.Single(response.Results, result => result.DogId == mediumNoWalkEvidence.Id);
+        Assert.DoesNotContain(response.Results, result => result.DogId == largeShortWalks.Id);
+        Assert.Equal(shortWalksMatch.Id, response.Results.First().DogId);
+        Assert.True(
+            shortResult.ScorePercent >= mediumResult.ScorePercent + 8,
+            $"Expected explicit short-walk evidence to score clearly higher, but got short={shortResult.ScorePercent}, medium={mediumResult.ScorePercent}.");
+        Assert.True(
+            shortResult.ScorePercent >= singleShortResult.ScorePercent + 3,
+            $"Expected multiple short-walk indicators to outrank a single indicator, but got multi={shortResult.ScorePercent}, single={singleShortResult.ScorePercent}.");
+        Assert.True(
+            singleShortResult.ScorePercent > mediumResult.ScorePercent,
+            $"Expected direct short-walk evidence to outrank size-only evidence, but got single={singleShortResult.ScorePercent}, medium={mediumResult.ScorePercent}.");
+        Assert.Contains(shortResult.DisplayTags!, tag =>
+            tag.Contains("Short walks", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(response.AppliedConstraints!, constraint =>
+            constraint.Label == "Size" && constraint.Value.Contains("Small", StringComparison.OrdinalIgnoreCase) && constraint.Value.Contains("Medium", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(response.AppliedConstraints!, constraint =>
+            constraint.Label == "Lifestyle" && constraint.Value.Contains("Low activity", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(response.AppliedConstraints!, constraint =>
+            constraint.Label == "Activity" && constraint.Value.Contains("Short walks", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(response.AppliedConstraints!, constraint =>
+            constraint.Label == "Temperament" && constraint.Value.Contains("walk", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task AdoptionCopilot_ApartmentLongerWalksDoesNotRewardShortWalkOnlyDogs()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        SeedProfile(context);
+        var longerWalksFit = TestDbContextFactory.CreateDog("Longer Walks Apartment Fit");
+        longerWalksFit.Size = DogSize.Medium;
+        longerWalksFit.Description = "Enjoys longer walks and brisk walks, then settles well indoors.";
+        longerWalksFit.BehaviorDescription = "Steady and manageable in a smaller home routine.";
+        var shortWalkOnly = TestDbContextFactory.CreateDog("Short Walk Only Dog");
+        shortWalkOnly.Size = DogSize.Small;
+        shortWalkOnly.Description = "Enjoys short daily walks, quiet routine, and indoor rest.";
+        shortWalkOnly.BehaviorDescription = "Low energy and gentle with familiar people.";
+        context.Dogs.AddRange(longerWalksFit, shortWalkOnly);
+        await context.SaveChangesAsync();
+        var service = CreateCopilotService(context, new FakeOpenAiAdoptionCopilotClient(), new OpenAiSettings { Enabled = false });
+
+        var response = await service.AskAsync(TestDbContextFactory.AdopterId, "I live in an apartment but enjoy longer walks");
+
+        var longerResult = Assert.Single(response.Results, result => result.DogId == longerWalksFit.Id);
+        var shortResult = Assert.Single(response.Results, result => result.DogId == shortWalkOnly.Id);
+        Assert.Equal(longerWalksFit.Id, response.Results.First().DogId);
+        Assert.True(
+            longerResult.ScorePercent >= shortResult.ScorePercent + 5,
+            $"Expected longer-walk evidence to outrank short-walk-only evidence, but got longer={longerResult.ScorePercent}, short={shortResult.ScorePercent}.");
+        Assert.InRange(longerResult.ScorePercent, 65, 79);
+        Assert.True(
+            shortResult.ScorePercent <= 60,
+            $"Expected short-walk-only evidence to stay lower for a longer-walk query, but got {shortResult.ScorePercent}.");
+        Assert.Contains(response.AppliedConstraints!, constraint =>
+            constraint.Label == "Home" && constraint.Value.Contains("Apartment", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(response.AppliedConstraints!, constraint =>
+            constraint.Label == "Lifestyle" && constraint.Value.Contains("Moderate activity", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(response.AppliedConstraints!, constraint =>
+            constraint.Label == "Activity" && constraint.Value.Contains("Longer walks", StringComparison.OrdinalIgnoreCase));
+        Assert.Single(response.AppliedConstraints!, constraint =>
+            constraint.Label.Equals("Activity", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(response.AppliedConstraints!, constraint =>
+            constraint.Label.Equals("Activity", StringComparison.OrdinalIgnoreCase) &&
+            constraint.Value.Contains("Moderate activity", StringComparison.OrdinalIgnoreCase));
+        Assert.Single(response.AppliedConstraints!, constraint =>
+            constraint.Label.Equals("Lifestyle", StringComparison.OrdinalIgnoreCase) &&
+            constraint.Value.Contains("Moderate activity", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(response.AppliedConstraints!, constraint =>
+            constraint.Label == "Temperament" && constraint.Value.Contains("walk", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(longerResult.DisplayTags!, tag =>
+            tag.Contains("Longer walks", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(shortResult.DisplayTags!, tag =>
+            tag.Contains("Longer walks", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(shortResult.CautionTags!, tag =>
+            tag.Contains("shorter walks", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(response.Results, result =>
+            result.DisplayTags?.Any(tag => tag.Contains("Short walks", StringComparison.OrdinalIgnoreCase)) == true);
+    }
+
+    [Fact]
+    public async Task AdoptionCopilot_ApartmentLongerWalksRanksApartmentSupportAboveSpaceOnlyFit()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        SeedProfile(context);
+        var spaceOnlyFit = TestDbContextFactory.CreateDog("Space Only Longer Walk Fit");
+        spaceOnlyFit.Size = DogSize.Large;
+        spaceOnlyFit.Description = "Enjoys longer walks and open areas with room to run.";
+        spaceOnlyFit.BehaviorDescription = "Best reviewed with the shelter for smaller homes.";
+        spaceOnlyFit.Images.Add(new DogImage
+        {
+            ImageUrl = "https://example.com/space-only-longer-walk.jpg",
+            IsMainImage = true
+        });
+
+        var apartmentSupportedFit = TestDbContextFactory.CreateDog("Apartment Supported Longer Walk Fit");
+        apartmentSupportedFit.Size = DogSize.Medium;
+        apartmentSupportedFit.Description = "Enjoys longer walks and then settles quickly. Open areas are fun, but his medium size makes daily handling easier.";
+        apartmentSupportedFit.BehaviorDescription = "Steady with familiar people.";
+        apartmentSupportedFit.Images.Add(new DogImage
+        {
+            ImageUrl = "https://example.com/apartment-supported-longer-walk.jpg",
+            IsMainImage = true
+        });
+
+        context.Dogs.AddRange(spaceOnlyFit, apartmentSupportedFit);
+        await context.SaveChangesAsync();
+        var service = CreateCopilotService(context, new FakeOpenAiAdoptionCopilotClient(), new OpenAiSettings { Enabled = false });
+
+        var response = await service.AskAsync(TestDbContextFactory.AdopterId, "I live in an apartment but enjoy longer walks");
+
+        var spaceOnlyResult = Assert.Single(response.Results, result => result.DogId == spaceOnlyFit.Id);
+        var apartmentSupportedResult = Assert.Single(response.Results, result => result.DogId == apartmentSupportedFit.Id);
+        Assert.Equal(apartmentSupportedFit.Id, response.Results.First().DogId);
+        Assert.True(
+            apartmentSupportedResult.ScorePercent > spaceOnlyResult.ScorePercent,
+            $"Expected visible apartment support to outrank space-only longer-walk evidence, but got supported={apartmentSupportedResult.ScorePercent}, spaceOnly={spaceOnlyResult.ScorePercent}.");
+        Assert.Contains(apartmentSupportedResult.DisplayTags!, tag =>
+            tag.Contains("Longer walks", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(apartmentSupportedResult.DisplayTags!, tag =>
+            tag.Contains("Medium size", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(apartmentSupportedResult.DisplayTags!, tag =>
+            tag.Contains("Settles quickly", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(spaceOnlyResult.CautionTags!, tag =>
+            tag.Contains("Needs more space", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task AdoptionCopilot_ApartmentLongerWalksKeepsLargeReservedDogCloseToMediumApartmentEvidence()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        SeedProfile(context);
+        var buddyStyle = TestDbContextFactory.CreateDog("Buddy Style Large Longer Walk", DogStatus.Reserved);
+        buddyStyle.Size = DogSize.Large;
+        buddyStyle.Description = "Enjoys longer walks, fetch, and structured walks with people.";
+        buddyStyle.BehaviorDescription = "Friendly and steady with familiar handlers.";
+        buddyStyle.Images.Add(new DogImage
+        {
+            ImageUrl = "https://example.com/buddy-style-longer-walk.jpg",
+            IsMainImage = true
+        });
+
+        var maxStyle = TestDbContextFactory.CreateDog("Max Style Medium Longer Walk", DogStatus.Available);
+        maxStyle.Size = DogSize.Medium;
+        maxStyle.Description = "Enjoys longer walks and then settles quickly. He likes open areas with room to run before resting.";
+        maxStyle.BehaviorDescription = "Playful but settles after structured activity.";
+        maxStyle.Images.Add(new DogImage
+        {
+            ImageUrl = "https://example.com/max-style-longer-walk.jpg",
+            IsMainImage = true
+        });
+
+        context.Dogs.AddRange(buddyStyle, maxStyle);
+        await context.SaveChangesAsync();
+        var service = CreateCopilotService(context, new FakeOpenAiAdoptionCopilotClient(), new OpenAiSettings { Enabled = false });
+
+        var response = await service.AskAsync(TestDbContextFactory.AdopterId, "I live in an apartment but enjoy longer walks");
+
+        var buddyResult = Assert.Single(response.Results, result => result.DogId == buddyStyle.Id);
+        var maxResult = Assert.Single(response.Results, result => result.DogId == maxStyle.Id);
+        Assert.True(
+            Math.Abs(buddyResult.ScorePercent - maxResult.ScorePercent) <= 5,
+            $"Expected Buddy-style and Max-style scores to stay explainably close, but got Buddy={buddyResult.ScorePercent}, Max={maxResult.ScorePercent}.");
+        Assert.True(
+            maxResult.ScorePercent >= buddyResult.ScorePercent - 2,
+            $"Expected Max-style apartment support to avoid a large gap below Buddy-style result, but got Buddy={buddyResult.ScorePercent}, Max={maxResult.ScorePercent}.");
+        Assert.Contains(buddyResult.CautionTags!, tag =>
+            tag.Contains("Large dog", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(buddyResult.CautionTags!, tag =>
+            tag.Contains("Reserved", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(maxResult.DisplayTags!, tag =>
+            tag.Contains("Medium size", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(maxResult.DisplayTags!, tag =>
+            tag.Contains("Settles quickly", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(maxResult.CautionTags!, tag =>
+            tag.Contains("Needs more space", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task AdoptionCopilot_ReservedStatusDoesNotHeavilyPenalizeLongerWalkApartmentFit()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        SeedProfile(context);
+        var availableFit = TestDbContextFactory.CreateDog("Available Longer Walk Fit", DogStatus.Available);
+        availableFit.Size = DogSize.Medium;
+        availableFit.Description = "Enjoys longer walks and brisk walks, then settles quickly in a smaller home routine.";
+        availableFit.BehaviorDescription = "Steady and manageable with familiar people.";
+        availableFit.Images.Add(new DogImage
+        {
+            ImageUrl = "https://example.com/available-longer-walk.jpg",
+            IsMainImage = true
+        });
+
+        var reservedFit = TestDbContextFactory.CreateDog("Reserved Longer Walk Fit", DogStatus.Reserved);
+        reservedFit.Size = DogSize.Medium;
+        reservedFit.Description = "Enjoys longer walks and brisk walks, then settles quickly in a smaller home routine.";
+        reservedFit.BehaviorDescription = "Steady and manageable with familiar people.";
+        reservedFit.Images.Add(new DogImage
+        {
+            ImageUrl = "https://example.com/reserved-longer-walk.jpg",
+            IsMainImage = true
+        });
+
+        context.Dogs.AddRange(availableFit, reservedFit);
+        await context.SaveChangesAsync();
+        var service = CreateCopilotService(context, new FakeOpenAiAdoptionCopilotClient(), new OpenAiSettings { Enabled = false });
+
+        var response = await service.AskAsync(TestDbContextFactory.AdopterId, "I live in an apartment but enjoy longer walks");
+
+        var availableResult = Assert.Single(response.Results, result => result.DogId == availableFit.Id);
+        var reservedResult = Assert.Single(response.Results, result => result.DogId == reservedFit.Id);
+        Assert.True(
+            availableResult.ScorePercent - reservedResult.ScorePercent <= 5,
+            $"Expected reserved status to be a small availability warning, but got available={availableResult.ScorePercent}, reserved={reservedResult.ScorePercent}.");
+        Assert.Contains(reservedResult.CautionTags!, tag =>
+            tag.Contains("Reserved", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(reservedResult.DisplayTags!, tag =>
+            tag.Contains("Longer walks", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task AdoptionCopilot_ApartmentLongerWalksKeepsSimilarEvidenceScoresClose()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        SeedProfile(context);
+        var oscarStyle = TestDbContextFactory.CreateDog("Oscar Longer Walk Fit", DogStatus.Available);
+        oscarStyle.Size = DogSize.Medium;
+        oscarStyle.Description = "Enjoys longer walks and brisk walks, then settles quickly in a steady routine.";
+        oscarStyle.BehaviorDescription = "Moderate activity suits him well.";
+
+        var nalaStyle = TestDbContextFactory.CreateDog("Nala Longer Walk Fit", DogStatus.Reserved);
+        nalaStyle.Size = DogSize.Medium;
+        nalaStyle.Description = "Enjoys longer walks and brisk walks, then settles quickly in a steady routine.";
+        nalaStyle.BehaviorDescription = "Moderate activity suits her well.";
+
+        var shortWalkOnly = TestDbContextFactory.CreateDog("Low Activity Only Fit", DogStatus.Available);
+        shortWalkOnly.Size = DogSize.Small;
+        shortWalkOnly.Description = "Enjoys short walks, quiet routines, and indoor rest.";
+        shortWalkOnly.BehaviorDescription = "Low activity and gentle with familiar people.";
+
+        context.Dogs.AddRange(oscarStyle, nalaStyle, shortWalkOnly);
+        await context.SaveChangesAsync();
+        var service = CreateCopilotService(context, new FakeOpenAiAdoptionCopilotClient(), new OpenAiSettings { Enabled = false });
+
+        var response = await service.AskAsync(TestDbContextFactory.AdopterId, "I live in an apartment but enjoy longer walks");
+
+        var oscarResult = Assert.Single(response.Results, result => result.DogId == oscarStyle.Id);
+        var nalaResult = Assert.Single(response.Results, result => result.DogId == nalaStyle.Id);
+        var shortResult = Assert.Single(response.Results, result => result.DogId == shortWalkOnly.Id);
+        Assert.True(
+            Math.Abs(oscarResult.ScorePercent - nalaResult.ScorePercent) <= 8,
+            $"Expected similar longer-walk evidence to stay close despite reserved warning, but got Oscar={oscarResult.ScorePercent}, Nala={nalaResult.ScorePercent}.");
+        Assert.True(
+            oscarResult.ScorePercent >= shortResult.ScorePercent + 5,
+            $"Expected longer-walk evidence to outrank short-walk-only evidence, but got Oscar={oscarResult.ScorePercent}, short={shortResult.ScorePercent}.");
+        Assert.True(
+            nalaResult.ScorePercent >= shortResult.ScorePercent + 3,
+            $"Expected reserved longer-walk evidence to remain above short-walk-only evidence, but got Nala={nalaResult.ScorePercent}, short={shortResult.ScorePercent}.");
+    }
+
+    [Fact]
     public async Task AdoptionCopilot_CalmDogsInZorilorStayPublicSafeAndPreferCalmMatches()
     {
         await using var context = TestDbContextFactory.CreateContext();
@@ -422,6 +764,10 @@ public class SemanticDogSearchServiceTests
         Assert.Contains(response.Results.First().Reasons, reason =>
             reason.Contains("Apartment", StringComparison.OrdinalIgnoreCase) ||
             reason.Contains("Calm", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(response.AppliedConstraints!, constraint =>
+            constraint.Label == "Home" && constraint.Value.Contains("Apartment", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(response.AppliedConstraints!, constraint =>
+            constraint.Label == "Temperament" && constraint.Value.Contains("Calm", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -451,8 +797,13 @@ public class SemanticDogSearchServiceTests
         var reservedResult = Assert.Single(response.Results, result => result.DogId == reservedFit.Id);
         var genericResult = Assert.Single(response.Results, result => result.DogId == genericFriendly.Id);
         Assert.Equal(availableFit.Id, response.Results.First().DogId);
-        Assert.True(availableResult.ScorePercent > reservedResult.ScorePercent);
-        Assert.NotEqual("Excellent match", genericResult.MatchLabel);
+        Assert.True(
+            availableResult.ScorePercent > reservedResult.ScorePercent,
+            $"Expected available score to exceed reserved score, but got available={availableResult.ScorePercent}, reserved={reservedResult.ScorePercent}.");
+        Assert.True(availableResult.ScorePercent <= 86);
+        Assert.DoesNotContain(response.Results, result => result.MatchLabel is "Excellent match" or "Potential match" or "Weak match");
+        Assert.Contains(availableResult.MatchLabel, new[] { "Strong match", "Good match", "Possible match", "Low match" });
+        Assert.NotEqual("Strong match", genericResult.MatchLabel);
         Assert.Contains(response.AppliedConstraints!, constraint =>
             constraint.Label == "Home" && constraint.Value.Contains("Apartment", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(response.AppliedConstraints!, constraint =>
@@ -468,6 +819,83 @@ public class SemanticDogSearchServiceTests
             tag.Contains("Friendly temperament", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(reservedResult.CautionTags!, tag =>
             tag.Contains("Reserved", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task AdoptionCopilot_CautionSignalsDifferentiateOtherwiseSimilarApartmentMatches()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        SeedProfile(context);
+        var shelter = await context.Shelters.FindAsync(TestDbContextFactory.ShelterId);
+        shelter!.City = "Cluj-Napoca";
+        var steadyFit = TestDbContextFactory.CreateDog("Steady Apartment Fit", DogStatus.Available);
+        steadyFit.Size = DogSize.Medium;
+        steadyFit.Description = "Enjoys short walks, indoor rest, and a quiet routine. Settles quickly after exploring.";
+        steadyFit.BehaviorDescription = "Gentle and steady with familiar volunteers.";
+        var cautiousFit = TestDbContextFactory.CreateDog("Cautious Apartment Fit", DogStatus.Available);
+        cautiousFit.Size = DogSize.Medium;
+        cautiousFit.Description = "Enjoys short walks, indoor rest, and a quiet routine. Settles quickly after exploring.";
+        cautiousFit.BehaviorDescription = "Needs slow introductions and a patient adopter before relaxing.";
+        context.Dogs.AddRange(steadyFit, cautiousFit);
+        await context.SaveChangesAsync();
+        var service = CreateCopilotService(context, new FakeOpenAiAdoptionCopilotClient(), new OpenAiSettings { Enabled = false });
+
+        var response = await service.AskAsync(TestDbContextFactory.AdopterId, "Find me a calm medium-sized dog in Cluj-Napoca that can live in an apartment");
+
+        var steadyResult = Assert.Single(response.Results, result => result.DogId == steadyFit.Id);
+        var cautiousResult = Assert.Single(response.Results, result => result.DogId == cautiousFit.Id);
+        Assert.True(
+            steadyResult.ScorePercent >= cautiousResult.ScorePercent + 5,
+            $"Expected caution to lower score by at least 5, but got steady={steadyResult.ScorePercent}, cautious={cautiousResult.ScorePercent}.");
+        Assert.Contains(cautiousResult.CautionTags!, tag =>
+            tag.Contains("Patient adopter needed", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task AdoptionCopilot_StrongerCautionSignalsLowerApartmentFitScore()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        SeedProfile(context);
+        var shelter = await context.Shelters.FindAsync(TestDbContextFactory.ShelterId);
+        shelter!.City = "Cluj-Napoca";
+
+        var oscarStyle = TestDbContextFactory.CreateDog("Oscar Style Apartment Candidate", DogStatus.Available);
+        oscarStyle.Size = DogSize.Medium;
+        oscarStyle.Description = "Settles quickly after a medium walk and enjoys a steady, calmer routine.";
+        oscarStyle.BehaviorDescription = "Gentle with familiar people, but the shelter should confirm apartment fit.";
+
+        var maxStyle = TestDbContextFactory.CreateDog("Max Style Higher Activity Candidate", DogStatus.Available);
+        maxStyle.Size = DogSize.Medium;
+        maxStyle.Description = "Enjoys longer walks, outdoor play, and open areas with room to run before settling.";
+        maxStyle.BehaviorDescription = "Energetic and playful, with structured activity helping him settle.";
+
+        var sashaStyle = TestDbContextFactory.CreateDog("Sasha Style Cautious Candidate", DogStatus.Reserved);
+        sashaStyle.Size = DogSize.Medium;
+        sashaStyle.Description = "Settles after short walks but needs a patient adopter before relaxing in a new routine.";
+        sashaStyle.BehaviorDescription = "Needs slow introductions and patient handling.";
+
+        context.Dogs.AddRange(oscarStyle, maxStyle, sashaStyle);
+        await context.SaveChangesAsync();
+        var service = CreateCopilotService(context, new FakeOpenAiAdoptionCopilotClient(), new OpenAiSettings { Enabled = false });
+
+        var response = await service.AskAsync(TestDbContextFactory.AdopterId, "Find me a calm medium-sized dog in Cluj-Napoca that can live in an apartment");
+
+        var oscarResult = Assert.Single(response.Results, result => result.DogId == oscarStyle.Id);
+        var maxResult = Assert.Single(response.Results, result => result.DogId == maxStyle.Id);
+        var sashaResult = Assert.Single(response.Results, result => result.DogId == sashaStyle.Id);
+
+        Assert.True(
+            oscarResult.ScorePercent >= maxResult.ScorePercent + 2,
+            $"Expected stronger activity/space cautions to lower Max-style score, but got Oscar={oscarResult.ScorePercent}, Max={maxResult.ScorePercent}.");
+        Assert.True(
+            sashaResult.ScorePercent <= 55,
+            $"Expected patient/reserved caution to keep Sasha-style score in the lower possible band, but got Sasha={sashaResult.ScorePercent}.");
+        Assert.Contains(maxResult.CautionTags!, tag =>
+            tag.Contains("Higher activity needs", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(maxResult.CautionTags!, tag =>
+            tag.Contains("Needs more space", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(sashaResult.CautionTags!, tag =>
+            tag.Contains("Patient adopter needed", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -833,7 +1261,7 @@ public class SemanticDogSearchServiceTests
         Assert.DoesNotContain(result.Reasons, reason =>
             reason.Contains("Yard", StringComparison.OrdinalIgnoreCase) ||
             reason.Contains("Outdoor", StringComparison.OrdinalIgnoreCase));
-        Assert.NotEqual("Excellent match", result.MatchLabel);
+        Assert.NotEqual("Strong match", result.MatchLabel);
     }
 
     [Fact]
@@ -859,7 +1287,7 @@ public class SemanticDogSearchServiceTests
         if (genericResult is not null)
         {
             Assert.Contains(genericResult.DisplayTags!, tag => tag.Contains("Ask shelter about children", StringComparison.OrdinalIgnoreCase));
-            Assert.NotEqual("Excellent match", genericResult.MatchLabel);
+            Assert.NotEqual("Strong match", genericResult.MatchLabel);
         }
     }
 
@@ -899,8 +1327,9 @@ public class SemanticDogSearchServiceTests
         Assert.Contains(catResult.DisplayTags!, tag => tag.Contains("cat", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(shelterCatResult.DisplayTags!, tag => tag == "Calm near cats");
         Assert.All(shelterCatResult.DisplayTags!, tag => Assert.Contains("cat", tag, StringComparison.OrdinalIgnoreCase));
-        Assert.True(shelterCatResult.ScorePercent >= 74);
-        Assert.True(settlesNoCatResult.ScorePercent < 74);
+        Assert.True(shelterCatResult.ScorePercent > settlesNoCatResult.ScorePercent);
+        Assert.True(shelterCatResult.ScorePercent > socialResult.ScorePercent);
+        Assert.NotEqual("Low match", shelterCatResult.MatchLabel);
         Assert.DoesNotContain(settlesNoCatResult.DisplayTags!, tag =>
             tag.Contains("Short walks", StringComparison.OrdinalIgnoreCase) ||
             tag.Contains("Indoor rest", StringComparison.OrdinalIgnoreCase) ||
@@ -944,7 +1373,7 @@ public class SemanticDogSearchServiceTests
         var genericResult = response.Results.FirstOrDefault(result => result.DogId == genericDog.Id);
         if (genericResult is not null)
         {
-            Assert.NotEqual("Excellent match", genericResult.MatchLabel);
+            Assert.NotEqual("Strong match", genericResult.MatchLabel);
             Assert.Contains(genericResult.DisplayTags!, tag =>
                 tag.Contains("Ask shelter about children", StringComparison.OrdinalIgnoreCase));
         }
@@ -1024,7 +1453,7 @@ public class SemanticDogSearchServiceTests
         var genericResult = response.Results.FirstOrDefault(result => result.DogId == genericDog.Id);
         if (genericResult is not null)
         {
-            Assert.NotEqual("Excellent match", genericResult.MatchLabel);
+            Assert.NotEqual("Strong match", genericResult.MatchLabel);
         }
     }
 
@@ -1048,7 +1477,7 @@ public class SemanticDogSearchServiceTests
         var directResult = Assert.Single(response.Results, result => result.DogId == directDogEvidence.Id);
         var indirectResult = Assert.Single(response.Results, result => result.DogId == indirectCalmDog.Id);
         Assert.True(directResult.ScorePercent > indirectResult.ScorePercent);
-        Assert.NotEqual("Excellent match", indirectResult.MatchLabel);
+        Assert.NotEqual("Strong match", indirectResult.MatchLabel);
         Assert.True(indirectResult.ScorePercent <= 82);
         Assert.Contains(indirectResult.DisplayTags!, tag =>
             tag.Contains("Ask shelter about sensitive dog", StringComparison.OrdinalIgnoreCase));
@@ -1059,7 +1488,7 @@ public class SemanticDogSearchServiceTests
     }
 
     [Fact]
-    public async Task AdoptionCopilot_SensitiveDogQueryCapsReservedDirectEvidenceBelowExcellent()
+    public async Task AdoptionCopilot_SensitiveDogQueryKeepsReservedDirectEvidenceCappedAndWarned()
     {
         await using var context = TestDbContextFactory.CreateContext();
         SeedProfile(context);
@@ -1073,7 +1502,6 @@ public class SemanticDogSearchServiceTests
         var response = await service.AskAsync(TestDbContextFactory.AdopterId, "I have a sick dog recovering at home");
 
         var result = Assert.Single(response.Results, item => item.DogId == reservedDog.Id);
-        Assert.NotEqual("Excellent match", result.MatchLabel);
         Assert.True(result.ScorePercent <= 89);
         Assert.Contains(result.CautionTags!, tag =>
             tag.Contains("Reserved", StringComparison.OrdinalIgnoreCase));
@@ -1096,7 +1524,7 @@ public class SemanticDogSearchServiceTests
         var result = Assert.Single(response.Results, item => item.DogId == gentleHandlingDog.Id);
         Assert.DoesNotContain(result.DisplayTags!, tag =>
             tag.Contains("Gentle play style", StringComparison.OrdinalIgnoreCase));
-        Assert.NotEqual("Excellent match", result.MatchLabel);
+        Assert.NotEqual("Strong match", result.MatchLabel);
     }
 
     [Fact]
@@ -1114,7 +1542,7 @@ public class SemanticDogSearchServiceTests
         var response = await service.AskAsync(TestDbContextFactory.AdopterId, "I have a sick dog recovering at home");
 
         var result = Assert.Single(response.Results, item => item.DogId == nalaStyleDog.Id);
-        Assert.NotEqual("Excellent match", result.MatchLabel);
+        Assert.NotEqual("Strong match", result.MatchLabel);
         Assert.True(result.ScorePercent <= 82);
         Assert.DoesNotContain(result.DisplayTags!, tag =>
             tag.Contains("Gentle play style", StringComparison.OrdinalIgnoreCase));
@@ -1141,7 +1569,7 @@ public class SemanticDogSearchServiceTests
 
         var noEvidenceResult = Assert.Single(response.Results, item => item.DogId == noChildEvidence.Id);
         var childEvidenceResult = Assert.Single(response.Results, item => item.DogId == olderChildEvidence.Id);
-        Assert.NotEqual("Excellent match", noEvidenceResult.MatchLabel);
+        Assert.NotEqual("Strong match", noEvidenceResult.MatchLabel);
         Assert.DoesNotContain(noEvidenceResult.DisplayTags!, tag =>
             tag.Contains("Short walks", StringComparison.OrdinalIgnoreCase) ||
             tag.Contains("Indoor rest", StringComparison.OrdinalIgnoreCase) ||
@@ -1208,7 +1636,7 @@ public class SemanticDogSearchServiceTests
         var result = Assert.Single(response.Results, item => item.DogId == noCatEvidence.Id);
         Assert.Contains(result.DisplayTags!, tag =>
             tag.Contains("Ask shelter about cats", StringComparison.OrdinalIgnoreCase));
-        Assert.NotEqual("Excellent match", result.MatchLabel);
+        Assert.NotEqual("Strong match", result.MatchLabel);
         Assert.True(result.ScorePercent <= 80);
     }
 
@@ -1233,7 +1661,7 @@ public class SemanticDogSearchServiceTests
         var noEvidenceResult = Assert.Single(response.Results, item => item.DogId == noChildEvidence.Id);
         Assert.Contains(olderChildrenResult.DisplayTags!, tag =>
             tag.Contains("older children", StringComparison.OrdinalIgnoreCase));
-        Assert.NotEqual("Excellent match", olderChildrenResult.MatchLabel);
+        Assert.NotEqual("Strong match", olderChildrenResult.MatchLabel);
         Assert.True(olderChildrenResult.ScorePercent <= 78);
         Assert.Contains(noEvidenceResult.DisplayTags!, tag =>
             tag.Contains("Ask shelter about children", StringComparison.OrdinalIgnoreCase));

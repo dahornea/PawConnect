@@ -214,6 +214,36 @@ public class DogServiceTests
     }
 
     [Fact]
+    public async Task SearchDogsAsync_FiltersPublicDogsByCoatColor()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        var blackDog = TestDbContextFactory.CreateDog("Black Dog");
+        blackDog.CoatColor = "Black";
+        var goldenDog = TestDbContextFactory.CreateDog("Golden Dog");
+        goldenDog.CoatColor = "Golden";
+        var adoptedBlackDog = TestDbContextFactory.CreateDog("Adopted Black Dog", DogStatus.Adopted);
+        adoptedBlackDog.CoatColor = "Black";
+        context.Dogs.AddRange(blackDog, goldenDog, adoptedBlackDog);
+        await context.SaveChangesAsync();
+
+        var service = new DogService(context);
+
+        var dogs = await service.SearchDogsAsync(
+            searchTerm: null,
+            breed: null,
+            maxAge: null,
+            size: null,
+            location: null,
+            status: null,
+            sortOption: DogSortOption.NameAsc,
+            coatColor: "black");
+
+        var dog = Assert.Single(dogs);
+        Assert.Equal("Black Dog", dog.Name);
+        Assert.Equal("Black", dog.CoatColor);
+    }
+
+    [Fact]
     public async Task GetStatusHistoryForDogAsync_ReturnsChangedByUserAndNotes()
     {
         await using var context = TestDbContextFactory.CreateContext();

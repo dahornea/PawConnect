@@ -351,6 +351,7 @@ public class DogRecommendationService(
             candidates.Select(candidate => new RecommendationDogCandidateInput(
                     candidate.DogId,
                     DogBreedFormatter.Format(candidate.Dog),
+                    SafeTrim(candidate.Dog.CoatColor),
                     DogAgeFormatter.Format(candidate.Dog),
                     candidate.Dog.Size.ToString(),
                     candidate.Dog.Status.ToString(),
