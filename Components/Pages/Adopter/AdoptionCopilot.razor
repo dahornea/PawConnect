@@ -153,7 +153,7 @@
                                     }
                                     else
                                     {
-                                        <MudCardMedia Image="@imageUrl" Class="dog-image" />
+                                        <MudCardMedia Image="@imageUrl" Class="dog-image dog-card-image" />
                                     }
                                 </a>
 
@@ -175,7 +175,10 @@
                                         }
 
                                         <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Class="match-chip-row">
-                                            <span class="match-score-badge">@result.ScorePercent% match</span>
+                                            @if (!IsFilterMatchLabel(result.MatchLabel))
+                                            {
+                                                <span class="match-score-badge">@result.ScorePercent% match</span>
+                                            }
                                             <MudChip T="string" Color="@GetMatchColor(result.MatchLabel)" Size="Size.Small">@result.MatchLabel</MudChip>
                                         </MudStack>
 
@@ -411,24 +414,7 @@
 
     private static string? GetDogImageUrl(Dog dog)
     {
-        return dog.Images
-            .Where(image => IsValidImageUrl(image.ImageUrl))
-            .OrderByDescending(image => image.IsMainImage)
-            .ThenBy(image => image.Id)
-            .Select(image => image.ImageUrl)
-            .FirstOrDefault();
-    }
-
-    private static bool IsValidImageUrl(string? imageUrl)
-    {
-        if (string.IsNullOrWhiteSpace(imageUrl) ||
-            imageUrl.Contains("placehold.co", StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        return Uri.TryCreate(imageUrl, UriKind.Absolute, out var uri) &&
-            (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
+        return DogImageUrlValidator.GetPrimaryRealDogImageUrl(dog.Images);
     }
 
     private static string GetShelterLine(Dog dog)
@@ -463,9 +449,23 @@
         return matchLevel switch
         {
             "Excellent match" => Color.Success,
+            "Strong match" => Color.Success,
             "Good match" => Color.Primary,
+            "Exact match" => Color.Success,
+            "Matches request" => Color.Success,
+            "Exact filter match" => Color.Success,
+            "Matching result" => Color.Success,
+            "Possible match" => Color.Default,
+            "Potential match" => Color.Default,
+            "Weak match" => Color.Default,
+            "Low match" => Color.Default,
             _ => Color.Default
         };
+    }
+
+    private static bool IsFilterMatchLabel(string? matchLevel)
+    {
+        return matchLevel is "Exact match" or "Matches request" or "Exact filter match" or "Matching result";
     }
 
     private static IReadOnlyList<string> GetReasonDisplays(IReadOnlyList<string> reasons, IReadOnlySet<string> matchedLabels)

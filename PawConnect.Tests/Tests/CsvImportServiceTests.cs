@@ -41,7 +41,7 @@ public class CsvImportServiceTests
 
         var row = Assert.Single(result.RowResults);
         Assert.False(row.IsValid);
-        Assert.Contains(row.Errors, error => error.Message == "Quantity must be zero or greater.");
+        Assert.Contains(row.Errors, error => error.Message == "Quantity must be greater than zero.");
     }
 
     [Fact]

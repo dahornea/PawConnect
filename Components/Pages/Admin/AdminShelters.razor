@@ -227,7 +227,12 @@
                                                   Variant="Variant.Outlined" />
                                 </MudItem>
                                 <MudItem xs="12" md="6">
-                                    <MudTextField Label="City" @bind-Value="_editShelter.City" Required="true" RequiredError="City is required." Variant="Variant.Outlined" />
+                                    <MudTextField Label="City"
+                                                  @bind-Value="_editShelter.City"
+                                                  @bind-Value:after="OnShelterLocationFieldChanged"
+                                                  Required="true"
+                                                  RequiredError="City is required."
+                                                  Variant="Variant.Outlined" />
                                 </MudItem>
                                 <MudItem xs="12" md="6">
                                     <MudTextField Label="Phone Number" @bind-Value="_editShelter.PhoneNumber" Variant="Variant.Outlined" />
@@ -235,11 +240,17 @@
                                 <MudItem xs="12" md="6">
                                     <MudTextField Label="Neighborhood"
                                                   @bind-Value="_editShelter.Neighborhood"
+                                                  @bind-Value:after="OnShelterLocationFieldChanged"
                                                   HelperText="Optional. Used to help adopters find nearby shelters and dogs."
                                                   Variant="Variant.Outlined" />
                                 </MudItem>
                                 <MudItem xs="12">
-                                    <MudTextField Label="Address" @bind-Value="_editShelter.Address" Required="true" RequiredError="Address is required." Variant="Variant.Outlined" />
+                                    <MudTextField Label="Address"
+                                                  @bind-Value="_editShelter.Address"
+                                                  @bind-Value:after="OnShelterLocationFieldChanged"
+                                                  Required="true"
+                                                  RequiredError="Address is required."
+                                                  Variant="Variant.Outlined" />
                                 </MudItem>
                                 <MudItem xs="12">
                                     <MudTextField Label="Description" @bind-Value="_editShelter.Description" Lines="3" Variant="Variant.Outlined" />
@@ -286,6 +297,19 @@
                                 </MudItem>
                                 <MudItem xs="12">
                                     <MudText Typo="Typo.caption" Color="Color.Secondary">Use address lookup first, then drag the pin or click the map to adjust the location.</MudText>
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="flex-wrap my-2">
+                                        <MudButton Variant="Variant.Outlined"
+                                                   Color="Color.Primary"
+                                                   StartIcon="@Icons.Material.Filled.TravelExplore"
+                                                   Disabled="@(_isSaving || _isGeocoding)"
+                                                   OnClick="FindShelterCoordinatesAsync">
+                                            @(_isGeocoding ? "Searching..." : "Find location")
+                                        </MudButton>
+                                        @if (_isGeocoding)
+                                        {
+                                            <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Primary" />
+                                        }
+                                    </MudStack>
                                     <ShelterMap @bind-Latitude="_editShelter.Latitude"
                                                 @bind-Longitude="_editShelter.Longitude"
                                                 ShelterName="@_editShelter.Name"
@@ -326,7 +350,7 @@
                         </MudForm>
                         <MudStack Row="true" Spacing="2">
                             <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save" Disabled="_isSaving" OnClick="SaveShelterAsync">Save</MudButton>
-                            @if (_savedLatitude.HasValue && _savedLongitude.HasValue)
+                            @if (IsLocationDirty)
                             {
                                 <MudButton Variant="Variant.Outlined" Color="Color.Default" StartIcon="@Icons.Material.Filled.Restore" Disabled="_isSaving" OnClick="RevertToSavedLocation">
                                     Revert to saved location
@@ -351,6 +375,7 @@
     private List<Shelter> _shelters = [];
     private bool _isLoading = true;
     private bool _isSaving;
+    private bool _isGeocoding;
     private bool _isReverseGeocoding;
     private bool _isExporting;
     private bool _isImporting;
@@ -374,6 +399,7 @@
     private MudForm? _shelterForm;
     private const long MaxCsvFileSize = 2 * 1024 * 1024;
     private bool HasShelterEmailError => !string.IsNullOrWhiteSpace(_shelterEmailError);
+    private bool IsLocationDirty => _editShelter is not null && LocationDiffersFromSaved(_editShelter);
 
     protected override async Task OnInitializedAsync()
     {
@@ -645,6 +671,14 @@
         _editShelter.Latitude = coordinates.Latitude;
         _editShelter.Longitude = coordinates.Longitude;
         _shelterLocationError = null;
+        if (!LocationDiffersFromSaved(_editShelter))
+        {
+            _suggestedAddressRequestVersion++;
+            _suggestedAddress = null;
+            _suggestedAddressUnavailable = false;
+            return;
+        }
+
         await LoadSuggestedAddressAsync(coordinates.Latitude, coordinates.Longitude);
     }
 
@@ -652,12 +686,6 @@
     {
         if (_editShelter is null)
         {
-            return;
-        }
-
-        if (!_savedLatitude.HasValue || !_savedLongitude.HasValue)
-        {
-            Snackbar.Add("This shelter does not have a saved map location yet.", Severity.Info);
             return;
         }
 
@@ -671,6 +699,58 @@
         _suggestedAddress = null;
         _suggestedAddressUnavailable = false;
         Snackbar.Add("Location reverted to the saved shelter details.", Severity.Info);
+    }
+
+    private async Task FindShelterCoordinatesAsync()
+    {
+        if (_editShelter is null)
+        {
+            return;
+        }
+
+        _shelterLocationError = null;
+        _shelterFormError = null;
+        if (string.IsNullOrWhiteSpace(_editShelter.Address) || string.IsNullOrWhiteSpace(_editShelter.City))
+        {
+            _shelterLocationError = "Enter city and address before searching for coordinates.";
+            return;
+        }
+
+        _isGeocoding = true;
+        try
+        {
+            var result = await GeocodingService.FindCoordinatesAsync(_editShelter.Address, _editShelter.City);
+            if (result is null)
+            {
+                _shelterLocationError = "Could not find coordinates for this address. The saved map location was not changed.";
+                return;
+            }
+
+            _editShelter.Latitude = result.Latitude;
+            _editShelter.Longitude = result.Longitude;
+            _suggestedAddressRequestVersion++;
+            _suggestedAddress = null;
+            _suggestedAddressUnavailable = false;
+            await LoadSuggestedAddressAsync(result.Latitude, result.Longitude);
+            Snackbar.Add("Location found. You can adjust the pin if needed.", Severity.Success);
+        }
+        catch
+        {
+            _shelterLocationError = "Could not search for coordinates right now. The saved map location was not changed.";
+        }
+        finally
+        {
+            _isGeocoding = false;
+        }
+    }
+
+    private void OnShelterLocationFieldChanged()
+    {
+        _shelterLocationError = null;
+        _shelterFormError = null;
+        _suggestedAddressRequestVersion++;
+        _suggestedAddress = null;
+        _suggestedAddressUnavailable = false;
     }
 
     private async Task LoadSuggestedAddressAsync(double latitude, double longitude)
@@ -738,6 +818,35 @@
         _suggestedAddress = null;
         _suggestedAddressUnavailable = false;
         Snackbar.Add("Address updated from selected map location. Save the shelter profile to keep it.", Severity.Success);
+    }
+
+    private bool LocationDiffersFromSaved(Shelter shelter)
+    {
+        return !CoordinatesEqual(shelter.Latitude, _savedLatitude) ||
+            !CoordinatesEqual(shelter.Longitude, _savedLongitude) ||
+            !string.Equals(NormalizeLocationText(shelter.Address), NormalizeLocationText(_savedAddress), StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(NormalizeLocationText(shelter.City), NormalizeLocationText(_savedCity), StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(NormalizeLocationText(shelter.Neighborhood), NormalizeLocationText(_savedNeighborhood), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool CoordinatesEqual(double? current, double? saved)
+    {
+        if (!current.HasValue && !saved.HasValue)
+        {
+            return true;
+        }
+
+        if (!current.HasValue || !saved.HasValue)
+        {
+            return false;
+        }
+
+        return Math.Abs(current.Value - saved.Value) < 0.000001;
+    }
+
+    private static string NormalizeLocationText(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
     }
 
     private static string GetSuggestedAddressPreview(ReverseGeocodingResult result)

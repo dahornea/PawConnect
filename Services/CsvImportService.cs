@@ -361,7 +361,7 @@ public class CsvImportService(
         var name = Require(row, "Name", "Name is required.");
         var categoryValue = Require(row, "Category", "Category is required.");
         var unit = Require(row, "Unit", "Unit is required.");
-        var quantity = ParseRequiredNonNegativeInt(row, "Quantity", "Quantity must be zero or greater.");
+        var quantity = ParseRequiredPositiveInt(row, "Quantity", "Quantity must be greater than zero.");
         var threshold = ParseRequiredNonNegativeInt(row, "LowStockThreshold", "Low-stock threshold must be zero or greater.");
 
         ResourceCategory? category = null;
@@ -692,6 +692,20 @@ public class CsvImportService(
         var value = NormalizeOptional(row.PreviewData[field]);
         row.PreviewData[field] = value;
         if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed) || parsed < 0)
+        {
+            AddError(row, field, message);
+            return null;
+        }
+
+        row.PreviewData[field] = parsed.ToString(CultureInfo.InvariantCulture);
+        return parsed;
+    }
+
+    private static int? ParseRequiredPositiveInt(CsvImportRowResult row, string field, string message)
+    {
+        var value = NormalizeOptional(row.PreviewData[field]);
+        row.PreviewData[field] = value;
+        if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed) || parsed <= 0)
         {
             AddError(row, field, message);
             return null;

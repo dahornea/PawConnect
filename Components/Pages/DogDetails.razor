@@ -137,6 +137,15 @@ else
                                         <MudText Typo="Typo.body1">@_dog.Location</MudText>
                                     </div>
                                 </MudItem>
+                                @if (!string.IsNullOrWhiteSpace(_dog.CoatColor))
+                                {
+                                    <MudItem xs="12" sm="6">
+                                        <div class="fact-tile">
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">Coat color</MudText>
+                                            <MudText Typo="Typo.body1">@_dog.CoatColor</MudText>
+                                        </div>
+                                    </MudItem>
+                                }
                             </MudGrid>
 
                             @if (!string.IsNullOrWhiteSpace(_dog.Description))
@@ -583,12 +592,7 @@ else
 
     private List<DogImage> GetValidImages(Dog dog)
     {
-        return dog.Images
-            .Where(i => DogImageUrlValidator.IsValidDisplayImageUrl(i.ImageUrl))
-            .Where(i => !_unavailableImageUrls.Contains(i.ImageUrl.Trim()))
-            .OrderByDescending(i => i.IsMainImage)
-            .ThenBy(i => i.Id)
-            .ToList();
+        return DogImageUrlValidator.GetRealDogImages(dog.Images, _unavailableImageUrls);
     }
 
     private void MarkImageUnavailable(string? imageUrl)

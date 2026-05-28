@@ -58,6 +58,7 @@
 .adopter-dashboard ::deep .preview-image {
     height: 160px;
     object-fit: cover;
+    object-position: var(--dog-image-position, center center);
 }
 
 .adopter-dashboard .avatar-link,

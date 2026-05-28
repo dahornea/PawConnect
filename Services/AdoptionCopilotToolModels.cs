@@ -12,6 +12,8 @@ public sealed class AdoptionCopilotSearchDogsArgs
 
     public List<string>? Breeds { get; set; }
 
+    public List<string>? CoatColors { get; set; }
+
     public string? City { get; set; }
 
     public string? Neighborhood { get; set; }
@@ -148,6 +150,7 @@ public sealed record AdoptionCopilotDogToolDto(
     int DogId,
     string Name,
     string Breed,
+    string? CoatColor,
     string AgeText,
     string Size,
     string Status,

@@ -35,6 +35,7 @@
 .success-stories-page ::deep .success-image {
     height: 230px;
     object-fit: cover;
+    object-position: var(--dog-image-position, center center);
 }
 
 .success-stories-page .dog-image-link {

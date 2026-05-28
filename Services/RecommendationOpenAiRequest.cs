@@ -15,6 +15,7 @@ public sealed record RecommendationAdopterProfileInput(
 public sealed record RecommendationDogCandidateInput(
     int DogId,
     string Breed,
+    string? CoatColor,
     string Age,
     string Size,
     string Status,

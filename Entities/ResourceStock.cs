@@ -9,7 +9,7 @@ public class ResourceStock
     [Required, StringLength(100)]
     public string Name { get; set; } = string.Empty;
 
-    [Range(0, 100000)]
+    [Range(1, 100000)]
     public int Quantity { get; set; }
 
     [Required, StringLength(30)]

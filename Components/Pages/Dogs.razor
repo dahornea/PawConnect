@@ -111,6 +111,15 @@
                         </MudSelect>
                     </MudItem>
                     <MudItem xs="12" sm="6" md="3">
+                        <MudSelect T="string" Label="Coat color" @bind-Value="_selectedCoatColor" Variant="Variant.Outlined" Margin="Margin.Dense">
+                            <MudSelectItem Value="@string.Empty">All coat colors</MudSelectItem>
+                            @foreach (var coatColor in _coatColors)
+                            {
+                                <MudSelectItem Value="@coatColor">@coatColor</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12" sm="6" md="3">
                         <MudNumericField T="int?" Label="Max age" @bind-Value="_maxAge" Variant="Variant.Outlined" Margin="Margin.Dense" Min="0" Max="30" />
                     </MudItem>
                     <MudItem xs="12" sm="6" md="3">
@@ -310,7 +319,7 @@
                                 {
                                     <img src="@imageUrl"
                                          alt="@GetDogImageAlt(dog)"
-                                         class="dog-image"
+                                         class="dog-image dog-card-image"
                                          loading="lazy"
                                          @onerror="@(() => MarkImageUnavailable(imageUrl))" />
                                 }
@@ -358,6 +367,7 @@
     private List<Dog> _dogs = [];
     private List<PawConnect.Entities.Shelter> _shelters = [];
     private List<string> _breeds = [];
+    private List<string> _coatColors = [];
     private List<string> _locations = [];
     private List<string> _neighborhoods = [];
     private Dictionary<int, double> _dogDistancesKm = [];
@@ -377,6 +387,7 @@
     private GeocodingResult? _nearbyOrigin;
     private double? _nearestDogDistanceKm;
     private string _selectedBreed = string.Empty;
+    private string _selectedCoatColor = string.Empty;
     private int? _maxAge;
     private int? _selectedShelterId;
     private int _selectedRadiusKm = 25;
@@ -446,6 +457,14 @@
             _shelters = await ShelterService.GetAllSheltersAsync();
             _dogs = availableDogs;
             _breeds = availableDogs.Select(DogBreedFormatter.Format).Distinct().OrderBy(b => b).ToList();
+            _coatColors = DogCoatColorOptions.Values
+                .Concat(availableDogs
+                    .Select(d => DogCoatColorOptions.Normalize(d.CoatColor))
+                    .Where(color => !string.IsNullOrWhiteSpace(color))
+                    .Select(color => color!))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(color => color)
+                .ToList();
             _locations = availableDogs.Select(d => d.Location).Distinct().OrderBy(l => l).ToList();
             _neighborhoods = availableDogs
                 .Select(d => d.Shelter?.Neighborhood)
@@ -486,7 +505,8 @@
                 ParsePublicStatus(_selectedStatus),
                 serviceSortOption,
                 _selectedShelterId,
-                EmptyToNull(_selectedNeighborhood));
+                EmptyToNull(_selectedNeighborhood),
+                EmptyToNull(_selectedCoatColor));
             _dogs = ApplyNearbyFilterAndSort(_dogs);
             await LoadFavoriteStateAsync();
         }
@@ -510,6 +530,7 @@
     {
         _searchTerm = null;
         _selectedBreed = string.Empty;
+        _selectedCoatColor = string.Empty;
         _maxAge = null;
         _selectedShelterId = null;
         _selectedSize = string.Empty;
@@ -561,6 +582,11 @@
             chips.Add(new ActiveFilterChip($"Breed: {ShortChipText(_selectedBreed)}", ClearBreedFilterAsync));
         }
 
+        if (!string.IsNullOrWhiteSpace(_selectedCoatColor))
+        {
+            chips.Add(new ActiveFilterChip($"Coat color: {ShortChipText(_selectedCoatColor)}", ClearCoatColorFilterAsync));
+        }
+
         if (_maxAge.HasValue)
         {
             chips.Add(new ActiveFilterChip($"Max age: {_maxAge.Value}", ClearMaxAgeFilterAsync));
@@ -609,6 +635,12 @@
     private async Task ClearBreedFilterAsync()
     {
         _selectedBreed = string.Empty;
+        await ApplyFiltersAsync();
+    }
+
+    private async Task ClearCoatColorFilterAsync()
+    {
+        _selectedCoatColor = string.Empty;
         await ApplyFiltersAsync();
     }
 
@@ -946,13 +978,7 @@
 
     private string? GetMainImageUrl(Dog dog)
     {
-        return dog.Images
-            .Where(i => DogImageUrlValidator.IsValidDisplayImageUrl(i.ImageUrl))
-            .Where(i => !_unavailableImageUrls.Contains(i.ImageUrl.Trim()))
-            .OrderByDescending(i => i.IsMainImage)
-            .ThenBy(i => i.Id)
-            .Select(i => i.ImageUrl)
-            .FirstOrDefault();
+        return DogImageUrlValidator.GetPrimaryRealDogImageUrl(dog.Images, _unavailableImageUrls);
     }
 
     private void MarkImageUnavailable(string? imageUrl)

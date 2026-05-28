@@ -70,6 +70,10 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .HasForeignKey(d => d.ShelterId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        builder.Entity<Dog>()
+            .Property(d => d.CoatColor)
+            .HasMaxLength(80);
+
         builder.Entity<DogBreed>()
             .HasIndex(breed => breed.Name)
             .IsUnique();
