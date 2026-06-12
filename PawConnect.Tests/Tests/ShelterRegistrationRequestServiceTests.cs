@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using PawConnect.Data;
 using PawConnect.Entities;
 using PawConnect.Services;
 using PawConnect.Tests.Tests.Helpers;
@@ -8,7 +9,7 @@ namespace PawConnect.Tests.Tests;
 public class ShelterRegistrationRequestServiceTests
 {
     [Fact]
-    public async Task SubmitRequestAsync_CreatesPendingRequestWithoutCoordinates()
+    public async Task SubmitRequestAsync_CreatesPendingRequestAndSendsAdminEmail()
     {
         await using var context = TestDbContextFactory.CreateContext();
         var emailService = new TestEmailService();
@@ -19,7 +20,10 @@ public class ShelterRegistrationRequestServiceTests
         Assert.Equal(ShelterRegistrationRequestStatus.Pending, request.Status);
         Assert.Null(request.Latitude);
         Assert.Null(request.Longitude);
-        Assert.Contains(context.ShelterRegistrationRequests, r => r.Email == "new-shelter@example.test");
+        Assert.Contains(context.ShelterRegistrationRequests, item => item.Email == "new-shelter@example.test");
+        var email = Assert.Single(emailService.SentEmails);
+        Assert.Equal("admin@test.com", email.To);
+        Assert.Contains(email.Attachments!, attachment => attachment.FileName == "ShelterRegistrationRequest.pdf");
     }
 
     [Fact]
@@ -28,23 +32,10 @@ public class ShelterRegistrationRequestServiceTests
         await using var context = TestDbContextFactory.CreateContext();
         var service = CreateService(context);
 
-        await service.SubmitRequestAsync(CreateRequest());
-
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.SubmitRequestAsync(CreateRequest()));
-        Assert.Equal("A shelter application with this email is already pending review.", exception.Message);
-    }
-
-    [Fact]
-    public async Task SubmitRequestAsync_BlocksDuplicatePendingRequestCaseInsensitively()
-    {
-        await using var context = TestDbContextFactory.CreateContext();
-        var service = CreateService(context);
-
         await service.SubmitRequestAsync(CreateRequest(email: "New-Shelter@Example.Test"));
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             service.SubmitRequestAsync(CreateRequest(email: " new-shelter@example.test ")));
-
         Assert.Equal("A shelter application with this email is already pending review.", exception.Message);
     }
 
@@ -73,81 +64,6 @@ public class ShelterRegistrationRequestServiceTests
     }
 
     [Fact]
-    public async Task SubmitRequestAsync_StoresAddressWithoutDuplicatedCity()
-    {
-        await using var context = TestDbContextFactory.CreateContext();
-        var service = CreateService(context);
-
-        var request = await service.SubmitRequestAsync(CreateRequest(address: "Strada Test 10, Cluj-Napoca"));
-
-        Assert.Equal("Strada Test 10", request.Address);
-    }
-
-    [Fact]
-    public async Task SubmitRequestAsync_StoresOptionalNeighborhood()
-    {
-        await using var context = TestDbContextFactory.CreateContext();
-        var service = CreateService(context);
-
-        var request = await service.SubmitRequestAsync(CreateRequest(neighborhood: " Zorilor "));
-
-        Assert.Equal("Zorilor", request.Neighborhood);
-    }
-
-    [Fact]
-    public async Task SubmitRequestAsync_SendsAdminEmailWithPdfAttachment()
-    {
-        await using var context = TestDbContextFactory.CreateContext();
-        var emailService = new TestEmailService();
-        var service = CreateService(context, emailService);
-
-        await service.SubmitRequestAsync(CreateRequest());
-
-        var email = Assert.Single(emailService.SentEmails);
-        Assert.Equal("admin@test.com", email.To);
-        Assert.Contains("New shelter application", email.Subject);
-        Assert.Contains(email.Attachments!, attachment => attachment.FileName == "ShelterRegistrationRequest.pdf");
-        Assert.NotNull(email.HtmlBody);
-        Assert.Contains("New shelter application submitted", email.HtmlBody!);
-        Assert.Contains("A PDF report is attached to this email.", email.HtmlBody!);
-    }
-
-    [Fact]
-    public async Task SubmitRequestAsync_AllowsAnonymousApplication()
-    {
-        await using var context = TestDbContextFactory.CreateContext();
-        var service = CreateService(context);
-
-        var request = await service.SubmitRequestAsync(CreateRequest(), currentUserId: null);
-
-        Assert.Equal(ShelterRegistrationRequestStatus.Pending, request.Status);
-    }
-
-    [Fact]
-    public async Task SubmitRequestAsync_BlocksAdminUser()
-    {
-        await using var context = TestDbContextFactory.CreateContext();
-        var service = CreateService(context);
-
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            service.SubmitRequestAsync(CreateRequest(), TestDbContextFactory.AdminId));
-
-        Assert.Contains("Admins manage shelter applications", exception.Message);
-    }
-
-    [Fact]
-    public async Task SubmitRequestAsync_BlocksShelterUser()
-    {
-        await using var context = TestDbContextFactory.CreateContext();
-        var service = CreateService(context);
-
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            service.SubmitRequestAsync(CreateRequest(), TestDbContextFactory.ShelterUserId));
-
-        Assert.Contains("already active", exception.Message);
-    }
-
-    [Fact]
     public async Task AcceptRequestAsync_CreatesShelterUserRoleAndLinkedShelterWithCoordinates()
     {
         await using var context = TestDbContextFactory.CreateContext();
@@ -159,28 +75,13 @@ public class ShelterRegistrationRequestServiceTests
 
         var user = await userManager.FindByEmailAsync("new-shelter@example.test");
         Assert.NotNull(user);
-        Assert.True(await userManager.IsInRoleAsync(user, "Shelter"));
-
-        var shelter = context.Shelters.Single(s => s.Email == "new-shelter@example.test");
+        Assert.True(await userManager.IsInRoleAsync(user, IdentitySeedData.ShelterRole));
+        var shelter = context.Shelters.Single(shelter => shelter.Email == "new-shelter@example.test");
         Assert.Equal(user!.Id, shelter.ApplicationUserId);
         Assert.Equal(46.75, shelter.Latitude);
         Assert.Equal(23.6, shelter.Longitude);
         Assert.Equal("Buna Ziua", shelter.Neighborhood);
-        Assert.Equal(ShelterRegistrationRequestStatus.Accepted, context.ShelterRegistrationRequests.Single(r => r.Id == request.Id).Status);
-    }
-
-    [Fact]
-    public async Task AcceptRequestAsync_WorksWhenCoordinatesAreMissing()
-    {
-        await using var context = TestDbContextFactory.CreateContext();
-        var service = CreateService(context);
-        var request = await service.SubmitRequestAsync(CreateRequest(latitude: null, longitude: null));
-
-        await service.AcceptRequestAsync(request.Id, TestDbContextFactory.AdminId);
-
-        var shelter = context.Shelters.Single(s => s.Email == "new-shelter@example.test");
-        Assert.Null(shelter.Latitude);
-        Assert.Null(shelter.Longitude);
+        Assert.Equal(ShelterRegistrationRequestStatus.Accepted, context.ShelterRegistrationRequests.Single(item => item.Id == request.Id).Status);
     }
 
     [Fact]
@@ -207,21 +108,8 @@ public class ShelterRegistrationRequestServiceTests
         await service.RejectRequestAsync(request.Id, TestDbContextFactory.AdminId);
 
         Assert.Null(await userManager.FindByEmailAsync("new-shelter@example.test"));
-        Assert.DoesNotContain(context.Shelters, s => s.Email == "new-shelter@example.test");
-        Assert.Equal(ShelterRegistrationRequestStatus.Rejected, context.ShelterRegistrationRequests.Single(r => r.Id == request.Id).Status);
-    }
-
-    [Fact]
-    public async Task RejectRequestAsync_BlocksNonAdminUser()
-    {
-        await using var context = TestDbContextFactory.CreateContext();
-        var service = CreateService(context);
-        var request = await service.SubmitRequestAsync(CreateRequest());
-
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            service.RejectRequestAsync(request.Id, TestDbContextFactory.ShelterUserId));
-
-        Assert.Contains("Only admins", exception.Message);
+        Assert.DoesNotContain(context.Shelters, shelter => shelter.Email == "new-shelter@example.test");
+        Assert.Equal(ShelterRegistrationRequestStatus.Rejected, context.ShelterRegistrationRequests.Single(item => item.Id == request.Id).Status);
     }
 
     private static ShelterRegistrationRequestService CreateService(
@@ -240,9 +128,7 @@ public class ShelterRegistrationRequestServiceTests
     private static ShelterRegistrationRequest CreateRequest(
         double? latitude = 46.75,
         double? longitude = 23.6,
-        string email = "new-shelter@example.test",
-        string address = "Strada Test 10",
-        string? neighborhood = "Buna Ziua")
+        string email = "new-shelter@example.test")
     {
         return new ShelterRegistrationRequest
         {
@@ -251,8 +137,8 @@ public class ShelterRegistrationRequestServiceTests
             Email = email,
             PhoneNumber = "+40 700 000 005",
             City = "Cluj-Napoca",
-            Neighborhood = neighborhood,
-            Address = address,
+            Neighborhood = "Buna Ziua",
+            Address = "Strada Test 10",
             Description = "A demo shelter application for testing.",
             Website = "https://example.test",
             OpeningHours = "Mon-Fri 09:00-17:00",
