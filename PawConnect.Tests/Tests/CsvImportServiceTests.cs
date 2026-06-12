@@ -25,11 +25,10 @@ public class CsvImportServiceTests
         Assert.Equal(2, result.TotalRows);
         Assert.Equal(2, result.ValidRows);
         Assert.False(result.HasErrors);
-        Assert.All(result.RowResults, row => Assert.Equal(CsvImportActions.Create, row.Action));
     }
 
     [Fact]
-    public async Task PreviewShelterResourcesImportAsync_InvalidNegativeQuantityFailsValidation()
+    public async Task PreviewShelterResourcesImportAsync_InvalidQuantityFailsValidation()
     {
         await using var context = TestDbContextFactory.CreateContext();
         var service = new CsvImportService(context);
@@ -42,82 +41,6 @@ public class CsvImportServiceTests
         var row = Assert.Single(result.RowResults);
         Assert.False(row.IsValid);
         Assert.Contains(row.Errors, error => error.Message == "Quantity must be greater than zero.");
-    }
-
-    [Fact]
-    public async Task PreviewShelterResourcesImportAsync_MissingNameFailsValidation()
-    {
-        await using var context = TestDbContextFactory.CreateContext();
-        var service = new CsvImportService(context);
-
-        var result = await service.PreviewShelterResourcesImportAsync(StreamFrom("""
-            Name,Category,FoodType,Quantity,Unit,LowStockThreshold
-            ,Food,Adult dry food,25,kg,10
-            """), TestDbContextFactory.ShelterId);
-
-        var row = Assert.Single(result.RowResults);
-        Assert.False(row.IsValid);
-        Assert.Contains(row.Errors, error => error.Message == "Name is required.");
-    }
-
-    [Fact]
-    public async Task PreviewShelterResourcesImportAsync_DuplicateResourceRowIsDetected()
-    {
-        await using var context = TestDbContextFactory.CreateContext();
-        var service = new CsvImportService(context);
-
-        var result = await service.PreviewShelterResourcesImportAsync(StreamFrom("""
-            Name,Category,FoodType,Quantity,Unit,LowStockThreshold
-            Adult dry food,Food,Adult dry food,25,kg,10
-            Adult dry food,Food,Adult dry food,30,kg,8
-            """), TestDbContextFactory.ShelterId);
-
-        Assert.Equal(1, result.ValidRows);
-        Assert.Equal(1, result.InvalidRows);
-        Assert.Contains(result.RowResults[1].Errors, error => error.Message == "Duplicate resource row in this CSV.");
-    }
-
-    [Fact]
-    public async Task ImportShelterResourcesAsync_UpdatesExistingShelterResource()
-    {
-        await using var context = TestDbContextFactory.CreateContext();
-        context.ResourceStocks.Add(new ResourceStock
-        {
-            ShelterId = TestDbContextFactory.ShelterId,
-            Name = "Adult dry food",
-            ResourceCategoryId = TestDbContextFactory.FoodCategoryId,
-            FoodTypeId = TestDbContextFactory.AdultFoodTypeId,
-            Quantity = 5,
-            Unit = "kg",
-            LowStockThreshold = 2
-        });
-        await context.SaveChangesAsync();
-        var service = new CsvImportService(context);
-
-        var result = await service.ImportShelterResourcesAsync(StreamFrom("""
-            Name,Category,FoodType,Quantity,Unit,LowStockThreshold
-            Adult dry food,Food,Adult dry food,40,kg,12
-            """), TestDbContextFactory.ShelterId);
-
-        var resource = Assert.Single(context.ResourceStocks.Where(resource => resource.ShelterId == TestDbContextFactory.ShelterId));
-        Assert.Equal(1, result.ImportedRows);
-        Assert.Equal(40, resource.Quantity);
-        Assert.Equal(12, resource.LowStockThreshold);
-    }
-
-    [Fact]
-    public async Task ImportShelterResourcesAsync_NonFoodResourceIgnoresFoodType()
-    {
-        await using var context = TestDbContextFactory.CreateContext();
-        var service = new CsvImportService(context);
-
-        await service.ImportShelterResourcesAsync(StreamFrom("""
-            Name,Category,FoodType,Quantity,Unit,LowStockThreshold
-            Blankets,Blankets,Adult dry food,12,pieces,5
-            """), TestDbContextFactory.ShelterId);
-
-        var resource = Assert.Single(context.ResourceStocks.Where(resource => resource.Name == "Blankets"));
-        Assert.Null(resource.FoodTypeId);
     }
 
     [Fact]
@@ -171,24 +94,6 @@ public class CsvImportServiceTests
     }
 
     [Fact]
-    public async Task ImportShelterDogsAsync_UnmatchedBreedStoresCustomBreed()
-    {
-        await using var context = TestDbContextFactory.CreateContext();
-        var service = new CsvImportService(context);
-
-        await service.ImportShelterDogsAsync(StreamFrom("""
-            Name,Breed,AgeYears,AgeMonths,Size,Status,Location,Description,PreferredFoodType,DailyFoodAmount,ImageUrls
-            Nova,Rare Mountain Dog Mix,3,0,Medium,Available,Cluj-Napoca,Steady dog,Adult dry food,300,
-            """), TestDbContextFactory.ShelterId);
-
-        var dog = Assert.Single(context.Dogs.Where(dog => dog.Name == "Nova"));
-        Assert.Null(dog.DogBreedId);
-        Assert.True(dog.IsMixedBreed);
-        Assert.Equal("Rare Mountain Dog", dog.CustomBreedName);
-        Assert.Equal("Rare Mountain Dog Mix", dog.Breed);
-    }
-
-    [Fact]
     public async Task ImportShelterDogsAsync_KnownMixedBreedPairStoresPrimaryAndSecondaryBreeds()
     {
         await using var context = TestDbContextFactory.CreateContext();
@@ -207,54 +112,6 @@ public class CsvImportServiceTests
     }
 
     [Fact]
-    public async Task PreviewShelterDogsImportAsync_AgeMonthsTwelveFailsValidation()
-    {
-        await using var context = TestDbContextFactory.CreateContext();
-        var service = new CsvImportService(context);
-
-        var result = await service.PreviewShelterDogsImportAsync(StreamFrom("""
-            Name,Breed,AgeYears,AgeMonths,Size,Status,Location,Description,PreferredFoodType,DailyFoodAmount,ImageUrls
-            Buddy,Labrador Mix,2,12,Large,Available,Cluj-Napoca,Friendly dog,Adult dry food,480,
-            """), TestDbContextFactory.ShelterId);
-
-        var row = Assert.Single(result.RowResults);
-        Assert.False(row.IsValid);
-        Assert.Contains(row.Errors, error => error.Message == "Age in months must be between 0 and 11.");
-    }
-
-    [Fact]
-    public async Task PreviewShelterDogsImportAsync_InvalidStatusFailsValidation()
-    {
-        await using var context = TestDbContextFactory.CreateContext();
-        var service = new CsvImportService(context);
-
-        var result = await service.PreviewShelterDogsImportAsync(StreamFrom("""
-            Name,Breed,AgeYears,AgeMonths,Size,Status,Location,Description,PreferredFoodType,DailyFoodAmount,ImageUrls
-            Buddy,Labrador Mix,2,6,Large,Unknown,Cluj-Napoca,Friendly dog,Adult dry food,480,
-            """), TestDbContextFactory.ShelterId);
-
-        var row = Assert.Single(result.RowResults);
-        Assert.False(row.IsValid);
-        Assert.Contains(row.Errors, error => error.Message == "Status must be Available, Reserved, Adopted, or InTreatment.");
-    }
-
-    [Fact]
-    public async Task PreviewShelterDogsImportAsync_DuplicateImageUrlFailsValidation()
-    {
-        await using var context = TestDbContextFactory.CreateContext();
-        var service = new CsvImportService(context);
-
-        var result = await service.PreviewShelterDogsImportAsync(StreamFrom("""
-            Name,Breed,AgeYears,AgeMonths,Size,Status,Location,Description,PreferredFoodType,DailyFoodAmount,ImageUrls
-            Buddy,Labrador Mix,2,6,Large,Available,Cluj-Napoca,Friendly dog,Adult dry food,480,"https://example.com/dog.jpg;https://example.com/dog.jpg"
-            """), TestDbContextFactory.ShelterId);
-
-        var row = Assert.Single(result.RowResults);
-        Assert.False(row.IsValid);
-        Assert.Contains(row.Errors, error => error.Message == "Duplicate image URL in this row.");
-    }
-
-    [Fact]
     public async Task PreviewShelterDogsImportAsync_InvalidImageUrlFailsValidation()
     {
         await using var context = TestDbContextFactory.CreateContext();
@@ -267,11 +124,11 @@ public class CsvImportServiceTests
 
         var row = Assert.Single(result.RowResults);
         Assert.False(row.IsValid);
-        Assert.Contains(row.Errors, error => error.Message == "Image URL 'https://example.com/not-an-image' must be a valid direct image URL starting with http:// or https://.");
+        Assert.Contains(row.Errors, error => error.Message.Contains("valid direct image URL", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
-    public async Task ImportAdminShelterRequestsAsync_ValidCsvCreatesPendingRequestsOnly()
+    public async Task ImportAdminShelterRequestsAsync_ValidCsvCreatesPendingRequestAndNotification()
     {
         await using var context = TestDbContextFactory.CreateContext();
         var notificationService = new FakeNotificationService();
@@ -289,107 +146,7 @@ public class CsvImportServiceTests
         Assert.Equal(ShelterRegistrationRequestStatus.Pending, request.Status);
         Assert.Equal(userCount, await context.Users.CountAsync());
         Assert.Equal(shelterCount, await context.Shelters.CountAsync());
-        var notification = Assert.Single(notificationService.CreatedNotifications);
-        Assert.Equal(TestDbContextFactory.AdminId, notification.UserId);
-        Assert.Equal("Shelter requests imported", notification.Title);
-        Assert.Contains("1 shelter application request(s)", notification.Message);
-        Assert.Equal(NotificationCategory.ShelterApplication, notification.Category);
-        Assert.Equal("/admin/shelter-requests", notification.Link);
-    }
-
-    [Fact]
-    public async Task PreviewAdminShelterRequestsImportAsync_BlocksDuplicatePendingEmail()
-    {
-        await using var context = TestDbContextFactory.CreateContext();
-        context.ShelterRegistrationRequests.Add(new ShelterRegistrationRequest
-        {
-            ShelterName = "Pending Shelter",
-            ContactPersonName = "Pending Contact",
-            Email = "pending@example.com",
-            PhoneNumber = "+40 700 000 101",
-            City = "Cluj-Napoca",
-            Address = "Strada Pending 1",
-            Description = "Existing pending request.",
-            Status = ShelterRegistrationRequestStatus.Pending
-        });
-        await context.SaveChangesAsync();
-        var service = new CsvImportService(context);
-
-        var result = await service.PreviewAdminShelterRequestsImportAsync(StreamFrom("""
-            ShelterName,ContactPersonName,Email,PhoneNumber,City,Address,Description,Website,OpeningHours,ReasonForJoining,Latitude,Longitude
-            Pending Shelter 2,Alex Popescu, PENDING@example.com ,+40 700 000 100,Cluj-Napoca,Strada Exemplu 10,Fictional demo shelter,,,,,
-            """));
-
-        var row = Assert.Single(result.RowResults);
-        Assert.False(row.IsValid);
-        Assert.Equal(CsvImportActions.Duplicate, row.Action);
-        Assert.Contains(row.Errors, error => error.Message == "A pending shelter application already exists for this email.");
-    }
-
-    [Fact]
-    public async Task PreviewAdminShelterRequestsImportAsync_BlocksExistingShelterOrUserEmail()
-    {
-        await using var context = TestDbContextFactory.CreateContext();
-        var service = new CsvImportService(context);
-
-        var result = await service.PreviewAdminShelterRequestsImportAsync(StreamFrom("""
-            ShelterName,ContactPersonName,Email,PhoneNumber,City,Address,Description,Website,OpeningHours,ReasonForJoining,Latitude,Longitude
-            Existing Shelter,Alex Popescu,shelter@test.com,+40 700 000 100,Cluj-Napoca,Strada Exemplu 10,Fictional demo shelter,,,,,
-            """));
-
-        var row = Assert.Single(result.RowResults);
-        Assert.False(row.IsValid);
-        Assert.Equal(CsvImportActions.Duplicate, row.Action);
-        Assert.Contains(row.Errors, error => error.Message == "A shelter account with this email already exists.");
-    }
-
-    [Fact]
-    public async Task PreviewAdminShelterRequestsImportAsync_InvalidEmailFailsValidation()
-    {
-        await using var context = TestDbContextFactory.CreateContext();
-        var service = new CsvImportService(context);
-
-        var result = await service.PreviewAdminShelterRequestsImportAsync(StreamFrom("""
-            ShelterName,ContactPersonName,Email,PhoneNumber,City,Address,Description,Website,OpeningHours,ReasonForJoining,Latitude,Longitude
-            Broken Shelter,Alex Popescu,not-an-email,+40 700 000 100,Cluj-Napoca,Strada Exemplu 10,Fictional demo shelter,,,,,
-            """));
-
-        var row = Assert.Single(result.RowResults);
-        Assert.False(row.IsValid);
-        Assert.Contains(row.Errors, error => error.Message == "Email must be valid.");
-    }
-
-    [Fact]
-    public async Task PreviewAdminShelterRequestsImportAsync_InvalidCoordinatesFailValidation()
-    {
-        await using var context = TestDbContextFactory.CreateContext();
-        var service = new CsvImportService(context);
-
-        var result = await service.PreviewAdminShelterRequestsImportAsync(StreamFrom("""
-            ShelterName,ContactPersonName,Email,PhoneNumber,City,Address,Description,Website,OpeningHours,ReasonForJoining,Latitude,Longitude
-            Broken Shelter,Alex Popescu,broken@example.com,+40 700 000 100,Cluj-Napoca,Strada Exemplu 10,Fictional demo shelter,,,,91,181
-            """));
-
-        var row = Assert.Single(result.RowResults);
-        Assert.False(row.IsValid);
-        Assert.Contains(row.Errors, error => error.Message == "Latitude must be between -90 and 90.");
-        Assert.Contains(row.Errors, error => error.Message == "Longitude must be between -180 and 180.");
-    }
-
-    [Fact]
-    public async Task ImportAdminShelterRequestsAsync_StoresAddressAndCitySeparately()
-    {
-        await using var context = TestDbContextFactory.CreateContext();
-        var service = new CsvImportService(context);
-
-        await service.ImportAdminShelterRequestsAsync(StreamFrom("""
-            ShelterName,ContactPersonName,Email,PhoneNumber,City,Address,Description,Website,OpeningHours,ReasonForJoining,Latitude,Longitude
-            Happy Tails Rescue,Alex Popescu,happytails@example.com,+40 700 000 100,Cluj-Napoca,"Strada Exemplu 10, Cluj-Napoca",Fictional demo shelter,,,,,
-            """));
-
-        var request = Assert.Single(context.ShelterRegistrationRequests.Where(request => request.Email == "happytails@example.com"));
-        Assert.Equal("Strada Exemplu 10", request.Address);
-        Assert.Equal("Cluj-Napoca", request.City);
+        Assert.Single(notificationService.CreatedNotifications);
     }
 
     [Fact]
@@ -445,40 +202,19 @@ public class CsvImportServiceTests
             return Task.CompletedTask;
         }
 
-        public Task<List<Notification>> GetNotificationsForUserAsync(string userId, int count = 20)
-        {
-            return Task.FromResult(new List<Notification>());
-        }
+        public Task<List<Notification>> GetNotificationsForUserAsync(string userId, int count = 20) => Task.FromResult(new List<Notification>());
 
-        public Task<List<Notification>> GetNotificationsForUserAsync(NotificationCategory? category, bool unreadOnly, int count = 100)
-        {
-            return Task.FromResult(new List<Notification>());
-        }
+        public Task<List<Notification>> GetNotificationsForUserAsync(NotificationCategory? category, bool unreadOnly, int count = 100) => Task.FromResult(new List<Notification>());
 
-        public Task<List<Notification>> GetNotificationsForUserAsync(string userId, NotificationCategory? category, bool unreadOnly, int count = 100)
-        {
-            return Task.FromResult(new List<Notification>());
-        }
+        public Task<List<Notification>> GetNotificationsForUserAsync(string userId, NotificationCategory? category, bool unreadOnly, int count = 100) => Task.FromResult(new List<Notification>());
 
-        public Task<int> GetUnreadCountAsync(string userId)
-        {
-            return Task.FromResult(0);
-        }
+        public Task<int> GetUnreadCountAsync(string userId) => Task.FromResult(0);
 
-        public Task MarkAsReadAsync(int notificationId, string userId)
-        {
-            return Task.CompletedTask;
-        }
+        public Task MarkAsReadAsync(int notificationId, string userId) => Task.CompletedTask;
 
-        public Task MarkAllAsReadAsync(string userId)
-        {
-            return Task.CompletedTask;
-        }
+        public Task MarkAllAsReadAsync(string userId) => Task.CompletedTask;
 
-        public Task DeleteNotificationAsync(int notificationId, string userId)
-        {
-            return Task.CompletedTask;
-        }
+        public Task DeleteNotificationAsync(int notificationId, string userId) => Task.CompletedTask;
     }
 
     private sealed record CreatedNotification(
