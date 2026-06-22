@@ -11,6 +11,14 @@ public class DogImageUrlValidatorTests
         Assert.True(DogImageUrlValidator.IsValidDisplayImageUrl("https://example.com/dog.jpg?size=large"));
     }
 
+    [Theory]
+    [InlineData("https://www.borrowmydoggy.com/_next/image?url=https%3A%2F%2Fcdn.sanity.io%2Fimages%2F4ij0poqn%2Fproduction%2Fe24bfbd855cda99e303975f2bd2a1bf43079b320-800x600.jpg&w=1080&q=80")]
+    [InlineData("https://cms.paw-champ.com/api/assets/dog-wiki/5e6f4c0b-d87f-48c8-94b3-318508a1316e?cache=3600")]
+    public void IsValidDisplayImageUrl_AcceptsSupportedImageProxyUrls(string imageUrl)
+    {
+        Assert.True(DogImageUrlValidator.IsValidDisplayImageUrl(imageUrl));
+    }
+
     [Fact]
     public void IsValidDisplayImageUrl_RejectsInvalidOrPlaceholderUrl()
     {
