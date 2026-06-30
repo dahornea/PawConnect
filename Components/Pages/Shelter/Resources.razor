@@ -172,7 +172,7 @@
                             @_resourceFormError
                         </MudAlert>
                     }
-                    <MudForm @ref="_form">
+                    <MudForm @ref="_form" @key="_resourceFormKey">
                         <MudGrid Spacing="2">
                             <MudItem xs="12" md="4">
                                 <MudTextField Label="Name"
@@ -251,10 +251,10 @@
                             </MudItem>
                             <MudItem xs="12" md="3">
                                 <MudStack Row="true" Spacing="2" Class="mt-2">
-                                    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save" Disabled="_isSaving" OnClick="SaveAsync">@(_model.Id == 0 ? "Add" : "Save")</MudButton>
+                                    <MudButton ButtonType="ButtonType.Button" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save" Disabled="_isSaving" OnClick="SaveAsync">@(_model.Id == 0 ? "Add" : "Save")</MudButton>
                                     @if (_model.Id != 0)
                                     {
-                                        <MudButton Variant="Variant.Text" Color="Color.Default" Disabled="_isSaving" OnClick="ResetFormAsync">Cancel</MudButton>
+                                        <MudButton ButtonType="ButtonType.Button" Variant="Variant.Text" Color="Color.Default" Disabled="_isSaving" OnClick="ResetFormAsync">Cancel</MudButton>
                                     }
                                 </MudStack>
                             </MudItem>
@@ -340,6 +340,7 @@
     private IBrowserFile? _resourceImportFile;
     private CsvImportResult? _importResult;
     private int _resourceImportInputKey;
+    private int _resourceFormKey;
     private const long MaxCsvFileSize = 2 * 1024 * 1024;
 
     private bool IsFoodCategorySelected =>
@@ -670,6 +671,8 @@
         {
             await _form.ResetValidationAsync();
         }
+        _form = null;
+        _resourceFormKey++;
     }
 
     private void ClearResourceValidationErrors()

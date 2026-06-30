@@ -643,18 +643,14 @@ Recent feature migrations include:
 
 If `dotnet ef database update` cannot connect from your terminal, check that SQL Server/LocalDB is running and that the `DefaultConnection` server name matches the `PawConnect` database you created in SSMS.
 
-## Test Users
+## Demo Users
 
-All seeded users use this password:
+The presentation seed data creates three main demo accounts:
 
-```text
-PawConnect123!
-```
-
-| Role | Email |
-| --- | --- |
-| Adopter | adopter@test.com |
-| Shelter | u8878233525@id.gle |
-| Admin | admin@test.com |
+| Role | Email | Password |
+| --- | --- | --- |
+| Admin | `admin@mail.com` | `Admin1!` |
+| Adopter | `adopter@mail.com` | `Adopter1!` |
+| Shelter | `shelter@mail.com` | `Shelter1!` |
 
 Newly registered users are assigned the `Adopter` role by default.
