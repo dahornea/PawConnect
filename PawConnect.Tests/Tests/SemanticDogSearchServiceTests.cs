@@ -340,6 +340,53 @@ public class SemanticDogSearchServiceTests
     }
 
     [Fact]
+    public async Task AdoptionCopilot_OlderResidentDogCompatibilityDoesNotFilterForSeniorCandidateAge()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        SeedProfile(context);
+        var youngCompatibleDog = TestDbContextFactory.CreateDog("Young Senior Compatible Dog");
+        youngCompatibleDog.AgeYears = 2;
+        youngCompatibleDog.Age = 2;
+        youngCompatibleDog.Description = "He is not pushy with other dogs and prefers gentle, low-pressure interactions.";
+        youngCompatibleDog.BehaviorDescription = "A calm first meeting helps him stay respectful around older dogs.";
+        var olderQuietDog = TestDbContextFactory.CreateDog("Older Quiet Dog");
+        olderQuietDog.AgeYears = 8;
+        olderQuietDog.Age = 8;
+        olderQuietDog.Description = "She enjoys short walks, soft bedding, and a quiet evening routine.";
+        olderQuietDog.BehaviorDescription = "No direct dog-to-dog history is available.";
+        context.Dogs.AddRange(youngCompatibleDog, olderQuietDog);
+        await context.SaveChangesAsync();
+        var service = CreateCopilotService(context, new FakeOpenAiAdoptionCopilotClient(), new OpenAiSettings { Enabled = false });
+
+        var response = await service.AskAsync(TestDbContextFactory.AdopterId, "I want a dog that will behave around an older dog");
+
+        Assert.Contains(response.AppliedConstraints!, constraint =>
+            constraint.Label == "Compatibility" && constraint.Value.Contains("Senior dog", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(response.AppliedConstraints!, constraint =>
+            constraint.Label == "Age");
+        var youngResult = Assert.Single(response.Results, result => result.DogId == youngCompatibleDog.Id);
+        Assert.Contains(youngResult.DisplayTags!, tag =>
+            tag.Contains("Gentle play", StringComparison.OrdinalIgnoreCase) ||
+            tag.Contains("Ask shelter about senior dog fit", StringComparison.OrdinalIgnoreCase) ||
+            tag.Contains("Not too energetic", StringComparison.OrdinalIgnoreCase));
+
+        var toolService = CreateToolService(context, new OpenAiSettings { Enabled = false });
+        var toolResult = await toolService.SearchDogsAsync(
+            TestDbContextFactory.AdopterId,
+            new AdoptionCopilotSearchDogsArgs
+            {
+                Query = "I want a dog that will behave around an older dog",
+                PrimaryIntent = "Compatibility",
+                CompatibilityTarget = "SeniorDog",
+                Compatibility = ["SeniorDog"],
+                MinAgeYears = 7,
+                AgeComparison = "AtLeast",
+                Count = 10
+            });
+        Assert.Contains(toolResult.Dogs, result => result.DogId == youngCompatibleDog.Id);
+    }
+
+    [Fact]
     public async Task AdoptionCopilot_AskShelterPrimaryEvidenceCannotBeStrongEvenWithOpenAiScore()
     {
         await using var context = TestDbContextFactory.CreateContext();

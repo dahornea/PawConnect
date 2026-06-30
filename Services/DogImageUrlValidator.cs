@@ -115,8 +115,9 @@ public static class DogImageUrlValidator
             return false;
         }
 
-        var extension = Path.GetExtension(uri.AbsolutePath);
-        return !string.IsNullOrWhiteSpace(extension) && AllowedImageExtensions.Contains(extension);
+        return HasAllowedImageExtension(uri.AbsolutePath) ||
+            HasAllowedImageExtension(Uri.UnescapeDataString(uri.Query)) ||
+            IsKnownImageEndpoint(uri);
     }
 
     private static bool IsKnownPlaceholderImageUrl(string? imageUrl)
@@ -140,6 +141,19 @@ public static class DogImageUrlValidator
     private static string? NormalizeImageUrlKey(string? imageUrl)
     {
         return string.IsNullOrWhiteSpace(imageUrl) ? null : imageUrl.Trim();
+    }
+
+    private static bool HasAllowedImageExtension(string value)
+    {
+        return !string.IsNullOrWhiteSpace(value) &&
+            AllowedImageExtensions.Any(extension =>
+                value.Contains(extension, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsKnownImageEndpoint(Uri uri)
+    {
+        return uri.Host.Equals("cms.paw-champ.com", StringComparison.OrdinalIgnoreCase) &&
+            uri.AbsolutePath.StartsWith("/api/assets/", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsLocalDisplayImageUrl(string imageUrl)

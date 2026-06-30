@@ -11,7 +11,13 @@ public static class IdentitySeedData
     public const string ShelterRole = "Shelter";
     public const string AdminRole = "Admin";
 
-    public const string DefaultPassword = "PawConnect123!";
+    public const string AdminDemoEmail = "admin@mail.com";
+    public const string AdminDemoPassword = "Admin1!";
+    public const string AdopterDemoEmail = "adopter@mail.com";
+    public const string AdopterDemoPassword = "Adopter1!";
+    public const string ShelterDemoEmail = "shelter@mail.com";
+    public const string ShelterDemoPassword = "Shelter1!";
+
     public const string AdopterUserId = "00000000-0000-0000-0000-000000000001";
     public const string ShelterUserId = "11111111-1111-1111-1111-111111111111";
     public const string AdminUserId = "22222222-2222-2222-2222-222222222222";
@@ -30,14 +36,43 @@ public static class IdentitySeedData
     private const int WetFoodTypeId = 4;
     private const int MedicalDietFoodTypeId = 5;
 
-    private static readonly (string Id, string Email, string FullName, string Role)[] Users =
+    private static readonly SeedUser[] Users =
     [
-        (AdopterUserId, "ana.ionescu@pawconnect.local", "Ana Ionescu", AdopterRole),
-        (SecondAdopterUserId, "mihai.radu@pawconnect.local", "Mihai Radu", AdopterRole),
-        (ThirdAdopterUserId, "irina.pop@pawconnect.local", "Irina Pop", AdopterRole),
-        (ShelterUserId, "happy-paws@pawconnect.local", "Happy Paws Shelter Team", ShelterRole),
-        (AdminUserId, "admin@pawconnect.local", "PawConnect Admin", AdminRole)
+        new(AdopterUserId, AdopterDemoEmail, AdopterDemoPassword, "Ana Ionescu", AdopterRole, ["ana.ionescu@pawconnect.local"]),
+        new(ShelterUserId, ShelterDemoEmail, ShelterDemoPassword, "Happy Paws Shelter Team", ShelterRole, ["happy-paws@pawconnect.local"]),
+        new(AdminUserId, AdminDemoEmail, AdminDemoPassword, "PawConnect Admin", AdminRole, ["admin@pawconnect.local"])
     ];
+
+    private static readonly Dictionary<string, string> DemoDogMainImageUrls = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Alma"] = "https://hips.hearstapps.com/hmg-prod/images/cocker-spaniel-685bff3474de0.jpg?crop=0.8888888888888888xw:1xh;center,top&resize=1200:*",
+        ["Archie"] = "https://bestforpet.co.nz/wp-content/uploads/2025/11/Beagle.jpg",
+        ["Bruno"] = "https://www.thelabradorsite.com/wp-content/uploads/2023/06/sheprador-buddy.jpg",
+        ["Daisy"] = "https://www.westminsterkennelclub.org/wp-content/uploads/2025/07/golden_retriever-scaled-1-1024x681.jpg",
+        ["Finn"] = "https://cdn.britannica.com/04/240504-050-4D5874D1/Scottish-Terrier-Scottie.jpg",
+        ["Grace"] = "https://upload.wikimedia.org/wikipedia/commons/e/ef/GraceTheGreyhound.jpg",
+        ["Hazel"] = "https://www.akc.org/wp-content/uploads/2017/11/Longhaired-Dachshund-standing-outdoors.jpg",
+        ["Iris"] = "https://www.omlet.co.uk/images/cache/1024/680/Dog-Japanese_Spitz-A_healthy_adult_Japanese_Spitz_with_a_thick_soft_coat_and_bushy_tail.jpg",
+        ["Kira"] = "https://cdn.britannica.com/85/232785-050-0EE871BE/Belgian-Malinois-dog.jpg",
+        ["Lili"] = "https://cdn.britannica.com/80/232780-050-404D6708/Pembroke-welsh-corgi-dog.jpg",
+        ["Luna"] = "https://www.zooplus.ro/ghid/wp-content/uploads/2025/01/airedale-terrier.webp",
+        ["Milo"] = "https://bestforpet.co.nz/wp-content/uploads/2025/11/Beagle.jpg",
+        ["Mira"] = "https://jesypet.ro/wp-content/uploads/2025/08/Bichon-Maltez-%E2%80%93-Ghid-complet-despre-ca%CC%82inele-mic-cu-inima%CC%86-mare.webp",
+        ["Nala"] = "https://corgi-mixes.com/wp-content/uploads/2023/01/Border-Collie-Corgi-Mix.jpg",
+        ["Nora"] = "https://www.borrowmydoggy.com/_next/image?url=https%3A%2F%2Fcdn.sanity.io%2Fimages%2F4ij0poqn%2Fproduction%2Fe24bfbd855cda99e303975f2bd2a1bf43079b320-800x600.jpg&w=1080&q=80",
+        ["Ollie"] = "https://www.thesprucepets.com/thmb/Fnp6BWaLI08vIpMBxGWAc4XTzXk=/2121x0/filters:no_upscale():strip_icc()/GettyImages-1149826361-fdb297c92dfc4697b0861db53c64d35f.jpg",
+        ["Oscar"] = "https://img.fera.ro/images/companies/1/seter-szkocki-fci.png?1704310402663",
+        ["Pip"] = "https://cdn.britannica.com/44/233244-050-A65D4571/Chihuahua-dog.jpg",
+        ["Poppy"] = "https://www.borrowmydoggy.com/_next/image?url=https%3A%2F%2Fcdn.sanity.io%2Fimages%2F4ij0poqn%2Fproduction%2Fd3c0ce0d77b3b98f45208a83814bca57b314c128-800x600.jpg&w=1080&q=80",
+        ["Rex"] = "https://www.purina.com/sites/default/files/styles/social_share/public/2025-09/siberian_husky_4_1.jpg?h=f7d9296c&itok=medyY_xK",
+        ["Sasha"] = "https://cms.paw-champ.com/api/assets/dog-wiki/5e6f4c0b-d87f-48c8-94b3-318508a1316e?cache=3600",
+        ["Tara"] = "https://cdn.shopify.com/s/files/1/0582/8349/1478/files/romanian_shepherd.jpg?v=1751021932",
+        ["Toby"] = "https://media.istockphoto.com/id/1380984414/photo/toy-poddle-on-the-bed.jpg?s=612x612&w=0&k=20&c=Vuq4VKmYQmy5F3MQ64URAlZ9H5IJKVRbTo4SF8mQKtc="
+    };
+
+    private static readonly HashSet<string> DemoDogMainImageUrlValues = new(
+        DemoDogMainImageUrls.Values,
+        StringComparer.OrdinalIgnoreCase);
 
     private static readonly string[] LegacySeedImageMarkers =
     [
@@ -77,6 +112,18 @@ public static class IdentitySeedData
 
             if (user is null)
             {
+                foreach (var legacyEmail in seedUser.LegacyEmails)
+                {
+                    user = await userManager.FindByEmailAsync(legacyEmail);
+                    if (user is not null)
+                    {
+                        break;
+                    }
+                }
+            }
+
+            if (user is null)
+            {
                 user = new ApplicationUser
                 {
                     Id = seedUser.Id,
@@ -86,7 +133,7 @@ public static class IdentitySeedData
                     FullName = seedUser.FullName
                 };
 
-                await userManager.CreateAsync(user, DefaultPassword);
+                await userManager.CreateAsync(user, seedUser.Password);
             }
             else
             {
@@ -96,6 +143,7 @@ public static class IdentitySeedData
                 user.FullName = seedUser.FullName;
 
                 await userManager.UpdateAsync(user);
+                await EnsureSeedPasswordAsync(userManager, user, seedUser.Password);
             }
 
             if (!await userManager.IsInRoleAsync(user, seedUser.Role))
@@ -107,6 +155,23 @@ public static class IdentitySeedData
         await SeedLookupDataAsync(context);
         await SeedPresentationDataAsync(context);
         await NormalizeDogBreedLookupsAsync(context);
+    }
+
+    private static async Task EnsureSeedPasswordAsync(
+        UserManager<ApplicationUser> userManager,
+        ApplicationUser user,
+        string password)
+    {
+        if (await userManager.HasPasswordAsync(user))
+        {
+            var removeResult = await userManager.RemovePasswordAsync(user);
+            if (!removeResult.Succeeded)
+            {
+                return;
+            }
+        }
+
+        await userManager.AddPasswordAsync(user, password);
     }
 
     private static async Task SeedLookupDataAsync(ApplicationDbContext context)
@@ -174,6 +239,7 @@ public static class IdentitySeedData
         await context.SaveChangesAsync();
 
         await CleanSeedDogImagesAsync(context);
+        await SeedDemoDogImagesAsync(context);
         await ReplaceMedicalRecordsAsync(context);
         await ReplaceShelterResourcesAsync(context);
         await ReplacePresentationRequestsAsync(context);
@@ -294,6 +360,46 @@ public static class IdentitySeedData
         dog.DailyFoodAmountGrams = seed.DailyFoodAmountGrams;
         dog.AdoptedAt = seed.AdoptedAt;
         dog.SuccessStoryText = seed.SuccessStoryText;
+    }
+
+    private static async Task SeedDemoDogImagesAsync(ApplicationDbContext context)
+    {
+        var dogNames = DemoDogMainImageUrls.Keys.ToArray();
+        var dogs = await context.Dogs
+            .Include(dog => dog.Images)
+            .Where(dog => dogNames.Contains(dog.Name))
+            .ToDictionaryAsync(dog => dog.Name, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var (dogName, imageUrl) in DemoDogMainImageUrls)
+        {
+            if (!dogs.TryGetValue(dogName, out var dog) ||
+                !DogImageUrlValidator.TryNormalize(imageUrl, out var normalizedImageUrl))
+            {
+                continue;
+            }
+
+            var images = dog.Images.ToList();
+            foreach (var image in images)
+            {
+                image.IsMainImage = false;
+            }
+
+            var mainImage = images.FirstOrDefault(image =>
+                (image.ImageUrl ?? string.Empty).Trim().Equals(normalizedImageUrl, StringComparison.OrdinalIgnoreCase));
+
+            if (mainImage is null)
+            {
+                mainImage = new DogImage
+                {
+                    DogId = dog.Id,
+                    ImageUrl = normalizedImageUrl
+                };
+
+                context.DogImages.Add(mainImage);
+            }
+
+            mainImage.IsMainImage = true;
+        }
     }
 
     private static async Task NormalizeDogBreedLookupsAsync(ApplicationDbContext context)
@@ -513,12 +619,19 @@ public static class IdentitySeedData
 
     private static bool IsLegacySeedImage(DogImage image)
     {
-        if (!DogImageUrlValidator.IsValidRealDogImageUrl(image.ImageUrl))
+        var trimmedImageUrl = (image.ImageUrl ?? string.Empty).Trim();
+        if (DemoDogMainImageUrlValues.Contains(trimmedImageUrl) &&
+            DogImageUrlValidator.IsValidRealDogImageUrl(trimmedImageUrl))
+        {
+            return false;
+        }
+
+        if (!DogImageUrlValidator.IsValidRealDogImageUrl(trimmedImageUrl))
         {
             return true;
         }
 
-        var url = image.ImageUrl.Trim().Replace('\\', '/');
+        var url = trimmedImageUrl.Replace('\\', '/');
         return LegacySeedImageMarkers.Any(marker => url.Contains(marker, StringComparison.OrdinalIgnoreCase));
     }
 
@@ -543,37 +656,13 @@ public static class IdentitySeedData
                 "Ana Ionescu",
                 "Strada Louis Pasteur 18",
                 "Cluj-Napoca",
-                "+40 700 000 201",
+                "0712345678",
                 HousingType.Apartment,
                 false,
                 true,
                 false,
-                "First-time adopter as an adult, but grew up around calm family dogs.",
-                "Works hybrid and is looking for a calm dog that can share an apartment with a resident cat."),
-            new(
-                SecondAdopterUserId,
-                "Mihai Radu",
-                "Aleea Detunata 7",
-                "Cluj-Napoca",
-                "+40 700 000 202",
-                HousingType.House,
-                true,
-                true,
-                true,
-                "Has cared for two older dogs and is comfortable with slow introductions.",
-                "Lives with older children and a senior dog recovering from recent treatment."),
-            new(
-                ThirdAdopterUserId,
-                "Irina Pop",
-                "Strada Fabricii de Zahar 11",
-                "Cluj-Napoca",
-                "+40 700 000 203",
-                HousingType.House,
-                true,
-                false,
-                false,
-                "Enjoys training classes and daily outdoor activity.",
-                "Looking for an active dog that enjoys long walks and structured play.")
+                "Moderate dog experience; grew up with family dogs and has cared for an older dog through recovery.",
+                "Lives in an apartment in Zorilor with one older recovering dog. Prefers a small or medium calm companion with low-to-moderate activity needs, about 4 hours alone per day, and gentle behavior that will not overwhelm the resident dog.")
         ];
     }
 
@@ -583,16 +672,16 @@ public static class IdentitySeedData
         [
             new(
                 "Happy Paws Shelter",
-                "A community-focused shelter profile for dogs from Zorilor and nearby neighborhoods. The team emphasizes calm introductions, clear adoption conversations, and post-adoption follow-up.",
+                "Happy Paws Shelter supports responsible adoptions in Cluj-Napoca with careful medical care, calm first meetings, and post-adoption guidance. The team keeps practical behavior notes so adopters can choose dogs whose routines and compatibility needs fit real homes.",
                 "Strada Observatorului 12",
                 "Zorilor",
-                "+40 700 000 101",
-                "happy-paws@pawconnect.local",
+                "0722345678",
+                ShelterDemoEmail,
                 46.7556,
                 23.5804,
                 ShelterUserId,
                 new TimeSpan(10, 0, 0),
-                new TimeSpan(17, 0, 0),
+                new TimeSpan(18, 0, 0),
                 true,
                 true),
             new(
@@ -659,7 +748,7 @@ public static class IdentitySeedData
             new(
                 "Happy Paws Shelter",
                 "Bella",
-                "Labrador Retriever Mix",
+                "Labrador Retriever",
                 "Golden",
                 6,
                 3,
@@ -701,7 +790,7 @@ public static class IdentitySeedData
             new(
                 "Hope Tails Rescue",
                 "Mira",
-                "Bichon Mix",
+                "Bichon",
                 "White",
                 3,
                 0,
@@ -715,7 +804,7 @@ public static class IdentitySeedData
             new(
                 "Hope Tails Rescue",
                 "Sasha",
-                "Spaniel Mix",
+                "Spaniel",
                 "Brown",
                 2,
                 0,
@@ -729,7 +818,7 @@ public static class IdentitySeedData
             new(
                 "Hope Tails Rescue",
                 "Oscar",
-                "Setter Mix",
+                "Setter",
                 "Tricolor",
                 2,
                 0,
@@ -743,7 +832,7 @@ public static class IdentitySeedData
             new(
                 "Safe Haven Dogs",
                 "Lili",
-                "Corgi Mix",
+                "Corgi",
                 "Tricolor",
                 5,
                 0,
@@ -757,7 +846,7 @@ public static class IdentitySeedData
             new(
                 "Safe Haven Dogs",
                 "Toby",
-                "Poodle Mix",
+                "Poodle",
                 "White",
                 2,
                 0,
@@ -771,7 +860,7 @@ public static class IdentitySeedData
             new(
                 "Safe Haven Dogs",
                 "Pip",
-                "Chihuahua Mix",
+                "Chihuahua",
                 "Brown",
                 4,
                 4,
@@ -785,7 +874,7 @@ public static class IdentitySeedData
             new(
                 "Safe Haven Dogs",
                 "Iris",
-                "Japanese Spitz Mix",
+                "Japanese Spitz",
                 "White",
                 1,
                 10,
@@ -813,7 +902,7 @@ public static class IdentitySeedData
             new(
                 "Green Yard Animal Care",
                 "Rocky",
-                "German Shepherd Mix",
+                "German Shepherd",
                 "Black and tan",
                 4,
                 0,
@@ -827,7 +916,7 @@ public static class IdentitySeedData
             new(
                 "Green Yard Animal Care",
                 "Rex",
-                "Siberian Husky Mix",
+                "Siberian Husky",
                 "White",
                 3,
                 0,
@@ -841,7 +930,7 @@ public static class IdentitySeedData
             new(
                 "Green Yard Animal Care",
                 "Zara",
-                "Border Collie Mix",
+                "Border Collie",
                 "Black",
                 2,
                 8,
@@ -855,7 +944,7 @@ public static class IdentitySeedData
             new(
                 "Green Yard Animal Care",
                 "Cooper",
-                "Boxer Mix",
+                "Boxer",
                 "Brown and white",
                 3,
                 5,
@@ -869,7 +958,7 @@ public static class IdentitySeedData
             new(
                 "Second Chance Paws",
                 "Luna",
-                "Airedale Terrier Mix",
+                "Airedale Terrier",
                 "Brown and white",
                 1,
                 6,
@@ -883,7 +972,7 @@ public static class IdentitySeedData
             new(
                 "Second Chance Paws",
                 "Finn",
-                "Terrier Mix",
+                "Terrier",
                 "Brown",
                 2,
                 3,
@@ -897,7 +986,7 @@ public static class IdentitySeedData
             new(
                 "Second Chance Paws",
                 "Hazel",
-                "Dachshund Mix",
+                "Dachshund",
                 "Brown and white",
                 6,
                 0,
@@ -911,7 +1000,7 @@ public static class IdentitySeedData
             new(
                 "Second Chance Paws",
                 "Radu",
-                "Romanian Mioritic Shepherd Mix",
+                "Romanian Mioritic Shepherd",
                 "White",
                 5,
                 7,
@@ -925,7 +1014,7 @@ public static class IdentitySeedData
             new(
                 "Second Chance Paws",
                 "Grace",
-                "Greyhound Mix",
+                "Greyhound",
                 "Black",
                 5,
                 0,
@@ -939,7 +1028,7 @@ public static class IdentitySeedData
             new(
                 "Friendly Tails Center",
                 "Alma",
-                "Cocker Spaniel Mix",
+                "Cocker Spaniel",
                 "Golden",
                 4,
                 0,
@@ -953,7 +1042,7 @@ public static class IdentitySeedData
             new(
                 "Friendly Tails Center",
                 "Archie",
-                "Beagle Mix",
+                "Beagle",
                 "Tricolor",
                 3,
                 2,
@@ -967,7 +1056,7 @@ public static class IdentitySeedData
             new(
                 "Friendly Tails Center",
                 "Daisy",
-                "Golden Retriever Mix",
+                "Golden Retriever",
                 "Golden",
                 3,
                 0,
@@ -983,7 +1072,7 @@ public static class IdentitySeedData
             new(
                 "Friendly Tails Center",
                 "Milo",
-                "Beagle Mix",
+                "Beagle",
                 "Tricolor",
                 2,
                 0,
@@ -999,7 +1088,7 @@ public static class IdentitySeedData
             new(
                 "North Star Animal Shelter",
                 "Nora",
-                "Labrador Retriever Mix",
+                "Labrador Retriever",
                 "Black",
                 2,
                 9,
@@ -1013,7 +1102,7 @@ public static class IdentitySeedData
             new(
                 "North Star Animal Shelter",
                 "Kira",
-                "Belgian Malinois Mix",
+                "Belgian Malinois",
                 "Brown",
                 2,
                 4,
@@ -1027,7 +1116,7 @@ public static class IdentitySeedData
             new(
                 "North Star Animal Shelter",
                 "Tara",
-                "Romanian Carpathian Shepherd Mix",
+                "Romanian Carpathian Shepherd",
                 "Black and tan",
                 4,
                 6,
@@ -1055,7 +1144,7 @@ public static class IdentitySeedData
             new(
                 "North Star Animal Shelter",
                 "Poppy",
-                "Maltese Mix",
+                "Maltese",
                 "White",
                 7,
                 0,
@@ -1128,7 +1217,7 @@ public static class IdentitySeedData
                 new DateTime(2026, 5, 16, 10, 30, 0, DateTimeKind.Utc)),
             new(
                 "Mira",
-                SecondAdopterUserId,
+                AdopterUserId,
                 AdoptionRequestStatus.Pending,
                 AdoptionVisitStatus.Requested,
                 new DateTime(2026, 5, 23, 11, 0, 0, DateTimeKind.Utc),
@@ -1143,7 +1232,7 @@ public static class IdentitySeedData
                 new DateTime(2026, 5, 19, 9, 40, 0, DateTimeKind.Utc)),
             new(
                 "Max",
-                ThirdAdopterUserId,
+                AdopterUserId,
                 AdoptionRequestStatus.Pending,
                 AdoptionVisitStatus.Requested,
                 new DateTime(2026, 5, 24, 15, 0, 0, DateTimeKind.Utc),
@@ -1158,7 +1247,7 @@ public static class IdentitySeedData
                 new DateTime(2026, 5, 20, 8, 15, 0, DateTimeKind.Utc)),
             new(
                 "Daisy",
-                SecondAdopterUserId,
+                AdopterUserId,
                 AdoptionRequestStatus.Accepted,
                 AdoptionVisitStatus.Completed,
                 new DateTime(2026, 4, 26, 12, 0, 0, DateTimeKind.Utc),
@@ -1188,7 +1277,7 @@ public static class IdentitySeedData
                 new DateTime(2026, 5, 13, 9, 30, 0, DateTimeKind.Utc)),
             new(
                 "Toby",
-                ThirdAdopterUserId,
+                AdopterUserId,
                 AdoptionRequestStatus.Cancelled,
                 AdoptionVisitStatus.Cancelled,
                 new DateTime(2026, 5, 17, 10, 30, 0, DateTimeKind.Utc),
@@ -1295,4 +1384,12 @@ public static class IdentitySeedData
         string ShelterInternalNotes,
         DateTime CreatedAt,
         DateTime UpdatedAt);
+
+    private sealed record SeedUser(
+        string Id,
+        string Email,
+        string Password,
+        string FullName,
+        string Role,
+        string[] LegacyEmails);
 }

@@ -131,6 +131,8 @@ public class AdoptionCopilotService(
                 .Where(result => allowedCandidateMap.ContainsKey(result.DogId))
                 .OrderBy(result => result.Rank)
                 .Select(result => BuildAiResult(result, allowedCandidateMap[result.DogId], appliedConstraints))
+                .OrderByDescending(result => result.ScorePercent)
+                .ThenBy(result => result.Dog.Name)
                 .ToList();
 
             if (aiResults.Count == 0)
@@ -151,6 +153,11 @@ public class AdoptionCopilotService(
                 .OrderByDescending(candidate => candidate.ScorePercent)
                 .Take(Math.Max(0, 6 - aiResults.Count))
                 .Select(candidate => BuildFallbackDogResult(candidate, appliedConstraints)));
+
+            aiResults = aiResults
+                .OrderByDescending(result => result.ScorePercent)
+                .ThenBy(result => result.Dog.Name)
+                .ToList();
 
             return new AdoptionCopilotResponse(
                 NormalizeAssistantMessage(openAiResponse.AssistantMessage, query, aiResults.FirstOrDefault()?.Dog.Name, appliedConstraints),
@@ -1391,7 +1398,25 @@ public class AdoptionCopilotService(
                 "already have",
                 "current dog",
                 "existing dog",
-                "at home"
+                "resident dog",
+                "dog at home",
+                "dogs at home",
+                "at home",
+                "around an older dog",
+                "around older dog",
+                "around a senior dog",
+                "around senior dog",
+                "around an elderly dog",
+                "around elderly dog",
+                "with an older dog",
+                "with older dog",
+                "with a senior dog",
+                "with senior dog",
+                "with an elderly dog",
+                "with elderly dog",
+                "behave around",
+                "compatible with older dog",
+                "compatible with senior dog"
             ]);
     }
 
