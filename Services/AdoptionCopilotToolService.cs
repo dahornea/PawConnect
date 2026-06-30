@@ -3070,6 +3070,39 @@ public class AdoptionCopilotToolService(
                 Contains(value, "anxious dog")) == true;
     }
 
+    private static bool HasSeniorDogAtHomePhrase(AdoptionCopilotSearchDogsArgs args)
+    {
+        return HasIntent(args,
+            "i have an older dog",
+            "i have a senior dog",
+            "we have an older dog",
+            "we have a senior dog",
+            "my older dog",
+            "my senior dog",
+            "our older dog",
+            "our senior dog",
+            "resident older dog",
+            "resident senior dog",
+            "dog at home",
+            "around an older dog",
+            "around older dog",
+            "around a senior dog",
+            "around senior dog",
+            "with an older dog",
+            "with older dog",
+            "with a senior dog",
+            "with senior dog",
+            "behave around an older dog",
+            "behave around older dog",
+            "compatible with older dog",
+            "compatible with senior dog");
+    }
+
+    private static bool HasExplicitNumericAgeRequest(string? query)
+    {
+        return Regex.IsMatch(query ?? string.Empty, @"\b\d{1,2}\s*(?:year|years|yr|yrs)\b", RegexOptions.IgnoreCase);
+    }
+
     private static bool HasYoungHouseholdDogRequest(AdoptionCopilotSearchDogsArgs args)
     {
         return args.Compatibility?.Any(value =>
@@ -3787,6 +3820,14 @@ public class AdoptionCopilotToolService(
         }
 
         if (args.MinAgeYears is <= 0)
+        {
+            args.MinAgeYears = null;
+        }
+
+        if (args.MinAgeYears == 7 &&
+            string.Equals(args.AgeComparison, "AtLeast", StringComparison.OrdinalIgnoreCase) &&
+            HasSeniorDogAtHomePhrase(args) &&
+            !HasExplicitNumericAgeRequest(args.Query))
         {
             args.MinAgeYears = null;
         }

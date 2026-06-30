@@ -11,7 +11,13 @@ public static class IdentitySeedData
     public const string ShelterRole = "Shelter";
     public const string AdminRole = "Admin";
 
-    public const string DefaultPassword = "PawConnect123!";
+    public const string AdminDemoEmail = "admin@mail.com";
+    public const string AdminDemoPassword = "Admin1!";
+    public const string AdopterDemoEmail = "adopter@mail.com";
+    public const string AdopterDemoPassword = "Adopter1!";
+    public const string ShelterDemoEmail = "shelter@mail.com";
+    public const string ShelterDemoPassword = "Shelter1!";
+
     public const string AdopterUserId = "00000000-0000-0000-0000-000000000001";
     public const string ShelterUserId = "11111111-1111-1111-1111-111111111111";
     public const string AdminUserId = "22222222-2222-2222-2222-222222222222";
@@ -30,13 +36,11 @@ public static class IdentitySeedData
     private const int WetFoodTypeId = 4;
     private const int MedicalDietFoodTypeId = 5;
 
-    private static readonly (string Id, string Email, string FullName, string Role)[] Users =
+    private static readonly SeedUser[] Users =
     [
-        (AdopterUserId, "ana.ionescu@pawconnect.local", "Ana Ionescu", AdopterRole),
-        (SecondAdopterUserId, "mihai.radu@pawconnect.local", "Mihai Radu", AdopterRole),
-        (ThirdAdopterUserId, "irina.pop@pawconnect.local", "Irina Pop", AdopterRole),
-        (ShelterUserId, "happy-paws@pawconnect.local", "Happy Paws Shelter Team", ShelterRole),
-        (AdminUserId, "admin@pawconnect.local", "PawConnect Admin", AdminRole)
+        new(AdopterUserId, AdopterDemoEmail, AdopterDemoPassword, "Ana Ionescu", AdopterRole, ["ana.ionescu@pawconnect.local"]),
+        new(ShelterUserId, ShelterDemoEmail, ShelterDemoPassword, "Happy Paws Shelter Team", ShelterRole, ["happy-paws@pawconnect.local"]),
+        new(AdminUserId, AdminDemoEmail, AdminDemoPassword, "PawConnect Admin", AdminRole, ["admin@pawconnect.local"])
     ];
 
     private static readonly Dictionary<string, string> DemoDogMainImageUrls = new(StringComparer.OrdinalIgnoreCase)
@@ -108,6 +112,18 @@ public static class IdentitySeedData
 
             if (user is null)
             {
+                foreach (var legacyEmail in seedUser.LegacyEmails)
+                {
+                    user = await userManager.FindByEmailAsync(legacyEmail);
+                    if (user is not null)
+                    {
+                        break;
+                    }
+                }
+            }
+
+            if (user is null)
+            {
                 user = new ApplicationUser
                 {
                     Id = seedUser.Id,
@@ -117,7 +133,7 @@ public static class IdentitySeedData
                     FullName = seedUser.FullName
                 };
 
-                await userManager.CreateAsync(user, DefaultPassword);
+                await userManager.CreateAsync(user, seedUser.Password);
             }
             else
             {
@@ -127,6 +143,7 @@ public static class IdentitySeedData
                 user.FullName = seedUser.FullName;
 
                 await userManager.UpdateAsync(user);
+                await EnsureSeedPasswordAsync(userManager, user, seedUser.Password);
             }
 
             if (!await userManager.IsInRoleAsync(user, seedUser.Role))
@@ -138,6 +155,23 @@ public static class IdentitySeedData
         await SeedLookupDataAsync(context);
         await SeedPresentationDataAsync(context);
         await NormalizeDogBreedLookupsAsync(context);
+    }
+
+    private static async Task EnsureSeedPasswordAsync(
+        UserManager<ApplicationUser> userManager,
+        ApplicationUser user,
+        string password)
+    {
+        if (await userManager.HasPasswordAsync(user))
+        {
+            var removeResult = await userManager.RemovePasswordAsync(user);
+            if (!removeResult.Succeeded)
+            {
+                return;
+            }
+        }
+
+        await userManager.AddPasswordAsync(user, password);
     }
 
     private static async Task SeedLookupDataAsync(ApplicationDbContext context)
@@ -622,37 +656,13 @@ public static class IdentitySeedData
                 "Ana Ionescu",
                 "Strada Louis Pasteur 18",
                 "Cluj-Napoca",
-                "+40 700 000 201",
+                "0712345678",
                 HousingType.Apartment,
                 false,
                 true,
                 false,
-                "First-time adopter as an adult, but grew up around calm family dogs.",
-                "Works hybrid and is looking for a calm dog that can share an apartment with a resident cat."),
-            new(
-                SecondAdopterUserId,
-                "Mihai Radu",
-                "Aleea Detunata 7",
-                "Cluj-Napoca",
-                "+40 700 000 202",
-                HousingType.House,
-                true,
-                true,
-                true,
-                "Has cared for two older dogs and is comfortable with slow introductions.",
-                "Lives with older children and a senior dog recovering from recent treatment."),
-            new(
-                ThirdAdopterUserId,
-                "Irina Pop",
-                "Strada Fabricii de Zahar 11",
-                "Cluj-Napoca",
-                "+40 700 000 203",
-                HousingType.House,
-                true,
-                false,
-                false,
-                "Enjoys training classes and daily outdoor activity.",
-                "Looking for an active dog that enjoys long walks and structured play.")
+                "Moderate dog experience; grew up with family dogs and has cared for an older dog through recovery.",
+                "Lives in an apartment in Zorilor with one older recovering dog. Prefers a small or medium calm companion with low-to-moderate activity needs, about 4 hours alone per day, and gentle behavior that will not overwhelm the resident dog.")
         ];
     }
 
@@ -662,16 +672,16 @@ public static class IdentitySeedData
         [
             new(
                 "Happy Paws Shelter",
-                "A community-focused shelter profile for dogs from Zorilor and nearby neighborhoods. The team emphasizes calm introductions, clear adoption conversations, and post-adoption follow-up.",
+                "Happy Paws Shelter supports responsible adoptions in Cluj-Napoca with careful medical care, calm first meetings, and post-adoption guidance. The team keeps practical behavior notes so adopters can choose dogs whose routines and compatibility needs fit real homes.",
                 "Strada Observatorului 12",
                 "Zorilor",
-                "+40 700 000 101",
-                "happy-paws@pawconnect.local",
+                "0722345678",
+                ShelterDemoEmail,
                 46.7556,
                 23.5804,
                 ShelterUserId,
                 new TimeSpan(10, 0, 0),
-                new TimeSpan(17, 0, 0),
+                new TimeSpan(18, 0, 0),
                 true,
                 true),
             new(
@@ -1207,7 +1217,7 @@ public static class IdentitySeedData
                 new DateTime(2026, 5, 16, 10, 30, 0, DateTimeKind.Utc)),
             new(
                 "Mira",
-                SecondAdopterUserId,
+                AdopterUserId,
                 AdoptionRequestStatus.Pending,
                 AdoptionVisitStatus.Requested,
                 new DateTime(2026, 5, 23, 11, 0, 0, DateTimeKind.Utc),
@@ -1222,7 +1232,7 @@ public static class IdentitySeedData
                 new DateTime(2026, 5, 19, 9, 40, 0, DateTimeKind.Utc)),
             new(
                 "Max",
-                ThirdAdopterUserId,
+                AdopterUserId,
                 AdoptionRequestStatus.Pending,
                 AdoptionVisitStatus.Requested,
                 new DateTime(2026, 5, 24, 15, 0, 0, DateTimeKind.Utc),
@@ -1237,7 +1247,7 @@ public static class IdentitySeedData
                 new DateTime(2026, 5, 20, 8, 15, 0, DateTimeKind.Utc)),
             new(
                 "Daisy",
-                SecondAdopterUserId,
+                AdopterUserId,
                 AdoptionRequestStatus.Accepted,
                 AdoptionVisitStatus.Completed,
                 new DateTime(2026, 4, 26, 12, 0, 0, DateTimeKind.Utc),
@@ -1267,7 +1277,7 @@ public static class IdentitySeedData
                 new DateTime(2026, 5, 13, 9, 30, 0, DateTimeKind.Utc)),
             new(
                 "Toby",
-                ThirdAdopterUserId,
+                AdopterUserId,
                 AdoptionRequestStatus.Cancelled,
                 AdoptionVisitStatus.Cancelled,
                 new DateTime(2026, 5, 17, 10, 30, 0, DateTimeKind.Utc),
@@ -1374,4 +1384,12 @@ public static class IdentitySeedData
         string ShelterInternalNotes,
         DateTime CreatedAt,
         DateTime UpdatedAt);
+
+    private sealed record SeedUser(
+        string Id,
+        string Email,
+        string Password,
+        string FullName,
+        string Role,
+        string[] LegacyEmails);
 }
