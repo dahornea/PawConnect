@@ -4,13 +4,13 @@ public class VisitReminderSettings
 {
     public bool Enabled { get; set; }
 
-    public int CheckIntervalMinutes { get; set; } = 30;
+    public int CheckIntervalMinutes { get; set; } = 60;
 
     public int ReminderHoursBeforeVisit { get; set; } = 24;
 
     public int GetSafeCheckIntervalMinutes()
     {
-        return CheckIntervalMinutes > 0 ? CheckIntervalMinutes : 30;
+        return CheckIntervalMinutes > 0 ? CheckIntervalMinutes : 60;
     }
 
     public int GetSafeReminderHoursBeforeVisit()

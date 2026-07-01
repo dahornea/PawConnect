@@ -34,6 +34,8 @@ public class AdoptionCopilotService(
                 false);
         }
 
+        // Pick up the obvious filters first, so things like size, color, or neighborhood
+        // still work even if OpenAI is not used.
         var deterministicArgs = await BuildDeterministicSearchArgsAsync(query, cancellationToken);
         if (HasUnresolvedNeighborhoodIntent(query, deterministicArgs.Neighborhood))
         {
@@ -47,6 +49,8 @@ public class AdoptionCopilotService(
                 BuildDeterministicConstraintPreview(deterministicArgs));
         }
 
+        // Always prepare a normal search first for a safe fallback
+        // and a real list of dogs that OpenAI is allowed to talk about.
         var fallbackSearch = await toolService.SearchDogsAsync(adopterUserId, deterministicArgs, cancellationToken);
         var fallback = BuildFallbackResponse(query, fallbackSearch, "AI assistance is unavailable right now, so PawConnect used safe rule-based search.");
         var settings = openAiOptions.Value;
@@ -186,6 +190,7 @@ public class AdoptionCopilotService(
             case "search_dogs":
             {
                 var args = DeserializeArgs<AdoptionCopilotSearchDogsArgs>(toolCall.ArgumentsJson) ?? new AdoptionCopilotSearchDogsArgs();
+
                 MergeDeterministicConstraints(args, deterministicArgs);
                 var result = await toolService.SearchDogsAsync(adopterUserId, args, cancellationToken);
                 var json = JsonSerializer.Serialize(new AdoptionCopilotToolJsonResult(
