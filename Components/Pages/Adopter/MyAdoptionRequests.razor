@@ -1,10 +1,9 @@
 @page "/my-adoption-requests"
-@using Microsoft.AspNetCore.Identity
-@using PawConnect.Data
+@using System.Security.Claims
 @attribute [Authorize(Roles = "Adopter")]
 @inject IAdoptionRequestService AdoptionRequestService
 @inject AuthenticationStateProvider AuthenticationStateProvider
-@inject UserManager<ApplicationUser> UserManager
+@inject ILogger<MyAdoptionRequests> Logger
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 
@@ -176,8 +175,7 @@
         try
         {
             var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-            var user = await UserManager.GetUserAsync(authState.User);
-            _currentUserId = user?.Id;
+            _currentUserId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
             if (string.IsNullOrWhiteSpace(_currentUserId))
             {
@@ -187,8 +185,9 @@
 
             _requests = await AdoptionRequestService.GetRequestsForAdopterAsync(_currentUserId);
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.LogError(ex, "Could not load adoption requests for adopter {AdopterId}.", _currentUserId);
             _error = "Adoption requests could not be loaded right now.";
         }
         finally

@@ -14,8 +14,20 @@ public class AdoptionRequestService(
     INotificationService? notificationService = null,
     IAuditLogService? auditLogService = null,
     IReportHistoryService? reportHistoryService = null,
-    IDogSearchEmbeddingService? dogSearchEmbeddingService = null) : IAdoptionRequestService
+    IDogSearchEmbeddingService? dogSearchEmbeddingService = null,
+    IDbContextFactory<ApplicationDbContext>? contextFactory = null) : IAdoptionRequestService
 {
+    private async Task<T> ExecuteReadAsync<T>(Func<ApplicationDbContext, Task<T>> query)
+    {
+        if (contextFactory is null)
+        {
+            return await query(context);
+        }
+
+        await using var readContext = await contextFactory.CreateDbContextAsync();
+        return await query(readContext);
+    }
+
     public Task<List<AdoptionRequest>> GetAllAsync()
     {
         return context.AdoptionRequests
@@ -158,7 +170,7 @@ public class AdoptionRequestService(
 
     public Task<List<AdoptionRequest>> GetRequestsForAdopterAsync(string adopterId)
     {
-        return context.AdoptionRequests
+        return ExecuteReadAsync(db => db.AdoptionRequests
             .Include(r => r.Dog)
             .ThenInclude(d => d!.Images)
             .Include(r => r.Dog)
@@ -171,8 +183,9 @@ public class AdoptionRequestService(
             .ThenInclude(a => a!.AdopterProfile)
             .Where(r => r.AdopterId == adopterId)
             .OrderByDescending(r => r.CreatedAt)
+            .AsSplitQuery()
             .AsNoTracking()
-            .ToListAsync();
+            .ToListAsync());
     }
 
     public async Task<AdoptionRequestSummary> GetAdoptionRequestSummaryForUserAsync(string adopterId)
@@ -190,7 +203,7 @@ public class AdoptionRequestService(
 
     public Task<List<AdoptionRequest>> GetRecentRequestsForAdopterAsync(string adopterId, int count)
     {
-        return context.AdoptionRequests
+        return ExecuteReadAsync(db => db.AdoptionRequests
             .Include(r => r.Dog)
             .ThenInclude(d => d!.Images)
             .Include(r => r.Dog)
@@ -204,13 +217,14 @@ public class AdoptionRequestService(
             .Where(r => r.AdopterId == adopterId)
             .OrderByDescending(r => r.CreatedAt)
             .Take(count)
+            .AsSplitQuery()
             .AsNoTracking()
-            .ToListAsync();
+            .ToListAsync());
     }
 
     public Task<List<AdoptionRequest>> GetRequestsForShelterAsync(int shelterId)
     {
-        return context.AdoptionRequests
+        return ExecuteReadAsync(db => db.AdoptionRequests
             .Include(r => r.Dog)
             .ThenInclude(d => d!.Images)
             .Include(r => r.Dog)
@@ -221,8 +235,9 @@ public class AdoptionRequestService(
             .ThenInclude(a => a!.AdopterProfile)
             .Where(r => r.Dog != null && r.Dog.ShelterId == shelterId)
             .OrderByDescending(r => r.CreatedAt)
+            .AsSplitQuery()
             .AsNoTracking()
-            .ToListAsync();
+            .ToListAsync());
     }
 
     public Task<bool> HasPendingRequestAsync(string adopterId, int dogId)

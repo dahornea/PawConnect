@@ -1,5 +1,5 @@
 @page "/shelter/adoption-requests"
-@using Microsoft.AspNetCore.Identity
+@using System.Security.Claims
 @using PawConnect.Data
 @attribute [Authorize(Roles = "Shelter")]
 @inject IAdoptionRequestService AdoptionRequestService
@@ -7,7 +7,7 @@
 @inject IExportService ExportService
 @inject IBrowserFileDownloadService FileDownloadService
 @inject AuthenticationStateProvider AuthenticationStateProvider
-@inject UserManager<ApplicationUser> UserManager
+@inject ILogger<ShelterAdoptionRequests> Logger
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 
@@ -418,15 +418,14 @@
         try
         {
             var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-            var user = await UserManager.GetUserAsync(authState.User);
-            if (user is null)
+            _currentUserId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrWhiteSpace(_currentUserId))
             {
                 _error = "Current shelter account could not be found.";
                 return;
             }
 
-            _currentUserId = user.Id;
-            var shelter = await ShelterService.GetShelterForUserAsync(user.Id);
+            var shelter = await ShelterService.GetShelterForUserAsync(_currentUserId);
             if (shelter is null)
             {
                 _error = "No shelter profile is linked to this account.";
@@ -436,8 +435,9 @@
             _shelterId = shelter.Id;
             _requests = await AdoptionRequestService.GetRequestsForShelterAsync(shelter.Id);
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.LogError(ex, "Could not load adoption requests for shelter account {UserId}.", _currentUserId);
             _error = "Adoption requests could not be loaded right now.";
         }
         finally
