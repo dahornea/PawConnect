@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -7,6 +8,7 @@ using MudBlazor.Services;
 using PawConnect.Components;
 using PawConnect.Components.Account;
 using PawConnect.Data;
+using PawConnect.Hubs;
 using PawConnect.Jobs;
 using PawConnect.Repositories;
 using PawConnect.Services;
@@ -20,6 +22,7 @@ builder.Logging.AddDebug();
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+builder.Services.AddSignalR();
 builder.Services.AddMudServices(config =>
 {
     config.SnackbarConfiguration.PositionClass = Defaults.Classes.Position.BottomRight;
@@ -84,6 +87,11 @@ builder.Services.AddScoped<ISemanticDogSearchService, SemanticDogSearchService>(
 builder.Services.AddScoped<IAdoptionCopilotToolService, AdoptionCopilotToolService>();
 builder.Services.AddScoped<IAdoptionCopilotService, AdoptionCopilotService>();
 builder.Services.AddScoped<ICopilotStateService, CopilotStateService>();
+builder.Services.AddScoped<IConversationService, ConversationService>();
+builder.Services.AddScoped<IMessageService, MessageService>();
+builder.Services.AddScoped<IMessageReportService, MessageReportService>();
+builder.Services.AddScoped<IMessageAttachmentStorageService, LocalMessageAttachmentStorageService>();
+builder.Services.AddSingleton<IConversationRealtimeNotifier, ConversationRealtimeNotifier>();
 builder.Services.AddSingleton<IDistanceService, DistanceService>();
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.Configure<ScheduledReportSettings>(builder.Configuration.GetSection("ScheduledReports"));
@@ -186,6 +194,28 @@ app.UseAntiforgery();
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
+app.MapHub<AdoptionChatHub>("/hubs/adoption-chat");
+app.MapGet("/message-attachments/{attachmentId:int}", async (
+        int attachmentId,
+        ClaimsPrincipal user,
+        IMessageService messageService,
+        CancellationToken cancellationToken) =>
+    {
+        var userId = user.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Results.Unauthorized();
+        }
+
+        var attachment = await messageService.GetAttachmentFileAsync(attachmentId, userId, cancellationToken);
+        return attachment is null
+            ? Results.NotFound()
+            : Results.File(
+                attachment.Content,
+                attachment.ContentType,
+                enableRangeProcessing: true);
+    })
+    .RequireAuthorization();
 
 // Add additional endpoints required by the Identity /Account Razor components.
 app.MapAdditionalIdentityEndpoints();

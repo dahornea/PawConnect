@@ -32,6 +32,7 @@ TestResults/
 *.coverage
 *.coveragexml
 coverage/
+wwwroot/uploads/
 
 # ASP.NET / Blazor generated files
 *.csproj.nuget.g.props

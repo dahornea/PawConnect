@@ -1,0 +1,161 @@
+@page "/admin/message-reports"
+@attribute [Authorize(Roles = "Admin")]
+
+<PageTitle>Message Reports</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.False" Class="px-0">
+    <MudStack Spacing="3">
+        <div class="page-header">
+            <MudText Typo="Typo.h4">Message Reports</MudText>
+            <MudText Typo="Typo.body2">Review adoption conversation messages reported by participants.</MudText>
+        </div>
+
+        <MudPaper Elevation="0" Class="section-surface pa-3">
+            <MudGrid Spacing="2">
+                <MudItem xs="12" sm="6" md="3">
+                    <MudSelect T="string" Label="Status" @bind-Value="_statusFilter" Clearable="true" Variant="Variant.Outlined">
+                        @foreach (var status in StatusFilters)
+                        {
+                            <MudSelectItem Value="@status.ToString()">@FormatStatus(status)</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudTextField T="string" Label="Reporter" @bind-Value="_reporterSearch" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" sm="6" md="2">
+                    <MudDatePicker Label="From" @bind-Date="_fromDate" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" sm="6" md="2">
+                    <MudDatePicker Label="To" @bind-Date="_toDate" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" md="2">
+                    <MudStack Row="true" Spacing="1" Class="mt-2">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.FilterAlt" Disabled="_isLoading" OnClick="LoadReportsAsync">Apply</MudButton>
+                        <MudButton Variant="Variant.Text" Color="Color.Default" Disabled="_isLoading" OnClick="ClearFiltersAsync">Clear</MudButton>
+                    </MudStack>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+
+        @if (_isLoading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="py-8">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Loading message reports...</MudText>
+            </MudStack>
+        }
+        else if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <MudAlert Severity="Severity.Error">@_error</MudAlert>
+        }
+        else if (_reports.Count == 0)
+        {
+            <MudPaper Elevation="0" Class="empty-state pa-5">
+                <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.Report" Color="Color.Secondary" Size="Size.Large" />
+                    <MudText Typo="Typo.h6">No message reports found</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Participant reports will appear here for admin review.</MudText>
+                </MudStack>
+            </MudPaper>
+        }
+        else
+        {
+            <MudTable Items="_reports" Dense="true" Hover="true" Class="table-shell" RowsPerPage="10">
+                <HeaderContent>
+                    <MudTh>Reported</MudTh>
+                    <MudTh>Status</MudTh>
+                    <MudTh>Message</MudTh>
+                    <MudTh>Context</MudTh>
+                    <MudTh>Reporter</MudTh>
+                    <MudTh>Review</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Reported">
+                        <MudText Typo="Typo.body2">@FormatDateTime(context.CreatedAt)</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@context.Reason</MudText>
+                    </MudTd>
+                    <MudTd DataLabel="Status">
+                        <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(context.Status)" Variant="Variant.Outlined">
+                            @FormatStatus(context.Status)
+                        </MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Message">
+                        <MudStack Spacing="1">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                @context.SenderDisplayName (@context.SenderRole)
+                            </MudText>
+                            <MudText Typo="Typo.body2">@Truncate(context.MessageBody, 180)</MudText>
+                            @if (!string.IsNullOrWhiteSpace(context.Details))
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Warning">
+                                    Reporter details: @Truncate(context.Details, 140)
+                                </MudText>
+                            }
+                        </MudStack>
+                    </MudTd>
+                    <MudTd DataLabel="Context">
+                        <MudStack Spacing="1">
+                            <MudText Typo="Typo.body2">@context.DogName</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">@context.ShelterName</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Adopter: @context.AdopterName</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Request #@context.AdoptionRequestId</MudText>
+                        </MudStack>
+                    </MudTd>
+                    <MudTd DataLabel="Reporter">
+                        <MudText Typo="Typo.body2">@context.ReporterDisplayName</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@context.ReporterEmail</MudText>
+                    </MudTd>
+                    <MudTd DataLabel="Review">
+                        <MudStack Spacing="1">
+                            @if (context.ReviewedAt is not null)
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    Reviewed @FormatDateTime(context.ReviewedAt.Value)
+                                    @if (!string.IsNullOrWhiteSpace(context.ReviewedByAdminDisplayName))
+                                    {
+                                        <span>by @context.ReviewedByAdminDisplayName</span>
+                                    }
+                                </MudText>
+                            }
+                            <MudTextField T="string"
+                                          Value="@(GetAdminNote(context) ?? string.Empty)"
+                                          ValueChanged="@((string value) => SetAdminNote(context.Id, value))"
+                                          Placeholder="Admin note"
+                                          Variant="Variant.Outlined"
+                                          Lines="2"
+                                          MaxLength="@MaxAdminNoteLength"
+                                          Disabled="@IsReviewing(context.Id)" />
+                            <MudStack Row="true" Spacing="1" Class="flex-wrap">
+                                <MudButton Variant="Variant.Outlined"
+                                           Color="Color.Info"
+                                           Size="Size.Small"
+                                           Disabled="@IsReviewing(context.Id)"
+                                           OnClick="@(() => ReviewAsync(context, MessageReportStatus.Reviewed))">
+                                    Reviewed
+                                </MudButton>
+                                <MudButton Variant="Variant.Outlined"
+                                           Color="Color.Default"
+                                           Size="Size.Small"
+                                           Disabled="@IsReviewing(context.Id)"
+                                           OnClick="@(() => ReviewAsync(context, MessageReportStatus.Dismissed))">
+                                    Dismiss
+                                </MudButton>
+                                <MudButton Variant="Variant.Filled"
+                                           Color="Color.Warning"
+                                           Size="Size.Small"
+                                           Disabled="@IsReviewing(context.Id)"
+                                           OnClick="@(() => ReviewAsync(context, MessageReportStatus.ActionTaken))">
+                                    Action taken
+                                </MudButton>
+                            </MudStack>
+                        </MudStack>
+                    </MudTd>
+                </RowTemplate>
+                <PagerContent>
+                    <MudTablePager />
+                </PagerContent>
+            </MudTable>
+        }
+    </MudStack>
+</MudContainer>

@@ -192,6 +192,11 @@
     white-space: nowrap;
 }
 
+::deep .message-request-button {
+    margin-top: 2px;
+    white-space: nowrap;
+}
+
 .request-meta {
     align-items: flex-start;
 }
@@ -261,6 +266,10 @@
     }
 
     ::deep .cancel-request-button {
+        width: 100%;
+    }
+
+    ::deep .message-request-button {
         width: 100%;
     }
 }

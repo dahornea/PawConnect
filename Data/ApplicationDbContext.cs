@@ -43,6 +43,18 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
     public DbSet<DogSearchEmbedding> DogSearchEmbeddings => Set<DogSearchEmbedding>();
 
+    public DbSet<Conversation> Conversations => Set<Conversation>();
+
+    public DbSet<Message> Messages => Set<Message>();
+
+    public DbSet<MessageAttachment> MessageAttachments => Set<MessageAttachment>();
+
+    public DbSet<MessageReaction> MessageReactions => Set<MessageReaction>();
+
+    public DbSet<MessageReport> MessageReports => Set<MessageReport>();
+
+    public DbSet<MessageReadReceipt> MessageReadReceipts => Set<MessageReadReceipt>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -172,6 +184,169 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         builder.Entity<AdoptionRequest>()
             .Property(a => a.UpdatedAt)
             .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<Conversation>()
+            .HasOne(conversation => conversation.AdoptionRequest)
+            .WithOne()
+            .HasForeignKey<Conversation>(conversation => conversation.AdoptionRequestId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<Conversation>()
+            .HasIndex(conversation => conversation.AdoptionRequestId)
+            .IsUnique();
+
+        builder.Entity<Conversation>()
+            .Property(conversation => conversation.CreatedAt)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<Message>()
+            .HasOne(message => message.Conversation)
+            .WithMany(conversation => conversation.Messages)
+            .HasForeignKey(message => message.ConversationId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<Message>()
+            .HasOne(message => message.SenderUser)
+            .WithMany()
+            .HasForeignKey(message => message.SenderUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Message>()
+            .Property(message => message.Body)
+            .HasMaxLength(2000);
+
+        builder.Entity<Message>()
+            .Property(message => message.CreatedAt)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<Message>()
+            .HasIndex(message => new { message.ConversationId, message.CreatedAt });
+
+        builder.Entity<MessageAttachment>()
+            .HasOne(attachment => attachment.Message)
+            .WithMany(message => message.Attachments)
+            .HasForeignKey(attachment => attachment.MessageId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<MessageAttachment>()
+            .HasOne(attachment => attachment.UploadedByUser)
+            .WithMany()
+            .HasForeignKey(attachment => attachment.UploadedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<MessageAttachment>()
+            .Property(attachment => attachment.OriginalFileName)
+            .HasMaxLength(255);
+
+        builder.Entity<MessageAttachment>()
+            .Property(attachment => attachment.StoredFileName)
+            .HasMaxLength(255);
+
+        builder.Entity<MessageAttachment>()
+            .Property(attachment => attachment.FilePathOrKey)
+            .HasMaxLength(500);
+
+        builder.Entity<MessageAttachment>()
+            .Property(attachment => attachment.ContentType)
+            .HasMaxLength(120);
+
+        builder.Entity<MessageAttachment>()
+            .Property(attachment => attachment.UploadedAt)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<MessageAttachment>()
+            .HasIndex(attachment => attachment.MessageId);
+
+        builder.Entity<MessageAttachment>()
+            .HasIndex(attachment => attachment.UploadedByUserId);
+
+        builder.Entity<MessageReaction>()
+            .HasOne(reaction => reaction.Message)
+            .WithMany(message => message.Reactions)
+            .HasForeignKey(reaction => reaction.MessageId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<MessageReaction>()
+            .HasOne(reaction => reaction.User)
+            .WithMany()
+            .HasForeignKey(reaction => reaction.UserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<MessageReaction>()
+            .Property(reaction => reaction.CreatedAt)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<MessageReaction>()
+            .HasIndex(reaction => reaction.UserId);
+
+        builder.Entity<MessageReaction>()
+            .HasIndex(reaction => new { reaction.MessageId, reaction.UserId, reaction.ReactionType })
+            .IsUnique();
+
+        builder.Entity<MessageReport>()
+            .HasOne(report => report.Message)
+            .WithMany(message => message.Reports)
+            .HasForeignKey(report => report.MessageId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<MessageReport>()
+            .HasOne(report => report.ReporterUser)
+            .WithMany()
+            .HasForeignKey(report => report.ReporterUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<MessageReport>()
+            .HasOne(report => report.ReviewedByAdmin)
+            .WithMany()
+            .HasForeignKey(report => report.ReviewedByAdminId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.Entity<MessageReport>()
+            .Property(report => report.Reason)
+            .HasMaxLength(80);
+
+        builder.Entity<MessageReport>()
+            .Property(report => report.Details)
+            .HasMaxLength(1000);
+
+        builder.Entity<MessageReport>()
+            .Property(report => report.AdminNote)
+            .HasMaxLength(1000);
+
+        builder.Entity<MessageReport>()
+            .Property(report => report.CreatedAt)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<MessageReport>()
+            .HasIndex(report => report.Status);
+
+        builder.Entity<MessageReport>()
+            .HasIndex(report => report.CreatedAt);
+
+        builder.Entity<MessageReport>()
+            .HasIndex(report => new { report.MessageId, report.ReporterUserId })
+            .IsUnique();
+
+        builder.Entity<MessageReadReceipt>()
+            .HasOne(receipt => receipt.Message)
+            .WithMany(message => message.ReadReceipts)
+            .HasForeignKey(receipt => receipt.MessageId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<MessageReadReceipt>()
+            .HasOne(receipt => receipt.User)
+            .WithMany()
+            .HasForeignKey(receipt => receipt.UserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<MessageReadReceipt>()
+            .Property(receipt => receipt.ReadAt)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<MessageReadReceipt>()
+            .HasIndex(receipt => new { receipt.MessageId, receipt.UserId })
+            .IsUnique();
 
         builder.Entity<Shelter>()
             .Property(s => s.VisitStartTime)
