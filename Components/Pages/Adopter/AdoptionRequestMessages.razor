@@ -1,0 +1,14 @@
+@page "/my-adoption-requests/{AdoptionRequestId:int}/messages"
+@attribute [Authorize(Roles = "Adopter")]
+
+<PageTitle>Adoption Request Messages</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="py-4">
+    <AdoptionConversationPanel AdoptionRequestId="AdoptionRequestId"
+                               BackHref="/my-adoption-requests"
+                               BackText="Back to requests" />
+</MudContainer>
+
+@code {
+    [Parameter] public int AdoptionRequestId { get; set; }
+}

@@ -134,6 +134,15 @@
                                         </div>
                                     </div>
 
+                                    <MudButton Href="@($"/my-adoption-requests/{request.Id}/messages")"
+                                               Variant="Variant.Outlined"
+                                               Color="Color.Primary"
+                                               Size="Size.Small"
+                                               StartIcon="@Icons.Material.Filled.ChatBubbleOutline"
+                                               Class="message-request-button">
+                                        Messages
+                                    </MudButton>
+
                                     @if (CanCancelRequest(request))
                                     {
                                         <MudButton Variant="Variant.Outlined"

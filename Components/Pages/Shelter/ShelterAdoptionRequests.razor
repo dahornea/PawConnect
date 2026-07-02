@@ -153,6 +153,14 @@
                                            OnClick="@(() => OpenRequestDetailsDialogAsync(context))">
                                     Details
                                 </MudButton>
+                                <MudButton Href="@($"/shelter/adoption-requests/{context.Id}/messages")"
+                                           Variant="Variant.Outlined"
+                                           Color="Color.Primary"
+                                           Size="Size.Small"
+                                           StartIcon="@Icons.Material.Filled.ChatBubbleOutline"
+                                           Class="request-details-button">
+                                    Messages
+                                </MudButton>
                                 @if (HasRequestActions(context))
                                 {
                                     <MudMenu Label="Manage"
