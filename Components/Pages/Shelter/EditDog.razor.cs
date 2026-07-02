@@ -39,6 +39,7 @@ public partial class EditDog
     private DogBreed? _selectedBreed;
     private DogBreed? _selectedSecondaryBreed;
     private List<DogImage> _images = [];
+    private readonly HashSet<string> _unavailableImageUrls = new(StringComparer.OrdinalIgnoreCase);
     private List<MedicalRecord> _medicalRecords = [];
     private List<DogStatusHistory> _statusHistory = [];
     private DogImage _newImage = new();
@@ -759,6 +760,28 @@ public partial class EditDog
     private static bool IsValidImageUrl(string imageUrl)
     {
         return DogImageUrlValidator.IsValidDisplayImageUrl(imageUrl);
+    }
+
+    private bool IsRealDisplayImage(DogImage image)
+    {
+        return DogImageUrlValidator.IsValidRealDogImageUrl(image.ImageUrl) &&
+            !IsImageUnavailable(image.ImageUrl);
+    }
+
+    private bool IsImageUnavailable(string? imageUrl)
+    {
+        return !string.IsNullOrWhiteSpace(imageUrl) &&
+            _unavailableImageUrls.Contains(imageUrl.Trim());
+    }
+
+    private void MarkImageUnavailable(string? imageUrl)
+    {
+        if (string.IsNullOrWhiteSpace(imageUrl))
+        {
+            return;
+        }
+
+        _unavailableImageUrls.Add(imageUrl.Trim());
     }
 
     private async Task<bool> ConfirmAsync(string title, string message, string confirmText, Color confirmColor, string icon)

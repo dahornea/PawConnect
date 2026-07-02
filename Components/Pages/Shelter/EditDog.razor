@@ -323,9 +323,21 @@
                     {
                         <MudCard Class="image-card image-preview-card">
                             <div class="dog-edit-image-frame">
-                                <img src="@_newImage.ImageUrl"
-                                     alt="@($"Preview of a new photo for {_model.Name}")"
-                                     class="dog-edit-preview-image" />
+                                @if (IsImageUnavailable(_newImage.ImageUrl))
+                                {
+                                    <div class="dog-edit-image-placeholder">
+                                        <MudIcon Icon="@Icons.Material.Filled.BrokenImage" Color="Color.Secondary" />
+                                        <MudText Typo="Typo.caption">Preview could not be loaded</MudText>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <img src="@_newImage.ImageUrl"
+                                         alt="@($"Preview of a new photo for {_model.Name}")"
+                                         class="dog-edit-preview-image"
+                                         decoding="async"
+                                         @onerror="@(() => MarkImageUnavailable(_newImage.ImageUrl))" />
+                                }
                             </div>
                             <MudCardContent>
                                 <MudText Typo="Typo.caption" Color="Color.Secondary">Preview for the new image URL</MudText>
@@ -345,18 +357,34 @@
                                 <MudItem xs="12" sm="6" md="4">
                                     <MudCard Class="image-card">
                                         <div class="dog-edit-image-frame dog-edit-image-frame--compact">
-                                            <img src="@image.ImageUrl"
-                                                 alt="@($"Photo of {_model.Name}")"
-                                                 class="dog-edit-preview-image" />
+                                            @if (!IsRealDisplayImage(image))
+                                            {
+                                                <div class="dog-edit-image-placeholder">
+                                                    <MudIcon Icon="@Icons.Material.Filled.BrokenImage" Color="Color.Secondary" />
+                                                    <MudText Typo="Typo.caption">Image could not be displayed</MudText>
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <img src="@image.ImageUrl"
+                                                     alt="@($"Photo of {_model.Name}")"
+                                                     class="dog-edit-preview-image"
+                                                     loading="lazy"
+                                                     decoding="async"
+                                                     @onerror="@(() => MarkImageUnavailable(image.ImageUrl))" />
+                                            }
                                         </div>
                                         <MudCardContent>
                                             @if (image.IsMainImage)
                                             {
                                                 <MudChip T="string" Color="Color.Success" Size="Size.Small">Main Image</MudChip>
+                                                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mt-1">
+                                                    Used first on public cards and the dog details gallery.
+                                                </MudText>
                                             }
                                             else
                                             {
-                                                <MudText Typo="Typo.caption" Color="Color.Secondary">Gallery image</MudText>
+                                                <MudText Typo="Typo.caption" Color="Color.Secondary">Gallery image. Set as main to prioritize it.</MudText>
                                             }
                                         </MudCardContent>
                                         <MudCardActions>

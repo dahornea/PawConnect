@@ -70,6 +70,23 @@
     max-height: 240px;
 }
 
+.dog-edit-image-placeholder {
+    display: flex;
+    width: 100%;
+    min-height: 170px;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 8px;
+    border-radius: 12px;
+    color: #66756f;
+    background: rgba(255, 255, 255, 0.54);
+}
+
+.dog-edit-image-placeholder .mud-icon-root {
+    font-size: 2rem;
+}
+
 ::deep .table-shell {
     border: 1px solid rgba(47, 111, 94, 0.1);
     border-radius: 10px;

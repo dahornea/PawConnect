@@ -59,8 +59,10 @@ else
                                     aria-label="@($"Open photo preview for {_dog.Name}")"
                                     @onclick="() => OpenImagePreviewAsync(validImages, selectedImageIndex)">
                                 <img src="@selectedImage.ImageUrl"
+                                     @key="selectedImage.ImageUrl"
                                      alt="@GetDogImageAlt(_dog)"
                                      class="dog-gallery-image"
+                                     decoding="async"
                                      @onerror="@(() => MarkImageUnavailable(selectedImage.ImageUrl))" />
                                 <span class="dog-gallery-zoom-overlay" aria-hidden="true">
                                     <MudIcon Icon="@Icons.Material.Filled.ZoomIn" />
@@ -86,6 +88,7 @@ else
 
                                 <button type="button"
                                         class="dog-gallery-thumbnail @(isSelected ? "selected" : null)"
+                                        role="listitem"
                                         aria-label="@($"Show photo {thumbnailIndex + 1} of {_dog.Name}")"
                                         aria-current="@(isSelected ? "true" : "false")"
                                         @onclick="() => SelectGalleryImage(thumbnailIndex)">

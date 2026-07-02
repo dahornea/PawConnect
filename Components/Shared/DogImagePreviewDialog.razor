@@ -1,8 +1,10 @@
 ﻿<MudDialog Class="dog-image-lightbox-dialog">
     <DialogContent>
         <div class="dog-image-preview"
+             @ref="_previewElement"
              tabindex="0"
-             autofocus
+             role="group"
+             aria-label="@($"Image preview for {DogName}")"
              @onkeydown="HandleKeyDown">
             @{
                 var displayImages = GetDisplayImages();
@@ -32,16 +34,21 @@
                                        aria-label="Previous photo" />
                     }
 
-                    <div class="preview-image-frame">
+                    <div class="preview-image-frame" aria-live="polite">
                         <img src="@selectedImage.ImageUrl"
+                             @key="selectedImage.ImageUrl"
                              alt="@GetSelectedImageAlt(currentPhotoNumber)"
                              class="preview-image"
+                             decoding="async"
                              @onerror="@(() => MarkImageUnavailable(selectedImage.ImageUrl))" />
                         <div class="preview-caption">
-                            @DogName Â· @FormattedBreed
+                            <span>@DogName</span>
+                            <span aria-hidden="true">&middot;</span>
+                            <span>@FormattedBreed</span>
                             @if (hasMultipleImages)
                             {
-                                <span> Â· @currentPhotoNumber / @displayImages.Count</span>
+                                <span aria-hidden="true">&middot;</span>
+                                <span>@currentPhotoNumber / @displayImages.Count</span>
                             }
                         </div>
                     </div>
@@ -59,7 +66,7 @@
 
                 @if (hasMultipleImages)
                 {
-                    <div class="preview-thumbnail-row" aria-label="@($"{DogName} photo thumbnails")">
+                    <div class="preview-thumbnail-row" role="list" aria-label="@($"{DogName} photo thumbnails")">
                         @for (var index = 0; index < displayImages.Count; index++)
                         {
                             var thumbnailIndex = index;
@@ -68,6 +75,7 @@
 
                             <button type="button"
                                     class="preview-thumbnail @(isSelected ? "selected" : null)"
+                                    role="listitem"
                                     aria-label="@($"Show photo {thumbnailIndex + 1} of {DogName}")"
                                     aria-current="@(isSelected ? "true" : "false")"
                                     @onclick="() => SelectImage(thumbnailIndex)">
