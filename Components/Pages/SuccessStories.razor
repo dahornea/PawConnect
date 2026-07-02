@@ -1,5 +1,4 @@
-@page "/success-stories"
-@inject IDogService DogService
+﻿@page "/success-stories"
 
 <PageTitle>Success Stories</PageTitle>
 
@@ -96,29 +95,3 @@
 </MudContainer>
 </div>
 
-@code {
-    private List<Dog> _adoptedDogs = [];
-    private bool _isLoading = true;
-    private string? _error;
-
-    protected override async Task OnInitializedAsync()
-    {
-        try
-        {
-            _adoptedDogs = await DogService.GetAdoptedDogsAsync();
-        }
-        catch
-        {
-            _error = "Success stories could not be loaded right now.";
-        }
-        finally
-        {
-            _isLoading = false;
-        }
-    }
-
-    private static string? GetDogImageUrl(Dog dog)
-    {
-        return DogImageUrlValidator.GetPrimaryRealDogImageUrl(dog.Images);
-    }
-}

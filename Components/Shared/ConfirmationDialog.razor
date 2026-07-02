@@ -1,4 +1,4 @@
-<MudDialog>
+﻿<MudDialog>
     <TitleContent>
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
             <MudIcon Icon="@Icon" Color="@IconColor" />
@@ -14,38 +14,3 @@
     </DialogActions>
 </MudDialog>
 
-@code {
-    [CascadingParameter]
-    private IMudDialogInstance MudDialog { get; set; } = default!;
-
-    [Parameter]
-    public string Title { get; set; } = "Confirm action";
-
-    [Parameter]
-    public string Message { get; set; } = "Are you sure you want to continue?";
-
-    [Parameter]
-    public string ConfirmText { get; set; } = "Confirm";
-
-    [Parameter]
-    public string CancelText { get; set; } = "Cancel";
-
-    [Parameter]
-    public Color ConfirmColor { get; set; } = Color.Primary;
-
-    [Parameter]
-    public Color IconColor { get; set; } = Color.Warning;
-
-    [Parameter]
-    public string Icon { get; set; } = Icons.Material.Filled.HelpOutline;
-
-    private void Confirm()
-    {
-        MudDialog.Close(DialogResult.Ok(true));
-    }
-
-    private void Cancel()
-    {
-        MudDialog.Cancel();
-    }
-}

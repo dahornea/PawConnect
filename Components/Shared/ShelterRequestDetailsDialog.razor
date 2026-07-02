@@ -1,4 +1,4 @@
-<MudDialog>
+﻿<MudDialog>
     <TitleContent>
         <MudText Typo="Typo.h6">Shelter Application</MudText>
     </TitleContent>
@@ -46,27 +46,3 @@
     </DialogActions>
 </MudDialog>
 
-@code {
-    [CascadingParameter]
-    private IMudDialogInstance MudDialog { get; set; } = default!;
-
-    [Parameter]
-    public ShelterRegistrationRequest? Request { get; set; }
-
-    private void Close()
-    {
-        MudDialog.Close();
-    }
-
-    private static bool HasMapLocation(ShelterRegistrationRequest request)
-    {
-        return request.Latitude.HasValue && request.Longitude.HasValue;
-    }
-
-    private static string FormatMapLocation(ShelterRegistrationRequest request)
-    {
-        return HasMapLocation(request)
-            ? "Map location selected"
-            : "No map location provided";
-    }
-}

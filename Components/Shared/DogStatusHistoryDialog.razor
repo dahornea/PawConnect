@@ -1,4 +1,4 @@
-<MudDialog>
+﻿<MudDialog>
     <TitleContent>
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
             <MudIcon Icon="@Icons.Material.Filled.History" Color="Color.Info" />
@@ -44,38 +44,3 @@
     </DialogActions>
 </MudDialog>
 
-@code {
-    [CascadingParameter]
-    private IMudDialogInstance MudDialog { get; set; } = default!;
-
-    [Parameter]
-    public string DogName { get; set; } = "Selected dog";
-
-    [Parameter]
-    public IReadOnlyList<DogStatusHistory> Histories { get; set; } = [];
-
-    private void Close()
-    {
-        MudDialog.Close();
-    }
-
-    private static string FormatChangedBy(DogStatusHistory history)
-    {
-        return history.ChangedByUser?.Email ??
-            history.ChangedByUser?.UserName ??
-            history.ChangedByUserId ??
-            "-";
-    }
-
-    private static Color GetStatusColor(DogStatus status)
-    {
-        return status switch
-        {
-            DogStatus.Available => Color.Success,
-            DogStatus.Reserved => Color.Warning,
-            DogStatus.Adopted => Color.Default,
-            DogStatus.InTreatment => Color.Info,
-            _ => Color.Default
-        };
-    }
-}
