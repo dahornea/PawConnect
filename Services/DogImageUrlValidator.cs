@@ -58,7 +58,25 @@ public static class DogImageUrlValidator
             return false;
         }
 
-        return !IsKnownPlaceholderImageUrl(imageUrl);
+        return !IsSvgImageUrl(imageUrl) && !IsKnownPlaceholderImageUrl(imageUrl);
+    }
+
+    public static bool TryNormalizeImageReference(string? imageUrl, out string normalizedImageUrl)
+    {
+        normalizedImageUrl = string.Empty;
+        if (string.IsNullOrWhiteSpace(imageUrl))
+        {
+            return false;
+        }
+
+        var trimmedImageUrl = imageUrl.Trim();
+        if (IsLocalDisplayImageUrl(trimmedImageUrl) && IsValidRealDogImageUrl(trimmedImageUrl))
+        {
+            normalizedImageUrl = trimmedImageUrl.Replace('\\', '/');
+            return true;
+        }
+
+        return TryNormalize(trimmedImageUrl, out normalizedImageUrl);
     }
 
     public static List<DogImage> GetRealDogImages(
@@ -130,6 +148,17 @@ public static class DogImageUrlValidator
         var normalizedImageUrl = imageUrl.Trim().Replace('\\', '/');
         return PlaceholderUrlMarkers.Any(marker =>
             normalizedImageUrl.Contains(marker, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsSvgImageUrl(string? imageUrl)
+    {
+        if (string.IsNullOrWhiteSpace(imageUrl))
+        {
+            return false;
+        }
+
+        var path = imageUrl.Trim().Split('?', '#')[0];
+        return Path.GetExtension(path).Equals(".svg", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsUnavailable(string? imageUrl, ISet<string>? unavailableImageUrls)

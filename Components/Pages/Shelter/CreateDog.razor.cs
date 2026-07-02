@@ -21,6 +21,7 @@ public partial class CreateDog
     [Inject] private IDogService DogService { get; set; } = default!;
     [Inject] private IDogBreedService DogBreedService { get; set; } = default!;
     [Inject] private IDogImageService DogImageService { get; set; } = default!;
+    [Inject] private IDogImageStorageService DogImageStorageService { get; set; } = default!;
     [Inject] private IFoodTypeService FoodTypeService { get; set; } = default!;
     [Inject] private IShelterService ShelterService { get; set; } = default!;
     [Inject] private AuthenticationStateProvider AuthenticationStateProvider { get; set; } = default!;
@@ -46,9 +47,12 @@ public partial class CreateDog
     private string? _dailyFoodAmountError;
     private string? _newImageUrl;
     private string? _imageUrlError;
+    private string? _imageUploadError;
     private int? _shelterId;
     private List<string> _pendingImageUrls = [];
+    private List<IBrowserFile> _pendingImageFiles = [];
     private bool _useCustomBreed;
+    private const int MaxPendingUploadFiles = 8;
     private bool IsMixedBreedDisabled => _useCustomBreed ? false : IsSpecialBreed(_selectedBreed);
     private bool CanUseSecondaryBreed => _model.IsMixedBreed && !_useCustomBreed && _selectedBreed is not null && !IsSpecialBreed(_selectedBreed);
     private bool HasNameError => !string.IsNullOrWhiteSpace(_nameError);
@@ -58,6 +62,7 @@ public partial class CreateDog
     private bool HasLocationError => !string.IsNullOrWhiteSpace(_locationError);
     private bool HasDailyFoodAmountError => !string.IsNullOrWhiteSpace(_dailyFoodAmountError);
     private bool HasImageUrlError => !string.IsNullOrWhiteSpace(_imageUrlError);
+    private bool HasImageUploadError => !string.IsNullOrWhiteSpace(_imageUploadError);
 
     protected override async Task OnInitializedAsync()
     {
@@ -112,7 +117,14 @@ public partial class CreateDog
 
             ApplyBreedSelectionToModel();
             await DogService.CreateDogAsync(_model, _shelterId.Value);
-            await SavePendingImagesAsync();
+            var imageErrors = await SavePendingImagesAsync();
+            if (imageErrors.Count > 0)
+            {
+                Snackbar.Add($"Dog profile saved, but {imageErrors.Count} image upload(s) could not be saved.", Severity.Warning);
+                NavigationManager.NavigateTo($"/shelter/dogs/edit/{_model.Id}");
+                return;
+            }
+
             Snackbar.Add("Dog profile saved.", Severity.Success);
             NavigationManager.NavigateTo("/shelter/dogs");
         }
@@ -174,6 +186,35 @@ public partial class CreateDog
     {
         _pendingImageUrls.Remove(imageUrl);
         _imageUrlError = null;
+    }
+
+    private void OnImageFilesSelected(InputFileChangeEventArgs args)
+    {
+        _imageUploadError = null;
+
+        try
+        {
+            foreach (var file in args.GetMultipleFiles(MaxPendingUploadFiles))
+            {
+                var duplicateExists = _pendingImageFiles.Any(existing =>
+                    string.Equals(existing.Name, file.Name, StringComparison.OrdinalIgnoreCase) &&
+                    existing.Size == file.Size);
+                if (!duplicateExists)
+                {
+                    _pendingImageFiles.Add(file);
+                }
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            _imageUploadError = $"Select up to {MaxPendingUploadFiles} image files at a time.";
+        }
+    }
+
+    private void RemovePendingImageFile(IBrowserFile file)
+    {
+        _pendingImageFiles.Remove(file);
+        _imageUploadError = null;
     }
 
     private void ClearDogValidationErrors()
@@ -335,6 +376,11 @@ public partial class CreateDog
         _imageUrlError = null;
     }
 
+    private void ClearImageUploadError()
+    {
+        _imageUploadError = null;
+    }
+
     private bool TryMapDogValidationMessage(string message)
     {
         switch (message)
@@ -371,16 +417,53 @@ public partial class CreateDog
         }
     }
 
-    private async Task SavePendingImagesAsync()
+    private async Task<List<string>> SavePendingImagesAsync()
     {
+        var errors = new List<string>();
+        var imageIndex = 0;
+
         for (var index = 0; index < _pendingImageUrls.Count; index++)
         {
-            await DogImageService.AddDogImageAsync(_model.Id, _shelterId!.Value, new DogImage
+            try
             {
-                ImageUrl = _pendingImageUrls[index],
-                IsMainImage = index == 0
-            });
+                await DogImageService.AddDogImageAsync(_model.Id, _shelterId!.Value, new DogImage
+                {
+                    ImageUrl = _pendingImageUrls[index],
+                    IsMainImage = imageIndex == 0
+                });
+                imageIndex++;
+            }
+            catch (InvalidOperationException ex)
+            {
+                errors.Add(ex.Message);
+            }
         }
+
+        foreach (var file in _pendingImageFiles)
+        {
+            DogImageUploadResult? uploadResult = null;
+            try
+            {
+                uploadResult = await DogImageStorageService.SaveDogImageAsync(_model.Id, file);
+                await DogImageService.AddDogImageAsync(_model.Id, _shelterId!.Value, new DogImage
+                {
+                    ImageUrl = uploadResult.ImagePath,
+                    IsMainImage = imageIndex == 0
+                });
+                imageIndex++;
+            }
+            catch (InvalidOperationException ex)
+            {
+                if (uploadResult is not null)
+                {
+                    await DogImageStorageService.DeleteDogImageAsync(uploadResult.ImagePath);
+                }
+
+                errors.Add($"{file.Name}: {ex.Message}");
+            }
+        }
+
+        return errors;
     }
 
     private static bool IsValidImageUrl(string imageUrl)

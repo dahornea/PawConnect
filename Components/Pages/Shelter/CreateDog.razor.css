@@ -8,3 +8,15 @@
     border-top: 1px solid rgba(47, 111, 94, 0.08);
     background: rgba(244, 247, 242, 0.55);
 }
+
+::deep .dog-upload-panel,
+::deep .pending-upload-file {
+    border: 1px solid rgba(47, 111, 94, 0.1);
+    border-radius: 10px;
+    background: rgba(244, 247, 242, 0.55);
+}
+
+.dog-upload-input {
+    display: block;
+    max-width: 100%;
+}
