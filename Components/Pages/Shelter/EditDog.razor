@@ -295,7 +295,7 @@
                 <MudStack Spacing="3">
                     <div>
                             <MudText Typo="Typo.h5" Class="section-title">Dog Images</MudText>
-                        <MudText Typo="Typo.body2" Color="Color.Secondary">Add image URLs and choose one main image for listings.</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Add image URLs or upload local photos, then choose one main image for listings.</MudText>
                     </div>
 
                     <MudForm @ref="_imageForm">
@@ -318,6 +318,61 @@
                             </MudItem>
                         </MudGrid>
                     </MudForm>
+
+                    <MudPaper Elevation="0" Class="dog-upload-panel pa-3">
+                        <MudGrid Spacing="2">
+                            <MudItem xs="12" md="7">
+                                <MudStack Spacing="1">
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                        <MudIcon Icon="@Icons.Material.Filled.UploadFile" Color="Color.Primary" />
+                                        <MudText Typo="Typo.subtitle2">Upload image files</MudText>
+                                    </MudStack>
+                                    <InputFile OnChange="OnUploadImageFilesSelected"
+                                               multiple
+                                               accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                                               disabled="@IsReadOnly"
+                                               class="dog-upload-input" />
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Supported files: JPG, PNG, WEBP.</MudText>
+                                    @if (HasImageUploadError)
+                                    {
+                                        <MudText Typo="Typo.caption" Color="Color.Error">@_imageUploadError</MudText>
+                                    }
+                                </MudStack>
+                            </MudItem>
+                            <MudItem xs="12" md="5">
+                                <MudStack Spacing="1" AlignItems="AlignItems.End">
+                                    @if (_selectedImageFiles.Count > 0)
+                                    {
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                            @_selectedImageFiles.Count selected
+                                        </MudText>
+                                    }
+                                    <MudButton Variant="Variant.Filled"
+                                               Color="Color.Primary"
+                                               StartIcon="@Icons.Material.Filled.CloudUpload"
+                                               Disabled="@(_isImageUploading || IsReadOnly)"
+                                               OnClick="UploadSelectedImagesAsync">
+                                        @(_isImageUploading ? "Uploading..." : "Upload Selected")
+                                    </MudButton>
+                                </MudStack>
+                            </MudItem>
+                        </MudGrid>
+                        @if (_selectedImageFiles.Count > 0)
+                        {
+                            <MudStack Spacing="1" Class="mt-2">
+                                @foreach (var file in _selectedImageFiles)
+                                {
+                                    <MudPaper Elevation="0" Class="pending-upload-file pa-2">
+                                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                            <MudIcon Icon="@Icons.Material.Filled.Image" Color="Color.Primary" />
+                                            <MudText Typo="Typo.body2">@file.Name</MudText>
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">@($"{file.Size / 1024d:0.#} KB")</MudText>
+                                        </MudStack>
+                                    </MudPaper>
+                                }
+                            </MudStack>
+                        }
+                    </MudPaper>
 
                     @if (!string.IsNullOrWhiteSpace(_newImage.ImageUrl) && IsValidImageUrl(_newImage.ImageUrl))
                     {

@@ -22,6 +22,7 @@ public partial class EditDog
     [Inject] private IDogBreedService DogBreedService { get; set; } = default!;
     [Inject] private IFoodTypeService FoodTypeService { get; set; } = default!;
     [Inject] private IDogImageService DogImageService { get; set; } = default!;
+    [Inject] private IDogImageStorageService DogImageStorageService { get; set; } = default!;
     [Inject] private IMedicalRecordService MedicalRecordService { get; set; } = default!;
     [Inject] private IShelterService ShelterService { get; set; } = default!;
     [Inject] private AuthenticationStateProvider AuthenticationStateProvider { get; set; } = default!;
@@ -43,6 +44,7 @@ public partial class EditDog
     private List<MedicalRecord> _medicalRecords = [];
     private List<DogStatusHistory> _statusHistory = [];
     private DogImage _newImage = new();
+    private IReadOnlyList<IBrowserFile> _selectedImageFiles = [];
     private MedicalRecord _medicalRecordModel = new() { RecordDate = DateTime.Today };
     private DateTime? _medicalRecordDate = DateTime.Today;
     private MudForm? _form;
@@ -51,6 +53,7 @@ public partial class EditDog
     private bool _isLoading = true;
     private bool _isSaving;
     private bool _isImageSaving;
+    private bool _isImageUploading;
     private bool _isMedicalSaving;
     private bool _isSuccessStorySaving;
     private string? _error;
@@ -62,6 +65,7 @@ public partial class EditDog
     private string? _locationError;
     private string? _dailyFoodAmountError;
     private string? _imageUrlError;
+    private string? _imageUploadError;
     private string? _statusHistoryError;
     private string? _successStoryError;
     private string? _successStoryText;
@@ -80,6 +84,7 @@ public partial class EditDog
     private bool HasLocationError => !string.IsNullOrWhiteSpace(_locationError);
     private bool HasDailyFoodAmountError => !string.IsNullOrWhiteSpace(_dailyFoodAmountError);
     private bool HasImageUrlError => !string.IsNullOrWhiteSpace(_imageUrlError);
+    private bool HasImageUploadError => !string.IsNullOrWhiteSpace(_imageUploadError);
     private bool HasSuccessStoryError => !string.IsNullOrWhiteSpace(_successStoryError);
 
     protected override async Task OnInitializedAsync()
@@ -330,6 +335,85 @@ public partial class EditDog
         catch
         {
             Snackbar.Add("Could not update main image. Please try again.", Severity.Error);
+        }
+    }
+
+    private void OnUploadImageFilesSelected(InputFileChangeEventArgs args)
+    {
+        _imageUploadError = null;
+
+        try
+        {
+            _selectedImageFiles = args.GetMultipleFiles(8);
+        }
+        catch (InvalidOperationException)
+        {
+            _imageUploadError = "Select up to 8 image files at a time.";
+            _selectedImageFiles = [];
+        }
+    }
+
+    private async Task UploadSelectedImagesAsync()
+    {
+        if (_shelterId is null)
+        {
+            Snackbar.Add("Current shelter profile could not be found.", Severity.Error);
+            return;
+        }
+
+        if (_selectedImageFiles.Count == 0)
+        {
+            _imageUploadError = "Choose at least one image file first.";
+            return;
+        }
+
+        _isImageUploading = true;
+        _imageUploadError = null;
+        var uploadedCount = 0;
+        var failedCount = 0;
+
+        try
+        {
+            foreach (var file in _selectedImageFiles)
+            {
+                DogImageUploadResult? uploadResult = null;
+                try
+                {
+                    uploadResult = await DogImageStorageService.SaveDogImageAsync(Id, file);
+                    await DogImageService.AddDogImageAsync(Id, _shelterId.Value, new DogImage
+                    {
+                        ImageUrl = uploadResult.ImagePath,
+                        IsMainImage = _images.Count == 0 && uploadedCount == 0
+                    });
+                    uploadedCount++;
+                }
+                catch (InvalidOperationException ex)
+                {
+                    failedCount++;
+                    if (uploadResult is not null)
+                    {
+                        await DogImageStorageService.DeleteDogImageAsync(uploadResult.ImagePath);
+                    }
+
+                    _imageUploadError ??= $"{file.Name}: {ex.Message}";
+                }
+            }
+
+            if (uploadedCount > 0)
+            {
+                _selectedImageFiles = [];
+                await LoadDogManagementDataAsync();
+                Snackbar.Add(uploadedCount == 1 ? "Dog image uploaded." : $"{uploadedCount} dog images uploaded.", Severity.Success);
+            }
+
+            if (failedCount > 0)
+            {
+                Snackbar.Add($"{failedCount} image upload(s) could not be saved.", Severity.Warning);
+            }
+        }
+        finally
+        {
+            _isImageUploading = false;
         }
     }
 
@@ -693,6 +777,11 @@ public partial class EditDog
     private void ClearImageUrlError()
     {
         _imageUrlError = null;
+    }
+
+    private void ClearImageUploadError()
+    {
+        _imageUploadError = null;
     }
 
     private void ClearSuccessStoryError()

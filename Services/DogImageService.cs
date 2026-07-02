@@ -4,7 +4,10 @@ using PawConnect.Entities;
 
 namespace PawConnect.Services;
 
-public class DogImageService(ApplicationDbContext context, IAuditLogService? auditLogService = null) : IDogImageService
+public class DogImageService(
+    ApplicationDbContext context,
+    IAuditLogService? auditLogService = null,
+    IDogImageStorageService? imageStorageService = null) : IDogImageService
 {
     public Task<List<DogImage>> GetAllAsync()
     {
@@ -124,8 +127,14 @@ public class DogImageService(ApplicationDbContext context, IAuditLogService? aud
 
         EnsureDogIsNotAdopted(image.Dog);
 
+        var imagePath = image.ImageUrl;
         context.DogImages.Remove(image);
         await context.SaveChangesAsync();
+        if (imageStorageService is not null)
+        {
+            await imageStorageService.DeleteDogImageAsync(imagePath);
+        }
+
         await LogAsync(
             AuditActions.DogImageDeleted,
             "DogImage",
@@ -173,7 +182,7 @@ public class DogImageService(ApplicationDbContext context, IAuditLogService? aud
             throw new InvalidOperationException("Image URL is required.");
         }
 
-        if (!DogImageUrlValidator.TryNormalize(imageUrl, out var normalizedImageUrl))
+        if (!DogImageUrlValidator.TryNormalizeImageReference(imageUrl, out var normalizedImageUrl))
         {
             throw new InvalidOperationException(DogImageUrlValidator.ValidationMessage);
         }

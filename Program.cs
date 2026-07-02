@@ -89,8 +89,10 @@ builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("Emai
 builder.Services.Configure<ScheduledReportSettings>(builder.Configuration.GetSection("ScheduledReports"));
 builder.Services.Configure<VisitReminderSettings>(builder.Configuration.GetSection("VisitReminders"));
 builder.Services.Configure<OpenAiSettings>(builder.Configuration.GetSection("OpenAI"));
+builder.Services.Configure<DogImageStorageOptions>(builder.Configuration.GetSection("DogImageStorage"));
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 builder.Services.AddScoped<IEmailSender<ApplicationUser>, PawConnectIdentityEmailSender>();
+builder.Services.AddScoped<IDogImageStorageService, LocalDogImageStorageService>();
 builder.Services.AddHttpClient<IGeocodingService, NominatimGeocodingService>(client =>
 {
     client.BaseAddress = new Uri("https://nominatim.openstreetmap.org/");
@@ -180,6 +182,8 @@ else
 }
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
+
+app.UseStaticFiles();
 
 app.UseAntiforgery();
 
