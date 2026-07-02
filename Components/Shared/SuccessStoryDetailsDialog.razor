@@ -1,4 +1,4 @@
-<MudDialog>
+﻿<MudDialog>
     <TitleContent>
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
             <MudIcon Icon="@Icons.Material.Filled.EmojiEvents" Color="Color.Success" />
@@ -36,32 +36,3 @@
     </DialogActions>
 </MudDialog>
 
-@code {
-    [CascadingParameter]
-    private IMudDialogInstance MudDialog { get; set; } = default!;
-
-    [Parameter]
-    public string DogName { get; set; } = string.Empty;
-
-    [Parameter]
-    public string Breed { get; set; } = string.Empty;
-
-    [Parameter]
-    public string? ShelterName { get; set; }
-
-    [Parameter]
-    public DateTime? AdoptedAt { get; set; }
-
-    [Parameter]
-    public string? SuccessStoryText { get; set; }
-
-    private static string DisplayOrFallback(string? value)
-    {
-        return string.IsNullOrWhiteSpace(value) ? "-" : value;
-    }
-
-    private void Close()
-    {
-        MudDialog.Close();
-    }
-}

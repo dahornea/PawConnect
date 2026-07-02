@@ -1,13 +1,8 @@
-@page "/admin/dashboard"
+﻿@page "/admin/dashboard"
 @using Microsoft.AspNetCore.Identity
 @using Microsoft.EntityFrameworkCore
 @using PawConnect.Data
 @attribute [Authorize(Roles = "Admin")]
-@inject UserManager<ApplicationUser> UserManager
-@inject IShelterService ShelterService
-@inject IDogService DogService
-@inject IAdoptionRequestService AdoptionRequestService
-@inject IResourceStockService ResourceStockService
 
 <PageTitle>Admin Dashboard</PageTitle>
 
@@ -85,41 +80,3 @@
 </MudContainer>
 </div>
 
-@code {
-    private bool _isLoading = true;
-    private string? _error;
-    private int _totalUsers;
-    private int _totalShelters;
-    private int _totalDogs;
-    private int _availableDogs;
-    private int _adoptedDogs;
-    private int _pendingRequests;
-    private int _lowStockResources;
-
-    protected override async Task OnInitializedAsync()
-    {
-        try
-        {
-            var shelters = await ShelterService.GetAllSheltersAsync();
-            var dogs = await DogService.GetAllDogsForAdminAsync();
-            var requests = await AdoptionRequestService.GetAllAsync();
-            var resources = await ResourceStockService.GetAllAsync();
-
-            _totalUsers = await UserManager.Users.CountAsync();
-            _totalShelters = shelters.Count;
-            _totalDogs = dogs.Count;
-            _availableDogs = dogs.Count(d => d.Status == DogStatus.Available);
-            _adoptedDogs = dogs.Count(d => d.Status == DogStatus.Adopted);
-            _pendingRequests = requests.Count(r => r.Status == AdoptionRequestStatus.Pending);
-            _lowStockResources = resources.Count(r => r.Quantity <= r.LowStockThreshold);
-        }
-        catch
-        {
-            _error = "Admin dashboard data could not be loaded right now.";
-        }
-        finally
-        {
-            _isLoading = false;
-        }
-    }
-}

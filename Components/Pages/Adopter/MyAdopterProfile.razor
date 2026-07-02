@@ -1,11 +1,7 @@
-@page "/adopter/profile"
+﻿@page "/adopter/profile"
 @using Microsoft.AspNetCore.Identity
 @using PawConnect.Data
 @attribute [Authorize(Roles = "Adopter")]
-@inject IAdopterProfileService AdopterProfileService
-@inject AuthenticationStateProvider AuthenticationStateProvider
-@inject UserManager<ApplicationUser> UserManager
-@inject ISnackbar Snackbar
 
 <PageTitle>Adopter Profile</PageTitle>
 
@@ -99,81 +95,3 @@
     </MudStack>
 </MudContainer>
 
-@code {
-    private AdopterProfile _profile = new();
-    private MudForm? _form;
-    private bool _isLoading = true;
-    private bool _isSaving;
-    private string? _error;
-    private string? _currentUserId;
-
-    protected override async Task OnInitializedAsync()
-    {
-        try
-        {
-            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-            var user = await UserManager.GetUserAsync(authState.User);
-            _currentUserId = user?.Id;
-
-            if (string.IsNullOrWhiteSpace(_currentUserId))
-            {
-                _error = "Current adopter account could not be found.";
-                return;
-            }
-
-            _profile = await AdopterProfileService.GetProfileForUserAsync(_currentUserId)
-                ?? new AdopterProfile
-                {
-                    FullName = user?.FullName ?? string.Empty,
-                    City = string.Empty,
-                    HousingType = HousingType.Apartment
-                };
-        }
-        catch
-        {
-            _error = "Adopter profile could not be loaded right now.";
-        }
-        finally
-        {
-            _isLoading = false;
-        }
-    }
-
-    private async Task SaveAsync()
-    {
-        if (string.IsNullOrWhiteSpace(_currentUserId))
-        {
-            Snackbar.Add("Current adopter account could not be found.", Severity.Error);
-            return;
-        }
-
-        if (_form is not null)
-        {
-            await _form.ValidateAsync();
-            if (!_form.IsValid)
-            {
-                return;
-            }
-        }
-
-        _isSaving = true;
-
-        try
-        {
-            await AdopterProfileService.CreateOrUpdateProfileAsync(_currentUserId, _profile);
-            Snackbar.Add("Profile saved successfully.", Severity.Success);
-        }
-        catch (InvalidOperationException ex)
-        {
-            Snackbar.Add(ex.Message, Severity.Warning);
-        }
-        catch
-        {
-            Snackbar.Add("Could not save profile. Please check the form and try again.", Severity.Error);
-        }
-        finally
-        {
-            _isSaving = false;
-        }
-    }
-}
