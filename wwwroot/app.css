@@ -532,3 +532,8 @@ h1:focus {
     right: 0.75rem;
     top: 0.5rem;
 }
+
+.dog-image-lightbox-backdrop {
+    background-color: rgba(8, 22, 18, 0.82) !important;
+    backdrop-filter: blur(3px);
+}

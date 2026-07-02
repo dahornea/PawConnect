@@ -40,6 +40,7 @@ public partial class DogImagePreviewDialog
 
     private int _selectedIndex;
     private bool _hasInitialized;
+    private ElementReference _previewElement;
     private readonly HashSet<string> _failedImageUrls = new(StringComparer.OrdinalIgnoreCase);
 
     protected override void OnParametersSet()
@@ -54,6 +55,14 @@ public partial class DogImagePreviewDialog
             ? 0
             : Math.Clamp(InitialIndex, 0, displayImages.Count - 1);
         _hasInitialized = true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await _previewElement.FocusAsync(preventScroll: true);
+        }
     }
 
     private void SelectImage(int index)
