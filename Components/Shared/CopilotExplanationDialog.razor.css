@@ -1,0 +1,21 @@
+.copilot-explanation-block {
+    border: 1px solid rgba(47, 111, 94, 0.12);
+    border-radius: 10px;
+    background: #fbfdf9;
+}
+
+.copilot-explanation-chips {
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+
+.copilot-explanation-list {
+    margin: 8px 0 0;
+    padding-left: 18px;
+    color: #294139;
+    line-height: 1.45;
+}
+
+.copilot-explanation-list li + li {
+    margin-top: 6px;
+}

@@ -1,5 +1,6 @@
 .adoption-copilot-page ::deep .copilot-search-card,
-.adoption-copilot-page ::deep .copilot-response-card {
+.adoption-copilot-page ::deep .copilot-response-card,
+.adoption-copilot-page ::deep .copilot-history-card {
     border-left: 5px solid #2f6f5e;
     background: linear-gradient(180deg, #ffffff, #f8fbf7);
 }
@@ -22,6 +23,34 @@
     padding: 3px 10px;
     font-size: 0.76rem;
     line-height: 1.2;
+}
+
+.adoption-copilot-page .copilot-history-list {
+    display: grid;
+    gap: 8px;
+}
+
+.adoption-copilot-page .copilot-history-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    border: 1px solid rgba(47, 111, 94, 0.12);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.78);
+}
+
+.adoption-copilot-page .copilot-history-main {
+    min-width: 0;
+}
+
+.adoption-copilot-page .history-query {
+    overflow: hidden;
+    color: #203931;
+    font-weight: 650;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .adoption-copilot-page .copilot-response-icon {
@@ -85,6 +114,8 @@
     margin-top: auto;
     border-top: 1px solid rgba(47, 111, 94, 0.08);
     background: rgba(244, 247, 242, 0.5);
+    flex-wrap: wrap;
+    gap: 4px;
 }
 
 .adoption-copilot-page .dog-shelter-line {
@@ -166,5 +197,14 @@
 @media (max-width: 700px) {
     .adoption-copilot-page ::deep .copilot-actions .mud-button-root {
         width: 100%;
+    }
+
+    .adoption-copilot-page .copilot-history-item {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .adoption-copilot-page .history-query {
+        white-space: normal;
     }
 }

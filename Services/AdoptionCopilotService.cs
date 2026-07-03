@@ -14,7 +14,8 @@ public class AdoptionCopilotService(
     IAdoptionCopilotToolService toolService,
     IOpenAiAdoptionCopilotClient openAiCopilotClient,
     IOptions<OpenAiSettings> openAiOptions,
-    ILogger<AdoptionCopilotService> logger) : IAdoptionCopilotService
+    ILogger<AdoptionCopilotService> logger,
+    ICopilotHistoryService? historyService = null) : IAdoptionCopilotService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -39,7 +40,7 @@ public class AdoptionCopilotService(
         var deterministicArgs = await BuildDeterministicSearchArgsAsync(query, cancellationToken);
         if (HasUnresolvedNeighborhoodIntent(query, deterministicArgs.Neighborhood))
         {
-            return new AdoptionCopilotResponse(
+            var unresolvedResponse = new AdoptionCopilotResponse(
                 "Please name a specific neighborhood, such as Zorilor, Mănăștur, Bună Ziua, or Gheorgheni. PawConnect will not broaden a neighborhood request without a clear area.",
                 [],
                 false,
@@ -47,6 +48,7 @@ public class AdoptionCopilotService(
                 false,
                 null,
                 BuildDeterministicConstraintPreview(deterministicArgs));
+            return await SaveSessionAndReturnAsync(adopterUserId, query, unresolvedResponse, cancellationToken);
         }
 
         // Always prepare a normal search first for a safe fallback
@@ -56,7 +58,7 @@ public class AdoptionCopilotService(
         var settings = openAiOptions.Value;
         if (!settings.Enabled || !settings.HasApiKey)
         {
-            return fallback;
+            return await SaveSessionAndReturnAsync(adopterUserId, query, fallback, cancellationToken);
         }
 
         var candidateMap = fallbackSearch.Dogs.ToDictionary(candidate => candidate.DogId);
@@ -114,7 +116,7 @@ public class AdoptionCopilotService(
 
             if (!openAiResponse.Success || openAiResponse.Results.Count == 0)
             {
-                return latestSearchResult is not null
+                var failedResponse = latestSearchResult is not null
                     ? BuildFallbackFromCandidates(
                         query,
                         latestSearchResult.Dogs,
@@ -128,6 +130,8 @@ public class AdoptionCopilotService(
                         FallbackReason = openAiResponse.ErrorMessage ?? fallback.FallbackReason,
                         AppliedConstraints = AdoptionCopilotConstraintNormalizer.Normalize(appliedConstraints)
                     };
+
+                return await SaveSessionAndReturnAsync(adopterUserId, query, failedResponse, cancellationToken);
             }
 
             var allowedCandidateMap = latestSearchCandidateMap ?? candidateMap;
@@ -141,7 +145,7 @@ public class AdoptionCopilotService(
 
             if (aiResults.Count == 0)
             {
-                return BuildFallbackFromCandidates(
+                var invalidAiResponse = BuildFallbackFromCandidates(
                     query,
                     allowedCandidateMap.Values.ToList(),
                     usedSemanticSearch,
@@ -149,6 +153,8 @@ public class AdoptionCopilotService(
                     appliedConstraints,
                     "OpenAI returned no valid PawConnect dog IDs.",
                     latestSearchResult?.EmptyReason);
+
+                return await SaveSessionAndReturnAsync(adopterUserId, query, invalidAiResponse, cancellationToken);
             }
 
             var aiIds = aiResults.Select(result => result.DogId).ToHashSet();
@@ -163,7 +169,7 @@ public class AdoptionCopilotService(
                 .ThenBy(result => result.Dog.Name)
                 .ToList();
 
-            return new AdoptionCopilotResponse(
+            var response = new AdoptionCopilotResponse(
                 NormalizeAssistantMessage(openAiResponse.AssistantMessage, query, aiResults.FirstOrDefault()?.Dog.Name, appliedConstraints),
                 aiResults.Take(6).ToList(),
                 true,
@@ -171,11 +177,36 @@ public class AdoptionCopilotService(
                 true,
                 null,
                 AdoptionCopilotConstraintNormalizer.Normalize(appliedConstraints));
+
+            return await SaveSessionAndReturnAsync(adopterUserId, query, response, cancellationToken);
         }
         catch (Exception ex) when (ex is JsonException or InvalidOperationException or HttpRequestException or TaskCanceledException)
         {
             logger.LogWarning(ex, "Adoption Copilot tool-calling flow failed. Returning safe fallback results.");
-            return fallback;
+            return await SaveSessionAndReturnAsync(adopterUserId, query, fallback, cancellationToken);
+        }
+    }
+
+    private async Task<AdoptionCopilotResponse> SaveSessionAndReturnAsync(
+        string adopterUserId,
+        string query,
+        AdoptionCopilotResponse response,
+        CancellationToken cancellationToken)
+    {
+        if (historyService is null || string.IsNullOrWhiteSpace(adopterUserId) || string.IsNullOrWhiteSpace(query))
+        {
+            return response;
+        }
+
+        try
+        {
+            var sessionId = await historyService.SaveSessionAsync(adopterUserId, query, response, cancellationToken);
+            return response with { SessionId = sessionId };
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or DbUpdateException)
+        {
+            logger.LogWarning(ex, "Copilot session history could not be saved.");
+            return response;
         }
     }
 
@@ -684,7 +715,12 @@ public class AdoptionCopilotService(
             false,
             matchedCriteria,
             result.DisplayTags ?? [],
-            result.CautionTags ?? []);
+            result.CautionTags ?? [],
+            result.EvidenceSummary,
+            result.PositiveEvidence ?? [],
+            result.CautionEvidence ?? [],
+            result.NegativeEvidence ?? [],
+            result.MissingEvidence ?? []);
     }
 
     private static AdoptionCopilotDogResult BuildAiResult(
@@ -712,7 +748,12 @@ public class AdoptionCopilotService(
                 true,
                 matchedCriteria,
                 displayTags,
-                cautionTags);
+                cautionTags,
+                searchResult.EvidenceSummary,
+                searchResult.PositiveEvidence ?? [],
+                searchResult.CautionEvidence ?? [],
+                searchResult.NegativeEvidence ?? [],
+                searchResult.MissingEvidence ?? []);
         }
 
         var safeScore = Math.Clamp(Math.Min(Math.Clamp(aiResult.ScorePercent, 25, 92), searchResult.ScorePercent + 3), 25, 92);
@@ -739,7 +780,12 @@ public class AdoptionCopilotService(
             true,
             matchedCriteria,
             displayTags,
-            cautionTags);
+            cautionTags,
+            searchResult.EvidenceSummary,
+            searchResult.PositiveEvidence ?? [],
+            searchResult.CautionEvidence ?? [],
+            searchResult.NegativeEvidence ?? [],
+            searchResult.MissingEvidence ?? []);
     }
 
     private static bool HasUncertainPrimaryEvidence(AdoptionCopilotToolDogCandidate result)

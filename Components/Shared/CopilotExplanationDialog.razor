@@ -1,0 +1,130 @@
+<MudDialog>
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.FactCheck" Color="Color.Primary" />
+            <div>
+                <MudText Typo="Typo.h6">Why this match?</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">@Subtitle</MudText>
+            </div>
+        </MudStack>
+    </TitleContent>
+    <DialogContent>
+        @if (Explanation is null)
+        {
+            <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">The explanation could not be loaded.</MudAlert>
+        }
+        else
+        {
+            <MudStack Spacing="3">
+                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true">
+                    @Explanation.AdvisoryDisclaimer
+                </MudAlert>
+
+                <MudPaper Elevation="0" Class="pa-3 copilot-explanation-block">
+                    <MudText Typo="Typo.subtitle2">Interpreted criteria</MudText>
+                    <MudStack Row="true" Spacing="1" Class="copilot-explanation-chips">
+                        @foreach (var criterion in Explanation.MatchedCriteria)
+                        {
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@FormatConstraint(criterion)</MudChip>
+                        }
+                    </MudStack>
+                </MudPaper>
+
+                <MudGrid Spacing="2">
+                    <MudItem xs="12" md="6">
+                        <MudPaper Elevation="0" Class="pa-3 copilot-explanation-block h-100">
+                            <MudText Typo="Typo.subtitle2">Evidence found in profile</MudText>
+                            @if (GetCleanValues(Explanation.DirectEvidence).Count == 0)
+                            {
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">No specific evidence was found.</MudText>
+                            }
+                            else
+                            {
+                                <ul class="copilot-explanation-list">
+                                    @foreach (var item in GetCleanValues(Explanation.DirectEvidence))
+                                    {
+                                        <li>@item</li>
+                                    }
+                                </ul>
+                            }
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="12" md="6">
+                        <MudPaper Elevation="0" Class="pa-3 copilot-explanation-block h-100">
+                            <MudText Typo="Typo.subtitle2">Extra reasoning</MudText>
+                            @if (GetCleanValues(Explanation.IndirectEvidence).Count == 0)
+                            {
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">No specific evidence was found.</MudText>
+                            }
+                            else
+                            {
+                                <ul class="copilot-explanation-list">
+                                    @foreach (var item in GetCleanValues(Explanation.IndirectEvidence))
+                                    {
+                                        <li>@item</li>
+                                    }
+                                </ul>
+                            }
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="12" md="6">
+                        <MudPaper Elevation="0" Class="pa-3 copilot-explanation-block h-100">
+                            <MudText Typo="Typo.subtitle2">Things to confirm</MudText>
+                            @if (GetCleanValues(Explanation.CautionEvidence).Count == 0)
+                            {
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">No specific evidence was found.</MudText>
+                            }
+                            else
+                            {
+                                <ul class="copilot-explanation-list">
+                                    @foreach (var item in GetCleanValues(Explanation.CautionEvidence))
+                                    {
+                                        <li>@item</li>
+                                    }
+                                </ul>
+                            }
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="12" md="6">
+                        <MudPaper Elevation="0" Class="pa-3 copilot-explanation-block h-100">
+                            <MudText Typo="Typo.subtitle2">Missing or uncertain evidence</MudText>
+                            @if (GetCleanValues(Explanation.MissingEvidence).Count == 0)
+                            {
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">No specific evidence was found.</MudText>
+                            }
+                            else
+                            {
+                                <ul class="copilot-explanation-list">
+                                    @foreach (var item in GetCleanValues(Explanation.MissingEvidence))
+                                    {
+                                        <li>@item</li>
+                                    }
+                                </ul>
+                            }
+                        </MudPaper>
+                    </MudItem>
+                </MudGrid>
+
+                <MudPaper Elevation="0" Class="pa-3 copilot-explanation-block">
+                    <MudText Typo="Typo.subtitle2">Suggested questions for the shelter</MudText>
+                    @if (GetCleanValues(Explanation.SuggestedQuestions).Count == 0)
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">No specific evidence was found.</MudText>
+                    }
+                    else
+                    {
+                        <ul class="copilot-explanation-list">
+                            @foreach (var item in GetCleanValues(Explanation.SuggestedQuestions))
+                            {
+                                <li>@item</li>
+                            }
+                        </ul>
+                    }
+                </MudPaper>
+            </MudStack>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Close">Close</MudButton>
+    </DialogActions>
+</MudDialog>
