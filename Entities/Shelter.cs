@@ -59,4 +59,6 @@ public class Shelter
     public ICollection<Dog> Dogs { get; set; } = new List<Dog>();
 
     public ICollection<ResourceStock> ResourceStocks { get; set; } = new List<ResourceStock>();
+
+    public ICollection<ShelterAvailabilitySlot> AvailabilitySlots { get; set; } = new List<ShelterAvailabilitySlot>();
 }

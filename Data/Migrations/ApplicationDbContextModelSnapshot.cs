@@ -2068,6 +2068,67 @@ namespace PawConnect.Migrations
                     b.ToTable("ResourceStocks");
                 });
 
+            modelBuilder.Entity("PawConnect.Entities.ShelterAvailabilitySlot", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("BookedAdoptionRequestId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CancelledByUserId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<string>("CreatedByUserId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("EndTime")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsBooked")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsCancelled")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("ShelterId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("StartTime")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BookedAdoptionRequestId")
+                        .IsUnique()
+                        .HasFilter("[BookedAdoptionRequestId] IS NOT NULL AND [IsCancelled] = 0");
+
+                    b.HasIndex("CancelledByUserId");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("ShelterId", "IsCancelled", "IsBooked", "StartTime");
+
+                    b.HasIndex("ShelterId", "StartTime");
+
+                    b.ToTable("ShelterAvailabilitySlots");
+                });
+
             modelBuilder.Entity("PawConnect.Entities.Shelter", b =>
                 {
                     b.Property<int>("Id")
@@ -2684,6 +2745,38 @@ namespace PawConnect.Migrations
                     b.Navigation("Shelter");
                 });
 
+            modelBuilder.Entity("PawConnect.Entities.ShelterAvailabilitySlot", b =>
+                {
+                    b.HasOne("PawConnect.Entities.AdoptionRequest", "BookedAdoptionRequest")
+                        .WithMany()
+                        .HasForeignKey("BookedAdoptionRequestId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("PawConnect.Data.ApplicationUser", "CancelledByUser")
+                        .WithMany()
+                        .HasForeignKey("CancelledByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("PawConnect.Data.ApplicationUser", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("PawConnect.Entities.Shelter", "Shelter")
+                        .WithMany("AvailabilitySlots")
+                        .HasForeignKey("ShelterId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("BookedAdoptionRequest");
+
+                    b.Navigation("CancelledByUser");
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("Shelter");
+                });
+
             modelBuilder.Entity("PawConnect.Entities.Shelter", b =>
                 {
                     b.HasOne("PawConnect.Data.ApplicationUser", "ApplicationUser")
@@ -2780,6 +2873,8 @@ namespace PawConnect.Migrations
 
             modelBuilder.Entity("PawConnect.Entities.Shelter", b =>
                 {
+                    b.Navigation("AvailabilitySlots");
+
                     b.Navigation("Dogs");
 
                     b.Navigation("ResourceStocks");

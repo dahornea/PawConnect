@@ -32,9 +32,9 @@ public interface IAdoptionRequestService
 
     Task AcceptRequestAsync(int requestId, int shelterId, string? changedByUserId = null);
 
-    Task ConfirmVisitAsync(int requestId, int shelterId, string? changedByUserId = null);
+    Task ConfirmVisitAsync(int requestId, int shelterId, string? changedByUserId = null, int? availabilitySlotId = null);
 
-    Task ConfirmPipelineVisitAsync(int requestId, string shelterUserId);
+    Task ConfirmPipelineVisitAsync(int requestId, string shelterUserId, int? availabilitySlotId = null);
 
     Task MarkAsAdoptedAsync(int requestId, int shelterId, string? changedByUserId = null);
 

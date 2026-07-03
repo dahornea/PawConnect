@@ -88,12 +88,8 @@ public partial class ShelterAdoptionRequests
             return;
         }
 
-        if (!await ConfirmAsync(
-            "Confirm shelter visit",
-            "Confirm this adopter's preferred visit time? The adopter will receive an email with a calendar invitation.",
-            "Confirm Visit",
-            Color.Primary,
-            Icons.Material.Filled.EventAvailable))
+        var slotId = await SelectVisitSlotAsync(request.Id);
+        if (!slotId.HasValue)
         {
             return;
         }
@@ -102,28 +98,8 @@ public partial class ShelterAdoptionRequests
 
         try
         {
-            await AdoptionRequestService.ConfirmVisitAsync(request.Id, _shelterId.Value, _currentUserId);
-
-            var now = DateTime.UtcNow;
-            request.Status = AdoptionRequestStatus.VisitConfirmed;
-            request.VisitStatus = AdoptionVisitStatus.Confirmed;
-            request.VisitConfirmedAt = now;
-            request.VisitConfirmedByUserId = _currentUserId;
-            request.UpdatedAt = now;
-            if (request.Dog is not null)
-            {
-                request.Dog.Status = DogStatus.Reserved;
-
-                foreach (var otherRequest in _requests.Where(r =>
-                    r.Id != request.Id &&
-                    r.DogId == request.DogId &&
-                    r.Status == AdoptionRequestStatus.Pending))
-                {
-                    otherRequest.Status = AdoptionRequestStatus.Rejected;
-                    otherRequest.UpdatedAt = now;
-                }
-            }
-
+            await AdoptionRequestService.ConfirmVisitAsync(request.Id, _shelterId.Value, _currentUserId, slotId.Value);
+            _requests = await AdoptionRequestService.GetRequestsForShelterAsync(_shelterId.Value);
             Snackbar.Add("Visit confirmed and adopter notified.", Severity.Success);
         }
         catch (InvalidOperationException ex)
@@ -138,6 +114,18 @@ public partial class ShelterAdoptionRequests
         {
             _isUpdating = false;
         }
+    }
+
+    private async Task<int?> SelectVisitSlotAsync(int adoptionRequestId)
+    {
+        var parameters = new DialogParameters
+        {
+            ["AdoptionRequestId"] = adoptionRequestId
+        };
+
+        var dialog = await DialogService.ShowAsync<ConfirmVisitSlotDialog>("Select visit slot", parameters);
+        var result = await dialog.Result;
+        return result is { Canceled: false, Data: int slotId } ? slotId : null;
     }
 
     private async Task MarkAsAdoptedAsync(AdoptionRequest request)

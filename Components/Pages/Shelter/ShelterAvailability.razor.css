@@ -1,0 +1,27 @@
+.shelter-availability-page {
+    padding-bottom: 2rem;
+}
+
+.availability-day {
+    border: 1px solid rgba(36, 92, 76, 0.14);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.88);
+}
+
+.availability-slot {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: center;
+    padding: 0.85rem 1rem;
+    border: 1px solid rgba(36, 92, 76, 0.1);
+    border-radius: 10px;
+    background: #fff;
+}
+
+@media (max-width: 720px) {
+    .availability-slot {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}

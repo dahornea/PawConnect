@@ -1,0 +1,156 @@
+@page "/shelter/availability"
+@attribute [Authorize(Roles = "Shelter")]
+
+<PageTitle>Visit Availability</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.False" Class="px-0 shelter-availability-page">
+    <MudStack Spacing="3">
+        <div class="page-header">
+            <MudText Typo="Typo.h4">Visit Availability</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                Create available visit slots and review booked appointments for your shelter.
+            </MudText>
+        </div>
+
+        @if (_isLoading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="py-8">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Loading visit availability...</MudText>
+            </MudStack>
+        }
+        else if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <MudAlert Severity="Severity.Error">@_error</MudAlert>
+        }
+        else
+        {
+            <MudPaper Elevation="0" Class="section-surface pa-4">
+                <MudStack Spacing="3">
+                    <div>
+                        <MudText Typo="Typo.h6">Add availability slot</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                            Slots must be in the future, within shelter visiting hours, and cannot overlap.
+                        </MudText>
+                    </div>
+                    <MudGrid Spacing="2">
+                        <MudItem xs="12" md="3">
+                            <MudDatePicker Label="Date"
+                                           @bind-Date="_newSlotDate"
+                                           Required="true"
+                                           Variant="Variant.Outlined" />
+                        </MudItem>
+                        <MudItem xs="6" md="2">
+                            <MudTextField Label="Start"
+                                          @bind-Value="_newSlotStartTime"
+                                          Placeholder="10:00"
+                                          Variant="Variant.Outlined" />
+                        </MudItem>
+                        <MudItem xs="6" md="2">
+                            <MudTextField Label="End"
+                                          @bind-Value="_newSlotEndTime"
+                                          Placeholder="11:00"
+                                          Variant="Variant.Outlined" />
+                        </MudItem>
+                        <MudItem xs="12" md="3">
+                            <MudTextField Label="Notes"
+                                          @bind-Value="_newSlotNotes"
+                                          MaxLength="500"
+                                          Variant="Variant.Outlined" />
+                        </MudItem>
+                        <MudItem xs="12" md="2" Class="d-flex align-center">
+                            <MudButton Variant="Variant.Filled"
+                                       Color="Color.Primary"
+                                       StartIcon="@Icons.Material.Filled.Add"
+                                       Disabled="_isSaving"
+                                       OnClick="CreateSlotAsync">
+                                Add Slot
+                            </MudButton>
+                        </MudItem>
+                    </MudGrid>
+                </MudStack>
+            </MudPaper>
+
+            <MudPaper Elevation="0" Class="section-surface pa-4">
+                <MudStack Spacing="3">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Class="flex-wrap" Spacing="2">
+                        <div>
+                            <MudText Typo="Typo.h6">Upcoming slots</MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                @(_slots.Count == 0 ? "No slots found for the selected range." : $"{FilteredSlots.Count} slot(s) in the selected view.")
+                            </MudText>
+                        </div>
+                        <MudSpacer />
+                        <MudDatePicker Label="From" @bind-Date="_fromDate" Variant="Variant.Outlined" />
+                        <MudDatePicker Label="To" @bind-Date="_toDate" Variant="Variant.Outlined" />
+                        <MudSelect T="string" Label="Status" @bind-Value="_statusFilter" Variant="Variant.Outlined">
+                            <MudSelectItem T="string" Value="@AllFilter">All</MudSelectItem>
+                            <MudSelectItem T="string" Value="@AvailableFilter">Available</MudSelectItem>
+                            <MudSelectItem T="string" Value="@BookedFilter">Booked</MudSelectItem>
+                            <MudSelectItem T="string" Value="@CancelledFilter">Cancelled</MudSelectItem>
+                        </MudSelect>
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Refresh"
+                                   Disabled="_isLoadingSlots"
+                                   OnClick="LoadSlotsAsync">
+                            Refresh
+                        </MudButton>
+                    </MudStack>
+
+                    @if (_isLoadingSlots)
+                    {
+                        <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+                    }
+                    else if (FilteredSlots.Count == 0)
+                    {
+                        <MudAlert Severity="Severity.Info">No availability slots match the current filters.</MudAlert>
+                    }
+                    else
+                    {
+                        <MudStack Spacing="2">
+                            @foreach (var group in GroupedSlots)
+                            {
+                                <MudPaper Elevation="0" Class="availability-day pa-3">
+                                    <MudStack Spacing="2">
+                                        <MudText Typo="Typo.subtitle1">@group.Key.ToString("dddd, dd MMM yyyy")</MudText>
+                                        @foreach (var slot in group)
+                                        {
+                                            <div class="availability-slot">
+                                                <div>
+                                                    <MudText Typo="Typo.subtitle2">@FormatSlotTime(slot)</MudText>
+                                                    @if (slot.IsBooked)
+                                                    {
+                                                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                                            @FormatBookedText(slot)
+                                                        </MudText>
+                                                    }
+                                                    else if (!string.IsNullOrWhiteSpace(slot.Notes))
+                                                    {
+                                                        <MudText Typo="Typo.body2" Color="Color.Secondary">@slot.Notes</MudText>
+                                                    }
+                                                </div>
+                                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="flex-wrap">
+                                                    <MudChip T="string" Size="Size.Small" Color="@GetSlotColor(slot)">
+                                                        @GetSlotStatus(slot)
+                                                    </MudChip>
+                                                    <MudButton Variant="Variant.Text"
+                                                               Color="Color.Error"
+                                                               Size="Size.Small"
+                                                               Disabled="@(!CanCancelSlot(slot) || _isSaving)"
+                                                               OnClick="@(() => CancelSlotAsync(slot))">
+                                                        Cancel
+                                                    </MudButton>
+                                                </MudStack>
+                                            </div>
+                                        }
+                                    </MudStack>
+                                </MudPaper>
+                            }
+                        </MudStack>
+                    }
+                </MudStack>
+            </MudPaper>
+        }
+    </MudStack>
+</MudContainer>
