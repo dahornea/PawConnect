@@ -61,6 +61,10 @@ public partial class Dogs
     private string _selectedLocation = string.Empty;
     private string _selectedNeighborhood = string.Empty;
     private string _selectedStatus = string.Empty;
+    private string _selectedCatCompatibility = string.Empty;
+    private string _selectedChildrenCompatibility = string.Empty;
+    private string _selectedActivityLevel = string.Empty;
+    private string _selectedApartmentSuitability = string.Empty;
     private DogSortOption _sortOption = DogSortOption.NameAsc;
     private string? _currentUserId;
     private bool _currentUserIsAuthenticated;
@@ -172,7 +176,11 @@ public partial class Dogs
                 serviceSortOption,
                 _selectedShelterId,
                 EmptyToNull(_selectedNeighborhood),
-                EmptyToNull(_selectedCoatColor));
+                EmptyToNull(_selectedCoatColor),
+                ParseEnum<CatCompatibility>(_selectedCatCompatibility),
+                ParseEnum<ChildrenCompatibility>(_selectedChildrenCompatibility),
+                ParseEnum<DogActivityLevel>(_selectedActivityLevel),
+                ParseEnum<ApartmentSuitability>(_selectedApartmentSuitability));
             _dogs = ApplyNearbyFilterAndSort(_dogs);
             await LoadFavoriteStateAsync();
         }
@@ -203,6 +211,10 @@ public partial class Dogs
         _selectedLocation = string.Empty;
         _selectedNeighborhood = string.Empty;
         _selectedStatus = string.Empty;
+        _selectedCatCompatibility = string.Empty;
+        _selectedChildrenCompatibility = string.Empty;
+        _selectedActivityLevel = string.Empty;
+        _selectedApartmentSuitability = string.Empty;
         _sortOption = DogSortOption.NameAsc;
         _nearbySearchTerm = null;
         _nearbyError = null;
@@ -278,6 +290,26 @@ public partial class Dogs
             chips.Add(new ActiveFilterChip($"Status: {_selectedStatus}", ClearStatusFilterAsync));
         }
 
+        if (!string.IsNullOrWhiteSpace(_selectedCatCompatibility))
+        {
+            chips.Add(new ActiveFilterChip($"Cats: {DogCompatibilityFormatter.FormatCat(ParseEnum<CatCompatibility>(_selectedCatCompatibility) ?? CatCompatibility.Unknown)}", ClearCatCompatibilityFilterAsync));
+        }
+
+        if (!string.IsNullOrWhiteSpace(_selectedChildrenCompatibility))
+        {
+            chips.Add(new ActiveFilterChip($"Children: {DogCompatibilityFormatter.FormatChildren(ParseEnum<ChildrenCompatibility>(_selectedChildrenCompatibility) ?? ChildrenCompatibility.Unknown)}", ClearChildrenCompatibilityFilterAsync));
+        }
+
+        if (!string.IsNullOrWhiteSpace(_selectedActivityLevel))
+        {
+            chips.Add(new ActiveFilterChip($"Activity: {DogCompatibilityFormatter.FormatActivity(ParseEnum<DogActivityLevel>(_selectedActivityLevel) ?? DogActivityLevel.Unknown)}", ClearActivityLevelFilterAsync));
+        }
+
+        if (!string.IsNullOrWhiteSpace(_selectedApartmentSuitability))
+        {
+            chips.Add(new ActiveFilterChip($"Apartment: {DogCompatibilityFormatter.FormatApartment(ParseEnum<ApartmentSuitability>(_selectedApartmentSuitability) ?? ApartmentSuitability.Unknown)}", ClearApartmentSuitabilityFilterAsync));
+        }
+
         if (_nearbyOrigin is not null)
         {
             chips.Add(new ActiveFilterChip($"Near: {ShortChipText(NearbyOriginLabel)}, {_selectedRadiusKm} km", ClearNearbyAsync));
@@ -337,6 +369,30 @@ public partial class Dogs
     private async Task ClearStatusFilterAsync()
     {
         _selectedStatus = string.Empty;
+        await ApplyFiltersAsync();
+    }
+
+    private async Task ClearCatCompatibilityFilterAsync()
+    {
+        _selectedCatCompatibility = string.Empty;
+        await ApplyFiltersAsync();
+    }
+
+    private async Task ClearChildrenCompatibilityFilterAsync()
+    {
+        _selectedChildrenCompatibility = string.Empty;
+        await ApplyFiltersAsync();
+    }
+
+    private async Task ClearActivityLevelFilterAsync()
+    {
+        _selectedActivityLevel = string.Empty;
+        await ApplyFiltersAsync();
+    }
+
+    private async Task ClearApartmentSuitabilityFilterAsync()
+    {
+        _selectedApartmentSuitability = string.Empty;
         await ApplyFiltersAsync();
     }
 

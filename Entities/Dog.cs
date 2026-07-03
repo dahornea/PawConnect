@@ -28,6 +28,21 @@ public class Dog
     [StringLength(80)]
     public string? CoatColor { get; set; }
 
+    public CatCompatibility CatCompatibility { get; set; } = CatCompatibility.Unknown;
+
+    public DogCompatibility DogCompatibility { get; set; } = DogCompatibility.Unknown;
+
+    public ChildrenCompatibility ChildrenCompatibility { get; set; } = ChildrenCompatibility.Unknown;
+
+    public DogActivityLevel ActivityLevel { get; set; } = DogActivityLevel.Unknown;
+
+    public DogExperienceNeeded ExperienceNeeded { get; set; } = DogExperienceNeeded.Unknown;
+
+    public ApartmentSuitability ApartmentSuitability { get; set; } = ApartmentSuitability.Unknown;
+
+    [StringLength(1000)]
+    public string? CompatibilityNotes { get; set; }
+
     [Range(0, 30)]
     public int Age { get; set; }
 

@@ -203,6 +203,54 @@ public partial class DogDetails
         };
     }
 
+    private static Color GetCompatibilityColor(CatCompatibility value) => value switch
+    {
+        CatCompatibility.Yes => Color.Success,
+        CatCompatibility.SlowIntroductions => Color.Warning,
+        CatCompatibility.No => Color.Error,
+        _ => Color.Default
+    };
+
+    private static Color GetCompatibilityColor(DogCompatibility value) => value switch
+    {
+        DogCompatibility.Yes => Color.Success,
+        DogCompatibility.CalmDogsOnly or DogCompatibility.SlowIntroductions => Color.Warning,
+        DogCompatibility.OnlyDog or DogCompatibility.No => Color.Error,
+        _ => Color.Default
+    };
+
+    private static Color GetCompatibilityColor(ChildrenCompatibility value) => value switch
+    {
+        ChildrenCompatibility.Yes => Color.Success,
+        ChildrenCompatibility.OlderChildrenOnly => Color.Warning,
+        ChildrenCompatibility.No => Color.Error,
+        _ => Color.Default
+    };
+
+    private static Color GetCompatibilityColor(ApartmentSuitability value) => value switch
+    {
+        ApartmentSuitability.Suitable => Color.Success,
+        ApartmentSuitability.MaybeWithRoutine => Color.Warning,
+        ApartmentSuitability.NotRecommended => Color.Error,
+        _ => Color.Default
+    };
+
+    private static Color GetActivityColor(DogActivityLevel value) => value switch
+    {
+        DogActivityLevel.Low => Color.Success,
+        DogActivityLevel.Medium => Color.Info,
+        DogActivityLevel.High => Color.Warning,
+        _ => Color.Default
+    };
+
+    private static Color GetExperienceColor(DogExperienceNeeded value) => value switch
+    {
+        DogExperienceNeeded.Beginner => Color.Success,
+        DogExperienceNeeded.SomeExperience => Color.Info,
+        DogExperienceNeeded.Experienced => Color.Warning,
+        _ => Color.Default
+    };
+
     private async Task LoadCurrentUserAsync()
     {
         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();

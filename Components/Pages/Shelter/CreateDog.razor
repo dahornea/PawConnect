@@ -191,6 +191,64 @@
                             </MudItem>
                             <MudItem xs="12">
                                 <MudDivider Class="my-2" />
+                                <MudText Typo="Typo.h6" Class="content-title">Compatibility and Lifestyle</MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
+                                    Optional structured notes help adopters, recommendations, and Copilot understand the dog profile without replacing shelter judgment.
+                                </MudText>
+                            </MudItem>
+                            <MudItem xs="12" md="4">
+                                <MudSelect T="CatCompatibility" Label="Good with cats" @bind-Value="_model.CatCompatibility" Variant="Variant.Outlined">
+                                    @foreach (var value in Enum.GetValues<CatCompatibility>())
+                                    {
+                                        <MudSelectItem Value="@value">@DogCompatibilityFormatter.FormatCat(value)</MudSelectItem>
+                                    }
+                                </MudSelect>
+                            </MudItem>
+                            <MudItem xs="12" md="4">
+                                <MudSelect T="DogCompatibility" Label="Good with dogs" @bind-Value="_model.DogCompatibility" Variant="Variant.Outlined">
+                                    @foreach (var value in Enum.GetValues<DogCompatibility>())
+                                    {
+                                        <MudSelectItem Value="@value">@DogCompatibilityFormatter.FormatDog(value)</MudSelectItem>
+                                    }
+                                </MudSelect>
+                            </MudItem>
+                            <MudItem xs="12" md="4">
+                                <MudSelect T="ChildrenCompatibility" Label="Good with children" @bind-Value="_model.ChildrenCompatibility" Variant="Variant.Outlined">
+                                    @foreach (var value in Enum.GetValues<ChildrenCompatibility>())
+                                    {
+                                        <MudSelectItem Value="@value">@DogCompatibilityFormatter.FormatChildren(value)</MudSelectItem>
+                                    }
+                                </MudSelect>
+                            </MudItem>
+                            <MudItem xs="12" md="4">
+                                <MudSelect T="DogActivityLevel" Label="Activity level" @bind-Value="_model.ActivityLevel" Variant="Variant.Outlined">
+                                    @foreach (var value in Enum.GetValues<DogActivityLevel>())
+                                    {
+                                        <MudSelectItem Value="@value">@DogCompatibilityFormatter.FormatActivity(value)</MudSelectItem>
+                                    }
+                                </MudSelect>
+                            </MudItem>
+                            <MudItem xs="12" md="4">
+                                <MudSelect T="DogExperienceNeeded" Label="Experience needed" @bind-Value="_model.ExperienceNeeded" Variant="Variant.Outlined">
+                                    @foreach (var value in Enum.GetValues<DogExperienceNeeded>())
+                                    {
+                                        <MudSelectItem Value="@value">@DogCompatibilityFormatter.FormatExperience(value)</MudSelectItem>
+                                    }
+                                </MudSelect>
+                            </MudItem>
+                            <MudItem xs="12" md="4">
+                                <MudSelect T="ApartmentSuitability" Label="Apartment suitability" @bind-Value="_model.ApartmentSuitability" Variant="Variant.Outlined">
+                                    @foreach (var value in Enum.GetValues<ApartmentSuitability>())
+                                    {
+                                        <MudSelectItem Value="@value">@DogCompatibilityFormatter.FormatApartment(value)</MudSelectItem>
+                                    }
+                                </MudSelect>
+                            </MudItem>
+                            <MudItem xs="12">
+                                <MudTextField Label="Compatibility notes" @bind-Value="_model.CompatibilityNotes" Lines="3" Counter="1000" MaxLength="1000" Variant="Variant.Outlined" />
+                            </MudItem>
+                            <MudItem xs="12">
+                                <MudDivider Class="my-2" />
                                 <MudText Typo="Typo.h6" Class="content-title">Dog Images</MudText>
                                 <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">Optionally add external image URLs or upload local dog photos. The first saved image becomes the main image.</MudText>
                                 <MudGrid Spacing="2">

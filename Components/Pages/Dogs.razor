@@ -145,6 +145,42 @@
                             <MudSelectItem Value="@DogStatus.Reserved.ToString()">Reserved</MudSelectItem>
                         </MudSelect>
                     </MudItem>
+                    <MudItem xs="12" sm="6" md="3">
+                        <MudSelect T="string" Label="Cats" @bind-Value="_selectedCatCompatibility" Variant="Variant.Outlined" Margin="Margin.Dense">
+                            <MudSelectItem Value="@string.Empty">Any cat fit</MudSelectItem>
+                            @foreach (var value in Enum.GetValues<CatCompatibility>().Where(value => value != CatCompatibility.Unknown))
+                            {
+                                <MudSelectItem Value="@value.ToString()">@DogCompatibilityFormatter.FormatCat(value)</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12" sm="6" md="3">
+                        <MudSelect T="string" Label="Children" @bind-Value="_selectedChildrenCompatibility" Variant="Variant.Outlined" Margin="Margin.Dense">
+                            <MudSelectItem Value="@string.Empty">Any child fit</MudSelectItem>
+                            @foreach (var value in Enum.GetValues<ChildrenCompatibility>().Where(value => value != ChildrenCompatibility.Unknown))
+                            {
+                                <MudSelectItem Value="@value.ToString()">@DogCompatibilityFormatter.FormatChildren(value)</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12" sm="6" md="3">
+                        <MudSelect T="string" Label="Activity" @bind-Value="_selectedActivityLevel" Variant="Variant.Outlined" Margin="Margin.Dense">
+                            <MudSelectItem Value="@string.Empty">Any activity</MudSelectItem>
+                            @foreach (var value in Enum.GetValues<DogActivityLevel>().Where(value => value != DogActivityLevel.Unknown))
+                            {
+                                <MudSelectItem Value="@value.ToString()">@DogCompatibilityFormatter.FormatActivity(value)</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12" sm="6" md="3">
+                        <MudSelect T="string" Label="Apartment fit" @bind-Value="_selectedApartmentSuitability" Variant="Variant.Outlined" Margin="Margin.Dense">
+                            <MudSelectItem Value="@string.Empty">Any apartment fit</MudSelectItem>
+                            @foreach (var value in Enum.GetValues<ApartmentSuitability>().Where(value => value != ApartmentSuitability.Unknown))
+                            {
+                                <MudSelectItem Value="@value.ToString()">@DogCompatibilityFormatter.FormatApartment(value)</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
                     <MudItem xs="12">
                         <MudPaper Elevation="0" Class="nearby-filter-panel pa-3">
                             <MudGrid Spacing="2">
