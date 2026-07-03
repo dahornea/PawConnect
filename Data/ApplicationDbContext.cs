@@ -605,6 +605,28 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .HasDefaultValueSql("GETUTCDATE()");
 
         builder.Entity<AuditLog>()
+            .Property(log => log.UserAgent)
+            .HasMaxLength(512);
+
+        builder.Entity<AuditLog>()
+            .Property(log => log.CorrelationId)
+            .HasMaxLength(100);
+
+        builder.Entity<AuditLog>()
+            .Property(log => log.Severity)
+            .HasMaxLength(40)
+            .HasDefaultValue("Information");
+
+        builder.Entity<AuditLog>()
+            .Property(log => log.EventType)
+            .HasMaxLength(80)
+            .HasDefaultValue("Business");
+
+        builder.Entity<AuditLog>()
+            .Property(log => log.DetailsJson)
+            .HasMaxLength(4000);
+
+        builder.Entity<AuditLog>()
             .HasIndex(log => log.CreatedAt);
 
         builder.Entity<AuditLog>()
@@ -612,6 +634,12 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
         builder.Entity<AuditLog>()
             .HasIndex(log => log.EntityName);
+
+        builder.Entity<AuditLog>()
+            .HasIndex(log => log.UserId);
+
+        builder.Entity<AuditLog>()
+            .HasIndex(log => log.CorrelationId);
 
         builder.Entity<Notification>()
             .HasOne(notification => notification.User)

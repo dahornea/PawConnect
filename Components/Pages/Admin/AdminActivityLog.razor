@@ -1,26 +1,27 @@
-﻿@page "/admin/activity-log"
+@page "/admin/activity-log"
+@page "/admin/audit-logs"
 @attribute [Authorize(Roles = "Admin")]
 
-<PageTitle>Activity Log</PageTitle>
+<PageTitle>Audit Logs</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.False" Class="px-0">
     <MudStack Spacing="3">
         <div class="page-header">
-            <MudText Typo="Typo.h4">Activity Log</MudText>
-            <MudText Typo="Typo.body2">Review important PawConnect user and system actions.</MudText>
+            <MudText Typo="Typo.h4">Audit Logs</MudText>
+            <MudText Typo="Typo.body2">Review important PawConnect user, system, and Copilot events.</MudText>
         </div>
 
         <MudPaper Elevation="0" Class="section-surface pa-3">
             <MudGrid Spacing="2">
-                <MudItem xs="12" md="4">
-                    <MudTextField Label="Search description, user, or entity id"
+                <MudItem xs="12" md="3">
+                    <MudTextField Label="Search summary, user, entity id, correlation id"
                                   @bind-Value="_search"
                                   Immediate="true"
                                   Variant="Variant.Outlined"
                                   Adornment="Adornment.Start"
                                   AdornmentIcon="@Icons.Material.Filled.Search" />
                 </MudItem>
-                <MudItem xs="12" sm="6" md="3">
+                <MudItem xs="12" sm="6" md="2">
                     <MudSelect T="string" Label="Action" @bind-Value="_actionFilter" Clearable="true" Variant="Variant.Outlined">
                         @foreach (var action in AuditActions.All)
                         {
@@ -28,7 +29,7 @@
                         }
                     </MudSelect>
                 </MudItem>
-                <MudItem xs="12" sm="6" md="3">
+                <MudItem xs="12" sm="6" md="2">
                     <MudSelect T="string" Label="Entity" @bind-Value="_entityFilter" Clearable="true" Variant="Variant.Outlined">
                         @foreach (var entityName in EntityFilters)
                         {
@@ -36,10 +37,33 @@
                         }
                     </MudSelect>
                 </MudItem>
-                <MudItem xs="12" md="2">
-                    <MudStack Row="true" Spacing="1" Class="mt-2">
+                <MudItem xs="12" sm="6" md="2">
+                    <MudSelect T="string" Label="Severity" @bind-Value="_severityFilter" Clearable="true" Variant="Variant.Outlined">
+                        @foreach (var severity in SeverityFilters)
+                        {
+                            <MudSelectItem Value="@severity">@severity</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="2">
+                    <MudSelect T="string" Label="Event type" @bind-Value="_eventTypeFilter" Clearable="true" Variant="Variant.Outlined">
+                        @foreach (var eventType in EventTypeFilters)
+                        {
+                            <MudSelectItem Value="@eventType">@eventType</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="2">
+                    <MudDatePicker Label="From" @bind-Date="_fromDate" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" sm="6" md="2">
+                    <MudDatePicker Label="To" @bind-Date="_toDate" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" md="5">
+                    <MudStack Row="true" Spacing="1" Class="mt-2 flex-wrap">
                         <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.FilterAlt" Disabled="_isLoading" OnClick="LoadLogsAsync">Apply</MudButton>
                         <MudButton Variant="Variant.Text" Color="Color.Default" Disabled="_isLoading" OnClick="ClearFiltersAsync">Clear</MudButton>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.FileDownload" Disabled="@(_isLoading || _isExporting || _logs.Count == 0)" OnClick="ExportCsvAsync">Export CSV</MudButton>
                     </MudStack>
                 </MudItem>
             </MudGrid>
@@ -49,7 +73,7 @@
         {
             <MudStack AlignItems="AlignItems.Center" Class="py-8">
                 <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
-                <MudText Typo="Typo.body2" Color="Color.Secondary">Loading activity...</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Loading audit logs...</MudText>
             </MudStack>
         }
         else if (_logs.Count == 0)
@@ -57,8 +81,8 @@
             <MudPaper Elevation="0" Class="empty-state pa-5">
                 <MudStack AlignItems="AlignItems.Center" Spacing="2">
                     <MudIcon Icon="@Icons.Material.Filled.ManageSearch" Color="Color.Secondary" Size="Size.Large" />
-                    <MudText Typo="Typo.h6">No activity has been logged yet.</MudText>
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">Important user and system actions will appear here.</MudText>
+                    <MudText Typo="Typo.h6">No audit logs found.</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Important user, system, and Copilot events will appear here.</MudText>
                 </MudStack>
             </MudPaper>
         }
@@ -67,14 +91,18 @@
             <MudTable Items="_logs" Dense="true" Hover="true" Class="table-shell" RowsPerPage="15">
                 <HeaderContent>
                     <MudTh>Date/Time</MudTh>
+                    <MudTh>Severity</MudTh>
                     <MudTh>Action</MudTh>
                     <MudTh>Entity</MudTh>
-                    <MudTh>Description</MudTh>
+                    <MudTh>Summary</MudTh>
                     <MudTh>User</MudTh>
-                    <MudTh>Role</MudTh>
+                    <MudTh>Correlation</MudTh>
                 </HeaderContent>
                 <RowTemplate>
                     <MudTd DataLabel="Date/Time">@context.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
+                    <MudTd DataLabel="Severity">
+                        <MudChip T="string" Color="@GetSeverityColor(context.Severity)" Size="Size.Small" Variant="Variant.Outlined">@context.Severity</MudChip>
+                    </MudTd>
                     <MudTd DataLabel="Action">
                         <MudChip T="string" Color="@GetActionColor(context.Action)" Size="Size.Small" Variant="Variant.Outlined">@context.Action</MudChip>
                     </MudTd>
@@ -85,15 +113,47 @@
                             <MudText Typo="Typo.caption" Color="Color.Secondary">#@context.EntityId</MudText>
                         }
                     </MudTd>
-                    <MudTd DataLabel="Description">@context.Description</MudTd>
-                    <MudTd DataLabel="User">@(context.UserEmail ?? "-")</MudTd>
-                    <MudTd DataLabel="Role">@(context.UserRole ?? "-")</MudTd>
+                    <MudTd DataLabel="Summary">@context.Description</MudTd>
+                    <MudTd DataLabel="User">
+                        <MudText Typo="Typo.body2">@(context.UserEmail ?? "-")</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@(context.UserRole ?? context.EventType)</MudText>
+                    </MudTd>
+                    <MudTd DataLabel="Correlation">
+                        <MudText Typo="Typo.caption">@(ShortenCorrelationId(context.CorrelationId) ?? "-")</MudText>
+                    </MudTd>
                 </RowTemplate>
                 <PagerContent>
                     <MudTablePager />
                 </PagerContent>
             </MudTable>
+
+            <MudExpansionPanels MultiExpansion="false" Class="mt-3">
+                @foreach (var log in _logs.Take(50))
+                {
+                    <MudExpansionPanel Text="@($"{log.CreatedAt.ToLocalTime():dd MMM HH:mm} - {log.Action} - {log.Description}")">
+                        <MudGrid Spacing="2">
+                            <MudItem xs="12" md="6">
+                                <MudText Typo="Typo.subtitle2">Request context</MudText>
+                                <MudText Typo="Typo.body2"><strong>Correlation ID:</strong> @(log.CorrelationId ?? "-")</MudText>
+                                <MudText Typo="Typo.body2"><strong>IP address:</strong> @(log.IpAddress ?? "-")</MudText>
+                                <MudText Typo="Typo.body2"><strong>User agent:</strong> @(log.UserAgent ?? "-")</MudText>
+                            </MudItem>
+                            <MudItem xs="12" md="6">
+                                <MudText Typo="Typo.subtitle2">Event details</MudText>
+                                <MudText Typo="Typo.body2"><strong>Event type:</strong> @log.EventType</MudText>
+                                <MudText Typo="Typo.body2"><strong>Entity:</strong> @log.EntityName @(string.IsNullOrWhiteSpace(log.EntityId) ? string.Empty : $"#{log.EntityId}")</MudText>
+                                <MudText Typo="Typo.body2"><strong>User id:</strong> @(log.UserId ?? "-")</MudText>
+                            </MudItem>
+                            <MudItem xs="12">
+                                <MudText Typo="Typo.subtitle2">Details JSON</MudText>
+                                <MudPaper Elevation="0" Class="section-surface pa-2">
+                                    <pre class="ma-0">@FormatJson(log.DetailsJson ?? log.AdditionalData)</pre>
+                                </MudPaper>
+                            </MudItem>
+                        </MudGrid>
+                    </MudExpansionPanel>
+                }
+            </MudExpansionPanels>
         }
     </MudStack>
 </MudContainer>
-

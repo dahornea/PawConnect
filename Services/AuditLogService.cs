@@ -1,4 +1,6 @@
 using System.Security.Claims;
+using System.Text.Json;
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using PawConnect.Data;
 using PawConnect.Entities;
@@ -8,8 +10,14 @@ namespace PawConnect.Services;
 public class AuditLogService(
     ApplicationDbContext context,
     IHttpContextAccessor httpContextAccessor,
-    ILogger<AuditLogService> logger) : IAuditLogService
+    ILogger<AuditLogService> logger,
+    ICorrelationIdAccessor? correlationIdAccessor = null) : IAuditLogService
 {
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly Regex SensitiveJsonValueRegex = new(
+        "(\"?(?:password|token|secret|apikey|securityStamp|passwordHash)\"?\\s*:\\s*)\"[^\"]*\"",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
     public async Task LogAsync(AuditLog log)
     {
         try
@@ -46,6 +54,7 @@ public class AuditLogService(
             UserEmail = userEmail,
             UserRole = userRole,
             AdditionalData = additionalData,
+            DetailsJson = SerializeDetails(additionalData),
             CreatedAt = DateTime.UtcNow
         });
     }
@@ -57,7 +66,81 @@ public class AuditLogService(
         string description,
         string? additionalData = null)
     {
-        return LogAsync(action, entityName, entityId, description, userEmail: "System", userRole: "System", additionalData: additionalData);
+        return LogAsync(new AuditLog
+        {
+            Action = action,
+            EntityName = entityName,
+            EntityId = entityId,
+            Description = description,
+            UserEmail = "System",
+            UserRole = "System",
+            AdditionalData = additionalData,
+            DetailsJson = SerializeDetails(additionalData),
+            EventType = "System",
+            CreatedAt = DateTime.UtcNow
+        });
+    }
+
+    public Task LogUserActionAsync(
+        string action,
+        string entityType,
+        string? entityId,
+        string summary,
+        object? details = null,
+        string severity = "Information",
+        string eventType = "Business")
+    {
+        return LogAsync(new AuditLog
+        {
+            Action = action,
+            EntityName = entityType,
+            EntityId = entityId,
+            Description = summary,
+            DetailsJson = SerializeDetails(details),
+            Severity = severity,
+            EventType = eventType,
+            CreatedAt = DateTime.UtcNow
+        });
+    }
+
+    public Task LogSystemEventAsync(
+        string action,
+        string entityType,
+        string? entityId,
+        string summary,
+        object? details = null,
+        string severity = "Information")
+    {
+        return LogAsync(new AuditLog
+        {
+            Action = action,
+            EntityName = entityType,
+            EntityId = entityId,
+            Description = summary,
+            UserEmail = "System",
+            UserRole = "System",
+            DetailsJson = SerializeDetails(details),
+            Severity = severity,
+            EventType = "System",
+            CreatedAt = DateTime.UtcNow
+        });
+    }
+
+    public Task LogCopilotEventAsync(
+        string action,
+        string? entityId,
+        string summary,
+        object? details = null,
+        string severity = "Information")
+    {
+        return LogUserActionAsync(
+            action,
+            "AdoptionCopilot",
+            entityId,
+            summary,
+            details,
+            severity,
+            "Copilot");
     }
 
     public Task<List<AuditLog>> GetRecentLogsAsync(int count)
@@ -76,6 +159,9 @@ public class AuditLogService(
         string? search = null,
         DateTime? fromDate = null,
         DateTime? toDate = null,
+        string? severity = null,
+        string? eventType = null,
+        string? correlationId = null,
         int take = 200)
     {
         var query = context.AuditLogs.AsQueryable();
@@ -96,7 +182,8 @@ public class AuditLogService(
             query = query.Where(log =>
                 log.Description.Contains(term) ||
                 (log.UserEmail != null && log.UserEmail.Contains(term)) ||
-                (log.EntityId != null && log.EntityId.Contains(term)));
+                (log.EntityId != null && log.EntityId.Contains(term)) ||
+                (log.CorrelationId != null && log.CorrelationId.Contains(term)));
         }
 
         if (fromDate.HasValue)
@@ -107,6 +194,22 @@ public class AuditLogService(
         if (toDate.HasValue)
         {
             query = query.Where(log => log.CreatedAt <= toDate.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(severity))
+        {
+            query = query.Where(log => log.Severity == severity);
+        }
+
+        if (!string.IsNullOrWhiteSpace(eventType))
+        {
+            query = query.Where(log => log.EventType == eventType);
+        }
+
+        if (!string.IsNullOrWhiteSpace(correlationId))
+        {
+            var normalizedCorrelationId = correlationId.Trim();
+            query = query.Where(log => log.CorrelationId == normalizedCorrelationId);
         }
 
         return query
@@ -129,11 +232,14 @@ public class AuditLogService(
 
     private async Task EnrichUserAsync(AuditLog log)
     {
-        var user = httpContextAccessor.HttpContext?.User;
+        var httpContext = httpContextAccessor.HttpContext;
+        var user = httpContext?.User;
         log.UserId ??= user?.FindFirstValue(ClaimTypes.NameIdentifier);
         log.UserEmail ??= user?.FindFirstValue(ClaimTypes.Email) ?? user?.Identity?.Name;
         log.UserRole ??= user?.FindAll(ClaimTypes.Role).Select(claim => claim.Value).FirstOrDefault();
-        log.IpAddress ??= httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString();
+        log.IpAddress ??= httpContext?.Connection.RemoteIpAddress?.ToString();
+        log.UserAgent ??= httpContext?.Request.Headers.UserAgent.ToString();
+        log.CorrelationId ??= correlationIdAccessor?.GetCorrelationId();
 
         if (string.IsNullOrWhiteSpace(log.UserId))
         {
@@ -169,7 +275,12 @@ public class AuditLogService(
         log.UserEmail = NormalizeOptional(log.UserEmail, 256);
         log.UserRole = NormalizeOptional(log.UserRole, 80);
         log.IpAddress = NormalizeOptional(log.IpAddress, 64);
+        log.UserAgent = NormalizeOptional(log.UserAgent, 512);
+        log.CorrelationId = NormalizeOptional(log.CorrelationId, 100);
+        log.Severity = NormalizeRequired(log.Severity, 40);
+        log.EventType = NormalizeRequired(log.EventType, 80);
         log.AdditionalData = NormalizeOptional(log.AdditionalData, 2000);
+        log.DetailsJson = NormalizeOptional(log.DetailsJson ?? SerializeDetails(log.AdditionalData), 4000);
 
         if (log.CreatedAt == default)
         {
@@ -192,5 +303,30 @@ public class AuditLogService(
 
         var normalized = value.Trim();
         return normalized.Length <= maxLength ? normalized : normalized[..maxLength];
+    }
+
+    private static string? SerializeDetails(object? details)
+    {
+        if (details is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            var json = details is string text
+                ? JsonSerializer.Serialize(new { value = text }, JsonOptions)
+                : JsonSerializer.Serialize(details, JsonOptions);
+
+            return SensitiveJsonValueRegex.Replace(json, "$1\"[redacted]\"");
+        }
+        catch (JsonException)
+        {
+            return JsonSerializer.Serialize(new { value = "Details could not be serialized." }, JsonOptions);
+        }
+        catch (NotSupportedException)
+        {
+            return JsonSerializer.Serialize(new { value = "Details could not be serialized." }, JsonOptions);
+        }
     }
 }

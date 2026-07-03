@@ -125,12 +125,96 @@ public class AuditLogServiceTests
         Assert.Contains("Audit Food", log.Description);
     }
 
+    [Fact]
+    public async Task LogUserActionAsync_StoresCorrelationUserAgentAndSafeDetails()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        var httpContext = new DefaultHttpContext();
+        httpContext.Request.Headers.UserAgent = "PawConnect test browser";
+        var accessor = new HttpContextAccessor { HttpContext = httpContext };
+        var service = new AuditLogService(
+            context,
+            accessor,
+            NullLogger<AuditLogService>.Instance,
+            new TestCorrelationIdAccessor("corr-test-123"));
+
+        await service.LogUserActionAsync(
+            "SensitiveAction",
+            "Dog",
+            "42",
+            "Sensitive action was tested.",
+            new { DogId = 42, Password = "secret-value", SafeValue = "visible" });
+
+        var log = await context.AuditLogs.SingleAsync();
+        Assert.Equal("corr-test-123", log.CorrelationId);
+        Assert.Equal("PawConnect test browser", log.UserAgent);
+        Assert.Contains("visible", log.DetailsJson);
+        Assert.Contains("[redacted]", log.DetailsJson);
+        Assert.DoesNotContain("secret-value", log.DetailsJson);
+    }
+
+    [Fact]
+    public async Task LogAsync_FailureDoesNotThrowIntoCaller()
+    {
+        var context = TestDbContextFactory.CreateContext();
+        var service = CreateAuditService(context);
+        await context.DisposeAsync();
+
+        var exception = await Record.ExceptionAsync(() => service.LogAsync(
+            AuditActions.DogCreated,
+            "Dog",
+            "1",
+            "This should not escape."));
+
+        Assert.Null(exception);
+    }
+
+    [Fact]
+    public async Task CorrelationIdMiddleware_PreservesIncomingCorrelationId()
+    {
+        var context = new DefaultHttpContext();
+        context.Response.Body = new MemoryStream();
+        context.Request.Headers[CorrelationIdAccessor.HeaderName] = "demo-correlation-1";
+        var middleware = new CorrelationIdMiddleware(
+            _ => context.Response.StartAsync(),
+            NullLogger<CorrelationIdMiddleware>.Instance);
+
+        await middleware.InvokeAsync(context);
+
+        Assert.Equal("demo-correlation-1", context.Items[CorrelationIdAccessor.ItemsKey]);
+        Assert.Equal("demo-correlation-1", context.Response.Headers[CorrelationIdAccessor.HeaderName]);
+    }
+
+    [Fact]
+    public async Task CorrelationIdMiddleware_GeneratesCorrelationIdWhenMissing()
+    {
+        var context = new DefaultHttpContext();
+        context.Response.Body = new MemoryStream();
+        var middleware = new CorrelationIdMiddleware(
+            _ => context.Response.StartAsync(),
+            NullLogger<CorrelationIdMiddleware>.Instance);
+
+        await middleware.InvokeAsync(context);
+
+        var correlationId = Assert.IsType<string>(context.Items[CorrelationIdAccessor.ItemsKey]);
+        Assert.False(string.IsNullOrWhiteSpace(correlationId));
+        Assert.Equal(correlationId, context.Response.Headers[CorrelationIdAccessor.HeaderName]);
+    }
+
     private static AuditLogService CreateAuditService(ApplicationDbContext context)
     {
         return new AuditLogService(
             context,
             new HttpContextAccessor(),
             NullLogger<AuditLogService>.Instance);
+    }
+
+    private sealed class TestCorrelationIdAccessor(string correlationId) : ICorrelationIdAccessor
+    {
+        public string? GetCorrelationId()
+        {
+            return correlationId;
+        }
     }
 
     private static DateTime FutureVisit()

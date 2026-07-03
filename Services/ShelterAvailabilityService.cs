@@ -4,7 +4,9 @@ using PawConnect.Entities;
 
 namespace PawConnect.Services;
 
-public class ShelterAvailabilityService(IDbContextFactory<ApplicationDbContext> contextFactory) : IShelterAvailabilityService
+public class ShelterAvailabilityService(
+    IDbContextFactory<ApplicationDbContext> contextFactory,
+    IAuditLogService? auditLogService = null) : IShelterAvailabilityService
 {
     private static readonly TimeSpan MinimumSlotDuration = TimeSpan.FromMinutes(15);
     private static readonly TimeSpan MaximumSlotDuration = TimeSpan.FromHours(4);
@@ -70,6 +72,13 @@ public class ShelterAvailabilityService(IDbContextFactory<ApplicationDbContext> 
 
         context.ShelterAvailabilitySlots.Add(slot);
         await context.SaveChangesAsync();
+        await LogAsync(
+            AuditActions.ShelterAvailabilitySlotCreated,
+            "ShelterAvailabilitySlot",
+            slot.Id.ToString(),
+            $"Availability slot was created for shelter {shelter.Name}.",
+            currentUserId,
+            $"ShelterId={request.ShelterId};StartTime={request.StartTime:O};EndTime={request.EndTime:O}");
 
         return ToDto(slot);
     }
@@ -106,6 +115,13 @@ public class ShelterAvailabilityService(IDbContextFactory<ApplicationDbContext> 
         slot.CancelledAt = DateTime.UtcNow;
         slot.CancelledByUserId = currentUserId;
         await context.SaveChangesAsync();
+        await LogAsync(
+            AuditActions.ShelterAvailabilitySlotCancelled,
+            "ShelterAvailabilitySlot",
+            slot.Id.ToString(),
+            "Availability slot was cancelled.",
+            currentUserId,
+            $"ShelterId={slot.ShelterId};StartTime={slot.StartTime:O};EndTime={slot.EndTime:O}");
     }
 
     public async Task<List<ShelterAvailabilitySlotDto>> GetAvailableSlotsForAdoptionRequestAsync(
@@ -187,6 +203,13 @@ public class ShelterAvailabilityService(IDbContextFactory<ApplicationDbContext> 
 
         request.UpdatedAt = DateTime.UtcNow;
         await context.SaveChangesAsync();
+        await LogAsync(
+            AuditActions.ShelterAvailabilitySlotBooked,
+            "ShelterAvailabilitySlot",
+            slot.Id.ToString(),
+            $"Availability slot was linked to adoption request #{request.Id}.",
+            currentUserId,
+            $"ShelterId={slot.ShelterId};AdoptionRequestId={request.Id};DogId={request.DogId};StartTime={slot.StartTime:O}");
     }
 
     private static async Task EnsureShelterOwnershipAsync(
@@ -277,6 +300,23 @@ public class ShelterAvailabilityService(IDbContextFactory<ApplicationDbContext> 
         {
             throw new InvalidOperationException("This slot is already booked.");
         }
+    }
+
+    private Task LogAsync(
+        string action,
+        string entityName,
+        string? entityId,
+        string description,
+        string currentUserId,
+        string? additionalData = null)
+    {
+        return auditLogService?.LogAsync(
+            action,
+            entityName,
+            entityId,
+            description,
+            userId: currentUserId,
+            additionalData: additionalData) ?? Task.CompletedTask;
     }
 
     private static void ReleaseSlot(ShelterAvailabilitySlot slot)

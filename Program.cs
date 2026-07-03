@@ -98,6 +98,7 @@ builder.Services.AddScoped<IMessageReportService, MessageReportService>();
 builder.Services.AddScoped<IMessageAttachmentStorageService, LocalMessageAttachmentStorageService>();
 builder.Services.AddSingleton<IConversationRealtimeNotifier, ConversationRealtimeNotifier>();
 builder.Services.AddSingleton<IDistanceService, DistanceService>();
+builder.Services.AddScoped<ICorrelationIdAccessor, CorrelationIdAccessor>();
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.Configure<ScheduledReportSettings>(builder.Configuration.GetSection("ScheduledReports"));
 builder.Services.Configure<VisitReminderSettings>(builder.Configuration.GetSection("VisitReminders"));
@@ -194,6 +195,7 @@ else
     app.UseHsts();
 }
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
+app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseHttpsRedirection();
 
 app.UseStaticFiles();

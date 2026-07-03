@@ -23,6 +23,30 @@ public interface IAuditLogService
         string description,
         string? additionalData = null);
 
+    Task LogUserActionAsync(
+        string action,
+        string entityType,
+        string? entityId,
+        string summary,
+        object? details = null,
+        string severity = "Information",
+        string eventType = "Business");
+
+    Task LogSystemEventAsync(
+        string action,
+        string entityType,
+        string? entityId,
+        string summary,
+        object? details = null,
+        string severity = "Information");
+
+    Task LogCopilotEventAsync(
+        string action,
+        string? entityId,
+        string summary,
+        object? details = null,
+        string severity = "Information");
+
     Task<List<AuditLog>> GetRecentLogsAsync(int count);
 
     Task<List<AuditLog>> GetLogsAsync(
@@ -31,6 +55,9 @@ public interface IAuditLogService
         string? search = null,
         DateTime? fromDate = null,
         DateTime? toDate = null,
+        string? severity = null,
+        string? eventType = null,
+        string? correlationId = null,
         int take = 200);
 
     Task<List<AuditLog>> GetLogsForEntityAsync(string entityName, string entityId);
