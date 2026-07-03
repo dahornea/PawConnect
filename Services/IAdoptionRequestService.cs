@@ -26,15 +26,23 @@ public interface IAdoptionRequestService
 
     Task<List<AdoptionRequest>> GetRequestsForShelterAsync(int shelterId);
 
+    Task<ShelterAdoptionPipelineDto> GetShelterPipelineAsync(string shelterUserId);
+
     Task<bool> HasPendingRequestAsync(string adopterId, int dogId);
 
     Task AcceptRequestAsync(int requestId, int shelterId, string? changedByUserId = null);
 
     Task ConfirmVisitAsync(int requestId, int shelterId, string? changedByUserId = null);
 
+    Task ConfirmPipelineVisitAsync(int requestId, string shelterUserId);
+
     Task MarkAsAdoptedAsync(int requestId, int shelterId, string? changedByUserId = null);
 
+    Task MarkPipelineRequestAsAdoptedAsync(int requestId, string shelterUserId);
+
     Task RejectRequestAsync(int requestId, int shelterId);
+
+    Task RejectPipelineRequestAsync(int requestId, string shelterUserId);
 
     Task CancelRequestAsync(int requestId, string adopterId);
 

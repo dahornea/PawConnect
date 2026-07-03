@@ -1,0 +1,142 @@
+.adoption-pipeline-page {
+    padding-bottom: 2rem;
+}
+
+.pipeline-toolbar {
+    border: 1px solid rgba(33, 94, 82, 0.12);
+    border-radius: 14px;
+}
+
+.pipeline-board {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(4, minmax(17rem, 1fr));
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+}
+
+.pipeline-column {
+    background: rgba(255, 255, 255, 0.75);
+    border: 1px solid rgba(33, 94, 82, 0.12);
+    border-radius: 16px;
+    min-width: 17rem;
+    padding: 0.85rem;
+}
+
+.pipeline-column-header {
+    align-items: flex-start;
+    border-bottom: 1px solid rgba(33, 94, 82, 0.1);
+    display: flex;
+    gap: 0.75rem;
+    justify-content: space-between;
+    min-height: 4.25rem;
+    padding-bottom: 0.75rem;
+}
+
+.pipeline-column-empty {
+    align-items: center;
+    color: #52655f;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    justify-content: center;
+    min-height: 9rem;
+    text-align: center;
+}
+
+.pipeline-card-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: 0.85rem;
+}
+
+.pipeline-card {
+    background: rgba(255, 255, 255, 0.96);
+    border: 1px solid rgba(33, 94, 82, 0.12);
+    border-radius: 14px;
+    box-shadow: 0 12px 28px rgba(19, 43, 35, 0.07);
+}
+
+.pipeline-dog-image {
+    align-items: center;
+    background: linear-gradient(135deg, #eef5ef, #fff8ec);
+    border-radius: 12px;
+    color: #2f7d6b;
+    display: flex;
+    height: 3.8rem;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+    width: 4.5rem;
+}
+
+.pipeline-dog-image img {
+    height: 100%;
+    inset: 0;
+    object-fit: cover;
+    object-position: center;
+    position: absolute;
+    width: 100%;
+}
+
+.pipeline-card-title {
+    min-width: 0;
+}
+
+.pipeline-card-title .mud-typography {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pipeline-card-details {
+    display: grid;
+    gap: 0.5rem;
+}
+
+.pipeline-card-details div {
+    background: rgba(33, 94, 82, 0.04);
+    border-radius: 10px;
+    padding: 0.5rem 0.6rem;
+}
+
+.pipeline-card-details span,
+.pipeline-card-details small {
+    color: #52655f;
+    display: block;
+    font-size: 0.74rem;
+}
+
+.pipeline-card-details strong {
+    display: block;
+    font-size: 0.86rem;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
+.pipeline-preview {
+    color: #344b44;
+    line-height: 1.45;
+}
+
+.pipeline-card-actions {
+    border-top: 1px solid rgba(33, 94, 82, 0.1);
+    padding-top: 0.65rem;
+}
+
+@media (max-width: 960px) {
+    .pipeline-board {
+        grid-template-columns: repeat(4, minmax(16rem, 18rem));
+    }
+}
+
+@media (max-width: 640px) {
+    .pipeline-board {
+        display: flex;
+        overflow-x: auto;
+    }
+
+    .pipeline-column {
+        flex: 0 0 86vw;
+    }
+}

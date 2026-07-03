@@ -240,6 +240,38 @@ public class AdoptionRequestService(
             .ToListAsync());
     }
 
+    public async Task<ShelterAdoptionPipelineDto> GetShelterPipelineAsync(string shelterUserId)
+    {
+        var shelter = await ExecuteReadAsync(db => db.Shelters
+            .Where(s => s.ApplicationUserId == shelterUserId)
+            .Select(s => new { s.Id, s.Name })
+            .AsNoTracking()
+            .FirstOrDefaultAsync());
+
+        if (shelter is null)
+        {
+            throw new InvalidOperationException("No shelter profile is linked to this account.");
+        }
+
+        var requests = await ExecuteReadAsync(db => db.AdoptionRequests
+            .Include(r => r.Dog)
+            .ThenInclude(d => d!.Images)
+            .Include(r => r.Dog)
+            .ThenInclude(d => d!.DogBreed)
+            .Include(r => r.Dog)
+            .ThenInclude(d => d!.SecondaryBreed)
+            .Include(r => r.Adopter)
+            .ThenInclude(a => a!.AdopterProfile)
+            .Where(r => r.Dog != null && r.Dog.ShelterId == shelter.Id)
+            .OrderByDescending(r => r.UpdatedAt)
+            .ThenByDescending(r => r.CreatedAt)
+            .AsSplitQuery()
+            .AsNoTracking()
+            .ToListAsync());
+
+        return BuildPipelineDto(shelter.Id, shelter.Name, requests);
+    }
+
     public Task<bool> HasPendingRequestAsync(string adopterId, int dogId)
     {
         return context.AdoptionRequests.AnyAsync(r =>
@@ -333,6 +365,12 @@ public class AdoptionRequestService(
             request.Id.ToString());
     }
 
+    public async Task ConfirmPipelineVisitAsync(int requestId, string shelterUserId)
+    {
+        var shelterId = await GetShelterIdForUserAsync(shelterUserId);
+        await ConfirmVisitAsync(requestId, shelterId, shelterUserId);
+    }
+
     public async Task MarkAsAdoptedAsync(int requestId, int shelterId, string? changedByUserId = null)
     {
         var request = await context.AdoptionRequests
@@ -415,6 +453,12 @@ public class AdoptionRequestService(
             request.Id.ToString());
     }
 
+    public async Task MarkPipelineRequestAsAdoptedAsync(int requestId, string shelterUserId)
+    {
+        var shelterId = await GetShelterIdForUserAsync(shelterUserId);
+        await MarkAsAdoptedAsync(requestId, shelterId, shelterUserId);
+    }
+
     public async Task RejectRequestAsync(int requestId, int shelterId)
     {
         var request = await context.AdoptionRequests
@@ -466,6 +510,12 @@ public class AdoptionRequestService(
             "/my-adoption-requests",
             "AdoptionRequest",
             request.Id.ToString());
+    }
+
+    public async Task RejectPipelineRequestAsync(int requestId, string shelterUserId)
+    {
+        var shelterId = await GetShelterIdForUserAsync(shelterUserId);
+        await RejectRequestAsync(requestId, shelterId);
     }
 
     public async Task CancelRequestAsync(int requestId, string adopterId)
@@ -536,6 +586,135 @@ public class AdoptionRequestService(
         {
             throw new InvalidOperationException("You cannot manage requests for another shelter's dog.");
         }
+    }
+
+    private async Task<int> GetShelterIdForUserAsync(string shelterUserId)
+    {
+        if (string.IsNullOrWhiteSpace(shelterUserId))
+        {
+            throw new InvalidOperationException("Current shelter account could not be found.");
+        }
+
+        var shelterId = await context.Shelters
+            .Where(shelter => shelter.ApplicationUserId == shelterUserId)
+            .Select(shelter => (int?)shelter.Id)
+            .FirstOrDefaultAsync();
+
+        return shelterId ?? throw new InvalidOperationException("No shelter profile is linked to this account.");
+    }
+
+    private static ShelterAdoptionPipelineDto BuildPipelineDto(
+        int shelterId,
+        string shelterName,
+        IReadOnlyList<AdoptionRequest> requests)
+    {
+        var cards = requests.Select(ToPipelineCardDto).ToList();
+
+        return new ShelterAdoptionPipelineDto(
+            shelterId,
+            shelterName,
+            cards.Count,
+            [
+                BuildColumn(AdoptionPipelineStage.Pending, "Pending", "New requests waiting for shelter review.", cards),
+                BuildColumn(AdoptionPipelineStage.VisitConfirmed, "Visit Confirmed", "Requests with a confirmed shelter visit.", cards),
+                BuildColumn(AdoptionPipelineStage.Accepted, "Accepted", "Completed adoption requests.", cards),
+                BuildColumn(AdoptionPipelineStage.Closed, "Rejected / Cancelled", "Requests that are no longer active.", cards)
+            ]);
+    }
+
+    private static AdoptionPipelineColumnDto BuildColumn(
+        AdoptionPipelineStage stage,
+        string title,
+        string description,
+        IReadOnlyList<AdoptionPipelineCardDto> cards)
+    {
+        return new AdoptionPipelineColumnDto(
+            stage,
+            title,
+            description,
+            cards.Where(card => GetPipelineStage(card.RequestStatus) == stage).ToList());
+    }
+
+    private static AdoptionPipelineCardDto ToPipelineCardDto(AdoptionRequest request)
+    {
+        var dog = request.Dog;
+        return new AdoptionPipelineCardDto(
+            request.Id,
+            request.DogId,
+            string.IsNullOrWhiteSpace(dog?.Name) ? "Unknown dog" : dog.Name,
+            DogBreedFormatter.Format(dog),
+            dog is null ? null : DogImageUrlValidator.GetPrimaryRealDogImageUrl(dog.Images),
+            dog?.Status ?? DogStatus.Available,
+            GetAdopterDisplayName(request.Adopter),
+            request.Adopter?.AdopterProfile?.City,
+            request.Status,
+            request.VisitStatus,
+            request.PreferredVisitDateTime,
+            request.CreatedAt,
+            request.UpdatedAt,
+            BuildQuestionnairePreview(request),
+            CanConfirmVisitFromPipeline(request),
+            request.Status is AdoptionRequestStatus.Pending or AdoptionRequestStatus.VisitConfirmed,
+            request.Status == AdoptionRequestStatus.VisitConfirmed &&
+                request.VisitStatus == AdoptionVisitStatus.Confirmed &&
+                dog?.Status != DogStatus.Adopted,
+            false);
+    }
+
+    private static AdoptionPipelineStage GetPipelineStage(AdoptionRequestStatus status)
+    {
+        return status switch
+        {
+            AdoptionRequestStatus.Pending => AdoptionPipelineStage.Pending,
+            AdoptionRequestStatus.VisitConfirmed => AdoptionPipelineStage.VisitConfirmed,
+            AdoptionRequestStatus.Accepted => AdoptionPipelineStage.Accepted,
+            AdoptionRequestStatus.Rejected or AdoptionRequestStatus.Cancelled => AdoptionPipelineStage.Closed,
+            _ => AdoptionPipelineStage.Closed
+        };
+    }
+
+    private static bool CanConfirmVisitFromPipeline(AdoptionRequest request)
+    {
+        return request.Status == AdoptionRequestStatus.Pending &&
+            request.PreferredVisitDateTime.HasValue &&
+            request.PreferredVisitDateTime.Value > DateTime.Now &&
+            request.Dog?.Status is DogStatus.Available or DogStatus.Reserved;
+    }
+
+    private static string GetAdopterDisplayName(ApplicationUser? adopter)
+    {
+        if (adopter is null)
+        {
+            return "Unknown adopter";
+        }
+
+        return string.IsNullOrWhiteSpace(adopter.FullName)
+            ? adopter.Email ?? adopter.UserName ?? "Unknown adopter"
+            : adopter.FullName;
+    }
+
+    private static string? BuildQuestionnairePreview(AdoptionRequest request)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(request.ReasonForAdoption))
+        {
+            parts.Add(request.ReasonForAdoption.Trim());
+        }
+
+        if (request.HoursAlonePerDay.HasValue)
+        {
+            parts.Add($"{request.HoursAlonePerDay.Value}h alone/day");
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.AdditionalInformation))
+        {
+            parts.Add(request.AdditionalInformation.Trim());
+        }
+
+        var preview = string.Join(" · ", parts);
+        return string.IsNullOrWhiteSpace(preview)
+            ? null
+            : preview.Length <= 160 ? preview : $"{preview[..160]}...";
     }
 
     private static void EnsurePending(AdoptionRequest request, string action)

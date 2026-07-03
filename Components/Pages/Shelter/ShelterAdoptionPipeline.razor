@@ -1,0 +1,205 @@
+@page "/shelter/adoption-pipeline"
+@attribute [Authorize(Roles = "Shelter")]
+
+<PageTitle>Adoption Pipeline</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.False" Class="px-0 adoption-pipeline-page">
+    <MudStack Spacing="3">
+        <div class="page-header">
+            <MudText Typo="Typo.h4">Adoption Pipeline</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Track and manage adoption requests by workflow stage.</MudText>
+        </div>
+
+        <MudPaper Elevation="0" Class="section-surface pipeline-toolbar pa-3">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="flex-wrap" Spacing="2">
+                <div>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        @(_pipeline is null ? "Review your shelter adoption workflow." : $"{_pipeline.TotalRequests} request(s) for {_pipeline.ShelterName}.")
+                    </MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Actions use the same adoption request rules as the review table.</MudText>
+                </div>
+                <MudStack Row="true" Spacing="1" Class="flex-wrap">
+                    <MudButton Href="/shelter/adoption-requests"
+                               Variant="Variant.Outlined"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.FormatListBulleted"
+                               Size="Size.Small">
+                        Request Table
+                    </MudButton>
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Refresh"
+                               Disabled="_isLoading"
+                               Size="Size.Small"
+                               OnClick="LoadPipelineAsync">
+                        Refresh
+                    </MudButton>
+                </MudStack>
+            </MudStack>
+        </MudPaper>
+
+        @if (_isLoading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="py-8">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Loading adoption pipeline...</MudText>
+            </MudStack>
+        }
+        else if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <MudAlert Severity="Severity.Error">@_error</MudAlert>
+        }
+        else if (_pipeline is null || _pipeline.TotalRequests == 0)
+        {
+            <MudPaper Elevation="0" Class="empty-state pa-5">
+                <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.ViewKanban" Color="Color.Secondary" Size="Size.Large" />
+                    <MudText Typo="Typo.h6">No adoption requests yet</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">New requests for your shelter dogs will appear in this pipeline.</MudText>
+                </MudStack>
+            </MudPaper>
+        }
+        else
+        {
+            <div class="pipeline-board" aria-label="Shelter adoption request pipeline">
+                @foreach (var column in _pipeline.Columns)
+                {
+                    <section class="pipeline-column" aria-label="@column.Title">
+                        <div class="pipeline-column-header">
+                            <div>
+                                <MudText Typo="Typo.subtitle1">@column.Title</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">@column.Description</MudText>
+                            </div>
+                            <MudChip T="string" Size="Size.Small" Color="@GetColumnColor(column.Stage)" Variant="Variant.Outlined">
+                                @column.Cards.Count
+                            </MudChip>
+                        </div>
+
+                        @if (column.Cards.Count == 0)
+                        {
+                            <div class="pipeline-column-empty">
+                                <MudIcon Icon="@Icons.Material.Filled.Inbox" Color="Color.Secondary" />
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">No requests here</MudText>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="pipeline-card-list">
+                                @foreach (var card in column.Cards)
+                                {
+                                    <MudPaper Elevation="0" Class="pipeline-card pa-3">
+                                        <MudStack Spacing="2">
+                                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                                <div class="pipeline-dog-image" aria-label="@($"{card.DogName} thumbnail")">
+                                                    <MudIcon Icon="@Icons.Material.Filled.Pets" />
+                                                    @if (!string.IsNullOrWhiteSpace(card.DogImageUrl))
+                                                    {
+                                                        <img src="@card.DogImageUrl" alt="" loading="lazy" onerror="this.style.display='none';" />
+                                                    }
+                                                </div>
+                                                <div class="pipeline-card-title">
+                                                    <MudText Typo="Typo.subtitle2">@card.DogName</MudText>
+                                                    <MudText Typo="Typo.caption" Color="Color.Secondary">@card.Breed</MudText>
+                                                </div>
+                                            </MudStack>
+
+                                            <MudStack Row="true" Spacing="1" Class="flex-wrap">
+                                                <MudChip T="string" Size="Size.Small" Color="@GetRequestStatusColor(card.RequestStatus)">
+                                                    @FormatRequestStatus(card.RequestStatus)
+                                                </MudChip>
+                                                @if (card.VisitStatus != AdoptionVisitStatus.NotScheduled)
+                                                {
+                                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="@GetVisitStatusColor(card.VisitStatus)">
+                                                        @FormatVisitStatus(card.VisitStatus)
+                                                    </MudChip>
+                                                }
+                                                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="@GetDogStatusColor(card.DogStatus)">
+                                                    Dog: @card.DogStatus
+                                                </MudChip>
+                                            </MudStack>
+
+                                            <div class="pipeline-card-details">
+                                                <div>
+                                                    <span>Adopter</span>
+                                                    <strong>@card.AdopterDisplayName</strong>
+                                                    @if (!string.IsNullOrWhiteSpace(card.AdopterCity))
+                                                    {
+                                                        <small>@card.AdopterCity</small>
+                                                    }
+                                                </div>
+                                                <div>
+                                                    <span>Preferred visit</span>
+                                                    <strong>@FormatVisitDate(card.PreferredVisitDateTime)</strong>
+                                                </div>
+                                                <div>
+                                                    <span>Submitted</span>
+                                                    <strong>@FormatDate(card.CreatedAt)</strong>
+                                                </div>
+                                            </div>
+
+                                            @if (!string.IsNullOrWhiteSpace(card.QuestionnairePreview))
+                                            {
+                                                <MudText Typo="Typo.body2" Class="pipeline-preview">@card.QuestionnairePreview</MudText>
+                                            }
+
+                                            <MudStack Row="true" Spacing="1" Class="pipeline-card-actions flex-wrap">
+                                                <MudButton Variant="Variant.Outlined"
+                                                           Color="Color.Primary"
+                                                           Size="Size.Small"
+                                                           StartIcon="@Icons.Material.Filled.Visibility"
+                                                           Disabled="_isUpdating"
+                                                           OnClick="@(() => OpenRequestDetailsAsync(card))">
+                                                    Details
+                                                </MudButton>
+                                                <MudButton Href="@($"/shelter/adoption-requests/{card.AdoptionRequestId}/messages")"
+                                                           Variant="Variant.Outlined"
+                                                           Color="Color.Primary"
+                                                           Size="Size.Small"
+                                                           StartIcon="@Icons.Material.Filled.ChatBubbleOutline">
+                                                    Messages
+                                                </MudButton>
+                                                @if (card.CanConfirmVisit)
+                                                {
+                                                    <MudButton Variant="Variant.Filled"
+                                                               Color="Color.Primary"
+                                                               Size="Size.Small"
+                                                               StartIcon="@Icons.Material.Filled.EventAvailable"
+                                                               Disabled="_isUpdating"
+                                                               OnClick="@(() => ConfirmVisitAsync(card))">
+                                                        Confirm
+                                                    </MudButton>
+                                                }
+                                                @if (card.CanAccept)
+                                                {
+                                                    <MudButton Variant="Variant.Filled"
+                                                               Color="Color.Success"
+                                                               Size="Size.Small"
+                                                               StartIcon="@Icons.Material.Filled.Pets"
+                                                               Disabled="_isUpdating"
+                                                               OnClick="@(() => MarkAsAdoptedAsync(card))">
+                                                        Finalize
+                                                    </MudButton>
+                                                }
+                                                @if (card.CanReject)
+                                                {
+                                                    <MudButton Variant="Variant.Outlined"
+                                                               Color="Color.Error"
+                                                               Size="Size.Small"
+                                                               StartIcon="@Icons.Material.Filled.Cancel"
+                                                               Disabled="_isUpdating"
+                                                               OnClick="@(() => RejectRequestAsync(card))">
+                                                        Reject
+                                                    </MudButton>
+                                                }
+                                            </MudStack>
+                                        </MudStack>
+                                    </MudPaper>
+                                }
+                            </div>
+                        }
+                    </section>
+                }
+            </div>
+        }
+    </MudStack>
+</MudContainer>
