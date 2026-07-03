@@ -9,7 +9,8 @@ public sealed record AdoptionCopilotResponse(
     bool UsedSemanticSearch,
     bool UsedToolCalling = false,
     string? FallbackReason = null,
-    IReadOnlyList<AdoptionCopilotConstraint>? AppliedConstraints = null);
+    IReadOnlyList<AdoptionCopilotConstraint>? AppliedConstraints = null,
+    int? SessionId = null);
 
 public sealed record AdoptionCopilotConstraint(
     string Label,
@@ -26,7 +27,12 @@ public sealed record AdoptionCopilotDogResult(
     bool UsedAiEnhancement = false,
     IReadOnlyList<AdoptionCopilotConstraint>? MatchedCriteria = null,
     IReadOnlyList<string>? DisplayTags = null,
-    IReadOnlyList<string>? CautionTags = null);
+    IReadOnlyList<string>? CautionTags = null,
+    string? EvidenceSummary = null,
+    IReadOnlyList<EvidenceItem>? PositiveEvidence = null,
+    IReadOnlyList<EvidenceItem>? CautionEvidence = null,
+    IReadOnlyList<EvidenceItem>? NegativeEvidence = null,
+    IReadOnlyList<EvidenceItem>? MissingEvidence = null);
 
 public sealed record AdoptionCopilotToolOpenAiRequest(
     string UserMessage,

@@ -24,6 +24,9 @@ public partial class AdoptionCopilot
     [Inject] private ICopilotStateService CopilotStateService { get; set; } = default!;
     [Inject] private IDogService DogService { get; set; } = default!;
     [Inject] private IFavoriteDogService FavoriteDogService { get; set; } = default!;
+    [Inject] private ICopilotHistoryService CopilotHistoryService { get; set; } = default!;
+    [Inject] private ICopilotFeedbackService CopilotFeedbackService { get; set; } = default!;
+    [Inject] private IDialogService DialogService { get; set; } = default!;
     [Inject] private NavigationManager NavigationManager { get; set; } = default!;
     [Inject] private ISnackbar Snackbar { get; set; } = default!;
 
@@ -47,7 +50,10 @@ public partial class AdoptionCopilot
     private string? _currentUserId;
     private string? _error;
     private bool _isAsking;
+    private bool _isLoadingHistory;
     private HashSet<int> _favoriteDogIds = [];
+    private IReadOnlyList<CopilotHistoryItemDto> _recentSessions = [];
+    private Dictionary<int, CopilotFeedbackDto> _feedbackByDogId = [];
     private AdoptionCopilotResponse? _response;
 
     private bool CanAsk => !_isAsking && !string.IsNullOrWhiteSpace(_query);
@@ -56,7 +62,9 @@ public partial class AdoptionCopilot
     {
         await LoadCurrentUserAsync();
         await LoadFavoriteStateAsync();
+        await LoadRecentSessionsAsync();
         await RestoreCopilotStateAsync();
+        await LoadFeedbackForCurrentSessionAsync();
     }
 
     private async Task AskCopilotAsync()
@@ -81,6 +89,8 @@ public partial class AdoptionCopilot
             _response = await AdoptionCopilotService.AskAsync(_currentUserId, _query);
             CopilotStateService.SaveState(_currentUserId, _query, _response);
             await LoadFavoriteStateAsync();
+            await LoadFeedbackForCurrentSessionAsync();
+            await LoadRecentSessionsAsync();
         }
         catch
         {
@@ -103,6 +113,7 @@ public partial class AdoptionCopilot
         _query = null;
         _error = null;
         _response = null;
+        _feedbackByDogId = [];
         CopilotStateService.ClearState(_currentUserId);
     }
 
@@ -122,6 +133,43 @@ public partial class AdoptionCopilot
         }
 
         _favoriteDogIds = await FavoriteDogService.GetFavoriteDogIdsForUserAsync(_currentUserId);
+    }
+
+    private async Task LoadRecentSessionsAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_currentUserId))
+        {
+            _recentSessions = [];
+            return;
+        }
+
+        _isLoadingHistory = true;
+        try
+        {
+            _recentSessions = await CopilotHistoryService.GetRecentSessionsAsync(_currentUserId, 5);
+        }
+        finally
+        {
+            _isLoadingHistory = false;
+        }
+    }
+
+    private async Task LoadFeedbackForCurrentSessionAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_currentUserId) || _response?.SessionId is not int sessionId)
+        {
+            _feedbackByDogId = [];
+            return;
+        }
+
+        var feedback = await CopilotFeedbackService.GetFeedbackForSessionAsync(sessionId, _currentUserId);
+        _feedbackByDogId = feedback.ToDictionary(pair => pair.Key, pair => pair.Value);
+    }
+
+    private async Task RerunSessionAsync(CopilotHistoryItemDto session)
+    {
+        _query = session.QuerySummary;
+        await AskCopilotAsync();
     }
 
     private async Task RestoreCopilotStateAsync()
@@ -190,7 +238,7 @@ public partial class AdoptionCopilot
             }
             else
             {
-                await FavoriteDogService.AddFavoriteAsync(_currentUserId, dog.Id);
+            await FavoriteDogService.AddFavoriteAsync(_currentUserId, dog.Id);
                 _favoriteDogIds.Add(dog.Id);
                 Snackbar.Add("Dog added to favorites.", Severity.Success);
             }
@@ -203,6 +251,84 @@ public partial class AdoptionCopilot
         {
             Snackbar.Add("Could not update favorites. Please try again.", Severity.Error);
         }
+    }
+
+    private async Task SubmitFeedbackAsync(AdoptionCopilotDogResult result, CopilotFeedbackType feedbackType)
+    {
+        if (string.IsNullOrWhiteSpace(_currentUserId) || _response?.SessionId is not int sessionId)
+        {
+            Snackbar.Add("Run a Copilot search before adding feedback.", Severity.Info);
+            return;
+        }
+
+        try
+        {
+            var feedback = await CopilotFeedbackService.SubmitFeedbackAsync(
+                new SubmitCopilotFeedbackRequest(
+                    sessionId,
+                    result.DogId,
+                    feedbackType,
+                    WasFavorited: _favoriteDogIds.Contains(result.DogId)),
+                _currentUserId);
+
+            _feedbackByDogId[result.DogId] = feedback;
+            Snackbar.Add("Copilot feedback saved.", Severity.Success);
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch
+        {
+            Snackbar.Add("Could not save Copilot feedback right now.", Severity.Error);
+        }
+    }
+
+    private async Task ShowExplanationAsync(AdoptionCopilotDogResult result)
+    {
+        if (string.IsNullOrWhiteSpace(_currentUserId) || _response?.SessionId is not int sessionId)
+        {
+            Snackbar.Add("Run a Copilot search before opening match explanations.", Severity.Info);
+            return;
+        }
+
+        try
+        {
+            var explanation = await CopilotFeedbackService.BuildExplanationAsync(
+                sessionId,
+                _currentUserId,
+                result,
+                _response.AppliedConstraints ?? []);
+
+            var parameters = new DialogParameters<CopilotExplanationDialog>
+            {
+                { dialog => dialog.Explanation, explanation }
+            };
+            await DialogService.ShowAsync<CopilotExplanationDialog>("Why this match?", parameters);
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+    }
+
+    private bool IsFeedbackSelected(int dogId, CopilotFeedbackType feedbackType)
+    {
+        return _feedbackByDogId.TryGetValue(dogId, out var feedback) &&
+            feedback.FeedbackType == feedbackType;
+    }
+
+    private static string FormatSessionMeta(CopilotHistoryItemDto session)
+    {
+        var source = session.UsedAiEnhancement
+            ? "AI-assisted"
+            : "Rule-based";
+
+        var search = session.UsedSemanticSearch
+            ? "semantic search"
+            : "safe search";
+
+        return $"{session.CreatedAt.ToLocalTime():dd MMM yyyy, HH:mm} - {session.ResultCount} result(s) - {source}, {search}";
     }
 
     private static string? GetDogImageUrl(Dog dog)

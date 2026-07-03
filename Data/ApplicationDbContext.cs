@@ -43,6 +43,10 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
     public DbSet<DogSearchEmbedding> DogSearchEmbeddings => Set<DogSearchEmbedding>();
 
+    public DbSet<CopilotSession> CopilotSessions => Set<CopilotSession>();
+
+    public DbSet<CopilotResultFeedback> CopilotResultFeedbacks => Set<CopilotResultFeedback>();
+
     public DbSet<Conversation> Conversations => Set<Conversation>();
 
     public DbSet<Message> Messages => Set<Message>();
@@ -171,6 +175,88 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
         builder.Entity<DogSearchEmbedding>()
             .HasIndex(embedding => embedding.UpdatedAt);
+
+        builder.Entity<CopilotSession>()
+            .HasOne(session => session.AdopterUser)
+            .WithMany()
+            .HasForeignKey(session => session.AdopterUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<CopilotSession>()
+            .Property(session => session.CreatedAt)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<CopilotSession>()
+            .Property(session => session.QueryText)
+            .HasMaxLength(1000);
+
+        builder.Entity<CopilotSession>()
+            .Property(session => session.SanitizedQuerySummary)
+            .HasMaxLength(500);
+
+        builder.Entity<CopilotSession>()
+            .Property(session => session.PrimaryIntent)
+            .HasMaxLength(80);
+
+        builder.Entity<CopilotSession>()
+            .Property(session => session.CompatibilityTarget)
+            .HasMaxLength(80);
+
+        builder.Entity<CopilotSession>()
+            .Property(session => session.HomeType)
+            .HasMaxLength(80);
+
+        builder.Entity<CopilotSession>()
+            .Property(session => session.ActivityLevel)
+            .HasMaxLength(80);
+
+        builder.Entity<CopilotSession>()
+            .Property(session => session.City)
+            .HasMaxLength(120);
+
+        builder.Entity<CopilotSession>()
+            .Property(session => session.Neighborhood)
+            .HasMaxLength(120);
+
+        builder.Entity<CopilotSession>()
+            .Property(session => session.FallbackReason)
+            .HasMaxLength(500);
+
+        builder.Entity<CopilotSession>()
+            .HasIndex(session => new { session.AdopterUserId, session.CreatedAt });
+
+        builder.Entity<CopilotResultFeedback>()
+            .HasOne(feedback => feedback.CopilotSession)
+            .WithMany(session => session.Feedback)
+            .HasForeignKey(feedback => feedback.CopilotSessionId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<CopilotResultFeedback>()
+            .HasOne(feedback => feedback.Dog)
+            .WithMany()
+            .HasForeignKey(feedback => feedback.DogId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<CopilotResultFeedback>()
+            .HasOne(feedback => feedback.AdopterUser)
+            .WithMany()
+            .HasForeignKey(feedback => feedback.AdopterUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<CopilotResultFeedback>()
+            .Property(feedback => feedback.OptionalComment)
+            .HasMaxLength(500);
+
+        builder.Entity<CopilotResultFeedback>()
+            .Property(feedback => feedback.CreatedAt)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<CopilotResultFeedback>()
+            .HasIndex(feedback => new { feedback.CopilotSessionId, feedback.DogId, feedback.AdopterUserId })
+            .IsUnique();
+
+        builder.Entity<CopilotResultFeedback>()
+            .HasIndex(feedback => feedback.AdopterUserId);
 
         builder.Entity<DogImage>()
             .HasOne(i => i.Dog)

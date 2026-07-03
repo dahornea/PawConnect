@@ -86,6 +86,8 @@ builder.Services.AddScoped<IDogSearchDocumentService, DogSearchDocumentService>(
 builder.Services.AddScoped<IDogSearchEmbeddingService, DogSearchEmbeddingService>();
 builder.Services.AddScoped<ISemanticDogSearchService, SemanticDogSearchService>();
 builder.Services.AddScoped<IAdoptionCopilotToolService, AdoptionCopilotToolService>();
+builder.Services.AddScoped<ICopilotHistoryService, CopilotHistoryService>();
+builder.Services.AddScoped<ICopilotFeedbackService, CopilotFeedbackService>();
 builder.Services.AddScoped<IAdoptionCopilotService, AdoptionCopilotService>();
 builder.Services.AddScoped<ICopilotStateService, CopilotStateService>();
 builder.Services.AddScoped<IConversationService, ConversationService>();

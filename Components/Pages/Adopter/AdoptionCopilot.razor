@@ -1,6 +1,7 @@
 @page "/adopter/copilot"
 @using Microsoft.AspNetCore.Identity
 @using PawConnect.Data
+@using PawConnect.Entities
 @attribute [Authorize(Roles = "Adopter")]
 
 <PageTitle>Adoption Copilot</PageTitle>
@@ -51,6 +52,49 @@
                         </MudButton>
                     }
                 </div>
+            </MudStack>
+        </MudPaper>
+
+        <MudPaper Elevation="0" Class="section-surface copilot-history-card pa-4">
+            <MudStack Spacing="2">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.History" Color="Color.Primary" />
+                    <div>
+                        <MudText Typo="Typo.h6">Previous Copilot searches</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Recent searches are private to your adopter account.</MudText>
+                    </div>
+                    <MudSpacer />
+                    @if (_isLoadingHistory)
+                    {
+                        <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Primary" />
+                    }
+                </MudStack>
+
+                @if (_recentSessions.Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">No Copilot searches saved yet.</MudText>
+                }
+                else
+                {
+                    <div class="copilot-history-list">
+                        @foreach (var session in _recentSessions)
+                        {
+                            <div class="copilot-history-item">
+                                <div class="copilot-history-main">
+                                    <MudText Typo="Typo.body2" Class="history-query">@session.QuerySummary</MudText>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">@FormatSessionMeta(session)</MudText>
+                                </div>
+                                <MudButton Variant="Variant.Outlined"
+                                           Color="Color.Primary"
+                                           Size="Size.Small"
+                                           Disabled="_isAsking"
+                                           OnClick="@(() => RerunSessionAsync(session))">
+                                    Run again
+                                </MudButton>
+                            </div>
+                        }
+                    </div>
+                }
             </MudStack>
         </MudPaper>
 
@@ -207,7 +251,34 @@
 
                                 <MudCardActions>
                                     <MudButton Href="@GetDogDetailsUrl(dog.Id)" Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Visibility">View Details</MudButton>
+                                    <MudButton Variant="Variant.Text"
+                                               Color="Color.Primary"
+                                               StartIcon="@Icons.Material.Filled.FactCheck"
+                                               OnClick="@(() => ShowExplanationAsync(result))">
+                                        Why this match?
+                                    </MudButton>
                                     <MudSpacer />
+                                    <MudTooltip Text="Helpful suggestion">
+                                        <MudIconButton Icon="@Icons.Material.Filled.ThumbUp"
+                                                       Variant="Variant.Text"
+                                                       Color="@(IsFeedbackSelected(dog.Id, CopilotFeedbackType.Positive) ? Color.Success : Color.Default)"
+                                                       Size="Size.Small"
+                                                       OnClick="@(() => SubmitFeedbackAsync(result, CopilotFeedbackType.Positive))" />
+                                    </MudTooltip>
+                                    <MudTooltip Text="Not helpful">
+                                        <MudIconButton Icon="@Icons.Material.Filled.ThumbDown"
+                                                       Variant="Variant.Text"
+                                                       Color="@(IsFeedbackSelected(dog.Id, CopilotFeedbackType.Negative) ? Color.Warning : Color.Default)"
+                                                       Size="Size.Small"
+                                                       OnClick="@(() => SubmitFeedbackAsync(result, CopilotFeedbackType.Negative))" />
+                                    </MudTooltip>
+                                    <MudTooltip Text="Not relevant">
+                                        <MudIconButton Icon="@Icons.Material.Filled.Block"
+                                                       Variant="Variant.Text"
+                                                       Color="@(IsFeedbackSelected(dog.Id, CopilotFeedbackType.NotRelevant) ? Color.Error : Color.Default)"
+                                                       Size="Size.Small"
+                                                       OnClick="@(() => SubmitFeedbackAsync(result, CopilotFeedbackType.NotRelevant))" />
+                                    </MudTooltip>
                                     <MudButton Variant="Variant.Text"
                                                Color="@GetFavoriteColor(dog.Id)"
                                                StartIcon="@GetFavoriteIcon(dog.Id)"
