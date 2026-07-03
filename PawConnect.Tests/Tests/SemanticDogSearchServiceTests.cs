@@ -20,6 +20,13 @@ public class SemanticDogSearchServiceTests
         dog.SecondaryBreed = DogBreedSeedData.CreateSeedEntities().First(breed => breed.Name == "Border Collie");
         dog.IsMixedBreed = true;
         dog.BehaviorDescription = "Friendly, calm, and social.";
+        dog.CatCompatibility = CatCompatibility.SlowIntroductions;
+        dog.DogCompatibility = DogCompatibility.CalmDogsOnly;
+        dog.ChildrenCompatibility = ChildrenCompatibility.OlderChildrenOnly;
+        dog.ActivityLevel = DogActivityLevel.Low;
+        dog.ApartmentSuitability = ApartmentSuitability.Suitable;
+        dog.ExperienceNeeded = DogExperienceNeeded.Beginner;
+        dog.CompatibilityNotes = "Prefers calm introductions.";
         dog.Shelter = new Shelter
         {
             Name = "Happy Paws",
@@ -36,6 +43,13 @@ public class SemanticDogSearchServiceTests
         Assert.Contains("Labrador Retriever \u00d7 Border Collie Mix", document);
         Assert.Contains("Border Collie", document);
         Assert.Contains("Friendly, calm, and social.", document);
+        Assert.Contains("Cat compatibility: Slow introductions.", document);
+        Assert.Contains("Dog compatibility: Calm dogs only.", document);
+        Assert.Contains("Children compatibility: Older children only.", document);
+        Assert.Contains("Activity level: Low.", document);
+        Assert.Contains("Apartment suitability: Suitable.", document);
+        Assert.Contains("Experience needed: Beginner.", document);
+        Assert.Contains("Compatibility notes: Prefers calm introductions.", document);
         Assert.Contains("Happy Paws", document);
         Assert.Contains("Zorilor", document);
         Assert.Contains("Cluj-Napoca", document);
@@ -301,6 +315,32 @@ public class SemanticDogSearchServiceTests
         Assert.Contains(noCatResult.DisplayTags!, tag =>
             tag.Contains("Ask shelter about cats", StringComparison.OrdinalIgnoreCase));
         Assert.True(catResult.ScorePercent > noCatResult.ScorePercent);
+    }
+
+    [Fact]
+    public async Task AdoptionCopilot_CatQueryUsesStructuredCompatibilityEvidence()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        SeedProfile(context);
+        var catCompatible = TestDbContextFactory.CreateDog("Structured Cat Match");
+        catCompatible.CatCompatibility = CatCompatibility.Yes;
+        var notCatCompatible = TestDbContextFactory.CreateDog("Structured Cat Caution");
+        notCatCompatible.CatCompatibility = CatCompatibility.No;
+        var unknownCatCompatibility = TestDbContextFactory.CreateDog("Unknown Cat Fit");
+        context.Dogs.AddRange(catCompatible, notCatCompatible, unknownCatCompatibility);
+        await context.SaveChangesAsync();
+        var service = CreateCopilotService(context, new FakeOpenAiAdoptionCopilotClient(), new OpenAiSettings { Enabled = false });
+
+        var response = await service.AskAsync(TestDbContextFactory.AdopterId, "I have a cat at home");
+
+        var match = Assert.Single(response.Results, result => result.DogId == catCompatible.Id);
+        var caution = Assert.Single(response.Results, result => result.DogId == notCatCompatible.Id);
+        var unknown = Assert.Single(response.Results, result => result.DogId == unknownCatCompatibility.Id);
+        Assert.Contains(match.DisplayTags!, tag => tag == "Calm near cats");
+        Assert.Contains(caution.CautionTags!, tag => tag == "Not suitable with cats");
+        Assert.Contains(unknown.DisplayTags!, tag => tag == "Ask shelter about cats");
+        Assert.True(match.ScorePercent > caution.ScorePercent);
+        Assert.True(match.ScorePercent > unknown.ScorePercent);
     }
 
     [Fact]

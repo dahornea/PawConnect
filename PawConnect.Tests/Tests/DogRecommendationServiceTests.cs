@@ -51,6 +51,31 @@ public class DogRecommendationServiceTests
     }
 
     [Fact]
+    public async Task RuleBasedRecommendations_ApartmentProfileUsesStructuredApartmentSuitability()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        SeedProfile(context, city: "Iasi", housingType: HousingType.Apartment);
+        var suitableDog = TestDbContextFactory.CreateDog("Structured Apartment Fit");
+        suitableDog.Size = DogSize.Medium;
+        suitableDog.ApartmentSuitability = ApartmentSuitability.Suitable;
+        suitableDog.ActivityLevel = DogActivityLevel.Low;
+        var notRecommendedDog = TestDbContextFactory.CreateDog("Structured Apartment Caution");
+        notRecommendedDog.Size = DogSize.Medium;
+        notRecommendedDog.ApartmentSuitability = ApartmentSuitability.NotRecommended;
+        notRecommendedDog.ActivityLevel = DogActivityLevel.High;
+        context.Dogs.AddRange(suitableDog, notRecommendedDog);
+        await context.SaveChangesAsync();
+        var service = CreateService(context);
+
+        var recommendations = await service.GetRuleBasedRecommendationsAsync(TestDbContextFactory.AdopterId);
+
+        Assert.True(recommendations.First(item => item.Dog.Name == "Structured Apartment Fit").Score >
+                    recommendations.First(item => item.Dog.Name == "Structured Apartment Caution").Score);
+        Assert.Contains(recommendations.First(item => item.Dog.Name == "Structured Apartment Fit").Reasons,
+            reason => reason.Contains("apartment", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public async Task RuleBasedRecommendations_MissingAdopterProfileReturnsEmptyResult()
     {
         await using var context = TestDbContextFactory.CreateContext();

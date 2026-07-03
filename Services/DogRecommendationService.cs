@@ -211,6 +211,31 @@ public class DogRecommendationService(
             {
                 score -= 6;
             }
+
+            if (dog.ApartmentSuitability == ApartmentSuitability.Suitable)
+            {
+                AddReason(reasons, "Home fit", "Shelter marked this dog as suitable for apartment living.", 14);
+                score += 14;
+            }
+            else if (dog.ApartmentSuitability == ApartmentSuitability.MaybeWithRoutine)
+            {
+                AddReason(reasons, "Home fit", "Shelter marked this dog as possible for an apartment with routine.", 8);
+                score += 8;
+            }
+            else if (dog.ApartmentSuitability == ApartmentSuitability.NotRecommended)
+            {
+                score -= 12;
+            }
+
+            if (dog.ActivityLevel == DogActivityLevel.Low)
+            {
+                AddReason(reasons, "Home fit", "Lower activity level may fit apartment routines.", 7);
+                score += 7;
+            }
+            else if (dog.ActivityLevel == DogActivityLevel.High)
+            {
+                score -= 7;
+            }
         }
 
         if (profile.HousingType == HousingType.House || profile.HasYard)
@@ -225,9 +250,82 @@ public class DogRecommendationService(
                 AddReason(reasons, "Home fit", "Smaller size can still feel comfortable at home.", 8);
                 score += 8;
             }
+
+            if (dog.ActivityLevel == DogActivityLevel.High)
+            {
+                AddReason(reasons, "Home fit", "Higher activity level can suit a home with more outdoor space.", 8);
+                score += 8;
+            }
+            else if (dog.ActivityLevel == DogActivityLevel.Medium)
+            {
+                AddReason(reasons, "Home fit", "Medium activity level can suit regular home routines.", 5);
+                score += 5;
+            }
         }
 
         var dogText = $"{dog.Description} {dog.BehaviorDescription}".ToLowerInvariant();
+        if (profile.HasChildren)
+        {
+            if (dog.ChildrenCompatibility == ChildrenCompatibility.Yes)
+            {
+                AddReason(reasons, "Behavior fit", "Shelter marked this dog as compatible with children.", 16);
+                score += 16;
+            }
+            else if (dog.ChildrenCompatibility == ChildrenCompatibility.OlderChildrenOnly)
+            {
+                AddReason(reasons, "Behavior fit", "Shelter recommends older children only.", 7);
+                score += 7;
+            }
+            else if (dog.ChildrenCompatibility == ChildrenCompatibility.No)
+            {
+                score -= 16;
+            }
+        }
+
+        if (profile.HasOtherPets)
+        {
+            if (dog.CatCompatibility == CatCompatibility.Yes || dog.DogCompatibility == DogCompatibility.Yes)
+            {
+                AddReason(reasons, "Behavior fit", "Shelter compatibility notes mention other pets.", 14);
+                score += 14;
+            }
+            else if (dog.CatCompatibility == CatCompatibility.SlowIntroductions ||
+                     dog.DogCompatibility is DogCompatibility.CalmDogsOnly or DogCompatibility.SlowIntroductions)
+            {
+                AddReason(reasons, "Behavior fit", "Shelter recommends careful pet introductions.", 7);
+                score += 7;
+            }
+            else if (dog.CatCompatibility == CatCompatibility.No || dog.DogCompatibility is DogCompatibility.No or DogCompatibility.OnlyDog)
+            {
+                score -= 14;
+            }
+        }
+
+        var beginnerProfile = string.IsNullOrWhiteSpace(profile.ExperienceWithDogs) ||
+            ContainsAny(profilePreferenceText, "beginner", "first time", "first-time", "new adopter");
+        if (beginnerProfile)
+        {
+            if (dog.ExperienceNeeded == DogExperienceNeeded.Beginner)
+            {
+                AddReason(reasons, "Experience fit", "Shelter marked this dog as suitable for a beginner adopter.", 10);
+                score += 10;
+            }
+            else if (dog.ExperienceNeeded == DogExperienceNeeded.SomeExperience)
+            {
+                AddReason(reasons, "Experience fit", "Some experience may be helpful for this dog.", 4);
+                score += 4;
+            }
+            else if (dog.ExperienceNeeded == DogExperienceNeeded.Experienced)
+            {
+                score -= 8;
+            }
+        }
+        else if (dog.ExperienceNeeded == DogExperienceNeeded.Experienced)
+        {
+            AddReason(reasons, "Experience fit", "Your experience may fit a dog that needs a more confident adopter.", 8);
+            score += 8;
+        }
+
         if (profile.HasChildren && ContainsAny(dogText, "child", "children", "kids", "family", "gentle", "calm"))
         {
             AddReason(reasons, "Behavior fit", "Behavior notes suggest a family-friendly temperament.", 16);
@@ -355,6 +453,12 @@ public class DogRecommendationService(
                     DogAgeFormatter.Format(candidate.Dog),
                     candidate.Dog.Size.ToString(),
                     candidate.Dog.Status.ToString(),
+                    DogCompatibilityFormatter.FormatCat(candidate.Dog.CatCompatibility),
+                    DogCompatibilityFormatter.FormatDog(candidate.Dog.DogCompatibility),
+                    DogCompatibilityFormatter.FormatChildren(candidate.Dog.ChildrenCompatibility),
+                    DogCompatibilityFormatter.FormatActivity(candidate.Dog.ActivityLevel),
+                    DogCompatibilityFormatter.FormatExperience(candidate.Dog.ExperienceNeeded),
+                    DogCompatibilityFormatter.FormatApartment(candidate.Dog.ApartmentSuitability),
                     candidate.MatchPercentage,
                     candidate.MatchLevel,
                     candidate.ShortSummary,

@@ -20,6 +20,18 @@ public class DogSearchDocumentService : IDogSearchDocumentService
             parts.Add($"Coat color: {dog.CoatColor.Trim()}.");
         }
 
+        parts.Add($"Cat compatibility: {DogCompatibilityFormatter.FormatCat(dog.CatCompatibility)}.");
+        parts.Add($"Dog compatibility: {DogCompatibilityFormatter.FormatDog(dog.DogCompatibility)}.");
+        parts.Add($"Children compatibility: {DogCompatibilityFormatter.FormatChildren(dog.ChildrenCompatibility)}.");
+        parts.Add($"Activity level: {DogCompatibilityFormatter.FormatActivity(dog.ActivityLevel)}.");
+        parts.Add($"Apartment suitability: {DogCompatibilityFormatter.FormatApartment(dog.ApartmentSuitability)}.");
+        parts.Add($"Experience needed: {DogCompatibilityFormatter.FormatExperience(dog.ExperienceNeeded)}.");
+
+        if (!string.IsNullOrWhiteSpace(dog.CompatibilityNotes))
+        {
+            parts.Add($"Compatibility notes: {dog.CompatibilityNotes.Trim()}");
+        }
+
         if (!string.IsNullOrWhiteSpace(dog.Shelter?.Name) ||
             !string.IsNullOrWhiteSpace(dog.Shelter?.Neighborhood) ||
             !string.IsNullOrWhiteSpace(dog.Shelter?.City))

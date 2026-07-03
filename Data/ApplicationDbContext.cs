@@ -138,6 +138,10 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .Property(d => d.CoatColor)
             .HasMaxLength(80);
 
+        builder.Entity<Dog>()
+            .Property(d => d.CompatibilityNotes)
+            .HasMaxLength(1000);
+
         builder.Entity<DogBreed>()
             .HasIndex(breed => breed.Name)
             .IsUnique();

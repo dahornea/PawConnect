@@ -18,7 +18,7 @@ public interface IDogService
 
     Task<List<Dog>> GetAdoptedDogsAsync();
 
-    Task<List<Dog>> SearchDogsAsync(string? searchTerm, string? breed, int? maxAge, DogSize? size, string? location, DogStatus? status, DogSortOption sortOption = DogSortOption.NameAsc, int? shelterId = null, string? neighborhood = null, string? coatColor = null);
+    Task<List<Dog>> SearchDogsAsync(string? searchTerm, string? breed, int? maxAge, DogSize? size, string? location, DogStatus? status, DogSortOption sortOption = DogSortOption.NameAsc, int? shelterId = null, string? neighborhood = null, string? coatColor = null, CatCompatibility? catCompatibility = null, ChildrenCompatibility? childrenCompatibility = null, DogActivityLevel? activityLevel = null, ApartmentSuitability? apartmentSuitability = null);
 
     Task<Dog?> GetDogDetailsAsync(int id);
 

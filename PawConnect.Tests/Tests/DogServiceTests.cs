@@ -244,6 +244,39 @@ public class DogServiceTests
     }
 
     [Fact]
+    public async Task SearchDogsAsync_FiltersPublicDogsByStructuredCompatibility()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        var catFriendlyLowActivity = TestDbContextFactory.CreateDog("Cat Friendly Low Activity");
+        catFriendlyLowActivity.CatCompatibility = CatCompatibility.Yes;
+        catFriendlyLowActivity.ActivityLevel = DogActivityLevel.Low;
+        catFriendlyLowActivity.ApartmentSuitability = ApartmentSuitability.Suitable;
+        var unknownCompatibility = TestDbContextFactory.CreateDog("Unknown Compatibility");
+        var adoptedCatFriendly = TestDbContextFactory.CreateDog("Adopted Cat Friendly", DogStatus.Adopted);
+        adoptedCatFriendly.CatCompatibility = CatCompatibility.Yes;
+        adoptedCatFriendly.ActivityLevel = DogActivityLevel.Low;
+        adoptedCatFriendly.ApartmentSuitability = ApartmentSuitability.Suitable;
+        context.Dogs.AddRange(catFriendlyLowActivity, unknownCompatibility, adoptedCatFriendly);
+        await context.SaveChangesAsync();
+
+        var service = new DogService(context);
+
+        var dogs = await service.SearchDogsAsync(
+            searchTerm: null,
+            breed: null,
+            maxAge: null,
+            size: null,
+            location: null,
+            status: null,
+            catCompatibility: CatCompatibility.Yes,
+            activityLevel: DogActivityLevel.Low,
+            apartmentSuitability: ApartmentSuitability.Suitable);
+
+        var dog = Assert.Single(dogs);
+        Assert.Equal("Cat Friendly Low Activity", dog.Name);
+    }
+
+    [Fact]
     public async Task GetStatusHistoryForDogAsync_ReturnsChangedByUserAndNotes()
     {
         await using var context = TestDbContextFactory.CreateContext();

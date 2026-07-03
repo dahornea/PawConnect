@@ -411,6 +411,73 @@ else
                     </MudPaper>
                 </MudItem>
 
+                <MudItem xs="12">
+                    <MudPaper Elevation="0" Class="section-surface compatibility-panel pa-4">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                            <MudIcon Icon="@Icons.Material.Filled.Favorite" Color="Color.Primary" />
+                            <MudText Typo="Typo.h6" Class="content-title">Compatibility</MudText>
+                        </MudStack>
+                        <MudDivider Class="my-2" />
+                        <MudGrid Spacing="2" Class="compatibility-grid">
+                            <MudItem xs="12" sm="6" md="4">
+                                <div class="compatibility-tile">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Cats</MudText>
+                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="@GetCompatibilityColor(_dog.CatCompatibility)">
+                                        @DogCompatibilityFormatter.FormatCat(_dog.CatCompatibility)
+                                    </MudChip>
+                                </div>
+                            </MudItem>
+                            <MudItem xs="12" sm="6" md="4">
+                                <div class="compatibility-tile">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Dogs</MudText>
+                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="@GetCompatibilityColor(_dog.DogCompatibility)">
+                                        @DogCompatibilityFormatter.FormatDog(_dog.DogCompatibility)
+                                    </MudChip>
+                                </div>
+                            </MudItem>
+                            <MudItem xs="12" sm="6" md="4">
+                                <div class="compatibility-tile">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Children</MudText>
+                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="@GetCompatibilityColor(_dog.ChildrenCompatibility)">
+                                        @DogCompatibilityFormatter.FormatChildren(_dog.ChildrenCompatibility)
+                                    </MudChip>
+                                </div>
+                            </MudItem>
+                            <MudItem xs="12" sm="6" md="4">
+                                <div class="compatibility-tile">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Activity</MudText>
+                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="@GetActivityColor(_dog.ActivityLevel)">
+                                        @DogCompatibilityFormatter.FormatActivity(_dog.ActivityLevel)
+                                    </MudChip>
+                                </div>
+                            </MudItem>
+                            <MudItem xs="12" sm="6" md="4">
+                                <div class="compatibility-tile">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Apartment fit</MudText>
+                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="@GetCompatibilityColor(_dog.ApartmentSuitability)">
+                                        @DogCompatibilityFormatter.FormatApartment(_dog.ApartmentSuitability)
+                                    </MudChip>
+                                </div>
+                            </MudItem>
+                            <MudItem xs="12" sm="6" md="4">
+                                <div class="compatibility-tile">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Experience</MudText>
+                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="@GetExperienceColor(_dog.ExperienceNeeded)">
+                                        @DogCompatibilityFormatter.FormatExperience(_dog.ExperienceNeeded)
+                                    </MudChip>
+                                </div>
+                            </MudItem>
+                        </MudGrid>
+                        @if (!string.IsNullOrWhiteSpace(_dog.CompatibilityNotes))
+                        {
+                            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true" Class="mt-3">
+                                <MudText Typo="Typo.subtitle2">Shelter note</MudText>
+                                <MudText Typo="Typo.body2">@_dog.CompatibilityNotes</MudText>
+                            </MudAlert>
+                        }
+                    </MudPaper>
+                </MudItem>
+
                 <MudItem xs="12" md="4">
                     <MudPaper Elevation="0" Class="section-surface info-panel pa-4 h-100">
                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">

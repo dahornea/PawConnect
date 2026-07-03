@@ -1723,6 +1723,8 @@ public class AdoptionCopilotToolService(
             AddDisplayTag(displayTags, "Not too energetic");
         }
 
+        AddStructuredCompatibilityTags(dog, args, displayTags, cautionTags);
+
         if (dog.Status == DogStatus.Reserved)
         {
             AddDisplayTag(cautionTags, "Reserved - availability may change");
@@ -1859,6 +1861,136 @@ public class AdoptionCopilotToolService(
             summary);
     }
 
+    private static void AddStructuredCompatibilityTags(
+        Dog dog,
+        AdoptionCopilotSearchDogsArgs args,
+        List<string> displayTags,
+        List<string> cautionTags)
+    {
+        var apartmentRequested = IsApartmentRequest(args);
+        var calmRequested = IsCalmRequest(args);
+        var catsRequested = HasCatRequest(args);
+        var childrenRequested = HasChildrenRequest(args);
+        var dogsRequested = HasOtherDogsRequest(args);
+        var seniorOrSensitiveDogAtHome = HasSeniorOrSensitiveHouseholdDogRequest(args);
+        var strictLongerWalksRequested = HasExplicitLongerWalksRequest(args);
+        var moderateActivityRequested = HasExplicitModerateActivityRequest(args) ||
+            string.Equals(args.ActivityLevel, "Medium", StringComparison.OrdinalIgnoreCase);
+        var activeRequested = HasIntent(args, "active", "playful", "energetic", "outdoor") ||
+            string.Equals(args.EnergyLevel, "High", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(args.ActivityLevel, "High", StringComparison.OrdinalIgnoreCase);
+        var beginnerRequested = HasIntent(args, "beginner", "first time", "easy") ||
+            string.Equals(args.ExperienceLevel, "Beginner", StringComparison.OrdinalIgnoreCase);
+
+        if (catsRequested)
+        {
+            if (dog.CatCompatibility == CatCompatibility.Yes)
+            {
+                AddDisplayTag(displayTags, "Calm near cats");
+            }
+            else if (dog.CatCompatibility == CatCompatibility.SlowIntroductions)
+            {
+                AddDisplayTag(displayTags, "Needs slow cat introductions");
+                AddDisplayTag(cautionTags, "Needs slow cat introductions");
+            }
+            else if (dog.CatCompatibility == CatCompatibility.No)
+            {
+                AddDisplayTag(cautionTags, "Not suitable with cats");
+            }
+        }
+
+        if (childrenRequested)
+        {
+            if (dog.ChildrenCompatibility == ChildrenCompatibility.Yes)
+            {
+                AddDisplayTag(displayTags, "Family routine fit");
+            }
+            else if (dog.ChildrenCompatibility == ChildrenCompatibility.OlderChildrenOnly)
+            {
+                AddDisplayTag(displayTags, "Better with older children");
+                AddDisplayTag(cautionTags, "Needs calm children");
+            }
+            else if (dog.ChildrenCompatibility == ChildrenCompatibility.No)
+            {
+                AddDisplayTag(cautionTags, "Not ideal for young children");
+            }
+        }
+
+        if (dogsRequested || seniorOrSensitiveDogAtHome)
+        {
+            if (dog.DogCompatibility == DogCompatibility.Yes)
+            {
+                AddDisplayTag(displayTags, seniorOrSensitiveDogAtHome ? "Calm dog company" : "Respectful around dogs");
+            }
+            else if (dog.DogCompatibility == DogCompatibility.CalmDogsOnly)
+            {
+                AddDisplayTag(displayTags, "Calm dog company");
+                AddDisplayTag(displayTags, "Needs calm dog introductions");
+            }
+            else if (dog.DogCompatibility == DogCompatibility.SlowIntroductions)
+            {
+                AddDisplayTag(displayTags, "Needs slow dog introductions");
+            }
+            else if (dog.DogCompatibility is DogCompatibility.OnlyDog or DogCompatibility.No)
+            {
+                AddDisplayTag(cautionTags, "May prefer only dog");
+            }
+        }
+
+        if (apartmentRequested)
+        {
+            if (dog.ApartmentSuitability == ApartmentSuitability.Suitable)
+            {
+                AddDisplayTag(displayTags, dog.ActivityLevel == DogActivityLevel.Low ? "Indoor rest" : "Settles quickly");
+            }
+            else if (dog.ApartmentSuitability == ApartmentSuitability.MaybeWithRoutine)
+            {
+                AddDisplayTag(cautionTags, "Ask shelter about apartment fit");
+            }
+            else if (dog.ApartmentSuitability == ApartmentSuitability.NotRecommended)
+            {
+                AddDisplayTag(cautionTags, "Needs more space");
+            }
+        }
+
+        if ((calmRequested || apartmentRequested && !strictLongerWalksRequested && !moderateActivityRequested) &&
+            dog.ActivityLevel == DogActivityLevel.Low)
+        {
+            AddDisplayTag(displayTags, "Lower activity fit");
+        }
+
+        if ((strictLongerWalksRequested || moderateActivityRequested) && dog.ActivityLevel == DogActivityLevel.Medium)
+        {
+            AddDisplayTag(displayTags, "Daily walks");
+        }
+        else if ((strictLongerWalksRequested || moderateActivityRequested || activeRequested) &&
+                 dog.ActivityLevel == DogActivityLevel.High)
+        {
+            AddDisplayTag(displayTags, "Active owner fit");
+            if (apartmentRequested)
+            {
+                AddDisplayTag(cautionTags, "Higher activity needs");
+            }
+        }
+
+        if ((calmRequested || apartmentRequested) && dog.ActivityLevel == DogActivityLevel.High)
+        {
+            AddDisplayTag(cautionTags, "Higher activity needs");
+        }
+
+        if (beginnerRequested)
+        {
+            if (dog.ExperienceNeeded == DogExperienceNeeded.Beginner)
+            {
+                AddDisplayTag(displayTags, "Beginner-suitable routine");
+            }
+            else if (dog.ExperienceNeeded == DogExperienceNeeded.Experienced)
+            {
+                AddDisplayTag(cautionTags, "Patient adopter needed");
+            }
+        }
+    }
+
     private static IReadOnlyList<EvidenceItem> BuildEvidenceItems(
         Dog dog,
         IEnumerable<string> labels,
@@ -1877,6 +2009,7 @@ public class AdoptionCopilotToolService(
         {
             "Size" => dog.Size.ToString(),
             "Status" => dog.Status.ToString(),
+            "StructuredCompatibility" => GetStructuredCompatibilityEvidenceText(dog, label),
             "Shelter" => string.Join(", ", new[] { dog.Shelter?.Name, dog.Shelter?.Neighborhood, dog.Shelter?.City }
                 .Where(value => !string.IsNullOrWhiteSpace(value))),
             "Description" => FindEvidenceSentence(dog.Description, label),
@@ -1889,6 +2022,11 @@ public class AdoptionCopilotToolService(
 
     private static string InferEvidenceSourceField(Dog dog, string label)
     {
+        if (IsStructuredCompatibilityLabel(label))
+        {
+            return "StructuredCompatibility";
+        }
+
         if (label.Contains("size", StringComparison.OrdinalIgnoreCase))
         {
             return "Size";
@@ -1922,6 +2060,39 @@ public class AdoptionCopilotToolService(
         return !string.IsNullOrWhiteSpace(dog.BehaviorDescription)
             ? "BehaviorDescription"
             : "Description";
+    }
+
+    private static bool IsStructuredCompatibilityLabel(string label)
+    {
+        return label is "Calm near cats" or "Needs slow cat introductions" or "Not suitable with cats" or
+            "Respectful around dogs" or "Calm dog company" or "Needs slow dog introductions" or
+            "Needs calm dog introductions" or "May prefer only dog" or "Family routine fit" or
+            "Better with older children" or "Needs calm children" or "Not ideal for young children" or
+            "Lower activity fit" or "Daily walks" or "Active owner fit" or "Higher activity needs" or
+            "Indoor rest" or "Settles quickly" or "Ask shelter about apartment fit" or "Needs more space" or
+            "Beginner-suitable routine" or "Patient adopter needed";
+    }
+
+    private static string GetStructuredCompatibilityEvidenceText(Dog dog, string label)
+    {
+        return label switch
+        {
+            "Calm near cats" or "Needs slow cat introductions" or "Not suitable with cats"
+                => $"Cats: {DogCompatibilityFormatter.FormatCat(dog.CatCompatibility)}",
+            "Respectful around dogs" or "Calm dog company" or "Needs slow dog introductions" or
+                "Needs calm dog introductions" or "May prefer only dog"
+                => $"Dogs: {DogCompatibilityFormatter.FormatDog(dog.DogCompatibility)}",
+            "Family routine fit" or "Better with older children" or "Needs calm children" or
+                "Not ideal for young children"
+                => $"Children: {DogCompatibilityFormatter.FormatChildren(dog.ChildrenCompatibility)}",
+            "Lower activity fit" or "Daily walks" or "Active owner fit" or "Higher activity needs"
+                => $"Activity level: {DogCompatibilityFormatter.FormatActivity(dog.ActivityLevel)}",
+            "Indoor rest" or "Settles quickly" or "Ask shelter about apartment fit" or "Needs more space"
+                => $"Apartment suitability: {DogCompatibilityFormatter.FormatApartment(dog.ApartmentSuitability)}",
+            "Beginner-suitable routine" or "Patient adopter needed"
+                => $"Experience needed: {DogCompatibilityFormatter.FormatExperience(dog.ExperienceNeeded)}",
+            _ => label
+        };
     }
 
     private static string? FindEvidenceSentence(string? text, string label)
@@ -2098,14 +2269,16 @@ public class AdoptionCopilotToolService(
         }
 
         if (IsCompatibilityTarget(intent, "Cats", "SmallAnimals") &&
-            !displayTags.Any(tag => tag is "Calm near cats" or "Redirectable around cats" or "Needs slow cat introductions"))
+            !displayTags.Any(tag => tag is "Calm near cats" or "Redirectable around cats" or "Needs slow cat introductions") &&
+            !cautionTags.Any(tag => tag == "Not suitable with cats"))
         {
             return ["no cat evidence"];
         }
 
         if (IsCompatibilityTarget(intent, "Children", "OlderChildren") &&
             !displayTags.Any(tag => tag is "Better with older children" or "Family routine fit" ||
-                tag.Contains("Family", StringComparison.OrdinalIgnoreCase)))
+                tag.Contains("Family", StringComparison.OrdinalIgnoreCase)) &&
+            !cautionTags.Any(tag => tag == "Not ideal for young children"))
         {
             return ["no child evidence"];
         }
@@ -2554,7 +2727,7 @@ public class AdoptionCopilotToolService(
 
         if (petsRequested)
         {
-            AddPetEvidenceScores(args, searchableText, reasons, ref score);
+            AddPetEvidenceScores(dog, args, searchableText, reasons, ref score);
         }
 
         AddHouseholdDogContextScores(args, searchableText, reasons, ref score);
@@ -2563,6 +2736,103 @@ public class AdoptionCopilotToolService(
         {
             AddReason(reasons, "Yard fit");
             score += 7;
+        }
+
+        AddStructuredLifestyleScores(dog, args, reasons, ref score);
+    }
+
+    private static void AddStructuredLifestyleScores(
+        Dog dog,
+        AdoptionCopilotSearchDogsArgs args,
+        List<string> reasons,
+        ref int score)
+    {
+        var apartmentRequested = IsApartmentRequest(args);
+        var yardRequested = IsYardRequest(args);
+        var calmRequested = IsCalmRequest(args);
+        var strictLongerWalksRequested = HasExplicitLongerWalksRequest(args);
+        var moderateActivityRequested = HasExplicitModerateActivityRequest(args) ||
+            string.Equals(args.ActivityLevel, "Medium", StringComparison.OrdinalIgnoreCase);
+        var activeRequested = HasIntent(args, "active", "playful", "energetic", "outdoor") ||
+            string.Equals(args.EnergyLevel, "High", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(args.ActivityLevel, "High", StringComparison.OrdinalIgnoreCase);
+        var beginnerRequested = HasIntent(args, "beginner", "first time", "easy") ||
+            string.Equals(args.ExperienceLevel, "Beginner", StringComparison.OrdinalIgnoreCase);
+
+        if (apartmentRequested)
+        {
+            if (dog.ApartmentSuitability == ApartmentSuitability.Suitable)
+            {
+                AddReason(reasons, "Apartment lifestyle fit");
+                score += 9;
+            }
+            else if (dog.ApartmentSuitability == ApartmentSuitability.MaybeWithRoutine)
+            {
+                AddReason(reasons, "Apartment may work with routine");
+                score += 5;
+            }
+            else if (dog.ApartmentSuitability == ApartmentSuitability.NotRecommended)
+            {
+                score -= 12;
+            }
+        }
+
+        if (calmRequested || apartmentRequested && !strictLongerWalksRequested && !moderateActivityRequested)
+        {
+            if (dog.ActivityLevel == DogActivityLevel.Low)
+            {
+                AddReason(reasons, "Lower activity fit");
+                score += 8;
+            }
+            else if (dog.ActivityLevel == DogActivityLevel.High)
+            {
+                score -= 8;
+            }
+        }
+
+        if (strictLongerWalksRequested || moderateActivityRequested)
+        {
+            if (dog.ActivityLevel == DogActivityLevel.Medium)
+            {
+                AddReason(reasons, "Daily walks");
+                score += strictLongerWalksRequested ? 6 : 8;
+            }
+            else if (dog.ActivityLevel == DogActivityLevel.High)
+            {
+                AddReason(reasons, "Active lifestyle fit");
+                score += 7;
+            }
+            else if (dog.ActivityLevel == DogActivityLevel.Low && strictLongerWalksRequested)
+            {
+                score -= 5;
+            }
+        }
+
+        if (activeRequested || yardRequested)
+        {
+            if (dog.ActivityLevel == DogActivityLevel.High)
+            {
+                AddReason(reasons, "Active lifestyle fit");
+                score += 8;
+            }
+            else if (dog.ActivityLevel == DogActivityLevel.Medium)
+            {
+                AddReason(reasons, "Daily walks");
+                score += 4;
+            }
+        }
+
+        if (beginnerRequested)
+        {
+            if (dog.ExperienceNeeded == DogExperienceNeeded.Beginner)
+            {
+                AddReason(reasons, "Easier first-dog fit");
+                score += 8;
+            }
+            else if (dog.ExperienceNeeded == DogExperienceNeeded.Experienced)
+            {
+                score -= 6;
+            }
         }
     }
 
@@ -2722,6 +2992,7 @@ public class AdoptionCopilotToolService(
     }
 
     private static void AddPetEvidenceScores(
+        Dog dog,
         AdoptionCopilotSearchDogsArgs args,
         string searchableText,
         List<string> reasons,
@@ -2731,6 +3002,26 @@ public class AdoptionCopilotToolService(
         var dogsRequested = HasIntent(args, "other dogs", "good with dogs");
         if (catsRequested)
         {
+            if (dog.CatCompatibility == CatCompatibility.Yes)
+            {
+                AddReason(reasons, "Calm near cats");
+                score += 20;
+                return;
+            }
+
+            if (dog.CatCompatibility == CatCompatibility.SlowIntroductions)
+            {
+                AddReason(reasons, "Slow cat introductions");
+                score += 12;
+                return;
+            }
+
+            if (dog.CatCompatibility == CatCompatibility.No)
+            {
+                score -= 20;
+                return;
+            }
+
             if (ContainsAny(searchableText,
                 [
                     "passed the shelter cats calmly",
@@ -2775,6 +3066,28 @@ public class AdoptionCopilotToolService(
 
         if (dogsRequested)
         {
+            if (dog.DogCompatibility == DogCompatibility.Yes)
+            {
+                AddReason(reasons, "Enjoys dog company");
+                score += 14;
+                return;
+            }
+
+            if (dog.DogCompatibility is DogCompatibility.CalmDogsOnly or DogCompatibility.SlowIntroductions)
+            {
+                AddReason(reasons, dog.DogCompatibility == DogCompatibility.CalmDogsOnly
+                    ? "Calm dog company"
+                    : "Slow dog introductions");
+                score += 10;
+                return;
+            }
+
+            if (dog.DogCompatibility is DogCompatibility.OnlyDog or DogCompatibility.No)
+            {
+                score -= 18;
+                return;
+            }
+
             if (ContainsAny(searchableText,
                 [
                     "walks politely beside familiar calm dogs",
@@ -2832,6 +3145,12 @@ public class AdoptionCopilotToolService(
                     "passed the shelter cats calmly",
                     "walks politely beside familiar calm dogs"
                 ]))
+        {
+            AddReason(reasons, "Pet compatibility notes");
+            score += 12;
+        }
+        else if (HasIntent(args, "pets", "other pets") &&
+            (dog.CatCompatibility == CatCompatibility.Yes || dog.DogCompatibility == DogCompatibility.Yes))
         {
             AddReason(reasons, "Pet compatibility notes");
             score += 12;
@@ -3258,6 +3577,13 @@ public class AdoptionCopilotToolService(
             DogBreedFormatter.Format(dog),
             dog.Size.ToString(),
             dog.CoatColor,
+            $"Cat compatibility {DogCompatibilityFormatter.FormatCat(dog.CatCompatibility)}",
+            $"Dog compatibility {DogCompatibilityFormatter.FormatDog(dog.DogCompatibility)}",
+            $"Children compatibility {DogCompatibilityFormatter.FormatChildren(dog.ChildrenCompatibility)}",
+            $"Activity level {DogCompatibilityFormatter.FormatActivity(dog.ActivityLevel)}",
+            $"Apartment suitability {DogCompatibilityFormatter.FormatApartment(dog.ApartmentSuitability)}",
+            $"Experience needed {DogCompatibilityFormatter.FormatExperience(dog.ExperienceNeeded)}",
+            dog.CompatibilityNotes,
             dog.Description,
             dog.BehaviorDescription,
             dog.MedicalStatus,

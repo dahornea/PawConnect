@@ -75,7 +75,7 @@ public class DogService(
             .ToListAsync();
     }
 
-    public Task<List<Dog>> SearchDogsAsync(string? searchTerm, string? breed, int? maxAge, DogSize? size, string? location, DogStatus? status, DogSortOption sortOption = DogSortOption.NameAsc, int? shelterId = null, string? neighborhood = null, string? coatColor = null)
+    public Task<List<Dog>> SearchDogsAsync(string? searchTerm, string? breed, int? maxAge, DogSize? size, string? location, DogStatus? status, DogSortOption sortOption = DogSortOption.NameAsc, int? shelterId = null, string? neighborhood = null, string? coatColor = null, CatCompatibility? catCompatibility = null, ChildrenCompatibility? childrenCompatibility = null, DogActivityLevel? activityLevel = null, ApartmentSuitability? apartmentSuitability = null)
     {
         var query = context.Dogs
             .Include(d => d.Shelter)
@@ -142,6 +142,26 @@ public class DogService(
         {
             var upperCoatColor = normalizedCoatColor.ToUpper();
             query = query.Where(d => d.CoatColor != null && d.CoatColor.ToUpper() == upperCoatColor);
+        }
+
+        if (catCompatibility is { } catValue && catValue != CatCompatibility.Unknown)
+        {
+            query = query.Where(d => d.CatCompatibility == catValue);
+        }
+
+        if (childrenCompatibility is { } childrenValue && childrenValue != ChildrenCompatibility.Unknown)
+        {
+            query = query.Where(d => d.ChildrenCompatibility == childrenValue);
+        }
+
+        if (activityLevel is { } activityValue && activityValue != DogActivityLevel.Unknown)
+        {
+            query = query.Where(d => d.ActivityLevel == activityValue);
+        }
+
+        if (apartmentSuitability is { } apartmentValue && apartmentValue != ApartmentSuitability.Unknown)
+        {
+            query = query.Where(d => d.ApartmentSuitability == apartmentValue);
         }
 
         return ApplyDogSorting(query, sortOption)
@@ -277,6 +297,13 @@ public class DogService(
         existingDog.IsMixedBreed = dog.IsMixedBreed;
         existingDog.CustomBreedName = dog.CustomBreedName;
         existingDog.CoatColor = dog.CoatColor;
+        existingDog.CatCompatibility = dog.CatCompatibility;
+        existingDog.DogCompatibility = dog.DogCompatibility;
+        existingDog.ChildrenCompatibility = dog.ChildrenCompatibility;
+        existingDog.ActivityLevel = dog.ActivityLevel;
+        existingDog.ExperienceNeeded = dog.ExperienceNeeded;
+        existingDog.ApartmentSuitability = dog.ApartmentSuitability;
+        existingDog.CompatibilityNotes = string.IsNullOrWhiteSpace(dog.CompatibilityNotes) ? null : dog.CompatibilityNotes.Trim();
         existingDog.AgeYears = dog.AgeYears;
         existingDog.AgeMonths = dog.AgeMonths;
         existingDog.Age = dog.AgeYears;
@@ -490,10 +517,16 @@ public class DogService(
             throw new InvalidOperationException("Daily food amount must be zero or greater when provided.");
         }
 
+        if (!string.IsNullOrWhiteSpace(dog.CompatibilityNotes) && dog.CompatibilityNotes.Length > 1000)
+        {
+            throw new InvalidOperationException("Compatibility notes must be 1000 characters or fewer.");
+        }
+
         dog.Name = dog.Name.Trim();
         dog.Breed = dog.Breed.Trim();
         dog.CustomBreedName = string.IsNullOrWhiteSpace(dog.CustomBreedName) ? null : dog.CustomBreedName.Trim();
         dog.CoatColor = DogCoatColorOptions.Normalize(dog.CoatColor);
+        dog.CompatibilityNotes = string.IsNullOrWhiteSpace(dog.CompatibilityNotes) ? null : dog.CompatibilityNotes.Trim();
         dog.Location = dog.Location.Trim();
         dog.Age = dog.AgeYears;
     }
