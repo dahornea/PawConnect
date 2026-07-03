@@ -30,6 +30,7 @@ public partial class EditDog
     [Inject] private NavigationManager NavigationManager { get; set; } = default!;
     [Inject] private ISnackbar Snackbar { get; set; } = default!;
     [Inject] private IDialogService DialogService { get; set; } = default!;
+    [Inject] private IDogProfileQualityService DogProfileQualityService { get; set; } = default!;
 
     [Parameter]
     public int Id { get; set; }
@@ -52,6 +53,7 @@ public partial class EditDog
     private MudForm? _medicalForm;
     private bool _isLoading = true;
     private bool _isSaving;
+    private bool _isQualityChecking;
     private bool _isImageSaving;
     private bool _isImageUploading;
     private bool _isMedicalSaving;
@@ -216,6 +218,52 @@ public partial class EditDog
         }
     }
 
+    private async Task CheckProfileQualityAsync()
+    {
+        if (_model is null || _shelterId is null)
+        {
+            Snackbar.Add("Current dog or shelter profile could not be found.", Severity.Error);
+            return;
+        }
+
+        _isQualityChecking = true;
+
+        try
+        {
+            var result = await DogProfileQualityService.CheckFormAsync(BuildProfileQualityRequest());
+            var parameters = new DialogParameters<DogProfileQualityDialog>
+            {
+                { dialog => dialog.Result, result }
+            };
+            var options = new DialogOptions
+            {
+                MaxWidth = MaxWidth.Medium,
+                FullWidth = true,
+                CloseButton = true
+            };
+
+            var dialog = await DialogService.ShowAsync<DogProfileQualityDialog>("Dog profile quality", parameters, options);
+            var dialogResult = await dialog.Result;
+            if (dialogResult is { Canceled: false, Data: DogProfileRewriteSuggestion rewrite })
+            {
+                ApplyRewriteSuggestion(rewrite);
+                Snackbar.Add("Suggested rewrite applied to the form. Review it before saving.", Severity.Info);
+            }
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch
+        {
+            Snackbar.Add("Profile quality check could not be completed right now.", Severity.Error);
+        }
+        finally
+        {
+            _isQualityChecking = false;
+        }
+    }
+
     private async Task<int?> GetCurrentShelterIdAsync()
     {
         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
@@ -246,6 +294,56 @@ public partial class EditDog
                 _statusHistory = [];
                 _statusHistoryError = "Status history could not be loaded. If this is a new feature, apply the latest database migration.";
             }
+        }
+    }
+
+    private DogProfileQualityRequest BuildProfileQualityRequest()
+    {
+        var breedDisplay = _useCustomBreed
+            ? DogBreedFormatter.Format(null, _model!.IsMixedBreed, _model.CustomBreedName, _model.Breed)
+            : DogBreedFormatter.Format(_selectedBreed?.Name, _selectedSecondaryBreed?.Name, _model!.IsMixedBreed, null, _model.Breed);
+
+        return new DogProfileQualityRequest
+        {
+            DogId = _model.Id,
+            ShelterId = _shelterId!.Value,
+            Name = _model.Name,
+            AgeYears = _model.AgeYears,
+            AgeMonths = _model.AgeMonths,
+            Size = _model.Size,
+            Status = _model.Status,
+            BreedDisplay = breedDisplay,
+            CoatColor = _model.CoatColor,
+            Description = _model.Description,
+            BehaviorDescription = _model.BehaviorDescription,
+            MedicalStatus = _model.MedicalStatus,
+            PreferredFoodType = _foodTypes.FirstOrDefault(type => type.Id == _model.PreferredFoodTypeId)?.Name,
+            DailyFoodAmountGrams = _model.DailyFoodAmountGrams,
+            CatCompatibility = _model.CatCompatibility,
+            DogCompatibility = _model.DogCompatibility,
+            ChildrenCompatibility = _model.ChildrenCompatibility,
+            ActivityLevel = _model.ActivityLevel,
+            ExperienceNeeded = _model.ExperienceNeeded,
+            ApartmentSuitability = _model.ApartmentSuitability,
+            CompatibilityNotes = _model.CompatibilityNotes
+        };
+    }
+
+    private void ApplyRewriteSuggestion(DogProfileRewriteSuggestion rewrite)
+    {
+        if (_model is null)
+        {
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(rewrite.Description))
+        {
+            _model.Description = rewrite.Description;
+        }
+
+        if (!string.IsNullOrWhiteSpace(rewrite.BehaviorDescription))
+        {
+            _model.BehaviorDescription = rewrite.BehaviorDescription;
         }
     }
 
