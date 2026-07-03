@@ -1,0 +1,54 @@
+<MudDialog>
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.EventAvailable" Color="Color.Primary" />
+            <MudText Typo="Typo.h6">Select Visit Slot</MudText>
+        </MudStack>
+    </TitleContent>
+    <DialogContent>
+        @if (_isLoading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="py-4">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Loading available slots...</MudText>
+            </MudStack>
+        }
+        else if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <MudAlert Severity="Severity.Warning">@_error</MudAlert>
+        }
+        else if (_slots.Count == 0)
+        {
+            <MudAlert Severity="Severity.Info">
+                No available future slots were found for this request. Create one in Visit Availability first.
+            </MudAlert>
+        }
+        else
+        {
+            <MudStack Spacing="2">
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    Choose one available shelter visit slot. The adopter email and calendar invitation will use this time.
+                </MudText>
+                <MudSelect T="int"
+                           Label="Available visit slot"
+                           @bind-Value="_selectedSlotId"
+                           Variant="Variant.Outlined">
+                    <MudSelectItem T="int" Value="0" Disabled="true">Select a slot</MudSelectItem>
+                    @foreach (var slot in _slots)
+                    {
+                        <MudSelectItem T="int" Value="@slot.Id">@FormatSlot(slot)</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudStack>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="Cancel">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   Disabled="@(_isLoading || _slots.Count == 0 || _selectedSlotId == 0)"
+                   OnClick="Confirm">
+            Confirm Visit
+        </MudButton>
+    </DialogActions>
+</MudDialog>

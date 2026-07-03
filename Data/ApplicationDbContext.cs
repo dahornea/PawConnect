@@ -55,6 +55,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
     public DbSet<MessageReadReceipt> MessageReadReceipts => Set<MessageReadReceipt>();
 
+    public DbSet<ShelterAvailabilitySlot> ShelterAvailabilitySlots => Set<ShelterAvailabilitySlot>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -65,6 +67,52 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .HasForeignKey<Shelter>(s => s.ApplicationUserId)
             .IsRequired(false)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<ShelterAvailabilitySlot>()
+            .HasOne(slot => slot.Shelter)
+            .WithMany(shelter => shelter.AvailabilitySlots)
+            .HasForeignKey(slot => slot.ShelterId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<ShelterAvailabilitySlot>()
+            .HasOne(slot => slot.BookedAdoptionRequest)
+            .WithMany()
+            .HasForeignKey(slot => slot.BookedAdoptionRequestId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.Entity<ShelterAvailabilitySlot>()
+            .HasOne(slot => slot.CreatedByUser)
+            .WithMany()
+            .HasForeignKey(slot => slot.CreatedByUserId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<ShelterAvailabilitySlot>()
+            .HasOne(slot => slot.CancelledByUser)
+            .WithMany()
+            .HasForeignKey(slot => slot.CancelledByUserId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<ShelterAvailabilitySlot>()
+            .Property(slot => slot.Notes)
+            .HasMaxLength(500);
+
+        builder.Entity<ShelterAvailabilitySlot>()
+            .Property(slot => slot.CreatedAt)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<ShelterAvailabilitySlot>()
+            .HasIndex(slot => new { slot.ShelterId, slot.StartTime });
+
+        builder.Entity<ShelterAvailabilitySlot>()
+            .HasIndex(slot => new { slot.ShelterId, slot.IsCancelled, slot.IsBooked, slot.StartTime });
+
+        builder.Entity<ShelterAvailabilitySlot>()
+            .HasIndex(slot => slot.BookedAdoptionRequestId)
+            .IsUnique()
+            .HasFilter("[BookedAdoptionRequestId] IS NOT NULL AND [IsCancelled] = 0");
 
         builder.Entity<AdopterProfile>()
             .HasOne(p => p.ApplicationUser)

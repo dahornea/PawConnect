@@ -86,20 +86,28 @@ public partial class ShelterAdoptionPipeline
 
     private async Task ConfirmVisitAsync(AdoptionPipelineCardDto card)
     {
-        if (!await ConfirmAsync(
-            "Confirm shelter visit",
-            "Confirm this adopter's preferred visit time? The adopter will receive an email with a calendar invitation.",
-            "Confirm Visit",
-            Color.Primary,
-            Icons.Material.Filled.EventAvailable))
+        var slotId = await SelectVisitSlotAsync(card.AdoptionRequestId);
+        if (!slotId.HasValue)
         {
             return;
         }
 
         await RunPipelineActionAsync(
-            () => AdoptionRequestService.ConfirmPipelineVisitAsync(card.AdoptionRequestId, _currentUserId!),
+            () => AdoptionRequestService.ConfirmPipelineVisitAsync(card.AdoptionRequestId, _currentUserId!, slotId.Value),
             "Visit confirmed and adopter notified.",
             "Could not confirm the visit right now.");
+    }
+
+    private async Task<int?> SelectVisitSlotAsync(int adoptionRequestId)
+    {
+        var parameters = new DialogParameters
+        {
+            ["AdoptionRequestId"] = adoptionRequestId
+        };
+
+        var dialog = await DialogService.ShowAsync<ConfirmVisitSlotDialog>("Select visit slot", parameters);
+        var result = await dialog.Result;
+        return result is { Canceled: false, Data: int slotId } ? slotId : null;
     }
 
     private async Task RejectRequestAsync(AdoptionPipelineCardDto card)

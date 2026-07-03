@@ -147,6 +147,32 @@ public class AdoptionRequestServiceTests
     }
 
     [Fact]
+    public async Task ConfirmVisitAsync_WithAvailabilitySlotBooksSlotAndUsesSlotTime()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        var request = await SeedPendingRequestAsync(context, DogStatus.Available);
+        var slot = new ShelterAvailabilitySlot
+        {
+            ShelterId = TestDbContextFactory.ShelterId,
+            StartTime = NextWeekdayAt(12, 0),
+            EndTime = NextWeekdayAt(13, 0),
+            CreatedByUserId = TestDbContextFactory.ShelterUserId
+        };
+        context.ShelterAvailabilitySlots.Add(slot);
+        await context.SaveChangesAsync();
+        var service = CreateService(context);
+
+        await service.ConfirmVisitAsync(request.Id, TestDbContextFactory.ShelterId, TestDbContextFactory.ShelterUserId, slot.Id);
+
+        var updated = await context.AdoptionRequests.Include(r => r.Dog).SingleAsync(r => r.Id == request.Id);
+        var bookedSlot = await context.ShelterAvailabilitySlots.SingleAsync();
+        Assert.Equal(NextWeekdayAt(12, 0), updated.PreferredVisitDateTime);
+        Assert.Equal(AdoptionRequestStatus.VisitConfirmed, updated.Status);
+        Assert.True(bookedSlot.IsBooked);
+        Assert.Equal(request.Id, bookedSlot.BookedAdoptionRequestId);
+    }
+
+    [Fact]
     public async Task ConfirmVisitAsync_DoesNotCreateHistoryWhenStatusDoesNotChange()
     {
         await using var context = TestDbContextFactory.CreateContext();
@@ -186,6 +212,31 @@ public class AdoptionRequestServiceTests
         Assert.Equal(DogStatus.Available, updated.Dog!.Status);
         Assert.Contains(await context.DogStatusHistories.ToListAsync(), history =>
             history.OldStatus == DogStatus.Reserved && history.NewStatus == DogStatus.Available);
+    }
+
+    [Fact]
+    public async Task RejectRequestAsync_ReleasesBookedAvailabilitySlot()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        var request = await SeedPendingRequestAsync(context, DogStatus.Available);
+        var slot = new ShelterAvailabilitySlot
+        {
+            ShelterId = TestDbContextFactory.ShelterId,
+            StartTime = request.PreferredVisitDateTime!.Value,
+            EndTime = request.PreferredVisitDateTime.Value.AddHours(1),
+            IsBooked = true,
+            BookedAdoptionRequestId = request.Id,
+            CreatedByUserId = TestDbContextFactory.ShelterUserId
+        };
+        context.ShelterAvailabilitySlots.Add(slot);
+        await context.SaveChangesAsync();
+        var service = CreateService(context);
+
+        await service.RejectRequestAsync(request.Id, TestDbContextFactory.ShelterId);
+
+        var releasedSlot = await context.ShelterAvailabilitySlots.SingleAsync();
+        Assert.False(releasedSlot.IsBooked);
+        Assert.Null(releasedSlot.BookedAdoptionRequestId);
     }
 
     [Fact]

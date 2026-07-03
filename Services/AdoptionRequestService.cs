@@ -285,7 +285,7 @@ public class AdoptionRequestService(
         await MarkAsAdoptedAsync(requestId, shelterId, changedByUserId);
     }
 
-    public async Task ConfirmVisitAsync(int requestId, int shelterId, string? changedByUserId = null)
+    public async Task ConfirmVisitAsync(int requestId, int shelterId, string? changedByUserId = null, int? availabilitySlotId = null)
     {
         var request = await context.AdoptionRequests
             .Include(r => r.Dog)
@@ -304,6 +304,11 @@ public class AdoptionRequestService(
         if (request.Dog.Status is not (DogStatus.Available or DogStatus.Reserved))
         {
             throw new InvalidOperationException("Only requests for available or reserved dogs can have visits confirmed.");
+        }
+
+        if (availabilitySlotId.HasValue)
+        {
+            await BookAvailabilitySlotForConfirmationAsync(request, shelterId, availabilitySlotId.Value);
         }
 
         VisitSchedulingHelper.ValidatePreferredVisitTime(request.Dog.Shelter, request.PreferredVisitDateTime);
@@ -332,6 +337,8 @@ public class AdoptionRequestService(
             otherRequest.Status = AdoptionRequestStatus.Rejected;
             otherRequest.UpdatedAt = now;
         }
+
+        await ReleaseAvailabilitySlotsForRequestsAsync(otherPendingRequests.Select(r => r.Id));
 
         await context.SaveChangesAsync();
         await RefreshDogSearchEmbeddingBestEffortAsync(request.Dog.Id);
@@ -365,10 +372,10 @@ public class AdoptionRequestService(
             request.Id.ToString());
     }
 
-    public async Task ConfirmPipelineVisitAsync(int requestId, string shelterUserId)
+    public async Task ConfirmPipelineVisitAsync(int requestId, string shelterUserId, int? availabilitySlotId = null)
     {
         var shelterId = await GetShelterIdForUserAsync(shelterUserId);
-        await ConfirmVisitAsync(requestId, shelterId, shelterUserId);
+        await ConfirmVisitAsync(requestId, shelterId, shelterUserId, availabilitySlotId);
     }
 
     public async Task MarkAsAdoptedAsync(int requestId, int shelterId, string? changedByUserId = null)
@@ -417,6 +424,8 @@ public class AdoptionRequestService(
             otherRequest.VisitStatus = AdoptionVisitStatus.Cancelled;
             otherRequest.UpdatedAt = now;
         }
+
+        await ReleaseAvailabilitySlotsForRequestsAsync(otherActiveRequests.Select(r => r.Id));
 
         await context.SaveChangesAsync();
         await RefreshDogSearchEmbeddingBestEffortAsync(request.Dog.Id);
@@ -478,6 +487,8 @@ public class AdoptionRequestService(
             : AdoptionVisitStatus.Cancelled;
         request.UpdatedAt = DateTime.UtcNow;
 
+        await ReleaseAvailabilitySlotsForRequestsAsync([request.Id]);
+
         if (wasConfirmedVisit && request.Dog is not null && request.Dog.Status == DogStatus.Reserved)
         {
             request.Dog.Status = DogStatus.Available;
@@ -538,6 +549,8 @@ public class AdoptionRequestService(
 
         request.Status = AdoptionRequestStatus.Cancelled;
         request.UpdatedAt = DateTime.UtcNow;
+
+        await ReleaseAvailabilitySlotsForRequestsAsync([request.Id]);
 
         await context.SaveChangesAsync();
         await LogAsync(
@@ -601,6 +614,77 @@ public class AdoptionRequestService(
             .FirstOrDefaultAsync();
 
         return shelterId ?? throw new InvalidOperationException("No shelter profile is linked to this account.");
+    }
+
+    private async Task BookAvailabilitySlotForConfirmationAsync(
+        AdoptionRequest request,
+        int shelterId,
+        int availabilitySlotId)
+    {
+        var slot = await context.ShelterAvailabilitySlots
+            .FirstOrDefaultAsync(candidate => candidate.Id == availabilitySlotId);
+
+        if (slot is null)
+        {
+            throw new InvalidOperationException("Availability slot was not found.");
+        }
+
+        if (slot.ShelterId != shelterId || slot.ShelterId != request.Dog?.ShelterId)
+        {
+            throw new InvalidOperationException("This slot belongs to another shelter.");
+        }
+
+        if (slot.IsCancelled)
+        {
+            throw new InvalidOperationException("Cancelled slots cannot be booked.");
+        }
+
+        if (slot.StartTime <= DateTime.Now)
+        {
+            throw new InvalidOperationException("Past slots cannot be booked.");
+        }
+
+        if (slot.IsBooked && slot.BookedAdoptionRequestId != request.Id)
+        {
+            throw new InvalidOperationException("This slot is already booked.");
+        }
+
+        var existingSlots = await context.ShelterAvailabilitySlots
+            .Where(candidate => candidate.BookedAdoptionRequestId == request.Id && candidate.Id != slot.Id)
+            .ToListAsync();
+
+        foreach (var existingSlot in existingSlots)
+        {
+            ReleaseSlot(existingSlot);
+        }
+
+        slot.IsBooked = true;
+        slot.BookedAdoptionRequestId = request.Id;
+        request.PreferredVisitDateTime = slot.StartTime;
+    }
+
+    private async Task ReleaseAvailabilitySlotsForRequestsAsync(IEnumerable<int> requestIds)
+    {
+        var ids = requestIds.Distinct().ToList();
+        if (ids.Count == 0)
+        {
+            return;
+        }
+
+        var slots = await context.ShelterAvailabilitySlots
+            .Where(slot => slot.BookedAdoptionRequestId.HasValue && ids.Contains(slot.BookedAdoptionRequestId.Value))
+            .ToListAsync();
+
+        foreach (var slot in slots)
+        {
+            ReleaseSlot(slot);
+        }
+    }
+
+    private static void ReleaseSlot(ShelterAvailabilitySlot slot)
+    {
+        slot.IsBooked = false;
+        slot.BookedAdoptionRequestId = null;
     }
 
     private static ShelterAdoptionPipelineDto BuildPipelineDto(
