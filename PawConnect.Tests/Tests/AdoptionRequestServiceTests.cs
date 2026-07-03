@@ -381,6 +381,111 @@ public class AdoptionRequestServiceTests
         Assert.Equal("Private shelter note.", details.ShelterInternalNotes);
     }
 
+    [Fact]
+    public async Task GetShelterPipelineAsync_GroupsOnlyCurrentShelterRequests()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        await SeedPipelineRequestAsync(context, "Pipeline Pending", AdoptionRequestStatus.Pending, AdoptionVisitStatus.Requested, DogStatus.Available);
+        await SeedPipelineRequestAsync(context, "Pipeline Visit", AdoptionRequestStatus.VisitConfirmed, AdoptionVisitStatus.Confirmed, DogStatus.Reserved);
+        await SeedPipelineRequestAsync(context, "Pipeline Accepted", AdoptionRequestStatus.Accepted, AdoptionVisitStatus.Completed, DogStatus.Adopted);
+        await SeedPipelineRequestAsync(context, "Pipeline Rejected", AdoptionRequestStatus.Rejected, AdoptionVisitStatus.Cancelled, DogStatus.Available);
+        await SeedPipelineRequestAsync(context, "Pipeline Cancelled", AdoptionRequestStatus.Cancelled, AdoptionVisitStatus.Cancelled, DogStatus.Available);
+        await SeedPipelineRequestAsync(
+            context,
+            "Other Shelter Pending",
+            AdoptionRequestStatus.Pending,
+            AdoptionVisitStatus.Requested,
+            DogStatus.Available,
+            TestDbContextFactory.OtherShelterId);
+        var service = CreateService(context);
+
+        var pipeline = await service.GetShelterPipelineAsync(TestDbContextFactory.ShelterUserId);
+
+        Assert.Equal(TestDbContextFactory.ShelterId, pipeline.ShelterId);
+        Assert.Equal(5, pipeline.TotalRequests);
+        Assert.Single(GetPipelineColumn(pipeline, AdoptionPipelineStage.Pending).Cards);
+        Assert.Single(GetPipelineColumn(pipeline, AdoptionPipelineStage.VisitConfirmed).Cards);
+        Assert.Single(GetPipelineColumn(pipeline, AdoptionPipelineStage.Accepted).Cards);
+        Assert.Equal(2, GetPipelineColumn(pipeline, AdoptionPipelineStage.Closed).Cards.Count);
+        Assert.DoesNotContain(pipeline.Columns.SelectMany(column => column.Cards), card => card.DogName == "Other Shelter Pending");
+        Assert.True(GetPipelineColumn(pipeline, AdoptionPipelineStage.Pending).Cards.Single().CanConfirmVisit);
+        Assert.True(GetPipelineColumn(pipeline, AdoptionPipelineStage.VisitConfirmed).Cards.Single().CanAccept);
+    }
+
+    [Fact]
+    public async Task GetShelterPipelineAsync_BlocksUserWithoutShelterProfile()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        var service = CreateService(context);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.GetShelterPipelineAsync(TestDbContextFactory.AdopterId));
+
+        Assert.Equal("No shelter profile is linked to this account.", exception.Message);
+    }
+
+    [Fact]
+    public async Task ConfirmPipelineVisitAsync_UsesExistingVisitConfirmationRules()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        var request = await SeedPendingRequestAsync(context, DogStatus.Available);
+        var service = CreateService(context);
+
+        await service.ConfirmPipelineVisitAsync(request.Id, TestDbContextFactory.ShelterUserId);
+
+        var updated = await context.AdoptionRequests.Include(r => r.Dog).SingleAsync(r => r.Id == request.Id);
+        Assert.Equal(AdoptionRequestStatus.VisitConfirmed, updated.Status);
+        Assert.Equal(AdoptionVisitStatus.Confirmed, updated.VisitStatus);
+        Assert.Equal(DogStatus.Reserved, updated.Dog!.Status);
+    }
+
+    [Fact]
+    public async Task RejectPipelineRequestAsync_BlocksAnotherShelterUser()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        var request = await SeedPendingRequestAsync(context, DogStatus.Available);
+        var service = CreateService(context);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.RejectPipelineRequestAsync(request.Id, TestDbContextFactory.OtherShelterUserId));
+
+        Assert.Equal("You cannot manage requests for another shelter's dog.", exception.Message);
+    }
+
+    [Fact]
+    public async Task MarkPipelineRequestAsAdoptedAsync_UsesExistingFinalAdoptionRules()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        var request = await SeedPendingRequestAsync(context, DogStatus.Available);
+        var service = CreateService(context);
+
+        await service.ConfirmPipelineVisitAsync(request.Id, TestDbContextFactory.ShelterUserId);
+        await service.MarkPipelineRequestAsAdoptedAsync(request.Id, TestDbContextFactory.ShelterUserId);
+
+        var updated = await context.AdoptionRequests.Include(r => r.Dog).SingleAsync(r => r.Id == request.Id);
+        Assert.Equal(AdoptionRequestStatus.Accepted, updated.Status);
+        Assert.Equal(AdoptionVisitStatus.Completed, updated.VisitStatus);
+        Assert.Equal(DogStatus.Adopted, updated.Dog!.Status);
+    }
+
+    [Fact]
+    public async Task RejectPipelineRequestAsync_RejectsInvalidTransition()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        var request = await SeedPipelineRequestAsync(
+            context,
+            "Accepted Pipeline Dog",
+            AdoptionRequestStatus.Accepted,
+            AdoptionVisitStatus.Completed,
+            DogStatus.Adopted);
+        var service = CreateService(context);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.RejectPipelineRequestAsync(request.Id, TestDbContextFactory.ShelterUserId));
+
+        Assert.Equal("Only pending or visit-confirmed requests can be rejected.", exception.Message);
+    }
+
     private static AdoptionRequestService CreateService(ApplicationDbContext context, TestEmailService? emailService = null)
     {
         return new AdoptionRequestService(
@@ -411,6 +516,43 @@ public class AdoptionRequestServiceTests
         context.AdoptionRequests.Add(request);
         await context.SaveChangesAsync();
         return request;
+    }
+
+    private static async Task<AdoptionRequest> SeedPipelineRequestAsync(
+        ApplicationDbContext context,
+        string dogName,
+        AdoptionRequestStatus requestStatus,
+        AdoptionVisitStatus visitStatus,
+        DogStatus dogStatus,
+        int shelterId = TestDbContextFactory.ShelterId)
+    {
+        var dog = TestDbContextFactory.CreateDog(dogName, dogStatus, shelterId);
+        context.Dogs.Add(dog);
+        await context.SaveChangesAsync();
+
+        var request = new AdoptionRequest
+        {
+            DogId = dog.Id,
+            AdopterId = TestDbContextFactory.AdopterId,
+            ReasonForAdoption = $"I would like to adopt {dogName}.",
+            HoursAlonePerDay = 3,
+            Status = requestStatus,
+            VisitStatus = visitStatus,
+            PreferredVisitDateTime = FutureVisit(),
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        context.AdoptionRequests.Add(request);
+        await context.SaveChangesAsync();
+        return request;
+    }
+
+    private static AdoptionPipelineColumnDto GetPipelineColumn(
+        ShelterAdoptionPipelineDto pipeline,
+        AdoptionPipelineStage stage)
+    {
+        return pipeline.Columns.Single(column => column.Stage == stage);
     }
 
     private static DateTime FutureVisit()
