@@ -89,6 +89,8 @@ builder.Services.AddScoped<IAdoptionCopilotToolService, AdoptionCopilotToolServi
 builder.Services.AddScoped<ICopilotHistoryService, CopilotHistoryService>();
 builder.Services.AddScoped<ICopilotFeedbackService, CopilotFeedbackService>();
 builder.Services.AddScoped<IAdoptionCopilotService, AdoptionCopilotService>();
+builder.Services.AddScoped<ICopilotCriteriaComparisonService, CopilotCriteriaComparisonService>();
+builder.Services.AddScoped<ICopilotEvaluationService, CopilotEvaluationService>();
 builder.Services.AddScoped<ICopilotStateService, CopilotStateService>();
 builder.Services.AddScoped<IConversationService, ConversationService>();
 builder.Services.AddScoped<IMessageService, MessageService>();

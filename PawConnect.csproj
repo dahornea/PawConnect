@@ -29,4 +29,8 @@
     <None Remove="Tests\**\*" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Update="Data\CopilotEvaluation\copilot-evaluation-cases.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
