@@ -1,0 +1,166 @@
+<MudDialog>
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.FactCheck" Color="Color.Primary" />
+            <div>
+                <MudText Typo="Typo.h6">Dog profile quality check</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">@GetSourceLabel()</MudText>
+            </div>
+        </MudStack>
+    </TitleContent>
+    <DialogContent>
+        @if (Result is null)
+        {
+            <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">The profile quality result could not be loaded.</MudAlert>
+        }
+        else
+        {
+            <MudStack Spacing="3">
+                <MudPaper Elevation="0" Class="pa-3">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudProgressCircular Value="@Result.OverallScore"
+                                             Min="0"
+                                             Max="100"
+                                             Size="Size.Large"
+                                             Color="@GetScoreColor(Result.OverallScore)" />
+                        <div>
+                            <MudText Typo="Typo.h5">@Result.OverallScore%</MudText>
+                            <MudText Typo="Typo.body2">@Result.Summary</MudText>
+                        </div>
+                    </MudStack>
+                </MudPaper>
+
+                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true">
+                    Suggestions are drafting help only. Confirm every behavior, compatibility, and medical fact before saving.
+                </MudAlert>
+
+                @if (!Result.UsedAi && !string.IsNullOrWhiteSpace(Result.FallbackReason))
+                {
+                    <MudAlert Severity="Severity.Info" Variant="Variant.Text" Dense="true">@Result.FallbackReason</MudAlert>
+                }
+
+                <MudGrid Spacing="2">
+                    <MudItem xs="12" md="6">
+                        <MudPaper Elevation="0" Class="pa-3 h-100">
+                            <MudText Typo="Typo.subtitle1">Issues to improve</MudText>
+                            @if (Result.Issues.Count == 0)
+                            {
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">No major issues were found.</MudText>
+                            }
+                            else
+                            {
+                                <MudStack Spacing="1" Class="mt-2">
+                                    @foreach (var issue in Result.Issues)
+                                    {
+                                        <MudPaper Elevation="0" Class="pa-2">
+                                            <MudStack Spacing="1">
+                                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                                    <MudChip T="string" Size="Size.Small" Color="@GetSeverityColor(issue.Severity)">@issue.Severity</MudChip>
+                                                    <MudText Typo="Typo.caption" Color="Color.Secondary">@FormatCategory(issue.Category)</MudText>
+                                                </MudStack>
+                                                <MudText Typo="Typo.body2">@issue.Message</MudText>
+                                                @if (!string.IsNullOrWhiteSpace(issue.SuggestedAction))
+                                                {
+                                                    <MudText Typo="Typo.caption" Color="Color.Secondary">@issue.SuggestedAction</MudText>
+                                                }
+                                            </MudStack>
+                                        </MudPaper>
+                                    }
+                                </MudStack>
+                            }
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="12" md="6">
+                        <MudPaper Elevation="0" Class="pa-3 h-100">
+                            <MudText Typo="Typo.subtitle1">Strengths</MudText>
+                            @if (Result.Strengths.Count == 0)
+                            {
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">Add more profile details to build visible strengths.</MudText>
+                            }
+                            else
+                            {
+                                <MudStack Row="true" Spacing="1" Class="mt-2 flex-wrap">
+                                    @foreach (var strength in Result.Strengths)
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Outlined">@strength</MudChip>
+                                    }
+                                </MudStack>
+                            }
+                        </MudPaper>
+                    </MudItem>
+                </MudGrid>
+
+                @if (Result.QuestionsForShelter.Count > 0)
+                {
+                    <MudPaper Elevation="0" Class="pa-3">
+                        <MudText Typo="Typo.subtitle1">Questions to answer before publishing</MudText>
+                        <ul class="mt-2">
+                            @foreach (var question in Result.QuestionsForShelter)
+                            {
+                                <li>@question</li>
+                            }
+                        </ul>
+                    </MudPaper>
+                }
+
+                @if (Result.Suggestions.Count > 0)
+                {
+                    <MudPaper Elevation="0" Class="pa-3">
+                        <MudText Typo="Typo.subtitle1">Suggested improvements</MudText>
+                        <MudStack Spacing="1" Class="mt-2">
+                            @foreach (var suggestion in Result.Suggestions)
+                            {
+                                <MudPaper Elevation="0" Class="pa-2">
+                                    <MudText Typo="Typo.subtitle2">@suggestion.FieldName</MudText>
+                                    <MudText Typo="Typo.body2">@suggestion.SuggestedText</MudText>
+                                    @if (!string.IsNullOrWhiteSpace(suggestion.Rationale))
+                                    {
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">@suggestion.Rationale</MudText>
+                                    }
+                                </MudPaper>
+                            }
+                        </MudStack>
+                    </MudPaper>
+                }
+
+                @if (HasRewrite)
+                {
+                    <MudPaper Elevation="0" Class="pa-3">
+                        <MudStack Spacing="2">
+                            <div>
+                                <MudText Typo="Typo.subtitle1">Optional rewrite</MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">This is not saved automatically. Use it only after checking that the facts are true.</MudText>
+                            </div>
+                            @if (!string.IsNullOrWhiteSpace(Result.SuggestedRewrite?.Description))
+                            {
+                                <MudText Typo="Typo.subtitle2">Description</MudText>
+                                <MudText Typo="Typo.body2">@Result.SuggestedRewrite.Description</MudText>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(Result.SuggestedRewrite?.BehaviorDescription))
+                            {
+                                <MudText Typo="Typo.subtitle2">Behavior description</MudText>
+                                <MudText Typo="Typo.body2">@Result.SuggestedRewrite.BehaviorDescription</MudText>
+                            }
+                        </MudStack>
+                    </MudPaper>
+                }
+
+                @if (Result.SafetyNotes.Count > 0)
+                {
+                    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Dense="true">
+                        @Result.SafetyNotes[0]
+                    </MudAlert>
+                }
+            </MudStack>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="Close">Close</MudButton>
+        @if (HasRewrite)
+        {
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.EditNote" OnClick="ApplyRewrite">
+                Apply rewrite to form
+            </MudButton>
+        }
+    </DialogActions>
+</MudDialog>

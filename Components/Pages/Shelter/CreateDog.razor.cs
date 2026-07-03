@@ -28,6 +28,8 @@ public partial class CreateDog
     [Inject] private UserManager<ApplicationUser> UserManager { get; set; } = default!;
     [Inject] private NavigationManager NavigationManager { get; set; } = default!;
     [Inject] private ISnackbar Snackbar { get; set; } = default!;
+    [Inject] private IDialogService DialogService { get; set; } = default!;
+    [Inject] private IDogProfileQualityService DogProfileQualityService { get; set; } = default!;
 
     private readonly Dog _model = new() { Size = DogSize.Medium, Status = DogStatus.Available };
     private List<FoodType> _foodTypes = [];
@@ -37,6 +39,7 @@ public partial class CreateDog
     private MudForm? _form;
     private bool _isLoading = true;
     private bool _isSaving;
+    private bool _isQualityChecking;
     private string? _error;
     private string? _formError;
     private string? _nameError;
@@ -145,9 +148,99 @@ public partial class CreateDog
         }
     }
 
+    private async Task CheckProfileQualityAsync()
+    {
+        if (_shelterId is null)
+        {
+            Snackbar.Add("Current shelter profile could not be found.", Severity.Error);
+            return;
+        }
+
+        _isQualityChecking = true;
+
+        try
+        {
+            var result = await DogProfileQualityService.CheckFormAsync(BuildProfileQualityRequest());
+            var parameters = new DialogParameters<DogProfileQualityDialog>
+            {
+                { dialog => dialog.Result, result }
+            };
+            var options = new DialogOptions
+            {
+                MaxWidth = MaxWidth.Medium,
+                FullWidth = true,
+                CloseButton = true
+            };
+
+            var dialog = await DialogService.ShowAsync<DogProfileQualityDialog>("Dog profile quality", parameters, options);
+            var dialogResult = await dialog.Result;
+            if (dialogResult is { Canceled: false, Data: DogProfileRewriteSuggestion rewrite })
+            {
+                ApplyRewriteSuggestion(rewrite);
+                Snackbar.Add("Suggested rewrite applied to the form. Review it before saving.", Severity.Info);
+            }
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch
+        {
+            Snackbar.Add("Profile quality check could not be completed right now.", Severity.Error);
+        }
+        finally
+        {
+            _isQualityChecking = false;
+        }
+    }
+
     private void AddPendingImageUrl()
     {
         AddPendingImageUrlIfPresent(showEmptyMessage: true);
+    }
+
+    private DogProfileQualityRequest BuildProfileQualityRequest()
+    {
+        var breedDisplay = _useCustomBreed
+            ? DogBreedFormatter.Format(null, _model.IsMixedBreed, _model.CustomBreedName, _model.Breed)
+            : DogBreedFormatter.Format(_selectedBreed?.Name, _selectedSecondaryBreed?.Name, _model.IsMixedBreed, null, _model.Breed);
+
+        return new DogProfileQualityRequest
+        {
+            ShelterId = _shelterId!.Value,
+            Name = _model.Name,
+            AgeYears = _model.AgeYears,
+            AgeMonths = _model.AgeMonths,
+            Size = _model.Size,
+            Status = _model.Status,
+            BreedDisplay = breedDisplay,
+            CoatColor = _model.CoatColor,
+            Description = _model.Description,
+            BehaviorDescription = _model.BehaviorDescription,
+            MedicalStatus = _model.MedicalStatus,
+            PreferredFoodType = _foodTypes.FirstOrDefault(type => type.Id == _model.PreferredFoodTypeId)?.Name,
+            DailyFoodAmountGrams = _model.DailyFoodAmountGrams,
+            CatCompatibility = _model.CatCompatibility,
+            DogCompatibility = _model.DogCompatibility,
+            ChildrenCompatibility = _model.ChildrenCompatibility,
+            ActivityLevel = _model.ActivityLevel,
+            ExperienceNeeded = _model.ExperienceNeeded,
+            ApartmentSuitability = _model.ApartmentSuitability,
+            CompatibilityNotes = _model.CompatibilityNotes
+        };
+    }
+
+    private void ApplyRewriteSuggestion(DogProfileRewriteSuggestion rewrite)
+    {
+        if (!string.IsNullOrWhiteSpace(rewrite.Description))
+        {
+            _model.Description = rewrite.Description;
+        }
+
+        if (!string.IsNullOrWhiteSpace(rewrite.BehaviorDescription))
+        {
+            _model.BehaviorDescription = rewrite.BehaviorDescription;
+        }
     }
 
     private bool AddPendingImageUrlIfPresent(bool showEmptyMessage = false)

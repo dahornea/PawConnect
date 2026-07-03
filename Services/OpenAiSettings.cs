@@ -12,6 +12,10 @@ public class OpenAiSettings
 
     public string EmbeddingModel { get; set; } = "text-embedding-3-small";
 
+    public bool DogProfileQualityEnabled { get; set; } = true;
+
+    public string DogProfileQualityModel { get; set; } = string.Empty;
+
     public bool HasApiKey => !string.IsNullOrWhiteSpace(ApiKey);
 
     public string GetSafeModel()
@@ -32,5 +36,12 @@ public class OpenAiSettings
     public string GetSafeEmbeddingModel()
     {
         return string.IsNullOrWhiteSpace(EmbeddingModel) ? "text-embedding-3-small" : EmbeddingModel.Trim();
+    }
+
+    public string GetSafeDogProfileQualityModel()
+    {
+        return string.IsNullOrWhiteSpace(DogProfileQualityModel)
+            ? GetSafeChatModel()
+            : DogProfileQualityModel.Trim();
     }
 }

@@ -197,6 +197,27 @@
                                                  Disabled="@IsReadOnly" />
                             </MudItem>
                             <MudItem xs="12">
+                                <MudPaper Elevation="0" Class="pa-3 dog-upload-panel">
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                        <MudIcon Icon="@Icons.Material.Filled.FactCheck" Color="Color.Primary" />
+                                        <div>
+                                            <MudText Typo="Typo.subtitle2">Profile quality checker</MudText>
+                                            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                                Review the public text for missing, vague, or risky adoption information before saving.
+                                            </MudText>
+                                        </div>
+                                        <MudSpacer />
+                                        <MudButton Variant="Variant.Outlined"
+                                                   Color="Color.Primary"
+                                                   StartIcon="@Icons.Material.Filled.AutoFixHigh"
+                                                   Disabled="@(_isQualityChecking || IsReadOnly)"
+                                                   OnClick="CheckProfileQualityAsync">
+                                            @(_isQualityChecking ? "Checking..." : "Check profile quality")
+                                        </MudButton>
+                                    </MudStack>
+                                </MudPaper>
+                            </MudItem>
+                            <MudItem xs="12">
                                 <MudTextField Label="Description" @bind-Value="_model.Description" Lines="4" Variant="Variant.Outlined" Disabled="@IsReadOnly" />
                             </MudItem>
                             <MudItem xs="12">

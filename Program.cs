@@ -92,6 +92,7 @@ builder.Services.AddScoped<IAdoptionCopilotService, AdoptionCopilotService>();
 builder.Services.AddScoped<ICopilotCriteriaComparisonService, CopilotCriteriaComparisonService>();
 builder.Services.AddScoped<ICopilotEvaluationService, CopilotEvaluationService>();
 builder.Services.AddScoped<ICopilotStateService, CopilotStateService>();
+builder.Services.AddScoped<IDogProfileQualityService, DogProfileQualityService>();
 builder.Services.AddScoped<IConversationService, ConversationService>();
 builder.Services.AddScoped<IMessageService, MessageService>();
 builder.Services.AddScoped<IMessageReportService, MessageReportService>();
@@ -121,6 +122,10 @@ builder.Services.AddHttpClient<IEmbeddingService, OpenAiEmbeddingService>(client
     client.BaseAddress = new Uri("https://api.openai.com/");
 });
 builder.Services.AddHttpClient<IOpenAiAdoptionCopilotClient, OpenAiAdoptionCopilotClient>(client =>
+{
+    client.BaseAddress = new Uri("https://api.openai.com/");
+});
+builder.Services.AddHttpClient<IOpenAiDogProfileQualityClient, OpenAiDogProfileQualityClient>(client =>
 {
     client.BaseAddress = new Uri("https://api.openai.com/");
 });
