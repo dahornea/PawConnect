@@ -35,6 +35,14 @@ public static class AuditActions
     public const string ShelterUpdatedByAdmin = nameof(ShelterUpdatedByAdmin);
     public const string ReportGenerated = nameof(ReportGenerated);
     public const string ExportGenerated = nameof(ExportGenerated);
+    public const string AdoptionCopilotRequested = nameof(AdoptionCopilotRequested);
+    public const string AdoptionCopilotCompleted = nameof(AdoptionCopilotCompleted);
+    public const string AdoptionCopilotFailed = nameof(AdoptionCopilotFailed);
+    public const string CopilotEvaluationRun = nameof(CopilotEvaluationRun);
+    public const string CopilotEvaluationFailed = nameof(CopilotEvaluationFailed);
+    public const string ShelterAvailabilitySlotCreated = nameof(ShelterAvailabilitySlotCreated);
+    public const string ShelterAvailabilitySlotCancelled = nameof(ShelterAvailabilitySlotCancelled);
+    public const string ShelterAvailabilitySlotBooked = nameof(ShelterAvailabilitySlotBooked);
 
     public static readonly IReadOnlyList<string> All =
     [
@@ -70,6 +78,14 @@ public static class AuditActions
         UserUpdatedByAdmin,
         ShelterUpdatedByAdmin,
         ReportGenerated,
-        ExportGenerated
+        ExportGenerated,
+        AdoptionCopilotRequested,
+        AdoptionCopilotCompleted,
+        AdoptionCopilotFailed,
+        CopilotEvaluationRun,
+        CopilotEvaluationFailed,
+        ShelterAvailabilitySlotCreated,
+        ShelterAvailabilitySlotCancelled,
+        ShelterAvailabilitySlotBooked
     ];
 }

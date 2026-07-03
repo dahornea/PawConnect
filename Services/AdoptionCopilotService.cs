@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
@@ -15,9 +16,12 @@ public class AdoptionCopilotService(
     IOpenAiAdoptionCopilotClient openAiCopilotClient,
     IOptions<OpenAiSettings> openAiOptions,
     ILogger<AdoptionCopilotService> logger,
-    ICopilotHistoryService? historyService = null) : IAdoptionCopilotService
+    ICopilotHistoryService? historyService = null,
+    IAuditLogService? auditLogService = null) : IAdoptionCopilotService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly Regex EmailRegex = new(@"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex PhoneRegex = new(@"\+?\d[\d\s().-]{7,}\d", RegexOptions.Compiled);
 
     public async Task<AdoptionCopilotResponse> AskAsync(
         string adopterUserId,
@@ -35,6 +39,16 @@ public class AdoptionCopilotService(
                 false);
         }
 
+        var operationTimer = Stopwatch.StartNew();
+        await LogCopilotEventAsync(
+            AuditActions.AdoptionCopilotRequested,
+            "Adoption Copilot request submitted.",
+            new
+            {
+                PromptSummary = BuildPromptSummary(query)
+            },
+            cancellationToken: cancellationToken);
+
         // Pick up the obvious filters first, so things like size, color, or neighborhood
         // still work even if OpenAI is not used.
         var deterministicArgs = await BuildDeterministicSearchArgsAsync(query, cancellationToken);
@@ -48,7 +62,7 @@ public class AdoptionCopilotService(
                 false,
                 null,
                 BuildDeterministicConstraintPreview(deterministicArgs));
-            return await SaveSessionAndReturnAsync(adopterUserId, query, unresolvedResponse, cancellationToken);
+            return await SaveSessionAndReturnAsync(adopterUserId, query, unresolvedResponse, cancellationToken, operationTimer);
         }
 
         // Always prepare a normal search first for a safe fallback
@@ -58,7 +72,7 @@ public class AdoptionCopilotService(
         var settings = openAiOptions.Value;
         if (!settings.Enabled || !settings.HasApiKey)
         {
-            return await SaveSessionAndReturnAsync(adopterUserId, query, fallback, cancellationToken);
+            return await SaveSessionAndReturnAsync(adopterUserId, query, fallback, cancellationToken, operationTimer);
         }
 
         var candidateMap = fallbackSearch.Dogs.ToDictionary(candidate => candidate.DogId);
@@ -116,6 +130,19 @@ public class AdoptionCopilotService(
 
             if (!openAiResponse.Success || openAiResponse.Results.Count == 0)
             {
+                await LogCopilotEventAsync(
+                    AuditActions.AdoptionCopilotFailed,
+                    "Adoption Copilot OpenAI response was not usable; fallback results were returned.",
+                    new
+                    {
+                        PromptSummary = BuildPromptSummary(query),
+                        Error = Truncate(openAiResponse.ErrorMessage, 300),
+                        CandidateCount = candidateMap.Count,
+                        DurationMs = operationTimer.ElapsedMilliseconds
+                    },
+                    "Warning",
+                    cancellationToken);
+
                 var failedResponse = latestSearchResult is not null
                     ? BuildFallbackFromCandidates(
                         query,
@@ -131,7 +158,7 @@ public class AdoptionCopilotService(
                         AppliedConstraints = AdoptionCopilotConstraintNormalizer.Normalize(appliedConstraints)
                     };
 
-                return await SaveSessionAndReturnAsync(adopterUserId, query, failedResponse, cancellationToken);
+                return await SaveSessionAndReturnAsync(adopterUserId, query, failedResponse, cancellationToken, operationTimer);
             }
 
             var allowedCandidateMap = latestSearchCandidateMap ?? candidateMap;
@@ -145,6 +172,18 @@ public class AdoptionCopilotService(
 
             if (aiResults.Count == 0)
             {
+                await LogCopilotEventAsync(
+                    AuditActions.AdoptionCopilotFailed,
+                    "OpenAI returned no valid PawConnect dog IDs.",
+                    new
+                    {
+                        PromptSummary = BuildPromptSummary(query),
+                        CandidateCount = allowedCandidateMap.Count,
+                        DurationMs = operationTimer.ElapsedMilliseconds
+                    },
+                    "Warning",
+                    cancellationToken);
+
                 var invalidAiResponse = BuildFallbackFromCandidates(
                     query,
                     allowedCandidateMap.Values.ToList(),
@@ -154,7 +193,7 @@ public class AdoptionCopilotService(
                     "OpenAI returned no valid PawConnect dog IDs.",
                     latestSearchResult?.EmptyReason);
 
-                return await SaveSessionAndReturnAsync(adopterUserId, query, invalidAiResponse, cancellationToken);
+                return await SaveSessionAndReturnAsync(adopterUserId, query, invalidAiResponse, cancellationToken, operationTimer);
             }
 
             var aiIds = aiResults.Select(result => result.DogId).ToHashSet();
@@ -178,12 +217,24 @@ public class AdoptionCopilotService(
                 null,
                 AdoptionCopilotConstraintNormalizer.Normalize(appliedConstraints));
 
-            return await SaveSessionAndReturnAsync(adopterUserId, query, response, cancellationToken);
+            return await SaveSessionAndReturnAsync(adopterUserId, query, response, cancellationToken, operationTimer);
         }
         catch (Exception ex) when (ex is JsonException or InvalidOperationException or HttpRequestException or TaskCanceledException)
         {
             logger.LogWarning(ex, "Adoption Copilot tool-calling flow failed. Returning safe fallback results.");
-            return await SaveSessionAndReturnAsync(adopterUserId, query, fallback, cancellationToken);
+            await LogCopilotEventAsync(
+                AuditActions.AdoptionCopilotFailed,
+                "Adoption Copilot failed and returned fallback results.",
+                new
+                {
+                    PromptSummary = BuildPromptSummary(query),
+                    ErrorType = ex.GetType().Name,
+                    Error = Truncate(ex.Message, 300),
+                    DurationMs = operationTimer.ElapsedMilliseconds
+                },
+                "Warning",
+                cancellationToken);
+            return await SaveSessionAndReturnAsync(adopterUserId, query, fallback, cancellationToken, operationTimer);
         }
     }
 
@@ -191,8 +242,28 @@ public class AdoptionCopilotService(
         string adopterUserId,
         string query,
         AdoptionCopilotResponse response,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Stopwatch? operationTimer = null)
     {
+        operationTimer?.Stop();
+        await LogCopilotEventAsync(
+            AuditActions.AdoptionCopilotCompleted,
+            "Adoption Copilot result generated.",
+            new
+            {
+                PromptSummary = BuildPromptSummary(query),
+                ExtractedCriteria = response.AppliedConstraints?.Select(FormatConstraintForAudit).ToList() ?? [],
+                ReturnedDogCount = response.Results.Count,
+                ReturnedDogIds = response.Results.Select(result => result.DogId).ToList(),
+                response.UsedAiEnhancement,
+                response.UsedSemanticSearch,
+                response.UsedToolCalling,
+                DurationMs = operationTimer?.ElapsedMilliseconds,
+                FallbackReason = Truncate(response.FallbackReason, 300)
+            },
+            string.IsNullOrWhiteSpace(response.FallbackReason) ? "Information" : "Warning",
+            cancellationToken);
+
         if (historyService is null || string.IsNullOrWhiteSpace(adopterUserId) || string.IsNullOrWhiteSpace(query))
         {
             return response;
@@ -208,6 +279,39 @@ public class AdoptionCopilotService(
             logger.LogWarning(ex, "Copilot session history could not be saved.");
             return response;
         }
+    }
+
+    private Task LogCopilotEventAsync(
+        string action,
+        string summary,
+        object details,
+        string severity = "Information",
+        CancellationToken cancellationToken = default)
+    {
+        return auditLogService?.LogCopilotEventAsync(action, null, summary, details, severity) ?? Task.CompletedTask;
+    }
+
+    private static string BuildPromptSummary(string query)
+    {
+        var summary = EmailRegex.Replace(query, "[email]");
+        summary = PhoneRegex.Replace(summary, "[phone]");
+        return Truncate(summary, 240) ?? string.Empty;
+    }
+
+    private static string FormatConstraintForAudit(AdoptionCopilotConstraint constraint)
+    {
+        return $"{constraint.Label}: {constraint.Value}";
+    }
+
+    private static string? Truncate(string? value, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var trimmed = value.Trim();
+        return trimmed.Length <= maxLength ? trimmed : trimmed[..maxLength];
     }
 
     private async Task<CopilotToolExecutionResult> ExecuteToolCallAsync(

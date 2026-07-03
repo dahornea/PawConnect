@@ -9,7 +9,8 @@ public class CopilotEvaluationService(
     IWebHostEnvironment environment,
     IAdoptionCopilotService adoptionCopilotService,
     ICopilotCriteriaComparisonService comparisonService,
-    ILogger<CopilotEvaluationService> logger) : ICopilotEvaluationService
+    ILogger<CopilotEvaluationService> logger,
+    IAuditLogService? auditLogService = null) : ICopilotEvaluationService
 {
     private const string EvaluationCasesPath = "Data/CopilotEvaluation/copilot-evaluation-cases.json";
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { WriteIndented = true };
@@ -64,8 +65,7 @@ public class CopilotEvaluationService(
             }
 
             var passed = comparison.AccuracyPercent >= passThresholdPercent && string.IsNullOrWhiteSpace(error);
-
-            return new CopilotEvaluationResult(
+            var evaluationResult = new CopilotEvaluationResult(
                 evaluationCase,
                 comparison,
                 actualCriteria,
@@ -77,6 +77,9 @@ public class CopilotEvaluationService(
                 passed,
                 string.IsNullOrWhiteSpace(error) ? null : error,
                 expectedDogScore);
+
+            await AuditEvaluationRunAsync(evaluationResult, passThresholdPercent, cancellationToken);
+            return evaluationResult;
         }
         catch (Exception ex) when (ex is InvalidOperationException or JsonException or HttpRequestException or TaskCanceledException)
         {
@@ -87,7 +90,7 @@ public class CopilotEvaluationService(
                     pair => (IReadOnlyList<string>)pair.Value,
                     StringComparer.OrdinalIgnoreCase);
             var failedComparison = comparisonService.Compare(expectedCriteria, []);
-            return new CopilotEvaluationResult(
+            var failedResult = new CopilotEvaluationResult(
                 evaluationCase,
                 failedComparison,
                 [],
@@ -98,6 +101,9 @@ public class CopilotEvaluationService(
                 stopwatch.ElapsedMilliseconds,
                 false,
                 ex.Message);
+
+            await AuditEvaluationRunAsync(failedResult, passThresholdPercent, cancellationToken);
+            return failedResult;
         }
     }
 
@@ -205,5 +211,56 @@ public class CopilotEvaluationService(
                 Notes = "Checks pet compatibility extraction without adding unrelated apartment criteria."
             }
         ];
+    }
+
+    private Task AuditEvaluationRunAsync(
+        CopilotEvaluationResult result,
+        double passThresholdPercent,
+        CancellationToken cancellationToken)
+    {
+        var action = result.ErrorMessage is null
+            ? AuditActions.CopilotEvaluationRun
+            : AuditActions.CopilotEvaluationFailed;
+        var severity = result.Passed ? "Information" : "Warning";
+
+        logger.LogInformation(
+            "Copilot evaluation case {CaseId} completed with accuracy {AccuracyPercent}% in {DurationMs} ms.",
+            result.Case.Id,
+            Math.Round(result.Comparison.AccuracyPercent, 1),
+            result.DurationMs);
+
+        return auditLogService?.LogSystemEventAsync(
+            action,
+            "CopilotEvaluation",
+            result.Case.Id,
+            $"Copilot evaluation case '{result.Case.Title}' completed.",
+            new
+            {
+                CaseId = result.Case.Id,
+                result.Case.Title,
+                PromptSummary = Truncate(result.Case.Prompt, 240),
+                AccuracyPercent = Math.Round(result.Comparison.AccuracyPercent, 1),
+                result.Passed,
+                PassThresholdPercent = passThresholdPercent,
+                result.DurationMs,
+                ExpectedFieldCount = result.Comparison.ExpectedFieldCount,
+                CorrectFieldCount = result.Comparison.CorrectFieldCount,
+                MissingFieldCount = result.Comparison.MissingFieldCount,
+                ExtraFieldCount = result.Comparison.ExtraFieldCount,
+                RecommendedDogCount = result.RecommendedDogs.Count,
+                Error = Truncate(result.ErrorMessage, 300)
+            },
+            severity) ?? Task.CompletedTask;
+    }
+
+    private static string? Truncate(string? value, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var trimmed = value.Trim();
+        return trimmed.Length <= maxLength ? trimmed : trimmed[..maxLength];
     }
 }
