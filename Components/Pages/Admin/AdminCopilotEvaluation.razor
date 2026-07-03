@@ -1,0 +1,266 @@
+@page "/admin/copilot-evaluation"
+@attribute [Authorize(Roles = "Admin")]
+
+<PageTitle>Copilot Evaluation</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.False" Class="px-0">
+    <MudStack Spacing="3">
+        <div class="page-header">
+            <MudText Typo="Typo.h4">Copilot Evaluation</MudText>
+            <MudText Typo="Typo.body2">Run internal test prompts against the same Adoption Copilot flow used by adopters.</MudText>
+        </div>
+
+        <MudPaper Elevation="0" Class="section-surface pa-3">
+            <MudGrid Spacing="2">
+                <MudItem xs="12" md="5">
+                    <MudSelect T="string"
+                               Label="Evaluation case"
+                               @bind-Value="_selectedCaseId"
+                               Variant="Variant.Outlined"
+                               Dense="true">
+                        @foreach (var evaluationCase in _cases)
+                        {
+                            <MudSelectItem Value="@evaluationCase.Id">@evaluationCase.Title</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="2">
+                    <MudNumericField T="double"
+                                     Label="Pass threshold"
+                                     @bind-Value="_passThreshold"
+                                     Variant="Variant.Outlined"
+                                     Min="0"
+                                     Max="100"
+                                     Step="5"
+                                     Adornment="Adornment.End"
+                                     AdornmentText="%" />
+                </MudItem>
+                <MudItem xs="12" md="5">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.FlexEnd" Spacing="1" Class="flex-wrap">
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.PlayArrow"
+                                   Disabled="@(!CanRunSelected)"
+                                   OnClick="RunSelectedAsync">
+                            Run Selected
+                        </MudButton>
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.PlaylistPlay"
+                                   Disabled="@(_isLoading || _isRunning || _cases.Count == 0)"
+                                   OnClick="RunAllAsync">
+                            Run All
+                        </MudButton>
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="Color.Secondary"
+                                   StartIcon="@Icons.Material.Filled.FileDownload"
+                                   Disabled="@(_isRunning || _results.Count == 0)"
+                                   OnClick="ExportJsonAsync">
+                            Export JSON
+                        </MudButton>
+                    </MudStack>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+
+        @if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <MudAlert Severity="Severity.Error" Variant="Variant.Outlined">@_error</MudAlert>
+        }
+
+        @if (_isLoading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="py-8">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Loading evaluation cases...</MudText>
+            </MudStack>
+        }
+        else
+        {
+            @if (_isRunning)
+            {
+                <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="mb-2" />
+            }
+
+            <MudGrid Spacing="2">
+                <MudItem xs="12" sm="6" md="3">
+                    <MudPaper Elevation="0" Class="section-surface pa-3">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Total cases</MudText>
+                        <MudText Typo="Typo.h5">@Summary.TotalCases</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudPaper Elevation="0" Class="section-surface pa-3">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Passed cases</MudText>
+                        <MudText Typo="Typo.h5">@Summary.PassedCases</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudPaper Elevation="0" Class="section-surface pa-3">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Average accuracy</MudText>
+                        <MudText Typo="Typo.h5">@FormatPercent(Summary.AverageFieldAccuracy)</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudPaper Elevation="0" Class="section-surface pa-3">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Average duration</MudText>
+                        <MudText Typo="Typo.h5">@FormatDuration(Summary.AverageExecutionMs)</MudText>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+
+            @if (_results.Count == 0)
+            {
+                <MudPaper Elevation="0" Class="empty-state pa-5">
+                    <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                        <MudIcon Icon="@Icons.Material.Filled.Science" Color="Color.Secondary" Size="Size.Large" />
+                        <MudText Typo="Typo.h6">No evaluation results yet</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Run one case or all cases to inspect Copilot criteria extraction.</MudText>
+                    </MudStack>
+                </MudPaper>
+            }
+            else
+            {
+                <MudTable Items="_results" Dense="true" Hover="true" Class="table-shell">
+                    <HeaderContent>
+                        <MudTh>Case</MudTh>
+                        <MudTh>Status</MudTh>
+                        <MudTh>Accuracy</MudTh>
+                        <MudTh>Duration</MudTh>
+                        <MudTh>Missing</MudTh>
+                        <MudTh>Extra</MudTh>
+                        <MudTh>Dogs</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Case">@context.Case.Title</MudTd>
+                        <MudTd DataLabel="Status">
+                            <MudChip T="string" Color="@GetStatusColor(context)" Size="Size.Small">
+                                @(context.Passed ? "Passed" : "Failed")
+                            </MudChip>
+                        </MudTd>
+                        <MudTd DataLabel="Accuracy">@FormatPercent(context.Comparison.AccuracyPercent)</MudTd>
+                        <MudTd DataLabel="Duration">@FormatDuration(context.DurationMs)</MudTd>
+                        <MudTd DataLabel="Missing">@context.Comparison.MissingFieldCount</MudTd>
+                        <MudTd DataLabel="Extra">@context.Comparison.ExtraFieldCount</MudTd>
+                        <MudTd DataLabel="Dogs">@context.RecommendedDogs.Count</MudTd>
+                    </RowTemplate>
+                </MudTable>
+
+                <MudExpansionPanels MultiExpansion="true" Class="mt-3">
+                    @foreach (var result in _results)
+                    {
+                        <MudExpansionPanel Text="@($"{result.Case.Title} - {FormatPercent(result.Comparison.AccuracyPercent)}")">
+                            <MudGrid Spacing="3">
+                                <MudItem xs="12" md="6">
+                                    <MudText Typo="Typo.subtitle2">Prompt</MudText>
+                                    <MudText Typo="Typo.body2">@result.Case.Prompt</MudText>
+
+                                    @if (!string.IsNullOrWhiteSpace(result.Case.Notes))
+                                    {
+                                        <MudText Typo="Typo.subtitle2" Class="mt-3">Why this case exists</MudText>
+                                        <MudText Typo="Typo.body2">@result.Case.Notes</MudText>
+                                    }
+
+                                    @if (!string.IsNullOrWhiteSpace(result.ErrorMessage))
+                                    {
+                                        <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Dense="true" Class="mt-3">
+                                            @result.ErrorMessage
+                                        </MudAlert>
+                                    }
+                                </MudItem>
+                                <MudItem xs="12" md="6">
+                                    <MudText Typo="Typo.subtitle2">Run metadata</MudText>
+                                    <MudStack Row="true" Spacing="1" Class="flex-wrap">
+                                        <MudChip T="string" Color="@(result.UsedAiEnhancement ? Color.Info : Color.Default)" Size="Size.Small" Variant="Variant.Outlined">
+                                            @(result.UsedAiEnhancement ? "AI-assisted" : "Rule fallback")
+                                        </MudChip>
+                                        @if (result.UsedSemanticSearch)
+                                        {
+                                            <MudChip T="string" Color="Color.Primary" Size="Size.Small" Variant="Variant.Outlined">Semantic search</MudChip>
+                                        }
+                                        @if (result.UsedToolCalling)
+                                        {
+                                            <MudChip T="string" Color="Color.Success" Size="Size.Small" Variant="Variant.Outlined">Tool calling</MudChip>
+                                        }
+                                        @if (result.ExpectedDogMatchPercent.HasValue)
+                                        {
+                                            <MudChip T="string" Color="Color.Secondary" Size="Size.Small" Variant="Variant.Outlined">
+                                                Expected dogs: @FormatPercent(result.ExpectedDogMatchPercent.Value)
+                                            </MudChip>
+                                        }
+                                    </MudStack>
+                                </MudItem>
+                                <MudItem xs="12" md="6">
+                                    <MudText Typo="Typo.subtitle2">Expected vs actual criteria</MudText>
+                                    <MudTable Items="result.Comparison.Fields" Dense="true" Hover="true" Class="table-shell">
+                                        <HeaderContent>
+                                            <MudTh>Field</MudTh>
+                                            <MudTh>Expected</MudTh>
+                                            <MudTh>Actual</MudTh>
+                                            <MudTh>Result</MudTh>
+                                        </HeaderContent>
+                                        <RowTemplate>
+                                            <MudTd>@context.Field</MudTd>
+                                            <MudTd>@FormatValues(context.ExpectedValues)</MudTd>
+                                            <MudTd>@FormatValues(context.ActualValues)</MudTd>
+                                            <MudTd>
+                                                <MudChip T="string" Color="@(context.IsCorrect ? Color.Success : Color.Warning)" Size="Size.Small">
+                                                    @(context.IsCorrect ? "Matched" : context.IsMissing ? "Missing" : "Different")
+                                                </MudChip>
+                                            </MudTd>
+                                        </RowTemplate>
+                                    </MudTable>
+                                </MudItem>
+                                <MudItem xs="12" md="6">
+                                    <MudText Typo="Typo.subtitle2">Extra criteria</MudText>
+                                    @if (result.Comparison.ExtraFields.Count == 0)
+                                    {
+                                        <MudText Typo="Typo.body2" Color="Color.Secondary">No extra fields.</MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudStack Row="true" Spacing="1" Class="flex-wrap">
+                                            @foreach (var field in result.Comparison.ExtraFields)
+                                            {
+                                                <MudChip T="string" Color="Color.Default" Size="Size.Small" Variant="Variant.Outlined">
+                                                    @field.Field: @FormatValues(field.ActualValues)
+                                                </MudChip>
+                                            }
+                                        </MudStack>
+                                    }
+
+                                    <MudText Typo="Typo.subtitle2" Class="mt-3">Recommended dogs</MudText>
+                                    @if (result.RecommendedDogs.Count == 0)
+                                    {
+                                        <MudText Typo="Typo.body2" Color="Color.Secondary">No dogs were returned.</MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudStack Spacing="1">
+                                            @foreach (var dog in result.RecommendedDogs)
+                                            {
+                                                <MudPaper Elevation="0" Class="section-surface pa-2">
+                                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                                        <MudText Typo="Typo.body2"><strong>@dog.DogName</strong></MudText>
+                                                        <MudChip T="string" Color="Color.Primary" Size="Size.Small">@dog.ScorePercent% @dog.MatchLabel</MudChip>
+                                                    </MudStack>
+                                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                                        Tags: @FormatValues(dog.DisplayTags)
+                                                        @if (dog.CautionTags.Count > 0)
+                                                        {
+                                                            <span> | Cautions: @FormatValues(dog.CautionTags)</span>
+                                                        }
+                                                    </MudText>
+                                                </MudPaper>
+                                            }
+                                        </MudStack>
+                                    }
+                                </MudItem>
+                            </MudGrid>
+                        </MudExpansionPanel>
+                    }
+                </MudExpansionPanels>
+            }
+        }
+    </MudStack>
+</MudContainer>

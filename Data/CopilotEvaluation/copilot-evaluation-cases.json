@@ -1,0 +1,72 @@
+[
+  {
+    "id": "apartment-calm-small-children",
+    "title": "Apartment calm small dog with children",
+    "prompt": "I live in an apartment and want a calm small dog good with children.",
+    "expectedCriteria": {
+      "Home": [ "Apartment" ],
+      "Size": [ "Small" ],
+      "Temperament": [ "Calm" ],
+      "Compatibility": [ "Children" ]
+    },
+    "expectedDogNames": [ "Lili", "Mira", "Poppy" ],
+    "notes": "Checks whether the Copilot extracts home type, size, temperament, and child/family compatibility from one natural request."
+  },
+  {
+    "id": "cat-friendly",
+    "title": "Cat-safe introduction",
+    "prompt": "I have a cat at home and need a dog that can adjust safely.",
+    "expectedCriteria": {
+      "Compatibility": [ "Cats" ]
+    },
+    "expectedDogNames": [ "Mira", "Poppy" ],
+    "notes": "Checks that a cat query produces cat-related criteria instead of unrelated apartment or status-only criteria."
+  },
+  {
+    "id": "apartment-longer-walks",
+    "title": "Apartment with longer walks",
+    "prompt": "I live in an apartment but enjoy longer walks.",
+    "expectedCriteria": {
+      "Home": [ "Apartment" ],
+      "Activity": [ "Longer walks" ],
+      "Lifestyle": [ "Moderate activity" ]
+    },
+    "expectedDogNames": [ "Oscar", "Max", "Buddy" ],
+    "notes": "Checks that explicit longer-walk preference is not simplified into short walks or low activity."
+  },
+  {
+    "id": "black-and-tan",
+    "title": "Deterministic coat color filter",
+    "prompt": "black and tan dogs",
+    "expectedCriteria": {
+      "Coat color": [ "Black and tan" ],
+      "Status": [ "Available", "Reserved" ]
+    },
+    "expectedDogNames": [ "Max", "Rocky" ],
+    "notes": "Checks deterministic filter behavior and makes sure coat color is not described as a status filter."
+  },
+  {
+    "id": "sensitive-resident-dog",
+    "title": "Calm companion for recovering dog",
+    "prompt": "I have a sick dog recovering at home and need a calm dog that will not overwhelm him.",
+    "expectedCriteria": {
+      "Compatibility": [ "Sensitive dog" ],
+      "Lifestyle": [ "Calm" ],
+      "Temperament": [ "Calm", "Gentle" ]
+    },
+    "expectedDogNames": [ "Mira", "Toby", "Bella", "Nora" ],
+    "notes": "Checks sensitive-dog compatibility evidence and cautions around slow introductions."
+  },
+  {
+    "id": "active-yard",
+    "title": "Active dog for yard",
+    "prompt": "I want an active dog for a house with a yard.",
+    "expectedCriteria": {
+      "Home": [ "House", "Yard" ],
+      "Lifestyle": [ "High activity" ],
+      "Activity": [ "Longer walks" ]
+    },
+    "expectedDogNames": [ "Bruno", "Rex", "Rocky" ],
+    "notes": "Checks active lifestyle and yard/house criteria."
+  }
+]
