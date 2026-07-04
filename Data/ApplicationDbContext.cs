@@ -61,6 +61,10 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
     public DbSet<ShelterAvailabilitySlot> ShelterAvailabilitySlots => Set<ShelterAvailabilitySlot>();
 
+    public DbSet<LostFoundPost> LostFoundPosts => Set<LostFoundPost>();
+
+    public DbSet<LostFoundPostImage> LostFoundPostImages => Set<LostFoundPostImage>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -117,6 +121,129 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .HasIndex(slot => slot.BookedAdoptionRequestId)
             .IsUnique()
             .HasFilter("[BookedAdoptionRequestId] IS NOT NULL AND [IsCancelled] = 0");
+
+        builder.Entity<LostFoundPost>()
+            .HasOne(post => post.CreatedByUser)
+            .WithMany()
+            .HasForeignKey(post => post.CreatedByUserId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<LostFoundPost>()
+            .HasOne(post => post.ApprovedByUser)
+            .WithMany()
+            .HasForeignKey(post => post.ApprovedByUserId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<LostFoundPost>()
+            .HasOne(post => post.ClosedByUser)
+            .WithMany()
+            .HasForeignKey(post => post.ClosedByUserId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<LostFoundPost>()
+            .Property(post => post.Title)
+            .HasMaxLength(120);
+
+        builder.Entity<LostFoundPost>()
+            .Property(post => post.Description)
+            .HasMaxLength(2000);
+
+        builder.Entity<LostFoundPost>()
+            .Property(post => post.DogName)
+            .HasMaxLength(80);
+
+        builder.Entity<LostFoundPost>()
+            .Property(post => post.BreedText)
+            .HasMaxLength(120);
+
+        builder.Entity<LostFoundPost>()
+            .Property(post => post.CoatColor)
+            .HasMaxLength(80);
+
+        builder.Entity<LostFoundPost>()
+            .Property(post => post.DistinctiveMarks)
+            .HasMaxLength(500);
+
+        builder.Entity<LostFoundPost>()
+            .Property(post => post.City)
+            .HasMaxLength(80);
+
+        builder.Entity<LostFoundPost>()
+            .Property(post => post.Neighborhood)
+            .HasMaxLength(80);
+
+        builder.Entity<LostFoundPost>()
+            .Property(post => post.AddressOrAreaDescription)
+            .HasMaxLength(250);
+
+        builder.Entity<LostFoundPost>()
+            .Property(post => post.ContactName)
+            .HasMaxLength(120);
+
+        builder.Entity<LostFoundPost>()
+            .Property(post => post.ContactEmail)
+            .HasMaxLength(256);
+
+        builder.Entity<LostFoundPost>()
+            .Property(post => post.ContactPhone)
+            .HasMaxLength(40);
+
+        builder.Entity<LostFoundPost>()
+            .Property(post => post.RejectionReason)
+            .HasMaxLength(500);
+
+        builder.Entity<LostFoundPost>()
+            .Property(post => post.ResolutionNotes)
+            .HasMaxLength(1000);
+
+        builder.Entity<LostFoundPost>()
+            .Property(post => post.CreatedAt)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<LostFoundPost>()
+            .HasIndex(post => post.Status);
+
+        builder.Entity<LostFoundPost>()
+            .HasIndex(post => post.PostType);
+
+        builder.Entity<LostFoundPost>()
+            .HasIndex(post => post.City);
+
+        builder.Entity<LostFoundPost>()
+            .HasIndex(post => post.Neighborhood);
+
+        builder.Entity<LostFoundPost>()
+            .HasIndex(post => post.LastSeenOrFoundDate);
+
+        builder.Entity<LostFoundPost>()
+            .HasIndex(post => post.CreatedByUserId);
+
+        builder.Entity<LostFoundPostImage>()
+            .HasOne(image => image.LostFoundPost)
+            .WithMany(post => post.Images)
+            .HasForeignKey(image => image.LostFoundPostId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<LostFoundPostImage>()
+            .HasOne(image => image.UploadedByUser)
+            .WithMany()
+            .HasForeignKey(image => image.UploadedByUserId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<LostFoundPostImage>()
+            .Property(image => image.ImageUrlOrPath)
+            .HasMaxLength(500);
+
+        builder.Entity<LostFoundPostImage>()
+            .Property(image => image.CreatedAt)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<LostFoundPostImage>()
+            .HasIndex(image => image.LostFoundPostId);
 
         builder.Entity<AdopterProfile>()
             .HasOne(p => p.ApplicationUser)

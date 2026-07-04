@@ -8,8 +8,10 @@
     </div>
 
     <div class="nav-group">
+        <MudText Typo="Typo.caption" Class="px-4 nav-section-label">Explore</MudText>
         <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home">Home</MudNavLink>
         <MudNavLink Href="/dogs" Icon="@Icons.Material.Filled.Pets">Dogs</MudNavLink>
+        <MudNavLink Href="/lost-found" Icon="@Icons.Material.Filled.TravelExplore">Lost & Found</MudNavLink>
         <MudNavLink Href="/shelters" Icon="@Icons.Material.Filled.LocationOn">Shelters</MudNavLink>
         <MudNavLink Href="/success-stories" Icon="@Icons.Material.Filled.EmojiEvents">Success Stories</MudNavLink>
     </div>
@@ -18,13 +20,19 @@
         <div class="nav-group">
             <MudDivider Class="my-3" />
             <MudText Typo="Typo.caption" Class="px-4 nav-section-label">Adopter</MudText>
-            <MudNavLink Href="/adopter/dashboard" Icon="@Icons.Material.Filled.Dashboard">Adopter Dashboard</MudNavLink>
-            <MudNavLink Href="/adopter/profile" Icon="@Icons.Material.Filled.AccountCircle">My Profile</MudNavLink>
-            <MudNavLink Href="/adopter/recommendations" Icon="@Icons.Material.Filled.AutoAwesome">Recommended Dogs</MudNavLink>
-            <MudNavLink Href="/adopter/copilot" Icon="@Icons.Material.Filled.Assistant">Adoption Copilot</MudNavLink>
-            <MudNavLink Href="/dogs" Icon="@Icons.Material.Filled.Search">Browse Dogs</MudNavLink>
-            <MudNavLink Href="/favorites" Icon="@Icons.Material.Filled.Favorite">Favorite Dogs</MudNavLink>
-            <MudNavLink Href="/my-adoption-requests" Icon="@Icons.Material.Filled.Assignment">My Adoption Requests</MudNavLink>
+            <MudNavGroup Title="Overview" Icon="@Icons.Material.Filled.Dashboard" Expanded="true">
+                <MudNavLink Href="/adopter/dashboard" Icon="@Icons.Material.Filled.Dashboard">Dashboard</MudNavLink>
+                <MudNavLink Href="/adopter/profile" Icon="@Icons.Material.Filled.AccountCircle">Profile</MudNavLink>
+                <MudNavLink Href="/notifications" Icon="@Icons.Material.Filled.Notifications">Notifications</MudNavLink>
+            </MudNavGroup>
+            <MudNavGroup Title="Discovery" Icon="@Icons.Material.Filled.Explore" Expanded="true">
+                <MudNavLink Href="/adopter/recommendations" Icon="@Icons.Material.Filled.AutoAwesome">Recommendations</MudNavLink>
+                <MudNavLink Href="/adopter/copilot" Icon="@Icons.Material.Filled.Assistant">Copilot</MudNavLink>
+                <MudNavLink Href="/favorites" Icon="@Icons.Material.Filled.Favorite">Favorites</MudNavLink>
+            </MudNavGroup>
+            <MudNavGroup Title="Adoption" Icon="@Icons.Material.Filled.Assignment" Expanded="true">
+                <MudNavLink Href="/my-adoption-requests" Icon="@Icons.Material.Filled.FactCheck">My Requests</MudNavLink>
+            </MudNavGroup>
         </div>
     </AuthorizeView>
 
@@ -32,15 +40,25 @@
         <div class="nav-group">
             <MudDivider Class="my-3" />
             <MudText Typo="Typo.caption" Class="px-4 nav-section-label">Shelter</MudText>
-            <MudNavLink Href="/shelter/dashboard" Icon="@Icons.Material.Filled.Dashboard">Shelter Dashboard</MudNavLink>
-            <MudNavLink Href="/shelter/assistant" Icon="@Icons.Material.Filled.Assistant">Operations Assistant</MudNavLink>
-            <MudNavLink Href="/shelter/analytics" Icon="@Icons.Material.Filled.QueryStats">Analytics</MudNavLink>
-            <MudNavLink Href="/shelter/dogs" Icon="@Icons.Material.Filled.Edit">Manage Dogs</MudNavLink>
-            <MudNavLink Href="/shelter/availability" Icon="@Icons.Material.Filled.EventAvailable">Visit Availability</MudNavLink>
-            <MudNavLink Href="/shelter/adoption-pipeline" Icon="@Icons.Material.Filled.ViewKanban">Adoption Pipeline</MudNavLink>
-            <MudNavLink Href="/shelter/adoption-requests" Icon="@Icons.Material.Filled.MarkEmailRead">Adoption Requests</MudNavLink>
-            <MudNavLink Href="/shelter/search" Icon="@Icons.Material.Filled.Search">Operational Search</MudNavLink>
-            <MudNavLink Href="/shelter/resources" Icon="@Icons.Material.Filled.Inventory">Resources</MudNavLink>
+            <MudNavGroup Title="Overview" Icon="@Icons.Material.Filled.Dashboard" Expanded="true">
+                <MudNavLink Href="/shelter/dashboard" Icon="@Icons.Material.Filled.Dashboard">Dashboard</MudNavLink>
+                <MudNavLink Href="/shelter/analytics" Icon="@Icons.Material.Filled.QueryStats">Analytics</MudNavLink>
+                <MudNavLink Href="/shelter/assistant" Icon="@Icons.Material.Filled.Assistant">Assistant</MudNavLink>
+            </MudNavGroup>
+            <MudNavGroup Title="Dogs" Icon="@Icons.Material.Filled.Pets" Expanded="true">
+                <MudNavLink Href="/shelter/dogs" Icon="@Icons.Material.Filled.Edit">Manage Dogs</MudNavLink>
+                <MudNavLink Href="/shelter/dogs/create" Icon="@Icons.Material.Filled.AddCircle">Add Dog</MudNavLink>
+                <MudNavLink Href="/shelter/search" Icon="@Icons.Material.Filled.Search">Operational Search</MudNavLink>
+            </MudNavGroup>
+            <MudNavGroup Title="Adoptions" Icon="@Icons.Material.Filled.VolunteerActivism" Expanded="true">
+                <MudNavLink Href="/shelter/adoption-requests" Icon="@Icons.Material.Filled.MarkEmailRead">Requests</MudNavLink>
+                <MudNavLink Href="/shelter/adoption-pipeline" Icon="@Icons.Material.Filled.ViewKanban">Pipeline</MudNavLink>
+                <MudNavLink Href="/shelter/availability" Icon="@Icons.Material.Filled.EventAvailable">Appointments</MudNavLink>
+            </MudNavGroup>
+            <MudNavGroup Title="Operations" Icon="@Icons.Material.Filled.Inventory" Expanded="true">
+                <MudNavLink Href="/shelter/resources" Icon="@Icons.Material.Filled.Inventory">Resources</MudNavLink>
+                <MudNavLink Href="/notifications" Icon="@Icons.Material.Filled.Notifications">Notifications</MudNavLink>
+            </MudNavGroup>
         </div>
     </AuthorizeView>
 
@@ -48,19 +66,30 @@
         <div class="nav-group">
             <MudDivider Class="my-3" />
             <MudText Typo="Typo.caption" Class="px-4 nav-section-label">Admin</MudText>
-            <MudNavLink Href="/admin/dashboard" Icon="@Icons.Material.Filled.AdminPanelSettings">Admin Dashboard</MudNavLink>
-            <MudNavLink Href="/admin/analytics" Icon="@Icons.Material.Filled.Insights">Advanced Analytics</MudNavLink>
-            <MudNavLink Href="/admin/users" Icon="@Icons.Material.Filled.People">Users</MudNavLink>
-            <MudNavLink Href="/admin/shelters" Icon="@Icons.Material.Filled.Business">Shelters</MudNavLink>
-            <MudNavLink Href="/admin/shelter-requests" Icon="@Icons.Material.Filled.MarkEmailUnread">Shelter Requests</MudNavLink>
-            <MudNavLink Href="/admin/dogs" Icon="@Icons.Material.Filled.Pets">Dogs</MudNavLink>
-            <MudNavLink Href="/admin/adoption-requests" Icon="@Icons.Material.Filled.FactCheck">Adoption Requests</MudNavLink>
-            <MudNavLink Href="/admin/search" Icon="@Icons.Material.Filled.Search">Natural-Language Search</MudNavLink>
-            <MudNavLink Href="/admin/copilot-evaluation" Icon="@Icons.Material.Filled.Science">Copilot Evaluation</MudNavLink>
-            <MudNavLink Href="/admin/search-index" Icon="@Icons.Material.Filled.ManageSearch">Search Index</MudNavLink>
-            <MudNavLink Href="/admin/message-reports" Icon="@Icons.Material.Filled.Report">Message Reports</MudNavLink>
-            <MudNavLink Href="/admin/report-history" Icon="@Icons.Material.Filled.Assessment">Report History</MudNavLink>
-            <MudNavLink Href="/admin/audit-logs" Icon="@Icons.Material.Filled.ManageSearch">Audit Logs</MudNavLink>
+            <MudNavGroup Title="Overview" Icon="@Icons.Material.Filled.AdminPanelSettings" Expanded="true">
+                <MudNavLink Href="/admin/dashboard" Icon="@Icons.Material.Filled.Dashboard">Dashboard</MudNavLink>
+                <MudNavLink Href="/admin/analytics" Icon="@Icons.Material.Filled.Insights">Analytics</MudNavLink>
+            </MudNavGroup>
+            <MudNavGroup Title="Management" Icon="@Icons.Material.Filled.ManageAccounts" Expanded="true">
+                <MudNavLink Href="/admin/users" Icon="@Icons.Material.Filled.People">Users</MudNavLink>
+                <MudNavLink Href="/admin/shelters" Icon="@Icons.Material.Filled.Business">Shelters</MudNavLink>
+                <MudNavLink Href="/admin/shelter-requests" Icon="@Icons.Material.Filled.MarkEmailUnread">Shelter Requests</MudNavLink>
+                <MudNavLink Href="/admin/dogs" Icon="@Icons.Material.Filled.Pets">Dogs</MudNavLink>
+                <MudNavLink Href="/admin/adoption-requests" Icon="@Icons.Material.Filled.FactCheck">Adoption Requests</MudNavLink>
+            </MudNavGroup>
+            <MudNavGroup Title="AI & Search" Icon="@Icons.Material.Filled.AutoAwesome" Expanded="true">
+                <MudNavLink Href="/admin/search" Icon="@Icons.Material.Filled.Search">Operational Search</MudNavLink>
+                <MudNavLink Href="/admin/copilot-evaluation" Icon="@Icons.Material.Filled.Science">Copilot Eval</MudNavLink>
+                <MudNavLink Href="/admin/search-index" Icon="@Icons.Material.Filled.ManageSearch">Search Index</MudNavLink>
+            </MudNavGroup>
+            <MudNavGroup Title="Moderation" Icon="@Icons.Material.Filled.Gavel" Expanded="true">
+                <MudNavLink Href="/admin/message-reports" Icon="@Icons.Material.Filled.Report">Message Reports</MudNavLink>
+                <MudNavLink Href="/admin/lost-found" Icon="@Icons.Material.Filled.TravelExplore">Lost & Found</MudNavLink>
+            </MudNavGroup>
+            <MudNavGroup Title="Reports & Logs" Icon="@Icons.Material.Filled.Assessment" Expanded="true">
+                <MudNavLink Href="/admin/report-history" Icon="@Icons.Material.Filled.Assessment">Reports</MudNavLink>
+                <MudNavLink Href="/admin/audit-logs" Icon="@Icons.Material.Filled.ManageSearch">Audit Logs</MudNavLink>
+            </MudNavGroup>
         </div>
     </AuthorizeView>
 </MudNavMenu>

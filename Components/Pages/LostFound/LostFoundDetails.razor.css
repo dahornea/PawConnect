@@ -1,0 +1,55 @@
+.lost-found-details-page {
+    padding-bottom: 2rem;
+}
+
+.lost-found-detail-gallery {
+    padding: 0.8rem;
+    border-radius: 16px;
+}
+
+.lost-found-detail-main-image,
+.lost-found-detail-placeholder {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    border-radius: 12px;
+}
+
+.lost-found-detail-main-image {
+    object-fit: contain;
+    object-position: center center;
+    background: #f5f8f4;
+    display: block;
+}
+
+.lost-found-detail-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 0.4rem;
+    color: #2f7d68;
+    background: linear-gradient(135deg, #eef6f0, #faf6e8);
+}
+
+.lost-found-detail-thumbs {
+    display: flex;
+    gap: 0.6rem;
+    overflow-x: auto;
+    padding-top: 0.75rem;
+}
+
+.lost-found-detail-thumbs img {
+    width: 76px;
+    height: 58px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 2px solid rgba(47, 125, 104, 0.18);
+}
+
+.lost-found-detail-title {
+    line-height: 1.05;
+}
+
+.lost-found-description {
+    line-height: 1.65;
+}

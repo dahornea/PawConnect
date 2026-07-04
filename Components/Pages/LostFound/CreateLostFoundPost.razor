@@ -1,0 +1,164 @@
+@page "/lost-found/create"
+@attribute [Authorize]
+
+<PageTitle>Create Lost & Found Post</PageTitle>
+
+<div class="lost-found-create-page">
+    <MudContainer MaxWidth="MaxWidth.False" Class="px-0">
+        <MudStack Spacing="3">
+            <div class="page-header">
+                <MudText Typo="Typo.h4">Create Lost & Found Post</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Posts are reviewed by an administrator before they appear publicly.</MudText>
+            </div>
+
+            <MudPaper Elevation="0" Class="section-surface pa-4 lost-found-create-card">
+                <MudStack Spacing="3">
+                    @if (!string.IsNullOrWhiteSpace(_error))
+                    {
+                        <MudAlert Severity="Severity.Error">@_error</MudAlert>
+                    }
+
+                    <MudGrid Spacing="2">
+                        <MudItem xs="12" md="3">
+                            <MudSelect T="LostFoundPostType" Label="Post type" @bind-Value="_postType" Variant="Variant.Outlined" Required="true">
+                                <MudSelectItem Value="@LostFoundPostType.Lost">Lost dog</MudSelectItem>
+                                <MudSelectItem Value="@LostFoundPostType.Found">Found dog</MudSelectItem>
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" md="9">
+                            <MudTextField T="string" Label="Title" @bind-Value="_title" Variant="Variant.Outlined" Required="true" MaxLength="@PawConnect.Services.LostFoundPostService.MaxTitleLength" />
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudTextField T="string" Label="Description" @bind-Value="_description" Variant="Variant.Outlined" Lines="5" Required="true" MaxLength="@PawConnect.Services.LostFoundPostService.MaxDescriptionLength" />
+                        </MudItem>
+                    </MudGrid>
+
+                    <MudDivider />
+
+                    <MudText Typo="Typo.h6">Dog details</MudText>
+                    <MudGrid Spacing="2">
+                        <MudItem xs="12" sm="6" md="3">
+                            <MudTextField T="string" Label="Dog name" @bind-Value="_dogName" Variant="Variant.Outlined" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6" md="3">
+                            <MudTextField T="string" Label="Breed or breed mix" @bind-Value="_breedText" Variant="Variant.Outlined" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6" md="3">
+                            <MudSelect T="DogSize?" Label="Size" @bind-Value="_size" Variant="Variant.Outlined" Clearable="true">
+                                @foreach (var size in Enum.GetValues<DogSize>())
+                                {
+                                    <MudSelectItem T="DogSize?" Value="@((DogSize?)size)">@size</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" sm="6" md="3">
+                            <MudTextField T="string" Label="Coat color" @bind-Value="_coatColor" Variant="Variant.Outlined" />
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudTextField T="string" Label="Distinctive marks" @bind-Value="_distinctiveMarks" Variant="Variant.Outlined" Lines="2" />
+                        </MudItem>
+                    </MudGrid>
+
+                    <MudDivider />
+
+                    <MudText Typo="Typo.h6">Location</MudText>
+                    <MudGrid Spacing="2">
+                        <MudItem xs="12" sm="6" md="3">
+                            <MudDatePicker Label="@(_postType == LostFoundPostType.Lost ? "Last seen date" : "Found date")" @bind-Date="_lastSeenOrFoundDate" Variant="Variant.Outlined" Required="true" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6" md="3">
+                            <MudTextField T="string" Label="City" @bind-Value="_city" Variant="Variant.Outlined" Required="true" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6" md="3">
+                            <MudTextField T="string" Label="Neighborhood" @bind-Value="_neighborhood" Variant="Variant.Outlined" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6" md="3">
+                            <MudTextField T="string" Label="Area or address" @bind-Value="_addressOrAreaDescription" Variant="Variant.Outlined" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6" md="3">
+                            <MudNumericField T="double?" Label="Latitude" @bind-Value="_latitude" Variant="Variant.Outlined" Min="-90" Max="90" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6" md="3">
+                            <MudNumericField T="double?" Label="Longitude" @bind-Value="_longitude" Variant="Variant.Outlined" Min="-180" Max="180" />
+                        </MudItem>
+                    </MudGrid>
+
+                    <MudDivider />
+
+                    <MudText Typo="Typo.h6">Contact</MudText>
+                    <MudGrid Spacing="2">
+                        <MudItem xs="12" sm="6" md="4">
+                            <MudTextField T="string" Label="Contact name" @bind-Value="_contactName" Variant="Variant.Outlined" Required="true" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6" md="4">
+                            <MudTextField T="string" Label="Contact email" @bind-Value="_contactEmail" Variant="Variant.Outlined" Required="true" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6" md="4">
+                            <MudTextField T="string" Label="Contact phone" @bind-Value="_contactPhone" Variant="Variant.Outlined" />
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudCheckBox T="bool" @bind-Value="_contactInfoPublic" Color="Color.Primary">
+                                Show my contact email and phone on the public lost and found page.
+                            </MudCheckBox>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">If unchecked, the public page shows only the contact name.</MudText>
+                        </MudItem>
+                    </MudGrid>
+
+                    <MudDivider />
+
+                    <MudText Typo="Typo.h6">Images</MudText>
+                    <MudGrid Spacing="2">
+                        <MudItem xs="12" md="8">
+                            <MudTextField T="string"
+                                          Label="Image URL"
+                                          @bind-Value="_newImageUrl"
+                                          Variant="Variant.Outlined"
+                                          Placeholder="https://example.com/dog-photo.jpg"
+                                          Error="@(!string.IsNullOrWhiteSpace(_imageError))"
+                                          ErrorText="@_imageError" />
+                        </MudItem>
+                        <MudItem xs="12" md="4">
+                            <MudButton Variant="Variant.Outlined"
+                                       Color="Color.Primary"
+                                       StartIcon="@Icons.Material.Filled.AddPhotoAlternate"
+                                       Disabled="@(_images.Count >= PawConnect.Services.LostFoundPostService.MaxImagesPerPost)"
+                                       OnClick="AddImage">
+                                Add image
+                            </MudButton>
+                        </MudItem>
+                    </MudGrid>
+                    @if (_images.Count > 0)
+                    {
+                        <div class="lost-found-create-images">
+                            @for (var index = 0; index < _images.Count; index++)
+                            {
+                                var imageIndex = index;
+                                var image = _images[imageIndex];
+                                <MudPaper Elevation="0" Class="lost-found-create-image">
+                                    <img src="@image.ImageUrlOrPath" alt="@($"Preview image {imageIndex + 1}")" />
+                                    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Class="pa-2">
+                                        <MudChip T="string" Size="Size.Small" Color="@(image.IsMain ? Color.Success : Color.Default)" Variant="Variant.Outlined">@(image.IsMain ? "Main image" : "Image")</MudChip>
+                                        <MudSpacer />
+                                        <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" Disabled="@image.IsMain" OnClick="@(() => SetMainImage(imageIndex))">Set main</MudButton>
+                                        <MudButton Variant="Variant.Text" Color="Color.Error" Size="Size.Small" OnClick="@(() => RemoveImage(imageIndex))">Remove</MudButton>
+                                    </MudStack>
+                                </MudPaper>
+                            }
+                        </div>
+                    }
+
+                    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+                        The post will be saved as pending review. An administrator must approve it before it appears publicly.
+                    </MudAlert>
+
+                    <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2" Class="flex-wrap">
+                        <MudButton Href="/lost-found" Variant="Variant.Text" Color="Color.Default">Cancel</MudButton>
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Send" Disabled="_isSubmitting" OnClick="SubmitAsync">
+                            @(_isSubmitting ? "Submitting..." : "Submit for review")
+                        </MudButton>
+                    </MudStack>
+                </MudStack>
+            </MudPaper>
+        </MudStack>
+    </MudContainer>
+</div>

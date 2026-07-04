@@ -1,0 +1,118 @@
+@page "/lost-found"
+
+<PageTitle>Lost & Found</PageTitle>
+
+<div class="lost-found-page">
+    <MudContainer MaxWidth="MaxWidth.False" Class="px-0">
+        <MudStack Spacing="3">
+            <div class="page-header-row lost-found-header">
+                <div>
+                    <MudText Typo="Typo.h4">Lost & Found</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Browse approved lost and found dog notices in the community.</MudText>
+                </div>
+                <MudButton Href="/lost-found/create"
+                           Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.AddLocationAlt">
+                    Create post
+                </MudButton>
+            </div>
+
+            <MudPaper Elevation="0" Class="section-surface pa-3">
+                <MudGrid Spacing="2">
+                    <MudItem xs="12" md="4">
+                        <MudTextField T="string" Label="Search" @bind-Value="_keyword" Variant="Variant.Outlined" Margin="Margin.Dense" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6" md="2">
+                        <MudSelect T="string" Label="Type" @bind-Value="_postTypeFilter" Variant="Variant.Outlined" Margin="Margin.Dense">
+                            <MudSelectItem T="string" Value="@string.Empty">Lost and found</MudSelectItem>
+                            <MudSelectItem T="string" Value="@LostFoundPostType.Lost.ToString()">Lost dogs</MudSelectItem>
+                            <MudSelectItem T="string" Value="@LostFoundPostType.Found.ToString()">Found dogs</MudSelectItem>
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12" sm="6" md="2">
+                        <MudSelect T="string" Label="Status" @bind-Value="_statusFilter" Variant="Variant.Outlined" Margin="Margin.Dense">
+                            <MudSelectItem T="string" Value="@string.Empty">Open posts</MudSelectItem>
+                            <MudSelectItem T="string" Value="@LostFoundPostStatus.Approved.ToString()">Open</MudSelectItem>
+                            <MudSelectItem T="string" Value="@LostFoundPostStatus.Closed.ToString()">Resolved</MudSelectItem>
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12" sm="6" md="2">
+                        <MudTextField T="string" Label="City" @bind-Value="_cityFilter" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6" md="2">
+                        <MudStack Row="true" Spacing="1" Class="lost-found-filter-actions">
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.FilterAlt" Disabled="_isLoading" OnClick="LoadPostsAsync">Apply</MudButton>
+                            <MudButton Variant="Variant.Text" Color="Color.Default" Disabled="_isLoading" OnClick="ClearFiltersAsync">Clear</MudButton>
+                        </MudStack>
+                    </MudItem>
+                </MudGrid>
+            </MudPaper>
+
+            @if (_isLoading)
+            {
+                <MudStack AlignItems="AlignItems.Center" Class="py-8">
+                    <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Loading lost and found posts...</MudText>
+                </MudStack>
+            }
+            else if (!string.IsNullOrWhiteSpace(_error))
+            {
+                <MudAlert Severity="Severity.Error">@_error</MudAlert>
+            }
+            else if (_posts.Count == 0)
+            {
+                <MudPaper Elevation="0" Class="empty-state pa-5">
+                    <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                        <MudIcon Icon="@Icons.Material.Filled.TravelExplore" Color="Color.Secondary" Size="Size.Large" />
+                        <MudText Typo="Typo.h6">No lost or found posts matched your filters</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Try a broader search or create a new post if you need community help.</MudText>
+                    </MudStack>
+                </MudPaper>
+            }
+            else
+            {
+                <MudGrid Spacing="3">
+                    @foreach (var post in _posts)
+                    {
+                        <MudItem xs="12" sm="6" lg="4">
+                            <MudPaper Elevation="0" Class="lost-found-card">
+                                <a href="@($"/lost-found/{post.Id}")" class="lost-found-card-image" aria-label="@($"Open {post.Title}")">
+                                    @if (string.IsNullOrWhiteSpace(post.MainImageUrl))
+                                    {
+                                        <div class="lost-found-placeholder">
+                                            <MudIcon Icon="@Icons.Material.Filled.Pets" Color="Color.Primary" />
+                                            <MudText Typo="Typo.caption">No photo available</MudText>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <img src="@post.MainImageUrl" alt="@GetImageAlt(post)" loading="lazy" />
+                                    }
+                                    <span class="lost-found-type @post.PostType.ToString().ToLowerInvariant()">@FormatPostType(post.PostType)</span>
+                                </a>
+                                <div class="lost-found-card-body">
+                                    <MudStack Spacing="1">
+                                        <MudStack Row="true" AlignItems="AlignItems.Start">
+                                            <div>
+                                                <MudText Typo="Typo.h6" Class="lost-found-title">@post.Title</MudText>
+                                                <MudText Typo="Typo.caption" Color="Color.Secondary">@BuildSubtitle(post)</MudText>
+                                            </div>
+                                            <MudSpacer />
+                                            <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(post.Status)" Variant="Variant.Filled">@FormatStatus(post.Status)</MudChip>
+                                        </MudStack>
+                                        <MudText Typo="Typo.body2" Class="lost-found-location">@BuildLocation(post)</MudText>
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">@FormatDateLabel(post)</MudText>
+                                    </MudStack>
+                                </div>
+                                <div class="lost-found-card-footer">
+                                    <MudButton Href="@($"/lost-found/{post.Id}")" Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Visibility">View details</MudButton>
+                                </div>
+                            </MudPaper>
+                        </MudItem>
+                    }
+                </MudGrid>
+            }
+        </MudStack>
+    </MudContainer>
+</div>
