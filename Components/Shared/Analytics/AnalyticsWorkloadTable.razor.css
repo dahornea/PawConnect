@@ -1,0 +1,32 @@
+.analytics-empty-state {
+    background: #f8faf7;
+    border: 1px dashed rgba(34, 115, 96, 0.22);
+    border-radius: 8px;
+    color: #61736c;
+    padding: 14px;
+}
+
+.analytics-workload-table {
+    border: 1px solid rgba(34, 115, 96, 0.12);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+::deep th {
+    color: #45635b;
+    font-weight: 700;
+}
+
+::deep td {
+    vertical-align: middle;
+}
+
+::deep .analytics-table-number {
+    text-align: right;
+}
+
+@media (max-width: 600px) {
+    ::deep .analytics-table-number {
+        text-align: left;
+    }
+}

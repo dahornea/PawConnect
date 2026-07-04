@@ -1,0 +1,39 @@
+@namespace PawConnect.Components.Shared.Analytics
+
+<MudStack Spacing="3">
+    <div class="analytics-report-summary">
+        <div><span>Generated</span><strong>@Analytics.ReportsGenerated</strong></div>
+        <div><span>Sent</span><strong>@Analytics.ReportsSent</strong></div>
+        <div><span>Failed</span><strong>@Analytics.FailedReports</strong></div>
+    </div>
+
+    @if (Analytics.ReportsByType.Count == 0)
+    {
+        <div class="analytics-empty-state">No report history in this range.</div>
+    }
+    else
+    {
+        <MudTable Items="Analytics.ReportsByType" Dense="true" Hover="true" Elevation="0" Class="analytics-report-table">
+            <HeaderContent>
+                <MudTh>Report type</MudTh>
+                <MudTh Class="analytics-table-number">Generated</MudTh>
+                <MudTh Class="analytics-table-number">Successful</MudTh>
+                <MudTh Class="analytics-table-number">Failed</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Report type"><strong>@context.ReportType</strong></MudTd>
+                <MudTd DataLabel="Generated" Class="analytics-table-number">@context.Count</MudTd>
+                <MudTd DataLabel="Successful" Class="analytics-table-number">@context.SuccessfulCount</MudTd>
+                <MudTd DataLabel="Failed" Class="analytics-table-number">
+                    <MudChip T="string" Size="Size.Small" Color="@(context.FailedCount > 0 ? Color.Error : Color.Success)" Variant="Variant.Outlined">
+                        @context.FailedCount
+                    </MudChip>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+</MudStack>
+
+@code {
+    [Parameter, EditorRequired] public ReportActivityAnalyticsDto Analytics { get; set; } = default!;
+}

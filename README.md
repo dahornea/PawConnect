@@ -1,5 +1,7 @@
 # PawConnect: A Web Platform for Stray Dog Adoption and Shelter Management
 
+![.NET CI](https://github.com/dahornea/PawConnect/actions/workflows/dotnet-ci.yml/badge.svg)
+
 PawConnect is a beginner-friendly ASP.NET Core Blazor Server skeleton for a stray dog adoption and shelter management system. It is structured for a bachelor thesis project and is ready for future CRUD and workflow implementation.
 
 ## Technologies
@@ -10,6 +12,10 @@ PawConnect is a beginner-friendly ASP.NET Core Blazor Server skeleton for a stra
 - ASP.NET Core Identity with roles
 - MudBlazor
 - Quartz.NET for scheduled background jobs
+
+## Continuous Integration
+
+This repository uses GitHub Actions to automatically restore dependencies, build the solution, and run the automated test suite on pushes and pull requests to `main`.
 
 ## Roles
 

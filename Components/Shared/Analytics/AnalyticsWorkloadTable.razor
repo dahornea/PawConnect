@@ -1,0 +1,55 @@
+@namespace PawConnect.Components.Shared.Analytics
+
+@if (Rows.Count == 0)
+{
+    <div class="analytics-empty-state">No shelter workload data is available for this range.</div>
+}
+else
+{
+    <MudTable Items="Rows" Dense="true" Hover="true" Elevation="0" Class="analytics-workload-table">
+        <HeaderContent>
+            <MudTh>Shelter</MudTh>
+            <MudTh Class="analytics-table-number">Dogs</MudTh>
+            <MudTh Class="analytics-table-number">Requests</MudTh>
+            <MudTh Class="analytics-table-number">Pending</MudTh>
+            <MudTh Class="analytics-table-number">Accepted</MudTh>
+            <MudTh Class="analytics-table-number">Low stock</MudTh>
+            <MudTh Class="analytics-table-number">Avg. pending age</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Shelter">
+                <strong>@context.ShelterName</strong>
+            </MudTd>
+            <MudTd DataLabel="Dogs" Class="analytics-table-number">@context.DogsManaged</MudTd>
+            <MudTd DataLabel="Requests" Class="analytics-table-number">@context.RequestsInRange</MudTd>
+            <MudTd DataLabel="Pending" Class="analytics-table-number">
+                <MudChip T="string" Size="Size.Small" Color="@(context.PendingRequests > 0 ? Color.Warning : Color.Default)" Variant="Variant.Outlined">
+                    @context.PendingRequests
+                </MudChip>
+            </MudTd>
+            <MudTd DataLabel="Accepted" Class="analytics-table-number">@context.AcceptedRequests</MudTd>
+            <MudTd DataLabel="Low stock" Class="analytics-table-number">
+                <MudChip T="string" Size="Size.Small" Color="@(context.LowStockResources > 0 ? Color.Warning : Color.Success)" Variant="Variant.Outlined">
+                    @context.LowStockResources
+                </MudChip>
+            </MudTd>
+            <MudTd DataLabel="Avg. pending age" Class="analytics-table-number">@FormatHours(context.AveragePendingAgeHours)</MudTd>
+        </RowTemplate>
+    </MudTable>
+}
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<ShelterWorkloadDto> Rows { get; set; } = [];
+
+    private static string FormatHours(double? hours)
+    {
+        if (!hours.HasValue)
+        {
+            return "No data";
+        }
+
+        return hours.Value < 24
+            ? $"{hours.Value:0.#}h"
+            : $"{hours.Value / 24:0.#}d";
+    }
+}

@@ -1,0 +1,81 @@
+.analytics-funnel-list {
+    display: grid;
+    gap: 12px;
+}
+
+.analytics-funnel-row {
+    background: #f8faf7;
+    border: 1px solid rgba(34, 115, 96, 0.1);
+    border-radius: 8px;
+    display: grid;
+    gap: 12px;
+    grid-template-columns: minmax(140px, 0.75fr) 1fr;
+    padding: 12px;
+}
+
+.analytics-funnel-meta {
+    align-items: center;
+    display: flex;
+    gap: 12px;
+    justify-content: space-between;
+}
+
+.analytics-funnel-label {
+    color: #334f48;
+    font-weight: 650;
+}
+
+.analytics-funnel-count {
+    color: #12302b;
+    font-weight: 800;
+}
+
+.analytics-funnel-progress {
+    align-items: center;
+    display: grid;
+    gap: 10px;
+    grid-template-columns: 1fr 52px;
+}
+
+.analytics-funnel-percent {
+    color: #61736c;
+    text-align: right;
+}
+
+.analytics-chip-row,
+.analytics-time-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.analytics-time-card {
+    background: #f5f8f4;
+    border: 1px solid rgba(34, 115, 96, 0.12);
+    border-radius: 8px;
+    min-width: 160px;
+    padding: 12px 14px;
+}
+
+.analytics-time-card span {
+    color: #61736c;
+    display: block;
+    font-size: 0.82rem;
+    margin-bottom: 3px;
+}
+
+.analytics-time-card strong {
+    color: #12302b;
+    font-size: 1.1rem;
+}
+
+@media (max-width: 720px) {
+    .analytics-funnel-row,
+    .analytics-funnel-progress {
+        grid-template-columns: 1fr;
+    }
+
+    .analytics-funnel-percent {
+        text-align: left;
+    }
+}

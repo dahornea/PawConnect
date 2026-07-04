@@ -1,0 +1,24 @@
+.analytics-workload-summary {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.analytics-workload-summary div {
+    background: #f8faf7;
+    border: 1px solid rgba(34, 115, 96, 0.12);
+    border-radius: 8px;
+    padding: 12px 14px;
+}
+
+.analytics-workload-summary span {
+    color: #61736c;
+    display: block;
+    font-size: 0.82rem;
+    margin-bottom: 4px;
+}
+
+.analytics-workload-summary strong {
+    color: #12302b;
+    font-size: 1.16rem;
+}

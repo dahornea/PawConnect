@@ -1,0 +1,185 @@
+@page "/shelter/search"
+@attribute [Authorize(Roles = "Shelter")]
+
+<PageTitle>Operational Search</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.False" Class="px-0">
+    <MudStack Spacing="3">
+        <div class="page-header">
+            <MudText Typo="Typo.h4">Operational Search</MudText>
+            <MudText Typo="Typo.body2">Search your shelter data using plain language. PawConnect validates and searches only records from your shelter.</MudText>
+        </div>
+
+        <MudPaper Elevation="0" Class="section-surface pa-4">
+            <MudStack Spacing="2">
+                <MudTextField T="string"
+                              Label="What do you want to find?"
+                              Placeholder="For example: my pending requests"
+                              @bind-Value="_query"
+                              Lines="3"
+                              Variant="Variant.Outlined"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Search" />
+
+                <MudStack Row="true" Spacing="1" Class="flex-wrap">
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Search"
+                               Disabled="_isSearching"
+                               OnClick="SearchAsync">
+                        Search
+                    </MudButton>
+                    <MudButton Variant="Variant.Text" Color="Color.Default" Disabled="_isSearching" OnClick="ClearAsync">
+                        Clear
+                    </MudButton>
+                </MudStack>
+
+                <MudStack Row="true" Spacing="1" Class="flex-wrap">
+                    @foreach (var example in ExampleQueries)
+                    {
+                        <MudButton Size="Size.Small"
+                                   Variant="Variant.Outlined"
+                                   Color="Color.Primary"
+                                   Disabled="_isSearching"
+                                   OnClick="@(() => UseExampleAsync(example))">
+                            @example
+                        </MudButton>
+                    }
+                </MudStack>
+            </MudStack>
+        </MudPaper>
+
+        @if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <MudAlert Severity="Severity.Error" Variant="Variant.Outlined">@_error</MudAlert>
+        }
+
+        @if (_isSearching)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="py-8">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Interpreting and searching your shelter records...</MudText>
+            </MudStack>
+        }
+        else if (_result is not null)
+        {
+            <MudPaper Elevation="0" Class="section-surface pa-4">
+                <MudStack Spacing="2">
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start" Class="flex-wrap">
+                        <div>
+                            <MudText Typo="Typo.h6">Interpreted search</MudText>
+                            <MudText Typo="Typo.body2">@_result.Interpretation.Explanation</MudText>
+                            @if (!string.IsNullOrWhiteSpace(_result.Interpretation.FallbackReason))
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Fallback note: @_result.Interpretation.FallbackReason</MudText>
+                            }
+                        </div>
+                        <MudChip T="string" Size="Size.Small" Color="@(_result.Interpretation.UsedAi ? Color.Info : Color.Success)" Variant="Variant.Outlined">
+                            @(_result.Interpretation.UsedAi ? "AI interpreted" : "Deterministic interpretation")
+                        </MudChip>
+                    </MudStack>
+
+                    <MudStack Row="true" Spacing="1" Class="flex-wrap">
+                        @foreach (var chip in GetInterpretationChips(_result.Interpretation))
+                        {
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary">@chip</MudChip>
+                        }
+                    </MudStack>
+
+                    @if (_result.Interpretation.Warnings.Count > 0)
+                    {
+                        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Dense="true">
+                            @string.Join(" ", _result.Interpretation.Warnings)
+                        </MudAlert>
+                    }
+
+                    @if (_result.Interpretation.NeedsClarification)
+                    {
+                        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true">
+                            @_result.Message
+                        </MudAlert>
+                    }
+                </MudStack>
+            </MudPaper>
+
+            @if (_result.Items.Count == 0 && !_result.Interpretation.NeedsClarification)
+            {
+                <MudPaper Elevation="0" Class="empty-state pa-5">
+                    <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                        <MudIcon Icon="@Icons.Material.Filled.SearchOff" Color="Color.Secondary" Size="Size.Large" />
+                        <MudText Typo="Typo.h6">No matching shelter records found.</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">@_result.Message</MudText>
+                    </MudStack>
+                </MudPaper>
+            }
+            else if (_result.Items.Count > 0)
+            {
+                <MudText Typo="Typo.subtitle1">@_result.Message</MudText>
+                <MudGrid Spacing="2">
+                    @foreach (var item in _result.Items)
+                    {
+                        <MudItem xs="12" md="6" xl="4">
+                            <MudCard Elevation="0" Class="section-surface h-100">
+                                <MudCardContent>
+                                    <MudStack Spacing="2">
+                                        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start" Class="flex-wrap">
+                                            <div>
+                                                <MudText Typo="Typo.caption" Color="Color.Secondary">@item.Type</MudText>
+                                                <MudText Typo="Typo.h6">@item.Title</MudText>
+                                                @if (!string.IsNullOrWhiteSpace(item.Subtitle))
+                                                {
+                                                    <MudText Typo="Typo.body2" Color="Color.Secondary">@item.Subtitle</MudText>
+                                                }
+                                            </div>
+                                            @if (!string.IsNullOrWhiteSpace(item.Status))
+                                            {
+                                                <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(item.Status)" Variant="Variant.Outlined">@item.Status</MudChip>
+                                            }
+                                        </MudStack>
+
+                                        @if (!string.IsNullOrWhiteSpace(item.Description))
+                                        {
+                                            <MudText Typo="Typo.body2">@item.Description</MudText>
+                                        }
+
+                                        <MudStack Row="true" Spacing="1" Class="flex-wrap">
+                                            @foreach (var chip in item.Chips)
+                                            {
+                                                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default">@chip</MudChip>
+                                            }
+                                        </MudStack>
+
+                                        @if (item.Metadata.Count > 0)
+                                        {
+                                            <MudDivider />
+                                            <MudGrid Spacing="1">
+                                                @foreach (var metadata in item.Metadata)
+                                                {
+                                                    <MudItem xs="12" sm="6">
+                                                        <MudText Typo="Typo.caption" Color="Color.Secondary">@metadata.Key</MudText>
+                                                        <MudText Typo="Typo.body2">@metadata.Value</MudText>
+                                                    </MudItem>
+                                                }
+                                            </MudGrid>
+                                        }
+                                    </MudStack>
+                                </MudCardContent>
+                                @if (!string.IsNullOrWhiteSpace(item.Link))
+                                {
+                                    <MudCardActions>
+                                        <MudButton Href="@item.Link"
+                                                   Variant="Variant.Text"
+                                                   Color="Color.Primary"
+                                                   StartIcon="@Icons.Material.Filled.OpenInNew">
+                                            Open related page
+                                        </MudButton>
+                                    </MudCardActions>
+                                }
+                            </MudCard>
+                        </MudItem>
+                    }
+                </MudGrid>
+            }
+        }
+    </MudStack>
+</MudContainer>

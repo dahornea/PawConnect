@@ -1,0 +1,52 @@
+@namespace PawConnect.Components.Shared.Analytics
+
+@if (Analytics is null)
+{
+    <div class="analytics-empty-state">No Copilot data available yet.</div>
+}
+else
+{
+    <MudStack Spacing="3">
+        <div class="analytics-copilot-summary">
+            <div><span>Sessions</span><strong>@Analytics.Sessions</strong></div>
+            <div><span>AI-enhanced</span><strong>@Analytics.AiEnhancedSessions</strong></div>
+            <div><span>Fallback</span><strong>@Analytics.FallbackSessions</strong></div>
+            <div><span>Semantic</span><strong>@Analytics.SemanticSearchSessions</strong></div>
+            <div><span>Tool calls</span><strong>@Analytics.ToolCallingSessions</strong></div>
+            <div><span>Avg. results</span><strong>@Analytics.AverageResultCount.ToString("0.#")</strong></div>
+        </div>
+
+        <MudGrid>
+            <MudItem xs="12" md="7">
+                <MudText Typo="Typo.subtitle2" Class="analytics-subtitle">Intent breakdown</MudText>
+                @if (Analytics.TopIntents.Count == 0)
+                {
+                    <div class="analytics-empty-state compact">No intent data in this range.</div>
+                }
+                else
+                {
+                    <div class="analytics-intent-list">
+                        @foreach (var intent in Analytics.TopIntents)
+                        {
+                            <div>
+                                <span>@intent.Intent</span>
+                                <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined">@intent.Count sessions</MudChip>
+                            </div>
+                        }
+                    </div>
+                }
+            </MudItem>
+            <MudItem xs="12" md="5">
+                <MudText Typo="Typo.subtitle2" Class="analytics-subtitle">Feedback</MudText>
+                <div class="analytics-feedback-grid">
+                    <div><span>Positive</span><strong>@Analytics.PositiveFeedback</strong></div>
+                    <div><span>Negative / missing info</span><strong>@Analytics.NegativeFeedback</strong></div>
+                </div>
+            </MudItem>
+        </MudGrid>
+    </MudStack>
+}
+
+@code {
+    [Parameter] public CopilotAnalyticsDto? Analytics { get; set; }
+}

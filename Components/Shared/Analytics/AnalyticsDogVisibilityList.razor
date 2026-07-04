@@ -1,0 +1,59 @@
+@namespace PawConnect.Components.Shared.Analytics
+
+@if (Rows.Count == 0)
+{
+    <div class="analytics-empty-state">@EmptyText</div>
+}
+else
+{
+    <div class="analytics-dog-list">
+        @foreach (var row in Rows)
+        {
+            <article class="analytics-dog-item">
+                <header>
+                    <div>
+                        <MudText Typo="Typo.subtitle2" Class="analytics-dog-name">@row.DogName</MudText>
+                        @if (ShowShelter)
+                        {
+                            <MudText Typo="Typo.caption" Class="analytics-dog-shelter">@row.ShelterName</MudText>
+                        }
+                    </div>
+                    <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(row.Status)" Variant="Variant.Outlined">@FormatStatus(row.Status)</MudChip>
+                </header>
+                <div class="analytics-dog-counters">
+                    <span><strong>@row.RecentViewActivity</strong> views</span>
+                    <span><strong>@row.Favorites</strong> favorites</span>
+                    <span><strong>@row.AdoptionRequests</strong> requests</span>
+                </div>
+                <MudText Typo="Typo.body2" Class="analytics-dog-insight">@row.Insight</MudText>
+            </article>
+        }
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<DogVisibilityDto> Rows { get; set; } = [];
+    [Parameter] public string EmptyText { get; set; } = "No dog visibility data in this range.";
+    [Parameter] public bool ShowShelter { get; set; } = true;
+
+    private static Color GetStatusColor(DogStatus status)
+    {
+        return status switch
+        {
+            DogStatus.Available => Color.Success,
+            DogStatus.Reserved => Color.Warning,
+            DogStatus.Adopted => Color.Info,
+            DogStatus.InTreatment => Color.Error,
+            _ => Color.Default
+        };
+    }
+
+    private static string FormatStatus(DogStatus status)
+    {
+        return status switch
+        {
+            DogStatus.InTreatment => "In treatment",
+            _ => status.ToString()
+        };
+    }
+}

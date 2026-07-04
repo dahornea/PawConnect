@@ -1,0 +1,51 @@
+@namespace PawConnect.Components.Shared.Analytics
+
+<MudCard Elevation="0" Class="@($"analytics-metric-card {ToneClass}")">
+    <MudCardContent Class="analytics-metric-content">
+        <MudStack Spacing="1">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="analytics-metric-header">
+                <MudText Typo="Typo.caption" Class="analytics-metric-label">@Card.Label</MudText>
+                <MudSpacer />
+                <MudChip T="string" Size="Size.Small" Color="@ToneColor" Variant="Variant.Outlined">@ToneText</MudChip>
+            </MudStack>
+            <MudText Typo="Typo.h4" Class="analytics-metric-value">@FormatValue(Card.Value)</MudText>
+            <MudText Typo="Typo.body2" Class="analytics-metric-helper">@Card.HelperText</MudText>
+        </MudStack>
+    </MudCardContent>
+</MudCard>
+
+@code {
+    [Parameter, EditorRequired] public AnalyticsSummaryCardDto Card { get; set; } = default!;
+
+    private string ToneClass => Card.Tone switch
+    {
+        "success" => "tone-success",
+        "warning" => "tone-warning",
+        "info" => "tone-info",
+        "primary" => "tone-primary",
+        _ => "tone-default"
+    };
+
+    private Color ToneColor => Card.Tone switch
+    {
+        "success" => Color.Success,
+        "warning" => Color.Warning,
+        "info" => Color.Info,
+        "primary" => Color.Primary,
+        _ => Color.Default
+    };
+
+    private string ToneText => Card.Tone switch
+    {
+        "success" => "Healthy",
+        "warning" => "Watch",
+        "info" => "Info",
+        "primary" => "Key",
+        _ => "Metric"
+    };
+
+    private static string FormatValue(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? "-" : value.Trim();
+    }
+}

@@ -1,0 +1,252 @@
+@page "/admin/search-index"
+@attribute [Authorize(Roles = "Admin")]
+
+<PageTitle>Search Index</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.False" Class="px-0">
+    <MudStack Spacing="3">
+        <div class="page-header">
+            <MudText Typo="Typo.h4">Semantic Search Index</MudText>
+            <MudText Typo="Typo.body2">Monitor dog search embeddings used by Adoption Copilot semantic search.</MudText>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <MudAlert Severity="Severity.Error" Variant="Variant.Outlined">@_error</MudAlert>
+        }
+
+        @if (_summary is not null)
+        {
+            <MudGrid Spacing="2">
+                <MudItem xs="12" sm="6" md="2">
+                    <MudPaper Elevation="0" Class="section-surface pa-3">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Total dogs</MudText>
+                        <MudText Typo="Typo.h5">@_summary.TotalDogs</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="2">
+                    <MudPaper Elevation="0" Class="section-surface pa-3">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Public-safe</MudText>
+                        <MudText Typo="Typo.h5">@_summary.PublicSafeDogs</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="2">
+                    <MudPaper Elevation="0" Class="section-surface pa-3">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Up to date</MudText>
+                        <MudText Typo="Typo.h5">@_summary.UpToDateCount</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="2">
+                    <MudPaper Elevation="0" Class="section-surface pa-3">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Missing</MudText>
+                        <MudText Typo="Typo.h5">@_summary.MissingCount</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="2">
+                    <MudPaper Elevation="0" Class="section-surface pa-3">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Stale</MudText>
+                        <MudText Typo="Typo.h5">@_summary.StaleCount</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="2">
+                    <MudPaper Elevation="0" Class="section-surface pa-3">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Failed</MudText>
+                        <MudText Typo="Typo.h5">@_summary.FailedCount</MudText>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+
+            <MudPaper Elevation="0" Class="section-surface pa-3">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Spacing="2" Class="flex-wrap">
+                    <MudStack Spacing="1">
+                        <MudText Typo="Typo.subtitle2">Embedding configuration</MudText>
+                        <MudStack Row="true" Spacing="1" Class="flex-wrap">
+                            <MudChip T="string" Size="Size.Small" Color="@(_summary.EmbeddingsConfigured ? Color.Success : Color.Warning)" Variant="Variant.Outlined">
+                                @(_summary.EmbeddingsConfigured ? "OpenAI embeddings configured" : "OpenAI embeddings unavailable")
+                            </MudChip>
+                            <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
+                                Model: @_summary.EmbeddingModel
+                            </MudChip>
+                            <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined">
+                                Keyword/rule fallback available
+                            </MudChip>
+                        </MudStack>
+                    </MudStack>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        Last embedded: @FormatDate(_summary.LastFullRebuildAt)
+                    </MudText>
+                </MudStack>
+            </MudPaper>
+
+            @if (!_summary.EmbeddingsConfigured)
+            {
+                <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">
+                    Embedding rebuilds are disabled because OpenAI embeddings are not configured. Copilot can still use keyword and rule-based fallback search.
+                </MudAlert>
+            }
+        }
+
+        <MudPaper Elevation="0" Class="section-surface pa-3">
+            <MudGrid Spacing="2">
+                <MudItem xs="12" md="4">
+                    <MudTextField T="string"
+                                  Label="Search dog or shelter"
+                                  @bind-Value="_searchTerm"
+                                  Immediate="true"
+                                  Variant="Variant.Outlined"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Search"
+                                  OnKeyUp="ApplyFiltersAsync" />
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudSelect T="string"
+                               Label="Lifecycle status"
+                               Value="_statusFilter"
+                               ValueChanged="OnStatusFilterChanged"
+                               Variant="Variant.Outlined"
+                               Dense="true">
+                        <MudSelectItem Value="@AllStatusesValue">All statuses</MudSelectItem>
+                        @foreach (var status in _statusOptions)
+                        {
+                            <MudSelectItem Value="@status.ToString()">@FormatStatus(status)</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="2">
+                    <MudCheckBox T="bool"
+                                 Label="Public-safe only"
+                                 Value="_publicSafeOnly"
+                                 ValueChanged="OnPublicSafeOnlyChanged"
+                                 Color="Color.Primary" />
+                </MudItem>
+                <MudItem xs="12" md="3">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.FlexEnd" Spacing="1" Class="flex-wrap">
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Refresh"
+                                   Disabled="@(_isLoading || _isRebuilding)"
+                                   OnClick="LoadAsync">
+                            Refresh
+                        </MudButton>
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Sync"
+                                   Disabled="@(!CanRebuild)"
+                                   OnClick="RebuildMissingAsync">
+                            Missing
+                        </MudButton>
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="Color.Warning"
+                                   StartIcon="@Icons.Material.Filled.Update"
+                                   Disabled="@(!CanRebuild)"
+                                   OnClick="RebuildStaleAsync">
+                            Stale
+                        </MudButton>
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.ManageSearch"
+                                   Disabled="@(!CanRebuild)"
+                                   OnClick="ConfirmRebuildAllAsync">
+                            Rebuild All
+                        </MudButton>
+                    </MudStack>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+
+        @if (_isLoading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="py-8">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Loading search index status...</MudText>
+            </MudStack>
+        }
+        else
+        {
+            @if (_isRebuilding)
+            {
+                <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="mb-2" />
+            }
+
+            <MudTable Items="_statuses" Dense="true" Hover="true" Class="table-shell" Breakpoint="Breakpoint.Sm">
+                <HeaderContent>
+                    <MudTh>Dog</MudTh>
+                    <MudTh>Status</MudTh>
+                    <MudTh>Shelter</MudTh>
+                    <MudTh>Index state</MudTh>
+                    <MudTh>Last embedded</MudTh>
+                    <MudTh>Model</MudTh>
+                    <MudTh>Hash</MudTh>
+                    <MudTh>Doc</MudTh>
+                    <MudTh>Actions</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Dog">
+                        <MudStack Spacing="0">
+                            <MudText Typo="Typo.body2">@context.DogName</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">#@context.DogId</MudText>
+                        </MudStack>
+                    </MudTd>
+                    <MudTd DataLabel="Status">
+                        <MudChip T="string" Size="Size.Small" Color="@GetDogStatusColor(context.DogStatus)">
+                            @context.DogStatus
+                        </MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Shelter">@context.ShelterName</MudTd>
+                    <MudTd DataLabel="Index state">
+                        <MudTooltip Text="@context.StatusReason">
+                            <MudChip T="string" Size="Size.Small" Color="@GetLifecycleColor(context.LifecycleStatus)" Variant="Variant.Outlined">
+                                @FormatStatus(context.LifecycleStatus)
+                            </MudChip>
+                        </MudTooltip>
+                    </MudTd>
+                    <MudTd DataLabel="Last embedded">@FormatDate(context.LastEmbeddedAt)</MudTd>
+                    <MudTd DataLabel="Model">
+                        @(string.IsNullOrWhiteSpace(context.EmbeddingModel) ? "-" : context.EmbeddingModel)
+                    </MudTd>
+                    <MudTd DataLabel="Hash">
+                        <MudStack Row="true" Spacing="1" Class="flex-wrap">
+                            <MudChip T="string" Size="Size.Small" Color="@(context.ContentHashMatches ? Color.Success : Color.Warning)" Variant="Variant.Outlined">
+                                @(context.ContentHashMatches ? "Match" : "Changed")
+                            </MudChip>
+                            <MudChip T="string" Size="Size.Small" Color="@(context.EmbeddingModelMatches ? Color.Success : Color.Warning)" Variant="Variant.Outlined">
+                                @(context.EmbeddingModelMatches ? "Model OK" : "Model stale")
+                            </MudChip>
+                        </MudStack>
+                    </MudTd>
+                    <MudTd DataLabel="Doc">@context.DocumentLength</MudTd>
+                    <MudTd DataLabel="Actions">
+                        <MudStack Row="true" Spacing="1">
+                            <MudTooltip Text="Preview public-safe search document">
+                                <MudIconButton Icon="@Icons.Material.Filled.Article"
+                                               Color="Color.Primary"
+                                               Size="Size.Small"
+                                               Disabled="@(!context.IsPublicSafe)"
+                                               OnClick="@(() => PreviewAsync(context))" />
+                            </MudTooltip>
+                            <MudTooltip Text="Rebuild this embedding">
+                                <MudIconButton Icon="@Icons.Material.Filled.Sync"
+                                               Color="Color.Primary"
+                                               Size="Size.Small"
+                                               Disabled="@(!CanRebuild || !context.IsPublicSafe || context.LifecycleStatus == EmbeddingLifecycleStatus.UpToDate)"
+                                               OnClick="@(() => RebuildDogAsync(context))" />
+                            </MudTooltip>
+                            <MudTooltip Text="Open public dog details">
+                                <MudIconButton Icon="@Icons.Material.Filled.OpenInNew"
+                                               Color="Color.Default"
+                                               Size="Size.Small"
+                                               OnClick="@(() => OpenDog(context.DogId))" />
+                            </MudTooltip>
+                        </MudStack>
+                    </MudTd>
+                </RowTemplate>
+                <NoRecordsContent>
+                    <MudStack AlignItems="AlignItems.Center" Class="py-6">
+                        <MudIcon Icon="@Icons.Material.Filled.ManageSearch" Color="Color.Secondary" />
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">No dogs match the current filters.</MudText>
+                    </MudStack>
+                </NoRecordsContent>
+            </MudTable>
+        }
+    </MudStack>
+</MudContainer>

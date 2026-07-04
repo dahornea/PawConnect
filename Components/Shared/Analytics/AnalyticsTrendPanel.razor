@@ -1,0 +1,57 @@
+@namespace PawConnect.Components.Shared.Analytics
+
+@if (Points.Count == 0 || Points.All(point => Total(point) == 0))
+{
+    <div class="analytics-empty-state">No request activity in this range.</div>
+}
+else
+{
+    <MudStack Spacing="3">
+        <div class="analytics-trend-legend">
+            <span class="submitted">Submitted</span>
+            <span class="confirmed">Visit confirmed</span>
+            <span class="accepted">Accepted</span>
+            <span class="closed">Rejected/cancelled</span>
+        </div>
+        <div class="analytics-trend-list">
+            @foreach (var point in Points)
+            {
+                <div class="analytics-trend-row">
+                    <MudText Typo="Typo.caption" Class="analytics-trend-label">@point.Label</MudText>
+                    <div class="analytics-trend-stack" aria-label="Request trend for @point.Label">
+                        @RenderSegment(point.SubmittedRequests, "submitted", "Submitted")
+                        @RenderSegment(point.VisitConfirmedRequests, "confirmed", "Visit confirmed")
+                        @RenderSegment(point.AcceptedRequests, "accepted", "Accepted")
+                        @RenderSegment(point.RejectedOrCancelledRequests, "closed", "Rejected/cancelled")
+                    </div>
+                    <MudText Typo="Typo.caption" Class="analytics-trend-total">@Total(point)</MudText>
+                </div>
+            }
+        </div>
+    </MudStack>
+}
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<AdoptionTrendPointDto> Points { get; set; } = [];
+
+    private int Max => Math.Max(1, Points.Max(Total));
+
+    private RenderFragment RenderSegment(int value, string cssClass, string title) => builder =>
+    {
+        if (value <= 0)
+        {
+            return;
+        }
+
+        builder.OpenElement(0, "span");
+        builder.AddAttribute(1, "class", $"analytics-trend-segment {cssClass}");
+        builder.AddAttribute(2, "style", $"width:{Math.Clamp(value * 100.0 / Max, 0, 100):0.#}%");
+        builder.AddAttribute(3, "title", $"{title}: {value}");
+        builder.CloseElement();
+    };
+
+    private static int Total(AdoptionTrendPointDto point)
+    {
+        return point.SubmittedRequests + point.VisitConfirmedRequests + point.AcceptedRequests + point.RejectedOrCancelledRequests;
+    }
+}

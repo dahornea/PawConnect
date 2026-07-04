@@ -80,10 +80,12 @@ builder.Services.AddScoped<IBrowserFileDownloadService, BrowserFileDownloadServi
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IReportHistoryService, ReportHistoryService>();
+builder.Services.AddScoped<IAnalyticsService, AnalyticsService>();
 builder.Services.AddScoped<IVisitReminderService, VisitReminderService>();
 builder.Services.AddScoped<IDogRecommendationService, DogRecommendationService>();
 builder.Services.AddScoped<IDogSearchDocumentService, DogSearchDocumentService>();
 builder.Services.AddScoped<IDogSearchEmbeddingService, DogSearchEmbeddingService>();
+builder.Services.AddScoped<ISearchIndexDashboardService, SearchIndexDashboardService>();
 builder.Services.AddScoped<ISemanticDogSearchService, SemanticDogSearchService>();
 builder.Services.AddScoped<IAdoptionCopilotToolService, AdoptionCopilotToolService>();
 builder.Services.AddScoped<ICopilotHistoryService, CopilotHistoryService>();
@@ -93,6 +95,9 @@ builder.Services.AddScoped<ICopilotCriteriaComparisonService, CopilotCriteriaCom
 builder.Services.AddScoped<ICopilotEvaluationService, CopilotEvaluationService>();
 builder.Services.AddScoped<ICopilotStateService, CopilotStateService>();
 builder.Services.AddScoped<IDogProfileQualityService, DogProfileQualityService>();
+builder.Services.AddScoped<IAiReportSummaryService, AiReportSummaryService>();
+builder.Services.AddScoped<INaturalLanguageSearchService, NaturalLanguageSearchService>();
+builder.Services.AddScoped<IShelterOperationsAssistantService, ShelterOperationsAssistantService>();
 builder.Services.AddScoped<IConversationService, ConversationService>();
 builder.Services.AddScoped<IMessageService, MessageService>();
 builder.Services.AddScoped<IMessageReportService, MessageReportService>();
@@ -126,6 +131,18 @@ builder.Services.AddHttpClient<IOpenAiAdoptionCopilotClient, OpenAiAdoptionCopil
     client.BaseAddress = new Uri("https://api.openai.com/");
 });
 builder.Services.AddHttpClient<IOpenAiDogProfileQualityClient, OpenAiDogProfileQualityClient>(client =>
+{
+    client.BaseAddress = new Uri("https://api.openai.com/");
+});
+builder.Services.AddHttpClient<IOpenAiReportSummaryClient, OpenAiReportSummaryClient>(client =>
+{
+    client.BaseAddress = new Uri("https://api.openai.com/");
+});
+builder.Services.AddHttpClient<IOpenAiNaturalLanguageSearchClient, OpenAiNaturalLanguageSearchClient>(client =>
+{
+    client.BaseAddress = new Uri("https://api.openai.com/");
+});
+builder.Services.AddHttpClient<IOpenAiShelterOperationsAssistantClient, OpenAiShelterOperationsAssistantClient>(client =>
 {
     client.BaseAddress = new Uri("https://api.openai.com/");
 });
