@@ -1,0 +1,92 @@
+.analytics-empty-state {
+    background: #f8faf7;
+    border: 1px dashed rgba(34, 115, 96, 0.22);
+    border-radius: 8px;
+    color: #61736c;
+    padding: 14px;
+}
+
+.analytics-trend-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+}
+
+.analytics-trend-legend span {
+    align-items: center;
+    color: #5a706b;
+    display: inline-flex;
+    font-size: 0.82rem;
+    gap: 6px;
+}
+
+.analytics-trend-legend span::before {
+    border-radius: 50%;
+    content: "";
+    height: 8px;
+    width: 8px;
+}
+
+.analytics-trend-legend .submitted::before,
+.analytics-trend-segment.submitted {
+    background: #2f7d67;
+}
+
+.analytics-trend-legend .confirmed::before,
+.analytics-trend-segment.confirmed {
+    background: #2a6f97;
+}
+
+.analytics-trend-legend .accepted::before,
+.analytics-trend-segment.accepted {
+    background: #238636;
+}
+
+.analytics-trend-legend .closed::before,
+.analytics-trend-segment.closed {
+    background: #d98422;
+}
+
+.analytics-trend-list {
+    display: grid;
+    gap: 10px;
+}
+
+.analytics-trend-row {
+    align-items: center;
+    display: grid;
+    gap: 12px;
+    grid-template-columns: 88px 1fr 36px;
+}
+
+.analytics-trend-label,
+.analytics-trend-total {
+    color: #61736c;
+}
+
+.analytics-trend-total {
+    text-align: right;
+}
+
+.analytics-trend-stack {
+    background: #edf4ef;
+    border-radius: 999px;
+    display: flex;
+    height: 14px;
+    overflow: hidden;
+}
+
+.analytics-trend-segment {
+    min-width: 3px;
+}
+
+@media (max-width: 640px) {
+    .analytics-trend-row {
+        grid-template-columns: 1fr 36px;
+    }
+
+    .analytics-trend-stack {
+        grid-column: 1 / -1;
+        grid-row: 2;
+    }
+}

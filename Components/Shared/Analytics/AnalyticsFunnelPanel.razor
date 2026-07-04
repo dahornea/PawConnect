@@ -1,0 +1,80 @@
+@namespace PawConnect.Components.Shared.Analytics
+
+<MudStack Spacing="3">
+    <div class="analytics-funnel-list">
+        @foreach (var row in Rows)
+        {
+            <div class="analytics-funnel-row">
+                <div class="analytics-funnel-meta">
+                    <MudText Typo="Typo.body2" Class="analytics-funnel-label">@row.Label</MudText>
+                    <MudText Typo="Typo.subtitle2" Class="analytics-funnel-count">@row.Count</MudText>
+                </div>
+                <div class="analytics-funnel-progress">
+                    <MudProgressLinear Value="@row.Percent" Color="@row.Color" Rounded="true" Size="Size.Small" />
+                    <MudText Typo="Typo.caption" Class="analytics-funnel-percent">@FormatPercentage(row.Percent)</MudText>
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="analytics-chip-row">
+        <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Outlined">Conversion: @FormatPercentage(Funnel.ConversionRate)</MudChip>
+        <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined">Visit confirmation: @FormatPercentage(Funnel.VisitConfirmationRate)</MudChip>
+        <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Outlined">Rejected/cancelled: @FormatPercentage(Funnel.RejectionCancellationRate)</MudChip>
+    </div>
+
+    <div class="analytics-time-grid">
+        <div class="analytics-time-card">
+            <span>Avg. to visit confirmation</span>
+            <strong>@FormatHours(Funnel.AverageHoursToVisitConfirmation)</strong>
+        </div>
+        <div class="analytics-time-card">
+            <span>Avg. to final decision</span>
+            <strong>@FormatHours(Funnel.AverageHoursToFinalDecision)</strong>
+        </div>
+        <div class="analytics-time-card">
+            <span>Avg. pending age</span>
+            <strong>@FormatHours(Funnel.AveragePendingAgeHours)</strong>
+        </div>
+    </div>
+</MudStack>
+
+@code {
+    [Parameter, EditorRequired] public AdoptionFunnelDto Funnel { get; set; } = default!;
+
+    private IReadOnlyList<FunnelDisplayRow> Rows =>
+    [
+        new("Submitted", Funnel.SubmittedRequests, 100, Color.Primary),
+        new("Pending", Funnel.PendingRequests, Percent(Funnel.PendingRequests), Color.Warning),
+        new("Visit confirmed", Funnel.VisitConfirmedRequests, Percent(Funnel.VisitConfirmedRequests), Color.Info),
+        new("Accepted", Funnel.AcceptedRequests, Percent(Funnel.AcceptedRequests), Color.Success),
+        new("Rejected", Funnel.RejectedRequests, Percent(Funnel.RejectedRequests), Color.Error),
+        new("Cancelled", Funnel.CancelledRequests, Percent(Funnel.CancelledRequests), Color.Default)
+    ];
+
+    private double Percent(int count)
+    {
+        return Funnel.SubmittedRequests <= 0
+            ? 0
+            : Math.Clamp(count * 100.0 / Funnel.SubmittedRequests, 0, 100);
+    }
+
+    private static string FormatPercentage(double value)
+    {
+        return $"{value:0.#}%";
+    }
+
+    private static string FormatHours(double? hours)
+    {
+        if (!hours.HasValue)
+        {
+            return "No data";
+        }
+
+        return hours.Value < 24
+            ? $"{hours.Value:0.#}h"
+            : $"{hours.Value / 24:0.#}d";
+    }
+
+    private sealed record FunnelDisplayRow(string Label, int Count, double Percent, Color Color);
+}

@@ -1,0 +1,152 @@
+@page "/shelter/analytics"
+@attribute [Authorize(Roles = "Shelter")]
+
+<PageTitle>Shelter Analytics</PageTitle>
+
+<div class="analytics-page">
+    <MudContainer MaxWidth="MaxWidth.False" Class="px-0">
+        <MudStack Spacing="3">
+            <section class="analytics-hero pa-5">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+                    <span class="hero-icon"><MudIcon Icon="@Icons.Material.Filled.QueryStats" /></span>
+                    <div>
+                        <MudText Typo="Typo.caption" Class="analytics-kicker">Shelter operations</MudText>
+                        <MudText Typo="Typo.h4">Shelter Analytics</MudText>
+                        <MudText Typo="Typo.body1">Operational insights for your shelter.</MudText>
+                    </div>
+                </MudStack>
+            </section>
+
+            <MudPaper Elevation="0" Class="analytics-filter-bar pa-4">
+                <MudGrid>
+                    <MudItem xs="12" md="4">
+                        <MudSelect T="string" Label="Date range" Value="_selectedPreset" ValueChanged="OnPresetChangedAsync" Variant="Variant.Outlined" Margin="Margin.Dense">
+                            <MudSelectItem Value="@Last7Preset">Last 7 days</MudSelectItem>
+                            <MudSelectItem Value="@Last30Preset">Last 30 days</MudSelectItem>
+                            <MudSelectItem Value="@Last90Preset">Last 90 days</MudSelectItem>
+                            <MudSelectItem Value="@ThisMonthPreset">This month</MudSelectItem>
+                            <MudSelectItem Value="@CustomPreset">Custom range</MudSelectItem>
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12" sm="6" md="3">
+                        <MudDatePicker Label="Start" Date="_customStart" DateChanged="OnCustomStartChangedAsync" Disabled="@(_selectedPreset != CustomPreset)" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6" md="3">
+                        <MudDatePicker Label="End" Date="_customEnd" DateChanged="OnCustomEndChangedAsync" Disabled="@(_selectedPreset != CustomPreset)" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    </MudItem>
+                    <MudItem xs="12" md="2" Class="analytics-filter-action">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Refresh" Disabled="_isLoading" OnClick="LoadAsync">
+                            Refresh
+                        </MudButton>
+                    </MudItem>
+                </MudGrid>
+            </MudPaper>
+
+            @if (_isLoading)
+            {
+                <MudStack AlignItems="AlignItems.Center" Class="py-8">
+                    <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Loading shelter analytics...</MudText>
+                </MudStack>
+            }
+            else if (!string.IsNullOrWhiteSpace(_error))
+            {
+                <MudAlert Severity="Severity.Error">@_error</MudAlert>
+            }
+            else if (_dashboard is not null)
+            {
+                <MudPaper Elevation="0" Class="analytics-context-card pa-3">
+                    <MudStack Row="true" AlignItems="AlignItems.Center">
+                        <div>
+                            <MudText Typo="Typo.caption" Class="analytics-kicker">Current scope</MudText>
+                            <MudText Typo="Typo.subtitle1">@_dashboard.ShelterName</MudText>
+                        </div>
+                        <MudSpacer />
+                        <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">@_dashboard.Range.Label</MudChip>
+                    </MudStack>
+                </MudPaper>
+
+                <MudGrid>
+                    @foreach (var card in _dashboard.SummaryCards)
+                    {
+                        <MudItem xs="12" sm="6" lg="3">
+                            <AnalyticsMetricCard Card="card" />
+                        </MudItem>
+                    }
+                </MudGrid>
+
+                <MudGrid>
+                    <MudItem xs="12" lg="5">
+                        <MudPaper Elevation="0" Class="analytics-card pa-4">
+                            <MudText Typo="Typo.h5" Class="section-title">Adoption Funnel</MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">Requests created in this date range.</MudText>
+                            <AnalyticsFunnelPanel Funnel="_dashboard.AdoptionFunnel" />
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="12" lg="7">
+                        <MudPaper Elevation="0" Class="analytics-card pa-4">
+                            <MudText Typo="Typo.h5" Class="section-title">Request Trends</MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">Submitted, confirmed, accepted and rejected/cancelled activity.</MudText>
+                            <AnalyticsTrendPanel Points="_dashboard.RequestTrends" />
+                        </MudPaper>
+                    </MudItem>
+                </MudGrid>
+
+                <MudGrid>
+                    <MudItem xs="12" md="4">
+                        <MudPaper Elevation="0" Class="analytics-card pa-4">
+                            <MudText Typo="Typo.h5" Class="section-title">Dog Status Breakdown</MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">Current dog statuses for your shelter.</MudText>
+                            <AnalyticsStatusBreakdownPanel Rows="_dashboard.DogStatusBreakdown" />
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="12" md="8">
+                        <MudPaper Elevation="0" Class="analytics-card pa-4">
+                            <MudText Typo="Typo.h5" Class="section-title">Workload Summary</MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">A compact view of shelter workload for the selected range.</MudText>
+                            <AnalyticsWorkloadSummary Workload="_dashboard.Workload" />
+                        </MudPaper>
+                    </MudItem>
+                </MudGrid>
+
+                <MudGrid>
+                    <MudItem xs="12" md="4">
+                        <MudPaper Elevation="0" Class="analytics-card pa-4">
+                            <MudText Typo="Typo.h5" Class="section-title">Most Viewed</MudText>
+                            <AnalyticsDogVisibilityList Rows="_dashboard.MostViewedDogs" EmptyText="No recent view activity in this range." ShowShelter="false" />
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="12" md="4">
+                        <MudPaper Elevation="0" Class="analytics-card pa-4">
+                            <MudText Typo="Typo.h5" Class="section-title">Most Favorited</MudText>
+                            <AnalyticsDogVisibilityList Rows="_dashboard.MostFavoritedDogs" EmptyText="No favorite activity in this range." ShowShelter="false" />
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="12" md="4">
+                        <MudPaper Elevation="0" Class="analytics-card pa-4">
+                            <MudText Typo="Typo.h5" Class="section-title">Low Engagement</MudText>
+                            <AnalyticsDogVisibilityList Rows="_dashboard.LowEngagementDogs" EmptyText="No low-engagement available dogs in this shelter." ShowShelter="false" />
+                        </MudPaper>
+                    </MudItem>
+                </MudGrid>
+
+                <MudGrid>
+                    <MudItem xs="12" lg="6">
+                        <MudPaper Elevation="0" Class="analytics-card pa-4">
+                            <MudText Typo="Typo.h5" Class="section-title">Resource Insights</MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">Current stock snapshot. Historical stock trends require stock snapshots.</MudText>
+                            <AnalyticsResourceInsights Analytics="_dashboard.ResourceAnalytics" ShowShelter="false" />
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="12" lg="6">
+                        <MudPaper Elevation="0" Class="analytics-card pa-4">
+                            <MudText Typo="Typo.h5" Class="section-title">Report Activity</MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">Generated report metadata in the selected period.</MudText>
+                            <AnalyticsReportActivity Analytics="_dashboard.ReportActivity" />
+                        </MudPaper>
+                    </MudItem>
+                </MudGrid>
+            }
+        </MudStack>
+    </MudContainer>
+</div>

@@ -1,0 +1,43 @@
+<MudDialog>
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.Article" Color="Color.Primary" />
+            <div>
+                <MudText Typo="Typo.h6">Search document preview</MudText>
+                @if (Preview is not null)
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">@Preview.DogName</MudText>
+                }
+            </div>
+        </MudStack>
+    </TitleContent>
+    <DialogContent>
+        @if (Preview is not null)
+        {
+            <MudStack Spacing="2">
+                <MudStack Row="true" Spacing="1" Class="flex-wrap">
+                    <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">
+                        Dog #@Preview.DogId
+                    </MudChip>
+                    <MudChip T="string" Size="Size.Small" Color="Color.Secondary" Variant="Variant.Outlined">
+                        @Preview.DocumentLength chars
+                    </MudChip>
+                    <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
+                        Hash @ShortHash
+                    </MudChip>
+                </MudStack>
+                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true">
+                    This is the public-safe text used for semantic search. Raw embedding vectors are not shown.
+                </MudAlert>
+                <MudTextField T="string"
+                              Value="@Preview.Content"
+                              ReadOnly="true"
+                              Lines="14"
+                              Variant="Variant.Outlined" />
+            </MudStack>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="Close">Close</MudButton>
+    </DialogActions>
+</MudDialog>

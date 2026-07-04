@@ -16,6 +16,14 @@ public class OpenAiSettings
 
     public string DogProfileQualityModel { get; set; } = string.Empty;
 
+    public bool ReportSummariesEnabled { get; set; } = true;
+
+    public string ReportSummaryModel { get; set; } = string.Empty;
+
+    public bool ShelterOperationsAssistantEnabled { get; set; } = true;
+
+    public string ShelterOperationsAssistantModel { get; set; } = string.Empty;
+
     public bool HasApiKey => !string.IsNullOrWhiteSpace(ApiKey);
 
     public string GetSafeModel()
@@ -43,5 +51,19 @@ public class OpenAiSettings
         return string.IsNullOrWhiteSpace(DogProfileQualityModel)
             ? GetSafeChatModel()
             : DogProfileQualityModel.Trim();
+    }
+
+    public string GetSafeReportSummaryModel()
+    {
+        return string.IsNullOrWhiteSpace(ReportSummaryModel)
+            ? GetSafeChatModel()
+            : ReportSummaryModel.Trim();
+    }
+
+    public string GetSafeShelterOperationsAssistantModel()
+    {
+        return string.IsNullOrWhiteSpace(ShelterOperationsAssistantModel)
+            ? GetSafeChatModel()
+            : ShelterOperationsAssistantModel.Trim();
     }
 }

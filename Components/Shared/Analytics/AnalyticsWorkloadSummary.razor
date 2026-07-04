@@ -1,0 +1,27 @@
+@namespace PawConnect.Components.Shared.Analytics
+
+<div class="analytics-workload-summary">
+    <div><span>Dogs managed</span><strong>@Workload.DogsManaged</strong></div>
+    <div><span>Requests in range</span><strong>@Workload.RequestsInRange</strong></div>
+    <div><span>Pending requests</span><strong>@Workload.PendingRequests</strong></div>
+    <div><span>Accepted requests</span><strong>@Workload.AcceptedRequests</strong></div>
+    <div><span>Low-stock resources</span><strong>@Workload.LowStockResources</strong></div>
+    <div><span>Avg. pending age</span><strong>@FormatHours(Workload.AveragePendingAgeHours)</strong></div>
+    <div><span>Avg. final decision</span><strong>@FormatHours(Workload.AverageFinalDecisionHours)</strong></div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public ShelterWorkloadDto Workload { get; set; } = default!;
+
+    private static string FormatHours(double? hours)
+    {
+        if (!hours.HasValue)
+        {
+            return "No data";
+        }
+
+        return hours.Value < 24
+            ? $"{hours.Value:0.#}h"
+            : $"{hours.Value / 24:0.#}d";
+    }
+}

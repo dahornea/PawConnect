@@ -1,0 +1,286 @@
+@page "/shelter/assistant"
+@attribute [Authorize(Roles = "Shelter")]
+
+<PageTitle>Shelter Operations Assistant</PageTitle>
+
+<div class="assistant-page">
+    <MudContainer MaxWidth="MaxWidth.False" Class="px-0">
+        <MudStack Spacing="3">
+            <section class="assistant-hero pa-5">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+                    <span class="assistant-hero-icon"><MudIcon Icon="@Icons.Material.Filled.Assistant" /></span>
+                    <div>
+                        <MudText Typo="Typo.caption" Class="assistant-kicker">Shelter daily brief</MudText>
+                        <MudText Typo="Typo.h4">Shelter Operations Assistant</MudText>
+                        <MudText Typo="Typo.body1">Daily brief and suggested next actions for your shelter.</MudText>
+                    </div>
+                </MudStack>
+            </section>
+
+            <MudPaper Elevation="0" Class="assistant-control-card pa-4">
+                <MudStack Spacing="3">
+                    <MudGrid>
+                        <MudItem xs="12" md="4">
+                            <MudSelect T="ShelterOperationsBriefPeriod" Label="Brief focus" @bind-Value="_period" Variant="Variant.Outlined" Margin="Margin.Dense">
+                                <MudSelectItem Value="@ShelterOperationsBriefPeriod.Today">Today</MudSelectItem>
+                                <MudSelectItem Value="@ShelterOperationsBriefPeriod.Next7Days">Next 7 days</MudSelectItem>
+                                <MudSelectItem Value="@ShelterOperationsBriefPeriod.Last30Days">Last 30 days</MudSelectItem>
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" md="8" Class="assistant-control-actions">
+                            <MudButton Variant="Variant.Filled"
+                                       Color="Color.Primary"
+                                       StartIcon="@Icons.Material.Filled.AutoAwesome"
+                                       Disabled="_isLoading"
+                                       OnClick="GenerateBriefAsync">
+                                @(_isLoading ? "Generating..." : "Generate today's brief")
+                            </MudButton>
+                        </MudItem>
+                    </MudGrid>
+
+                    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true">
+                        Suggestions are advisory. Final decisions remain with the shelter, and no workflow action is executed automatically.
+                    </MudAlert>
+                </MudStack>
+            </MudPaper>
+
+            @if (_isLoading)
+            {
+                <MudStack AlignItems="AlignItems.Center" Class="py-8">
+                    <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Building the shelter brief...</MudText>
+                </MudStack>
+            }
+            else if (!string.IsNullOrWhiteSpace(_error))
+            {
+                <MudAlert Severity="Severity.Error">@_error</MudAlert>
+            }
+            else if (_brief is null)
+            {
+                <MudPaper Elevation="0" Class="assistant-empty pa-5">
+                    <MudIcon Icon="@Icons.Material.Filled.TipsAndUpdates" />
+                    <MudText Typo="Typo.h6">Generate a daily operations brief</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        PawConnect will calculate your pending requests, upcoming visits, low-stock resources, reserved dogs, and profile-quality tasks.
+                    </MudText>
+                </MudPaper>
+            }
+            else
+            {
+                <MudPaper Elevation="0" Class="assistant-summary-card pa-4">
+                    <MudStack Spacing="3">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Class="assistant-summary-header">
+                            <div>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Generated @FormatDateTime(_brief.GeneratedAt)</MudText>
+                                <MudText Typo="Typo.h5">@_brief.ShelterName brief</MudText>
+                            </div>
+                            <MudSpacer />
+                            <MudChip T="string" Size="Size.Small" Color="@(_brief.UsedAi ? Color.Info : Color.Success)" Variant="Variant.Outlined">
+                                @(_brief.UsedAi ? "AI-assisted summary" : "Rule-based summary")
+                            </MudChip>
+                        </MudStack>
+
+                        <MudText Typo="Typo.body1">@_brief.ExecutiveSummary</MudText>
+
+                        @if (!string.IsNullOrWhiteSpace(_brief.FallbackReason))
+                        {
+                            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true">@_brief.FallbackReason</MudAlert>
+                        }
+                    </MudStack>
+                </MudPaper>
+
+                <MudGrid>
+                    @foreach (var metric in _brief.Metrics)
+                    {
+                        <MudItem xs="12" sm="6" lg="3">
+                            <MudCard Class="@($"assistant-metric-card {GetPriorityClass(metric.Priority)}")">
+                                <MudCardContent>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">@metric.Label</MudText>
+                                    <MudText Typo="Typo.h4">@metric.Value</MudText>
+                                    <MudText Typo="Typo.body2" Color="Color.Secondary">@metric.HelpText</MudText>
+                                </MudCardContent>
+                            </MudCard>
+                        </MudItem>
+                    }
+                </MudGrid>
+
+                <MudGrid>
+                    <MudItem xs="12" lg="7">
+                        <MudPaper Elevation="0" Class="assistant-section pa-4">
+                            <MudText Typo="Typo.h5" Class="assistant-section-title">Priority Items</MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">Calculated by PawConnect from your shelter data.</MudText>
+                            <MudStack Spacing="2">
+                                @foreach (var item in _brief.PriorityItems)
+                                {
+                                    <div class="@($"priority-item {GetPriorityClass(item.Priority)}")">
+                                        <div class="priority-item-main">
+                                            <MudChip T="string" Size="Size.Small" Color="@GetPriorityColor(item.Priority)" Variant="Variant.Filled">@FormatPriority(item.Priority)</MudChip>
+                                            <div>
+                                                <MudText Typo="Typo.subtitle1">@item.Title</MudText>
+                                                <MudText Typo="Typo.body2" Color="Color.Secondary">@item.Description</MudText>
+                                                @if (item.IsAiGeneratedText)
+                                                {
+                                                    <MudText Typo="Typo.caption" Color="Color.Info">Text phrased with AI from PawConnect data.</MudText>
+                                                }
+                                            </div>
+                                        </div>
+                                        @if (!string.IsNullOrWhiteSpace(item.ActionLink) && !string.IsNullOrWhiteSpace(item.ActionLabel))
+                                        {
+                                            <MudButton Href="@item.ActionLink" Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" EndIcon="@Icons.Material.Filled.ArrowForward">
+                                                @item.ActionLabel
+                                            </MudButton>
+                                        }
+                                    </div>
+                                }
+                            </MudStack>
+                        </MudPaper>
+                    </MudItem>
+
+                    <MudItem xs="12" lg="5">
+                        <MudPaper Elevation="0" Class="assistant-section pa-4">
+                            <MudText Typo="Typo.h5" Class="assistant-section-title">Suggested Next Actions</MudText>
+                            <MudStack Spacing="2" Class="mt-3">
+                                @foreach (var action in _brief.SuggestedActions)
+                                {
+                                    <div class="assistant-action">
+                                        <MudIcon Icon="@Icons.Material.Filled.TaskAlt" />
+                                        <div>
+                                            <MudText Typo="Typo.subtitle2">@action.Title</MudText>
+                                            <MudText Typo="Typo.body2" Color="Color.Secondary">@action.Description</MudText>
+                                        </div>
+                                        @if (!string.IsNullOrWhiteSpace(action.ActionLink) && !string.IsNullOrWhiteSpace(action.ActionLabel))
+                                        {
+                                            <MudButton Href="@action.ActionLink" Variant="Variant.Text" Color="Color.Primary" Size="Size.Small">
+                                                @action.ActionLabel
+                                            </MudButton>
+                                        }
+                                    </div>
+                                }
+                            </MudStack>
+                        </MudPaper>
+                    </MudItem>
+                </MudGrid>
+
+                <MudGrid>
+                    <MudItem xs="12" md="6">
+                        <MudPaper Elevation="0" Class="assistant-section pa-4">
+                            <MudText Typo="Typo.h5" Class="assistant-section-title">Upcoming Visits</MudText>
+                            @if (_brief.UpcomingVisits.Count == 0)
+                            {
+                                <p class="assistant-empty-text">No confirmed visits in this brief period.</p>
+                            }
+                            else
+                            {
+                                <div class="assistant-list">
+                                    @foreach (var visit in _brief.UpcomingVisits)
+                                    {
+                                        <div class="assistant-list-item">
+                                            <strong>@visit.DogName</strong>
+                                            <span>@FormatDateTime(visit.PreferredVisitDateTime) | @visit.VisitStatus</span>
+                                            <MudButton Href="@visit.ActionLink" Variant="Variant.Text" Color="Color.Primary" Size="Size.Small">Open request</MudButton>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </MudPaper>
+                    </MudItem>
+
+                    <MudItem xs="12" md="6">
+                        <MudPaper Elevation="0" Class="assistant-section pa-4">
+                            <MudText Typo="Typo.h5" Class="assistant-section-title">Pending Requests</MudText>
+                            @if (_brief.RequestHighlights.Count == 0)
+                            {
+                                <p class="assistant-empty-text">No pending adoption requests right now.</p>
+                            }
+                            else
+                            {
+                                <div class="assistant-list">
+                                    @foreach (var request in _brief.RequestHighlights)
+                                    {
+                                        <div class="assistant-list-item">
+                                            <strong>@request.DogName</strong>
+                                            <span>@request.Status | @request.VisitStatus | @request.AgeDays day(s) old</span>
+                                            <MudButton Href="@request.ActionLink" Variant="Variant.Text" Color="Color.Primary" Size="Size.Small">Open request</MudButton>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </MudPaper>
+                    </MudItem>
+                </MudGrid>
+
+                <MudGrid>
+                    <MudItem xs="12" md="6">
+                        <MudPaper Elevation="0" Class="assistant-section pa-4">
+                            <MudText Typo="Typo.h5" Class="assistant-section-title">Low-Stock Resources</MudText>
+                            @if (_brief.LowStockItems.Count == 0)
+                            {
+                                <p class="assistant-empty-text">All tracked resources are above their thresholds.</p>
+                            }
+                            else
+                            {
+                                <div class="assistant-list">
+                                    @foreach (var resource in _brief.LowStockItems)
+                                    {
+                                        <div class="assistant-list-item">
+                                            <strong>@resource.Name</strong>
+                                            <span>@resource.Category | @resource.Quantity @resource.Unit / threshold @resource.LowStockThreshold @resource.Unit</span>
+                                            <MudButton Href="@resource.ActionLink" Variant="Variant.Text" Color="Color.Primary" Size="Size.Small">Review resources</MudButton>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </MudPaper>
+                    </MudItem>
+
+                    <MudItem xs="12" md="6">
+                        <MudPaper Elevation="0" Class="assistant-section pa-4">
+                            <MudText Typo="Typo.h5" Class="assistant-section-title">Dog Profile Quality</MudText>
+                            @if (_brief.DogProfileHighlights.Count == 0)
+                            {
+                                <p class="assistant-empty-text">Public dog profiles look complete enough for this quick check.</p>
+                            }
+                            else
+                            {
+                                <div class="assistant-list">
+                                    @foreach (var dog in _brief.DogProfileHighlights)
+                                    {
+                                        <div class="assistant-list-item">
+                                            <strong>@dog.DogName</strong>
+                                            <span>@dog.Status | Missing: @string.Join(", ", dog.MissingFields)</span>
+                                            <MudButton Href="@dog.ActionLink" Variant="Variant.Text" Color="Color.Primary" Size="Size.Small">Edit dog profile</MudButton>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </MudPaper>
+                    </MudItem>
+                </MudGrid>
+
+                @if (_brief.Insights.Count > 0 || _brief.Warnings.Count > 0)
+                {
+                    <MudPaper Elevation="0" Class="assistant-section pa-4">
+                        <MudText Typo="Typo.h5" Class="assistant-section-title">Notes and Warnings</MudText>
+                        <MudGrid Class="mt-1">
+                            @foreach (var insight in _brief.Insights)
+                            {
+                                <MudItem xs="12" md="6">
+                                    <MudAlert Severity="@GetPrioritySeverity(insight.Priority)" Variant="Variant.Outlined">
+                                        <strong>@insight.Title</strong><br />
+                                        @insight.Description
+                                    </MudAlert>
+                                </MudItem>
+                            }
+                            @foreach (var warning in _brief.Warnings)
+                            {
+                                <MudItem xs="12" md="6">
+                                    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">@warning</MudAlert>
+                                </MudItem>
+                            }
+                        </MudGrid>
+                    </MudPaper>
+                }
+            }
+        </MudStack>
+    </MudContainer>
+</div>

@@ -1,0 +1,68 @@
+@namespace PawConnect.Components.Shared.Analytics
+
+<MudStack Spacing="3">
+    <div class="analytics-resource-summary">
+        <div><span>Total resources</span><strong>@Analytics.TotalResources</strong></div>
+        <div><span>Low stock</span><strong>@Analytics.LowStockResources</strong></div>
+    </div>
+
+    @if (Analytics.LowStockByCategory.Count > 0)
+    {
+        <div class="analytics-category-list">
+            @foreach (var category in Analytics.LowStockByCategory)
+            {
+                <div>
+                    <span>@category.CategoryName</span>
+                    <strong>@category.LowStockCount / @category.TotalResources low</strong>
+                </div>
+            }
+        </div>
+    }
+
+    @if (Analytics.ResourcesClosestToThreshold.Count == 0)
+    {
+        <div class="analytics-empty-state">No low-stock resources in this scope.</div>
+    }
+    else
+    {
+        <div class="analytics-resource-list">
+            @foreach (var resource in Analytics.ResourcesClosestToThreshold)
+            {
+                <article class="analytics-resource-item">
+                    <header>
+                        <div>
+                            <MudText Typo="Typo.subtitle2" Class="analytics-resource-name">@resource.ResourceName</MudText>
+                            <MudText Typo="Typo.caption" Class="analytics-resource-meta">
+                                @(ShowShelter ? $"{resource.ShelterName} · " : string.Empty)@resource.CategoryName
+                            </MudText>
+                        </div>
+                        <MudChip T="string" Size="Size.Small" Color="@GetResourceColor(resource)" Variant="Variant.Outlined">@GetResourceLabel(resource)</MudChip>
+                    </header>
+                    <div class="analytics-resource-quantity">
+                        <span>Current: <strong>@resource.Quantity @resource.Unit</strong></span>
+                        <span>Threshold: <strong>@resource.LowStockThreshold @resource.Unit</strong></span>
+                    </div>
+                </article>
+            }
+        </div>
+    }
+</MudStack>
+
+@code {
+    [Parameter, EditorRequired] public ResourceAnalyticsDto Analytics { get; set; } = default!;
+    [Parameter] public bool ShowShelter { get; set; } = true;
+
+    private static Color GetResourceColor(LowStockResourceDto resource)
+    {
+        return resource.Quantity <= 0 || resource.Quantity <= Math.Max(1, resource.LowStockThreshold / 2)
+            ? Color.Error
+            : Color.Warning;
+    }
+
+    private static string GetResourceLabel(LowStockResourceDto resource)
+    {
+        return resource.Quantity <= 0 || resource.Quantity <= Math.Max(1, resource.LowStockThreshold / 2)
+            ? "Critical"
+            : "Low stock";
+    }
+}

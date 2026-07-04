@@ -1,0 +1,56 @@
+.analytics-empty-state {
+    background: #f8faf7;
+    border: 1px dashed rgba(34, 115, 96, 0.22);
+    border-radius: 8px;
+    color: #61736c;
+    padding: 14px;
+}
+
+.analytics-dog-list {
+    display: grid;
+    gap: 12px;
+}
+
+.analytics-dog-item {
+    background: #f8faf7;
+    border: 1px solid rgba(34, 115, 96, 0.1);
+    border-radius: 8px;
+    display: grid;
+    gap: 10px;
+    padding: 12px;
+}
+
+.analytics-dog-item header {
+    align-items: flex-start;
+    display: flex;
+    gap: 12px;
+    justify-content: space-between;
+}
+
+.analytics-dog-name {
+    color: #12302b;
+    font-weight: 750;
+}
+
+.analytics-dog-shelter,
+.analytics-dog-insight {
+    color: #61736c;
+}
+
+.analytics-dog-counters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.analytics-dog-counters span {
+    background: #eef5f1;
+    border-radius: 999px;
+    color: #526961;
+    font-size: 0.8rem;
+    padding: 4px 9px;
+}
+
+.analytics-dog-counters strong {
+    color: #12302b;
+}

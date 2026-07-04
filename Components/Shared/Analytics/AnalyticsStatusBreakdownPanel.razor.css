@@ -1,0 +1,44 @@
+.analytics-empty-state {
+    background: #f8faf7;
+    border: 1px dashed rgba(34, 115, 96, 0.22);
+    border-radius: 8px;
+    color: #61736c;
+    padding: 14px;
+}
+
+.analytics-status-list {
+    display: grid;
+    gap: 12px;
+}
+
+.analytics-status-row {
+    background: #f8faf7;
+    border: 1px solid rgba(34, 115, 96, 0.1);
+    border-radius: 8px;
+    padding: 12px;
+}
+
+.analytics-status-header {
+    align-items: center;
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.analytics-status-header strong {
+    color: #12302b;
+    font-size: 1.1rem;
+}
+
+.analytics-status-progress {
+    align-items: center;
+    display: grid;
+    gap: 10px;
+    grid-template-columns: 1fr 52px;
+}
+
+.analytics-status-progress span {
+    color: #61736c;
+    font-size: 0.82rem;
+    text-align: right;
+}

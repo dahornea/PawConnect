@@ -7,7 +7,10 @@ using QuestPDF.Infrastructure;
 
 namespace PawConnect.Services;
 
-public class PdfReportService(ApplicationDbContext context, ILogger<PdfReportService> logger) : IPdfReportService
+public class PdfReportService(
+    ApplicationDbContext context,
+    ILogger<PdfReportService> logger,
+    IAiReportSummaryService? aiReportSummaryService = null) : IPdfReportService
 {
     static PdfReportService()
     {
@@ -217,11 +220,12 @@ public class PdfReportService(ApplicationDbContext context, ILogger<PdfReportSer
 
         var requests = await context.AdoptionRequests
             .Where(r => r.Dog != null && r.Dog.ShelterId == shelterId)
-            .Select(r => new
-            {
+            .Select(r => new ShelterSummaryRequestRow(
                 r.Status,
-                r.CreatedAt
-            })
+                r.VisitStatus,
+                r.CreatedAt,
+                r.UpdatedAt,
+                r.VisitConfirmedAt))
             .AsNoTracking()
             .ToListAsync();
 
@@ -249,6 +253,18 @@ public class PdfReportService(ApplicationDbContext context, ILogger<PdfReportSer
             .OrderByDescending(d => d.AdoptedAt)
             .ToList();
 
+        var metrics = BuildShelterSummaryMetrics(
+            shelter,
+            fromDate,
+            toDate,
+            requests,
+            dogs,
+            lowStockResources,
+            recentlyAdoptedDogs.Count);
+        var narrativeSummary = aiReportSummaryService is null
+            ? AiReportSummaryService.BuildShelterFallback(metrics, "AI report summary service is not configured.")
+            : await aiReportSummaryService.GenerateShelterSummaryAsync(metrics);
+
         return BuildReport(
             "PawConnect - Shelter Summary Report",
             content =>
@@ -260,6 +276,8 @@ public class PdfReportService(ApplicationDbContext context, ILogger<PdfReportSer
                     ("Report generated", FormatDateTime(toDate)),
                     ("Report period", $"{FormatDateTime(fromDate)} - {FormatDateTime(toDate)}")
                 ]);
+
+                AddSummarySection(content, narrativeSummary);
 
                 AddSection(content, "Adoption Request Summary", [
                     ("New requests in period", requests.Count(r => r.CreatedAt >= fromDate && r.CreatedAt <= toDate).ToString()),
@@ -285,6 +303,60 @@ public class PdfReportService(ApplicationDbContext context, ILogger<PdfReportSer
                     ("Note", "This report was generated automatically by PawConnect.")
                 ]);
             });
+    }
+
+    private static ShelterReportSummaryMetricsDto BuildShelterSummaryMetrics(
+        Shelter shelter,
+        DateTime fromDate,
+        DateTime toDate,
+        IReadOnlyList<ShelterSummaryRequestRow> requests,
+        IReadOnlyList<Dog> dogs,
+        IReadOnlyList<ResourceStock> lowStockResources,
+        int recentlyAdoptedDogs)
+    {
+        var finalizedRequests = requests
+            .Where(request =>
+                request.Status is AdoptionRequestStatus.Accepted or AdoptionRequestStatus.Rejected or AdoptionRequestStatus.Cancelled &&
+                request.UpdatedAt >= request.CreatedAt)
+            .ToList();
+
+        var averageDecisionDays = finalizedRequests.Count == 0
+            ? (double?)null
+            : finalizedRequests.Average(request => (request.UpdatedAt - request.CreatedAt).TotalDays);
+
+        return new ShelterReportSummaryMetricsDto(
+            shelter.Name,
+            shelter.City,
+            fromDate,
+            toDate,
+            dogs.Count,
+            dogs.Count(dog => dog.Status == DogStatus.Available),
+            dogs.Count(dog => dog.Status == DogStatus.Reserved),
+            dogs.Count(dog => dog.Status == DogStatus.Adopted),
+            dogs.Count(dog => dog.Status == DogStatus.InTreatment),
+            requests.Count(request => request.CreatedAt >= fromDate && request.CreatedAt <= toDate),
+            requests.Count(request => request.Status == AdoptionRequestStatus.Pending),
+            requests.Count(request =>
+                request.VisitStatus == AdoptionVisitStatus.Confirmed &&
+                request.VisitConfirmedAt.HasValue &&
+                request.VisitConfirmedAt.Value >= fromDate &&
+                request.VisitConfirmedAt.Value <= toDate),
+            requests.Count(request => request.Status == AdoptionRequestStatus.Accepted),
+            requests.Count(request => request.Status == AdoptionRequestStatus.Rejected),
+            requests.Count(request => request.Status == AdoptionRequestStatus.Cancelled),
+            requests.Count,
+            recentlyAdoptedDogs,
+            lowStockResources.Count,
+            lowStockResources
+                .Take(5)
+                .Select(resource => new LowStockResourceSummaryDto(
+                    resource.Name,
+                    resource.ResourceCategory?.Name,
+                    resource.Quantity,
+                    resource.LowStockThreshold,
+                    resource.Unit))
+                .ToList(),
+            averageDecisionDays);
     }
 
     private byte[] BuildReport(string title, Action<ColumnDescriptor> buildContent)
@@ -313,6 +385,56 @@ public class PdfReportService(ApplicationDbContext context, ILogger<PdfReportSer
         {
             logger.LogWarning(ex, "PDF report generation failed for {Title}.", title);
             throw;
+        }
+    }
+
+    private static void AddSummarySection(ColumnDescriptor content, AiReportSummaryResult summary)
+    {
+        content.Item().EnsureSpace(120).Column(section =>
+        {
+            section.Spacing(7);
+            section.Item().Text("Summary")
+                .FontSize(13)
+                .Bold()
+                .FontColor(Colors.Green.Darken3);
+
+            section.Item()
+                .Border(1)
+                .BorderColor(Colors.Green.Lighten3)
+                .Background(Colors.Green.Lighten5)
+                .Padding(10)
+                .Column(summaryColumn =>
+                {
+                    summaryColumn.Spacing(6);
+                    summaryColumn.Item().Text(summary.ExecutiveSummary)
+                        .FontSize(10.5f)
+                        .FontColor(Colors.Grey.Darken4);
+
+                    AddBulletList(summaryColumn, "Key highlights", summary.KeyHighlights);
+                    AddBulletList(summaryColumn, "Warnings", summary.Warnings);
+                    AddBulletList(summaryColumn, "Suggested actions", summary.SuggestedActions);
+                    AddBulletList(summaryColumn, "Limitations", summary.Limitations);
+                });
+        });
+    }
+
+    private static void AddBulletList(ColumnDescriptor column, string heading, IReadOnlyList<string> items)
+    {
+        if (items.Count == 0)
+        {
+            return;
+        }
+
+        column.Item().PaddingTop(2).Text(heading)
+            .FontSize(10)
+            .SemiBold()
+            .FontColor(Colors.Green.Darken4);
+
+        foreach (var item in items)
+        {
+            column.Item().Text($"- {item}")
+                .FontSize(9.5f)
+                .FontColor(Colors.Grey.Darken3);
         }
     }
 
@@ -436,4 +558,11 @@ public class PdfReportService(ApplicationDbContext context, ILogger<PdfReportSer
     }
 
     private sealed record ShelterSummaryDogRow(string Name, string Breed, DogStatus Status, DateTime? AdoptedAt);
+
+    private sealed record ShelterSummaryRequestRow(
+        AdoptionRequestStatus Status,
+        AdoptionVisitStatus VisitStatus,
+        DateTime CreatedAt,
+        DateTime UpdatedAt,
+        DateTime? VisitConfirmedAt);
 }

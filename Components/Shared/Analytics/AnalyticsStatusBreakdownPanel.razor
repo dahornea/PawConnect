@@ -1,0 +1,45 @@
+@namespace PawConnect.Components.Shared.Analytics
+
+@if (Rows.Count == 0 || Rows.All(row => row.Count == 0))
+{
+    <div class="analytics-empty-state">No dogs found in this scope.</div>
+}
+else
+{
+    <div class="analytics-status-list">
+        @foreach (var row in Rows)
+        {
+            <div class="analytics-status-row">
+                <div class="analytics-status-header">
+                    <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(row.Label)" Variant="Variant.Outlined">@row.Label</MudChip>
+                    <strong>@row.Count</strong>
+                </div>
+                <div class="analytics-status-progress">
+                    <MudProgressLinear Value="@row.Percent" Color="@GetStatusColor(row.Label)" Rounded="true" Size="Size.Small" />
+                    <span>@FormatPercentage(row.Percent)</span>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<StatusBreakdownDto> Rows { get; set; } = [];
+
+    private static Color GetStatusColor(string label)
+    {
+        return label switch
+        {
+            "Available" => Color.Success,
+            "Reserved" => Color.Warning,
+            "Adopted" => Color.Info,
+            "In Treatment" => Color.Error,
+            _ => Color.Default
+        };
+    }
+
+    private static string FormatPercentage(double value)
+    {
+        return $"{value:0.#}%";
+    }
+}
