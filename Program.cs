@@ -102,6 +102,7 @@ builder.Services.AddScoped<IConversationService, ConversationService>();
 builder.Services.AddScoped<IMessageService, MessageService>();
 builder.Services.AddScoped<IMessageReportService, MessageReportService>();
 builder.Services.AddScoped<IMessageAttachmentStorageService, LocalMessageAttachmentStorageService>();
+builder.Services.AddScoped<ILostFoundPostService, LostFoundPostService>();
 builder.Services.AddSingleton<IConversationRealtimeNotifier, ConversationRealtimeNotifier>();
 builder.Services.AddSingleton<IDistanceService, DistanceService>();
 builder.Services.AddScoped<ICorrelationIdAccessor, CorrelationIdAccessor>();

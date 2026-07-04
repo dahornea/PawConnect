@@ -1,0 +1,29 @@
+.lost-found-create-page {
+    padding-bottom: 2rem;
+}
+
+.lost-found-create-card {
+    border-radius: 16px;
+}
+
+.lost-found-create-images {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+}
+
+.lost-found-create-image {
+    border: 1px solid rgba(22, 99, 82, 0.12);
+    border-radius: 12px;
+    overflow: hidden;
+    background: #fffdfa;
+}
+
+.lost-found-create-image img {
+    width: 100%;
+    height: 180px;
+    display: block;
+    object-fit: contain;
+    object-position: center center;
+    background: #f5f8f4;
+}

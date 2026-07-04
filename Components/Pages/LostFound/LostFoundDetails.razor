@@ -1,0 +1,188 @@
+@page "/lost-found/{Id:int}"
+
+<PageTitle>Lost & Found Details</PageTitle>
+
+@if (_isLoading)
+{
+    <MudStack AlignItems="AlignItems.Center" Class="py-8">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+        <MudText Typo="Typo.body2" Color="Color.Secondary">Loading lost and found post...</MudText>
+    </MudStack>
+}
+else if (!string.IsNullOrWhiteSpace(_error))
+{
+    <MudAlert Severity="Severity.Error">@_error</MudAlert>
+}
+else if (_post is null)
+{
+    <MudAlert Severity="Severity.Warning">This lost or found post was not found or is not visible.</MudAlert>
+}
+else
+{
+    <div class="lost-found-details-page">
+        <MudContainer MaxWidth="MaxWidth.False" Class="px-0">
+            <MudStack Spacing="3">
+                <div>
+                    <MudButton Href="/lost-found"
+                               Variant="Variant.Text"
+                               Color="Color.Default"
+                               StartIcon="@Icons.Material.Filled.ArrowBack">
+                        Back to Lost & Found
+                    </MudButton>
+                </div>
+
+                <MudGrid Spacing="3">
+                    <MudItem xs="12" md="5">
+                        <MudPaper Elevation="0" Class="section-surface lost-found-detail-gallery">
+                            @{
+                                var mainImage = _post.Images.FirstOrDefault(image => image.IsMain) ?? _post.Images.FirstOrDefault();
+                            }
+                            @if (mainImage is null)
+                            {
+                                <div class="lost-found-detail-placeholder">
+                                    <MudIcon Icon="@Icons.Material.Filled.Pets" Color="Color.Primary" Size="Size.Large" />
+                                    <MudText Typo="Typo.subtitle1">No photo available</MudText>
+                                </div>
+                            }
+                            else
+                            {
+                                <img src="@mainImage.ImageUrlOrPath" alt="@GetImageAlt()" class="lost-found-detail-main-image" />
+                            }
+
+                            @if (_post.Images.Count > 1)
+                            {
+                                <div class="lost-found-detail-thumbs">
+                                    @foreach (var image in _post.Images)
+                                    {
+                                        <img src="@image.ImageUrlOrPath" alt="" loading="lazy" />
+                                    }
+                                </div>
+                            }
+                        </MudPaper>
+                    </MudItem>
+
+                    <MudItem xs="12" md="7">
+                        <MudPaper Elevation="0" Class="section-surface pa-4 lost-found-detail-summary">
+                            <MudStack Spacing="2">
+                                <MudStack Row="true" AlignItems="AlignItems.Start" Class="flex-wrap">
+                                    <div>
+                                        <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Class="mb-1">
+                                            <MudChip T="string" Size="Size.Small" Color="@GetPostTypeColor(_post.PostType)" Variant="Variant.Filled">@FormatPostType(_post.PostType)</MudChip>
+                                            <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(_post.Status)" Variant="Variant.Outlined">@FormatStatus(_post.Status)</MudChip>
+                                        </MudStack>
+                                        <MudText Typo="Typo.h3" Class="lost-found-detail-title">@_post.Title</MudText>
+                                        <MudText Typo="Typo.subtitle1" Color="Color.Secondary">@BuildSubtitle()</MudText>
+                                    </div>
+                                </MudStack>
+
+                                <MudDivider />
+
+                                <MudGrid Class="lost-found-facts">
+                                    <MudItem xs="12" sm="6">
+                                        <div class="fact-tile">
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">@(_post.PostType == LostFoundPostType.Lost ? "Last seen" : "Found on")</MudText>
+                                            <MudText Typo="Typo.body1">@_post.LastSeenOrFoundDate.ToString("dd MMM yyyy")</MudText>
+                                        </div>
+                                    </MudItem>
+                                    <MudItem xs="12" sm="6">
+                                        <div class="fact-tile">
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">Location</MudText>
+                                            <MudText Typo="Typo.body1">@BuildLocation()</MudText>
+                                        </div>
+                                    </MudItem>
+                                    @if (!string.IsNullOrWhiteSpace(_post.CoatColor))
+                                    {
+                                        <MudItem xs="12" sm="6">
+                                            <div class="fact-tile">
+                                                <MudText Typo="Typo.caption" Color="Color.Secondary">Coat color</MudText>
+                                                <MudText Typo="Typo.body1">@_post.CoatColor</MudText>
+                                            </div>
+                                        </MudItem>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(_post.DistinctiveMarks))
+                                    {
+                                        <MudItem xs="12" sm="6">
+                                            <div class="fact-tile">
+                                                <MudText Typo="Typo.caption" Color="Color.Secondary">Distinctive marks</MudText>
+                                                <MudText Typo="Typo.body1">@_post.DistinctiveMarks</MudText>
+                                            </div>
+                                        </MudItem>
+                                    }
+                                </MudGrid>
+
+                                <MudText Typo="Typo.body1" Class="lost-found-description">@_post.Description</MudText>
+
+                                @if (_post.Status == LostFoundPostStatus.Rejected && !string.IsNullOrWhiteSpace(_post.RejectionReason))
+                                {
+                                    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">
+                                        <MudText Typo="Typo.subtitle2">Review note</MudText>
+                                        <MudText Typo="Typo.body2">@_post.RejectionReason</MudText>
+                                    </MudAlert>
+                                }
+
+                                @if (_post.Status == LostFoundPostStatus.Closed)
+                                {
+                                    <MudAlert Severity="Severity.Success" Variant="Variant.Outlined">
+                                        <MudText Typo="Typo.subtitle2">Resolved</MudText>
+                                        <MudText Typo="Typo.body2">@(!string.IsNullOrWhiteSpace(_post.ResolutionNotes) ? _post.ResolutionNotes : "This post has been marked as resolved.")</MudText>
+                                    </MudAlert>
+                                }
+
+                                @if (CanClosePost)
+                                {
+                                    <MudStack Row="true" Justify="Justify.FlexEnd">
+                                        <MudButton Variant="Variant.Outlined"
+                                                   Color="Color.Default"
+                                                   StartIcon="@Icons.Material.Filled.CheckCircle"
+                                                   Disabled="_isClosing"
+                                                   OnClick="ClosePostAsync">
+                                            @(_isClosing ? "Closing..." : "Mark as resolved")
+                                        </MudButton>
+                                    </MudStack>
+                                }
+                            </MudStack>
+                        </MudPaper>
+                    </MudItem>
+                </MudGrid>
+
+                <MudGrid Spacing="3">
+                    <MudItem xs="12" md="6">
+                        <MudPaper Elevation="0" Class="section-surface pa-4">
+                            <MudStack Spacing="2">
+                                <MudText Typo="Typo.h6">Contact</MudText>
+                                <MudText Typo="Typo.body2">Contact person: @_post.ContactName</MudText>
+                                @if (CanShowContact)
+                                {
+                                    <MudText Typo="Typo.body2">Email: @_post.PublicContactEmail</MudText>
+                                    @if (!string.IsNullOrWhiteSpace(_post.PublicContactPhone))
+                                    {
+                                        <MudText Typo="Typo.body2">Phone: @_post.PublicContactPhone</MudText>
+                                    }
+                                }
+                                else
+                                {
+                                    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true">
+                                        The creator chose not to make contact details public. Please sign in and use platform contact options if available.
+                                    </MudAlert>
+                                }
+                            </MudStack>
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="12" md="6">
+                        <MudPaper Elevation="0" Class="section-surface pa-4">
+                            <MudStack Spacing="2">
+                                <MudText Typo="Typo.h6">Map</MudText>
+                                <ShelterMap Latitude="@_post.Latitude"
+                                            Longitude="@_post.Longitude"
+                                            ShelterName="@_post.Title"
+                                            Address="@_post.AddressOrAreaDescription"
+                                            City="@_post.City"
+                                            Height="280px" />
+                            </MudStack>
+                        </MudPaper>
+                    </MudItem>
+                </MudGrid>
+            </MudStack>
+        </MudContainer>
+    </div>
+}

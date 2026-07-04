@@ -1,0 +1,151 @@
+@page "/admin/lost-found"
+@attribute [Authorize(Roles = "Admin")]
+
+<PageTitle>Lost & Found Moderation</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.False" Class="px-0 admin-lost-found-page">
+    <MudStack Spacing="3">
+        <div class="page-header">
+            <MudText Typo="Typo.h4">Lost & Found Moderation</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Review community lost and found dog posts before they appear publicly.</MudText>
+        </div>
+
+        <MudPaper Elevation="0" Class="section-surface pa-3">
+            <MudGrid Spacing="2">
+                <MudItem xs="12" sm="6" md="3">
+                    <MudSelect T="string" Label="Status" @bind-Value="_statusFilter" Clearable="true" Variant="Variant.Outlined">
+                        @foreach (var status in StatusFilters)
+                        {
+                            <MudSelectItem T="string" Value="@status.ToString()">@FormatStatus(status)</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudSelect T="string" Label="Type" @bind-Value="_postTypeFilter" Clearable="true" Variant="Variant.Outlined">
+                        <MudSelectItem T="string" Value="@LostFoundPostType.Lost.ToString()">Lost dogs</MudSelectItem>
+                        <MudSelectItem T="string" Value="@LostFoundPostType.Found.ToString()">Found dogs</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudTextField T="string" Label="Search" @bind-Value="_keyword" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" md="3">
+                    <MudStack Row="true" Spacing="1" Class="mt-2">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.FilterAlt" Disabled="_isLoading" OnClick="LoadPostsAsync">Apply</MudButton>
+                        <MudButton Variant="Variant.Text" Color="Color.Default" Disabled="_isLoading" OnClick="ClearFiltersAsync">Clear</MudButton>
+                    </MudStack>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+
+        @if (_isLoading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="py-8">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Loading lost and found posts...</MudText>
+            </MudStack>
+        }
+        else if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <MudAlert Severity="Severity.Error">@_error</MudAlert>
+        }
+        else if (_posts.Count == 0)
+        {
+            <MudPaper Elevation="0" Class="empty-state pa-5">
+                <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.TravelExplore" Color="Color.Secondary" Size="Size.Large" />
+                    <MudText Typo="Typo.h6">No lost and found posts found</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Submitted posts will appear here for moderation.</MudText>
+                </MudStack>
+            </MudPaper>
+        }
+        else
+        {
+            <MudTable Items="_posts" Dense="true" Hover="true" Class="table-shell" RowsPerPage="10">
+                <HeaderContent>
+                    <MudTh>Post</MudTh>
+                    <MudTh>Status</MudTh>
+                    <MudTh>Location</MudTh>
+                    <MudTh>Date</MudTh>
+                    <MudTh>Review</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Post">
+                        <MudStack Spacing="1">
+                            <MudText Typo="Typo.body1">@context.Title</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">@FormatPostType(context.PostType) · @BuildSubtitle(context)</MudText>
+                            <MudButton Href="@($"/lost-found/{context.Id}")" Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Filled.OpenInNew">Open</MudButton>
+                        </MudStack>
+                    </MudTd>
+                    <MudTd DataLabel="Status">
+                        <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(context.Status)" Variant="Variant.Outlined">@FormatStatus(context.Status)</MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Location">
+                        <MudText Typo="Typo.body2">@BuildLocation(context)</MudText>
+                    </MudTd>
+                    <MudTd DataLabel="Date">
+                        <MudText Typo="Typo.body2">@context.LastSeenOrFoundDate.ToString("dd MMM yyyy")</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Submitted @context.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudText>
+                    </MudTd>
+                    <MudTd DataLabel="Review">
+                        <MudStack Spacing="1">
+                            @if (context.Status == LostFoundPostStatus.PendingReview || context.Status == LostFoundPostStatus.Rejected)
+                            {
+                                <MudTextField T="string"
+                                              Value="@(GetRejectReason(context.Id) ?? string.Empty)"
+                                              ValueChanged="@((string value) => SetRejectReason(context.Id, value))"
+                                              Placeholder="Rejection reason"
+                                              Variant="Variant.Outlined"
+                                              Lines="2"
+                                              MaxLength="@PawConnect.Services.LostFoundPostService.MaxRejectionReasonLength"
+                                              Disabled="@IsProcessing(context.Id)" />
+                            }
+                            <MudStack Row="true" Spacing="1" Class="flex-wrap">
+                                @if (context.Status == LostFoundPostStatus.PendingReview || context.Status == LostFoundPostStatus.Rejected)
+                                {
+                                    <MudButton Variant="Variant.Filled"
+                                               Color="Color.Success"
+                                               Size="Size.Small"
+                                               Disabled="@IsProcessing(context.Id)"
+                                               OnClick="@(() => ApproveAsync(context.Id))">
+                                        Approve
+                                    </MudButton>
+                                    <MudButton Variant="Variant.Outlined"
+                                               Color="Color.Error"
+                                               Size="Size.Small"
+                                               Disabled="@IsProcessing(context.Id)"
+                                               OnClick="@(() => RejectAsync(context.Id))">
+                                        Reject
+                                    </MudButton>
+                                }
+                                @if (context.Status == LostFoundPostStatus.Approved)
+                                {
+                                    <MudButton Variant="Variant.Outlined"
+                                               Color="Color.Default"
+                                               Size="Size.Small"
+                                               Disabled="@IsProcessing(context.Id)"
+                                               OnClick="@(() => CloseAsync(context.Id))">
+                                        Mark resolved
+                                    </MudButton>
+                                }
+                                @if (context.Status == LostFoundPostStatus.Closed)
+                                {
+                                    <MudButton Variant="Variant.Outlined"
+                                               Color="Color.Primary"
+                                               Size="Size.Small"
+                                               Disabled="@IsProcessing(context.Id)"
+                                               OnClick="@(() => ReopenAsync(context.Id))">
+                                        Reopen
+                                    </MudButton>
+                                }
+                            </MudStack>
+                        </MudStack>
+                    </MudTd>
+                </RowTemplate>
+                <PagerContent>
+                    <MudTablePager />
+                </PagerContent>
+            </MudTable>
+        }
+    </MudStack>
+</MudContainer>
