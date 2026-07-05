@@ -442,6 +442,38 @@ $env:PAWCONNECT_SKIP_DOCKER_TESTS = "1"
 dotnet test PawConnect.sln
 ```
 
+`PawConnect.E2ETests` contains browser-based Playwright tests for the most important user-facing flows: app smoke loading, login, role-specific navigation, public dog browsing/details, shelter dog management, and admin notification outbox access.
+
+Install the Playwright browser binaries after building the E2E project:
+
+```powershell
+dotnet build PawConnect.E2ETests\PawConnect.E2ETests.csproj
+.\PawConnect.E2ETests\bin\Debug\net10.0\playwright.ps1 install chromium
+```
+
+The E2E tests target a running PawConnect app. Start the app in one terminal:
+
+```powershell
+dotnet run --launch-profile https
+```
+
+Then run the browser tests in another terminal:
+
+```powershell
+$env:PAWCONNECT_RUN_E2E = "1"
+$env:PAWCONNECT_E2E_BASE_URL = "https://localhost:7125"
+dotnet test PawConnect.E2ETests\PawConnect.E2ETests.csproj
+```
+
+Run one E2E test class:
+
+```powershell
+$env:PAWCONNECT_RUN_E2E = "1"
+dotnet test PawConnect.E2ETests\PawConnect.E2ETests.csproj --filter "FullyQualifiedName~CoreUserFlowTests"
+```
+
+If `PAWCONNECT_RUN_E2E` is not set, or if PawConnect is not reachable at `/health`, the E2E tests are skipped so normal CI and local unit/service test runs remain stable. The E2E tests use the seeded demo accounts: `adopter@mail.com`, `shelter@mail.com`, and `admin@mail.com`.
+
 The suite focuses on service-level business rules and integration-style flows such as dog visibility, adoption request transitions, shelter ownership, favorites, resources, notifications, reports, CSV import/export, recommendations, Copilot safety, semantic search fallback behavior, and SQL Server migration/persistence checks.
 
 ## Continuous Integration
@@ -483,6 +515,7 @@ A public API with Swagger documentation would be a future improvement if PawConn
 | `wwwroot` | Static assets, CSS, JavaScript, Leaflet integration files, and uploads. |
 | `PawConnect.Tests` | xUnit automated tests and test helpers. |
 | `PawConnect.IntegrationTests` | Testcontainers-based SQL Server integration tests for migrations and persistence flows. |
+| `PawConnect.E2ETests` | Playwright browser tests for smoke, authentication, role navigation, and core user flows. |
 | `docs` | Thesis/demo/supporting technical documentation. |
 | `.github/workflows` | GitHub Actions CI workflow. |
 | `Dockerfile` / `docker-compose.yml` | Local containerized development setup. |
