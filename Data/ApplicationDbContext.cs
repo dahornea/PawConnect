@@ -39,6 +39,10 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
     public DbSet<Notification> Notifications => Set<Notification>();
 
+    public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
+
+    public DbSet<NotificationDeliveryLog> NotificationDeliveryLogs => Set<NotificationDeliveryLog>();
+
     public DbSet<ReportHistory> ReportHistories => Set<ReportHistory>();
 
     public DbSet<DogSearchEmbedding> DogSearchEmbeddings => Set<DogSearchEmbedding>();
@@ -780,6 +784,60 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
         builder.Entity<Notification>()
             .HasIndex(notification => new { notification.UserId, notification.IsRead, notification.CreatedAt });
+
+        builder.Entity<NotificationPreference>()
+            .HasOne(preference => preference.User)
+            .WithMany()
+            .HasForeignKey(preference => preference.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<NotificationPreference>()
+            .Property(preference => preference.CreatedAt)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<NotificationPreference>()
+            .Property(preference => preference.UpdatedAt)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<NotificationPreference>()
+            .HasIndex(preference => new { preference.UserId, preference.NotificationType })
+            .IsUnique();
+
+        builder.Entity<NotificationDeliveryLog>()
+            .HasOne(log => log.Notification)
+            .WithMany()
+            .HasForeignKey(log => log.NotificationId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.Entity<NotificationDeliveryLog>()
+            .HasOne(log => log.User)
+            .WithMany()
+            .HasForeignKey(log => log.UserId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<NotificationDeliveryLog>()
+            .Property(log => log.CreatedAt)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<NotificationDeliveryLog>()
+            .HasIndex(log => log.UserId);
+
+        builder.Entity<NotificationDeliveryLog>()
+            .HasIndex(log => log.NotificationType);
+
+        builder.Entity<NotificationDeliveryLog>()
+            .HasIndex(log => log.Channel);
+
+        builder.Entity<NotificationDeliveryLog>()
+            .HasIndex(log => log.Status);
+
+        builder.Entity<NotificationDeliveryLog>()
+            .HasIndex(log => log.CreatedAt);
+
+        builder.Entity<NotificationDeliveryLog>()
+            .HasIndex(log => new { log.RelatedEntityType, log.RelatedEntityId });
 
         builder.Entity<ReportHistory>()
             .HasOne(history => history.Shelter)

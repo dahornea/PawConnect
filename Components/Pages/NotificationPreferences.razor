@@ -1,0 +1,75 @@
+@page "/notification-preferences"
+@attribute [Authorize]
+
+<PageTitle>Notification Preferences</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.False" Class="px-0">
+    <MudStack Spacing="3">
+        <div class="page-header">
+            <MudText Typo="Typo.h4">Notification Preferences</MudText>
+            <MudText Typo="Typo.body2">Choose how PawConnect notifies you about important updates.</MudText>
+        </div>
+
+        @if (_isLoading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="py-8">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Loading preferences...</MudText>
+            </MudStack>
+        }
+        else if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <MudAlert Severity="Severity.Error">@_error</MudAlert>
+        }
+        else
+        {
+            <MudPaper Elevation="0" Class="section-surface pa-3">
+                <MudTable Items="_preferences" Dense="true" Hover="true" Class="table-shell">
+                    <HeaderContent>
+                        <MudTh>Notification type</MudTh>
+                        <MudTh>In-app</MudTh>
+                        <MudTh>Email</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Notification type">
+                            <MudStack Spacing="1">
+                                <MudText Typo="Typo.subtitle2">@context.DisplayName</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">@context.Description</MudText>
+                            </MudStack>
+                        </MudTd>
+                        <MudTd DataLabel="In-app">
+                            <MudCheckBox T="bool"
+                                         @bind-Value="context.InAppEnabled"
+                                         Color="Color.Primary"
+                                         Disabled="_isSaving" />
+                        </MudTd>
+                        <MudTd DataLabel="Email">
+                            <MudCheckBox T="bool"
+                                         @bind-Value="context.EmailEnabled"
+                                         Color="Color.Primary"
+                                         Disabled="_isSaving" />
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+
+                <MudDivider Class="my-3" />
+
+                <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2" Class="flex-wrap">
+                    <MudButton Variant="Variant.Text"
+                               Color="Color.Default"
+                               Disabled="_isSaving"
+                               OnClick="ResetToDefaultsAsync">
+                        Reset to defaults
+                    </MudButton>
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Save"
+                               Disabled="_isSaving"
+                               OnClick="SaveAsync">
+                        Save preferences
+                    </MudButton>
+                </MudStack>
+            </MudPaper>
+        }
+    </MudStack>
+</MudContainer>

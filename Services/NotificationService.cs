@@ -4,7 +4,11 @@ using PawConnect.Entities;
 
 namespace PawConnect.Services;
 
-public class NotificationService(IDbContextFactory<ApplicationDbContext> contextFactory, ILogger<NotificationService> logger) : INotificationService
+public class NotificationService(
+    IDbContextFactory<ApplicationDbContext> contextFactory,
+    ILogger<NotificationService> logger,
+    INotificationPreferenceService? preferenceService = null,
+    INotificationDeliveryLogService? deliveryLogService = null) : INotificationService
 {
     public async Task CreateNotificationAsync(
         string userId,
@@ -28,6 +32,27 @@ public class NotificationService(IDbContextFactory<ApplicationDbContext> context
             var normalizedTitle = NormalizeRequired(title, 120);
             var normalizedMessage = NormalizeRequired(message, 500);
             var now = DateTime.UtcNow;
+            var notificationEventType = NotificationEventTypeMapper.FromNotification(category, relatedEntityName, normalizedTitle);
+            var recipient = await context.Users
+                .AsNoTracking()
+                .Where(user => user.Id == userId)
+                .Select(user => user.Email)
+                .FirstOrDefaultAsync();
+
+            if (preferenceService is not null &&
+                !await preferenceService.IsChannelEnabledAsync(userId, notificationEventType, NotificationChannel.InApp))
+            {
+                await TryLogDeliveryAsync(new NotificationDeliveryLogCreateRequest(
+                    notificationEventType,
+                    NotificationChannel.InApp,
+                    NotificationDeliveryStatus.DisabledByPreference,
+                    UserId: userId,
+                    Recipient: recipient,
+                    Subject: normalizedTitle,
+                    RelatedEntityType: relatedEntityName,
+                    RelatedEntityId: relatedEntityId));
+                return;
+            }
 
             if (suppressDuplicatesWithin is { } suppressionWindow && suppressionWindow > TimeSpan.Zero)
             {
@@ -46,6 +71,16 @@ public class NotificationService(IDbContextFactory<ApplicationDbContext> context
                         userId,
                         category,
                         normalizedTitle);
+                    await TryLogDeliveryAsync(new NotificationDeliveryLogCreateRequest(
+                        notificationEventType,
+                        NotificationChannel.InApp,
+                        NotificationDeliveryStatus.Skipped,
+                        UserId: userId,
+                        Recipient: recipient,
+                        Subject: normalizedTitle,
+                        ErrorMessage: "Suppressed duplicate notification.",
+                        RelatedEntityType: relatedEntityName,
+                        RelatedEntityId: relatedEntityId));
                     return;
                 }
             }
@@ -65,6 +100,18 @@ public class NotificationService(IDbContextFactory<ApplicationDbContext> context
 
             context.Notifications.Add(notification);
             await context.SaveChangesAsync();
+
+            await TryLogDeliveryAsync(new NotificationDeliveryLogCreateRequest(
+                notificationEventType,
+                NotificationChannel.InApp,
+                NotificationDeliveryStatus.Sent,
+                NotificationId: notification.Id,
+                UserId: userId,
+                Recipient: recipient,
+                Subject: normalizedTitle,
+                SentAt: now,
+                RelatedEntityType: relatedEntityName,
+                RelatedEntityId: relatedEntityId));
         }
         catch (Exception ex)
         {
@@ -183,5 +230,22 @@ public class NotificationService(IDbContextFactory<ApplicationDbContext> context
 
         var normalized = value.Trim();
         return normalized.Length <= maxLength ? normalized : normalized[..maxLength];
+    }
+
+    private async Task TryLogDeliveryAsync(NotificationDeliveryLogCreateRequest request)
+    {
+        if (deliveryLogService is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await deliveryLogService.LogDeliveryAsync(request);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Notification delivery log creation failed for user {UserId}.", request.UserId);
+        }
     }
 }
