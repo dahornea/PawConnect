@@ -1,662 +1,503 @@
-# PawConnect: A Web Platform for Stray Dog Adoption and Shelter Management
+# PawConnect
+
+A full-stack ASP.NET Core Blazor Server platform for stray dog adoption and shelter management.
 
 ![.NET CI](https://github.com/dahornea/PawConnect/actions/workflows/dotnet-ci.yml/badge.svg)
+![.NET](https://img.shields.io/badge/.NET-10.0-512BD4)
 
-PawConnect is a beginner-friendly ASP.NET Core Blazor Server skeleton for a stray dog adoption and shelter management system. It is structured for a bachelor thesis project and is ready for future CRUD and workflow implementation.
+PawConnect is a multi-role web application that connects adopters with animal shelters and supports the adoption process from public dog discovery to request review, visit confirmation, messaging, reporting, and shelter operations. It is built as a portfolio-ready ASP.NET Core project with role-based workflows, service-layer business rules, SQL Server persistence, maps, notifications, reports, automated tests, Docker support, and optional OpenAI-assisted discovery features.
 
-## Technologies
+## Table of Contents
 
-- ASP.NET Core Blazor Server
-- Entity Framework Core
-- SQL Server
-- ASP.NET Core Identity with roles
-- MudBlazor
-- Quartz.NET for scheduled background jobs
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [Architecture Overview](#architecture-overview)
+- [User Roles](#user-roles)
+- [Main Workflows](#main-workflows)
+- [Screenshots](#screenshots)
+- [Getting Started](#getting-started)
+- [Configuration](#configuration)
+- [Deployment Preparation](#deployment-preparation)
+- [Running with Docker](#running-with-docker)
+- [Running Tests](#running-tests)
+- [Continuous Integration](#continuous-integration)
+- [API Documentation](#api-documentation)
+- [Project Structure](#project-structure)
+- [Security and Privacy Notes](#security-and-privacy-notes)
+- [Future Work](#future-work)
+- [CV Summary](#cv-summary)
+
+## Features
+
+### Public discovery
+
+- Browse public-safe dogs at `/dogs`.
+- View dog details, medical/food context, shelter information, breed information, image gallery, and lightbox preview at `/dogs/{id:int}`.
+- Browse shelters and public shelter details at `/shelters` and `/shelters/{id:int}`.
+- View adoption success stories at `/success-stories`.
+- Browse approved Lost & Found posts at `/lost-found`.
+- Submit shelter applications through `/shelters/apply`.
+- View shelter locations with Leaflet and OpenStreetMap when coordinates are available.
+
+### Adopter
+
+- Manage adopter profile at `/adopter/profile`.
+- View adopter dashboard at `/adopter/dashboard`.
+- Save favorite dogs and view favorites at `/favorites`.
+- Track recently viewed dogs.
+- View personalized recommendations at `/adopter/recommendations`.
+- Use Adoption Copilot natural-language dog search at `/adopter/copilot`.
+- Submit, track, and cancel adoption requests at `/my-adoption-requests`.
+- Message shelters inside adoption-request conversations.
+- View notifications and notification preferences.
+
+### Shelter
+
+- View shelter dashboard and operational summaries at `/shelter/dashboard`.
+- Manage owned dogs at `/shelter/dogs`, including create/edit pages, breed lookup, images, medical records, status history, and dog profile quality feedback.
+- Review adoption requests at `/shelter/adoption-requests`.
+- Confirm visits, reject requests, and finalize adoptions through the adoption workflow.
+- Manage adoption pipeline at `/shelter/adoption-pipeline`.
+- Configure visit availability at `/shelter/availability`.
+- Manage resources and low-stock thresholds at `/shelter/resources`.
+- Use shelter analytics at `/shelter/analytics`.
+- Use shelter operations assistant and natural-language operational search at `/shelter/assistant` and `/shelter/search`.
+- Export shelter-scoped data and import CSV data where supported.
+- Message adopters in adoption-request conversations.
+
+### Admin
+
+- View admin dashboard at `/admin/dashboard`.
+- Manage users, shelters, dogs, and adoption requests.
+- Review shelter applications at `/admin/shelter-requests`.
+- Moderate Lost & Found posts at `/admin/lost-found`.
+- Review message reports at `/admin/message-reports`.
+- View platform analytics at `/admin/analytics`.
+- Review report history, activity/audit logs, and notification delivery logs.
+- Rebuild and inspect the dog search index at `/admin/search-index`.
+- Evaluate Adoption Copilot results at `/admin/copilot-evaluation`.
+- Use admin natural-language search at `/admin/search`.
+
+### AI and search
+
+- Adoption Copilot uses natural-language prompts to find real PawConnect dogs.
+- Copilot combines deterministic parsing, public-safe filters, semantic search when embeddings are available, and optional OpenAI Responses API tool calling.
+- OpenAI is optional and is not treated as the source of truth. PawConnect validates final dog IDs against real backend candidates before display.
+- Recommended Dogs uses rule-based scoring with optional OpenAI explanation/reranking of backend-provided candidates.
+- Dog search documents and `DogSearchEmbedding` records support semantic search when OpenAI embeddings are configured.
+- Natural-language operational search exists for Admin and Shelter workflows.
+- AI-generated summaries and profile quality checks are implemented behind service abstractions and fall back safely when OpenAI is disabled or unavailable.
+
+### Infrastructure and quality
+
+- ASP.NET Core Identity roles for Public, Adopter, Shelter, and Admin workflows.
+- EF Core migrations and SQL Server persistence.
+- xUnit automated tests with EF Core InMemory and fake services.
+- GitHub Actions CI for restore, build, and test.
+- Docker Compose setup for the app, SQL Server, and smtp4dev.
+- MailKit SMTP email sending with local smtp4dev support.
+- QuestPDF report generation.
+- Quartz.NET scheduled jobs for shelter summaries and visit reminders.
+- CSV import/export and PDF/CSV report history.
+- SignalR messaging for adoption-request conversations.
+
+## Tech Stack
+
+| Area | Technology | Purpose |
+| ---- | ---------- | ------- |
+| Backend/UI | ASP.NET Core Blazor Server | Interactive server-rendered web UI |
+| Language | C# / .NET 10 | Main application and service logic |
+| Data access | Entity Framework Core | SQL Server persistence and migrations |
+| Database | SQL Server / LocalDB | Stores users, dogs, shelters, requests, reports, messages, resources, and search data |
+| Authentication | ASP.NET Core Identity | Login, registration, roles, and account management |
+| UI library | MudBlazor | Components, forms, tables, dialogs, chips, and layout |
+| Real-time | SignalR | Adoption-request messaging and live updates |
+| Email | MailKit / SMTP / smtp4dev | Password reset, adoption, visit, report, and notification emails |
+| PDF | QuestPDF | Adoption, low-stock, shelter, and platform reports |
+| Background jobs | Quartz.NET | Scheduled reports and visit reminders |
+| Maps | Leaflet, OpenStreetMap, Nominatim | Shelter maps, geocoding, and nearby browsing |
+| AI integration | OpenAI API | Optional Copilot, recommendations, embeddings, summaries, and AI helpers |
+| Testing | xUnit, EF Core InMemory | Service-level and integration-style tests |
+| DevOps | GitHub Actions | Continuous integration |
+| Local infra | Docker / Docker Compose | App, SQL Server, and smtp4dev local environment |
+
+## Architecture Overview
+
+PawConnect follows a layered Blazor Server architecture:
+
+- Razor components under `Components/Pages` and `Components/Shared` handle UI state, forms, navigation, and role-specific pages.
+- Services under `Services` contain the main business rules, validation, ownership checks, status transitions, reporting, AI integration, search, messaging, and import/export logic.
+- Entities under `Entities` represent the domain model used by EF Core.
+- `Data/ApplicationDbContext.cs` defines DbSets, relationships, indexes, delete behavior, and seed/lookup configuration.
+- ASP.NET Core Identity stores application users and role assignments.
+- External integrations such as SMTP, OpenAI, PDF generation, geocoding, and file storage are isolated behind services.
+- SignalR hub logic is kept in `Hubs/AdoptionChatHub.cs` for real-time messaging.
+- Quartz jobs under `Jobs` call services instead of containing business logic directly.
+
+### High-level architecture
+
+```mermaid
+flowchart LR
+    user["User browser<br/>Public / Adopter / Shelter / Admin"]
+    ui["Blazor Server UI<br/>Razor Components + MudBlazor"]
+    hub["SignalR<br/>AdoptionChatHub"]
+    services["Service Layer<br/>Business rules + validation + ownership checks"]
+    jobs["Quartz.NET Jobs<br/>Shelter reports + visit reminders"]
+    db["EF Core<br/>ApplicationDbContext"]
+    sql[("SQL Server<br/>Domain + Identity data")]
+    identity["ASP.NET Core Identity<br/>Users + roles"]
+    email["SMTP / smtp4dev<br/>Email notifications"]
+    pdf["QuestPDF<br/>PDF reports"]
+    maps["Leaflet + OpenStreetMap<br/>Nominatim geocoding"]
+    ai["OpenAI API (optional)<br/>Copilot + embeddings + summaries"]
+    uploads["Local uploads<br/>Dog images + message attachments"]
+    tests["xUnit Tests<br/>EF Core InMemory + fakes"]
+    ci["GitHub Actions<br/>Restore + build + test"]
+    docker["Docker Compose<br/>App + SQL Server + smtp4dev"]
+
+    user --> ui
+    ui --> services
+    ui <--> hub
+    hub --> services
+    jobs --> services
+    services --> db
+    db --> sql
+    services --> identity
+    identity --> sql
+    services --> email
+    services --> pdf
+    services --> maps
+    services --> ai
+    services --> uploads
+    tests --> services
+    tests --> db
+    ci --> tests
+    docker --> ui
+    docker --> sql
+    docker --> email
+```
+
+### Copilot and semantic search flow
+
+```mermaid
+flowchart TD
+    prompt["Adopter prompt<br/>Example: calm apartment dog near Cluj"]
+    page["AdoptionCopilot.razor<br/>User input + result cards"]
+    service["AdoptionCopilotService<br/>Coordinates fallback, tools, and final validation"]
+    deterministic["Deterministic parsing<br/>Size, location, breed, activity, compatibility"]
+    openaiClient["OpenAiAdoptionCopilotClient<br/>Optional Responses API tool calling"]
+    toolService["AdoptionCopilotToolService<br/>Backend-controlled search tools"]
+    semantic["SemanticDogSearchService<br/>Semantic ranking when embeddings exist"]
+    documents["DogSearchDocumentService<br/>Public-safe dog search text"]
+    embeddings["DogSearchEmbeddingService<br/>Stores and refreshes vectors"]
+    dbSearch["ApplicationDbContext<br/>Dogs, breeds, shelters, profiles, embeddings"]
+    openai["OpenAI API<br/>Interprets query and writes explanation"]
+    candidates["Backend candidate dogs<br/>Only public-safe real dogs"]
+    validation["Final ID validation<br/>Unknown or ineligible IDs ignored"]
+    cards["Copilot response<br/>Summary, chips, scores, cautions, dog cards"]
+
+    prompt --> page
+    page --> service
+    service --> deterministic
+    service --> openaiClient
+    openaiClient <--> openai
+    openaiClient --> toolService
+    toolService --> semantic
+    toolService --> documents
+    semantic --> embeddings
+    documents --> dbSearch
+    embeddings --> dbSearch
+    toolService --> dbSearch
+    deterministic --> candidates
+    toolService --> candidates
+    openaiClient --> validation
+    candidates --> validation
+    validation --> cards
+    cards --> page
+```
+
+OpenAI features are intentionally backend-controlled:
+
+- The model never queries SQL directly.
+- PawConnect exposes controlled services and tool outputs instead of raw database access.
+- Public-safe dog filtering happens in the application before dogs are shown to adopters.
+- Copilot results can only display dog IDs that PawConnect already found as valid candidates.
+- Recommendations and Copilot still have deterministic fallback paths when OpenAI is disabled, missing an API key, or returns unusable output.
+- Semantic search depends on generated `DogSearchEmbedding` records; if embeddings are missing, PawConnect falls back to keyword/rule-based search.
+
+## User Roles
+
+| Role | Main permissions and workflows |
+| ---- | ------------------------------ |
+| Public Visitor | Browse dogs, shelters, success stories, Lost & Found posts, and submit shelter applications. |
+| Adopter | Manage profile, save favorites, receive recommendations, use Copilot, submit adoption requests, message shelters, and track request status. |
+| Shelter | Manage owned dogs, images, resources, medical records, adoption requests, visits, availability, reports, analytics, and adopter conversations. |
+| Admin | Manage platform data, review shelter applications, moderate Lost & Found/message reports, inspect analytics, rebuild search index, and review logs/reports. |
+
+## Main Workflows
+
+### Dog discovery
+
+Public visitor opens `/dogs` -> applies filters/search/sort -> opens `/dogs/{id:int}` -> reviews details, gallery, breed information, shelter location, food, and medical context.
+
+### Adoption request
+
+Adopter opens dog details -> submits request with questionnaire and preferred visit time -> PawConnect validates dog status, ownership, duplicate active requests, and visit timing -> shelter receives notification/email.
+
+### Shelter review and visit confirmation
+
+Shelter opens `/shelter/adoption-requests` -> reviews request -> confirms visit or rejects request -> confirmed visits reserve the dog and send an email with an `.ics` calendar attachment -> final adoption can be marked after the visit.
+
+### Adoption Copilot
+
+Adopter writes a natural-language prompt -> PawConnect parses deterministic constraints -> Copilot tools search only public-safe dogs -> optional OpenAI call explains and ranks backend candidates -> final dog IDs are validated before rendering cards.
+
+### Resource and reporting
+
+Shelter manages stock in `/shelter/resources` -> low stock creates warnings/notifications -> CSV/PDF exports and report metadata are recorded -> optional scheduled reports use Quartz and email.
+
+### Lost & Found moderation
+
+User creates a Lost & Found post -> post goes through approval/moderation -> Admin reviews in `/admin/lost-found` -> approved posts appear publicly.
+
+## Screenshots
+
+Screenshots will be added after the portfolio demo capture.
+
+Suggested captures:
+
+- Public dog listing
+- Dog details with image gallery and breed information
+- Adoption Copilot results
+- Shelter dashboard
+- Shelter adoption request review
+- Admin analytics or activity log
+- Lost & Found page
+
+## Getting Started
+
+### Prerequisites
+
+- .NET SDK `10.0.301` or compatible .NET 10 SDK
+- SQL Server, SQL Server Express, or LocalDB
+- Visual Studio 2022 or VS Code with C# Dev Kit
+- Optional: smtp4dev for local email inspection
+- Optional: OpenAI API key for AI-assisted features
+
+### Local setup
+
+```bash
+git clone https://github.com/dahornea/PawConnect.git
+cd PawConnect
+dotnet restore PawConnect.sln
+dotnet build PawConnect.sln
+dotnet ef database update --project PawConnect.csproj
+dotnet run --project PawConnect.csproj
+```
+
+Open the local URL printed by `dotnet run`, usually `https://localhost:7xxx` or `http://localhost:5xxx`.
+
+If `dotnet ef` is not installed, install it globally or use the repository tool configuration:
+
+```bash
+dotnet tool install --global dotnet-ef --version 10.*
+```
+
+### Demo accounts
+
+Seed data creates the following local accounts after the database schema exists and the app starts:
+
+| Role | Email | Password |
+| ---- | ----- | -------- |
+| Admin | `admin@mail.com` | `Admin1!` |
+| Shelter | `shelter@mail.com` | `Shelter1!` |
+| Adopter | `adopter@mail.com` | `Adopter1!` |
+
+## Configuration
+
+Use `appsettings.Development.json`, environment variables, or .NET User Secrets for local configuration. Do not commit real secrets.
+
+Important keys:
+
+| Key | Purpose |
+| --- | ------- |
+| `ConnectionStrings:DefaultConnection` | SQL Server connection string. |
+| `Database:ApplyMigrationsOnStartup` | Applies EF Core migrations at startup only when explicitly enabled. |
+| `SeedData:Enabled` | Enables demo role/user/domain seed data. Disabled by default in Production. |
+| `OpenAI:Enabled` | Enables optional OpenAI-backed features. |
+| `OpenAI:ApiKey` | OpenAI API key. Keep it in User Secrets or environment variables. |
+| `OpenAI:Model` / `OpenAI:ChatModel` | Chat model names for AI-assisted features. |
+| `OpenAI:EmbeddingModel` | Embedding model used by semantic dog search. |
+| `OpenAI:ShelterOperationsAssistantEnabled` | Enables the shelter assistant when configured. |
+| `EmailSettings:Enabled` | Enables SMTP email delivery. In-app notifications still work when disabled. |
+| `EmailSettings:SmtpHost` | SMTP server host. |
+| `EmailSettings:SmtpPort` | SMTP server port. |
+| `EmailSettings:SmtpUser` / `EmailSettings:SmtpPassword` | SMTP credentials, optional for local smtp4dev. |
+| `EmailSettings:SenderEmail` / `EmailSettings:SenderName` | Sender identity used in emails. |
+| `EmailSettings:OpenLocalInboxOnStartup` | Opens the configured local inbox URL in development when enabled. |
+| `ScheduledReports:Enabled` | Enables scheduled shelter summary reports. |
+| `VisitReminders:Enabled` | Enables scheduled visit reminder emails. |
+| `DogImageStorage:LocalRoot` | Local upload folder for dog images. |
+| `DogImageStorage:MaxFileSizeBytes` | Maximum dog image upload size. |
+
+Example User Secrets for OpenAI:
+
+```bash
+dotnet user-secrets set "OpenAI:Enabled" "true"
+dotnet user-secrets set "OpenAI:ApiKey" "sk-..."
+```
+
+Local email can be tested with smtp4dev. No real SMTP credentials are required for development.
+
+## Deployment Preparation
+
+Production deployment notes are documented in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
+Highlights:
+
+- Production secrets should be supplied through environment variables or platform secrets.
+- `appsettings.Production.json` contains safe non-secret defaults.
+- Startup migrations are disabled in Production unless `Database__ApplyMigrationsOnStartup=true` is explicitly set.
+- Demo seed data is disabled in Production unless `SeedData__Enabled=true` is explicitly set.
+- OpenAI, SMTP email, scheduled reports, and visit reminders are optional and disabled by default in Production.
+- `/health` returns a simple database connectivity status without exposing sensitive details.
+
+## Running with Docker
+
+Docker support is included through `Dockerfile`, `docker-compose.yml`, `.dockerignore`, `.env.example`, and `appsettings.Docker.json`.
+
+The compose setup starts:
+
+- PawConnect Blazor Server app
+- SQL Server 2022 Developer edition
+- smtp4dev local email inbox
+
+Create a local environment file:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Edit `.env` and set a strong local `SQL_PASSWORD`. Do not commit `.env`.
+
+Start the stack:
+
+```bash
+docker compose up --build
+```
+
+Open:
+
+```text
+App:       http://localhost:8080
+smtp4dev:  http://localhost:5001
+```
+
+Useful commands:
+
+```bash
+docker compose logs -f pawconnect
+docker compose down
+docker compose down -v
+```
+
+`docker compose down -v` removes SQL Server and upload volumes, so the next start creates a clean local database.
+
+Docker notes:
+
+- `ASPNETCORE_ENVIRONMENT` is set to `Docker`.
+- EF Core migrations are applied at startup only in the Docker environment.
+- OpenAI is disabled by default in Docker. Set `OPENAI_ENABLED=true` and `OPENAI_API_KEY` in `.env` to test AI features.
+- Emails are routed to smtp4dev by default.
+- Uploaded dog images and message attachments are stored in the `pawconnect-uploads` volume.
+
+## Running Tests
+
+Run the automated test suite:
+
+```bash
+dotnet test PawConnect.sln
+```
+
+For Release configuration:
+
+```bash
+dotnet test PawConnect.sln --configuration Release
+```
+
+The test project is `PawConnect.Tests`. Tests use xUnit, EF Core InMemory, and fake services where appropriate. They do not require a real SQL Server instance, OpenAI API key, SMTP server, Docker container, or browser automation.
+
+The suite focuses on service-level business rules and integration-style flows such as dog visibility, adoption request transitions, shelter ownership, favorites, resources, notifications, reports, CSV import/export, recommendations, Copilot safety, and semantic search fallback behavior.
 
 ## Continuous Integration
 
-This repository uses GitHub Actions to automatically restore dependencies, build the solution, and run the automated test suite on pushes and pull requests to `main`.
-
-## Roles
-
-- Adopter
-- Shelter
-- Admin
-
-## Current Skeleton
-
-- Identity user model with role support
-- SQL Server DbContext and EF migrations
-- Domain entities for shelters, dogs, dog images, medical records, adoption requests, favorite dogs, adopter profiles, and resource stock
-- Seed roles, test users, and demo domain data at startup after the database schema exists
-- Demo data includes Cluj-Napoca demo shelters, dogs, dog images, medical records, resource categories, food types, and resource stock
-- MudBlazor layout with role-based sidebar navigation
-- Placeholder pages for public, adopter, shelter, and admin workflows
-- Simple service and repository layer
-- Email notification service with SMTP/local catcher support for development testing
-- PDF email report attachments for adoption and low-stock notifications
-- Scheduled shelter summary reports with PDF email attachments and manual Shelter Dashboard sending
-- Adopter profile page for household/contact information used during adoption request review
-- Dog status history tracking for shelter/admin review
-- Internal shelter notes for adoption requests, visible only to shelter users and admins
-- Recently viewed dogs for adopter dashboard quick access
-- Semantic dog search and an adopter-only AI Adoption Copilot with safe fallback
-- Public adoption success stories for adopted dogs
-- Dog ages support years and months for puppy-friendly display
-- Adopter-selected shelter visit scheduling for adoption requests
-- Approval-based shelter registration requests at `/shelters/apply`
-- Admin shelter application review at `/admin/shelter-requests`
-- Admin CSV/PDF exports for platform management pages
-- Shelter CSV/PDF exports for shelter-owned operational pages
-- CSV imports for shelter-owned resource/dog records and Admin shelter request imports with preview/validation
-- Admin Activity Log for important user and system actions
-- Role-based in-app notifications with categorized notification bell and `/notifications` page
-- Optional address-based coordinate lookup using OpenStreetMap Nominatim
-- Service-level validation and duplicate prevention for core shelter, adoption, dog image, resource, export, notification, and report workflows
-- Report History metadata tracking for generated/sent reports and CSV/PDF exports
-
-## Planned Features
-
-- Image upload support
-
-## Shelter Registration Requests
-
-Public registration is for adopter accounts only. Shelter representatives do not create shelter accounts directly from the public Register page.
-
-The shelter application form is intended for public shelter representatives. Admin users review applications from `/admin/shelter-requests`, and existing Shelter users already have active shelter accounts, so Admin/Shelter users are not allowed to submit public shelter applications.
-
-Shelters apply through:
+GitHub Actions workflow:
 
 ```text
-/shelters/apply
+.github/workflows/dotnet-ci.yml
 ```
 
-The shelter application form stores a `ShelterRegistrationRequest` with `Pending` status. Applicants provide normal address/contact information:
-
-- Shelter name
-- Contact person
-- Email
-- Phone number
-- City
-- Street/address
-- Neighborhood (optional)
-- Description
-- Optional website, opening hours, reason for joining, latitude, and longitude
-
-Administrators review requests at:
-
-```text
-/admin/shelter-requests
-```
-
-When an administrator accepts a request, PawConnect creates an `ApplicationUser`, assigns the `Shelter` role, and creates a linked `Shelter` profile. Rejected requests do not create a user or shelter profile. Admin-managed shelter editing remains available for already approved shelters.
-
-Submitting a shelter request attempts to notify admins by email and attach a PDF summary. Email/PDF failures are logged and do not delete or cancel the saved request.
-
-## Validation and Duplicate Prevention
-
-PawConnect uses friendly UI validation together with service-level safeguards for important business rules. UI checks help users fix forms quickly, but ownership, duplicate prevention, and status transition rules are enforced in services so they are not bypassed by page changes.
-
-Important rules include:
-
-- Shelter application emails are trimmed and compared case-insensitively. A duplicate pending shelter application is blocked, and existing shelter account/profile emails cannot be reused for a new shelter application or approval.
-- Adoption requests are limited to requestable dogs. Duplicate active requests from the same adopter for the same dog are blocked, adopted/in-treatment dogs cannot receive new requests, and adopters choose a preferred future shelter visit time during submission.
-- Preferred visit times are validated against the shelter's visiting hours. Closed days, past times, and times outside the configured visit range are rejected with friendly messages.
-- Shelter review is split into visit confirmation and final adoption. Confirming a visit reserves the dog and sends the adopter an email/in-app notification with an `.ics` calendar attachment. Marking as adopted happens later, after the visit.
-- Shelter users can manage adoption requests only for dogs owned by their shelter. Adopters can cancel only their own pending requests.
-- Dog recommendations use public-safe dog data only. Adopted and in-treatment dogs are excluded before any optional OpenAI enhancement is considered.
-- Semantic Dog Search and the AI Adoption Copilot return only real public-safe PawConnect dogs. OpenAI cannot add dog IDs that were not already retrieved by the app.
-- Dog image URLs are trimmed, empty URLs are ignored, and the same image URL cannot be added twice to the same dog.
-- Dog forms validate required identity fields, non-negative age/food values, valid month ranges, and avoid saving unusable dog age data.
-- Dogs with adoption request history cannot be hard deleted. Favorites and recently viewed rows do not block deletion when no adoption request history exists.
-- Resource stock validates name, category, unit, non-negative quantity/threshold, required food type for food resources, cleared food type for non-food resources, and duplicate shelter stock items.
-- Shelter address, city, and optional neighborhood remain separate. Latitude/Longitude are optional internal map fields and are range-checked when present; missing or failed geocoding does not block application or shelter creation.
-- Admin and Shelter exports are role-protected and scoped to the correct data. Sensitive Identity fields such as password hashes, security stamps, concurrency stamps, and tokens are intentionally excluded.
-- In-app notification read/delete operations check ownership, and audit logging avoids sensitive values such as passwords, reset tokens, security stamps, and SMTP credentials.
-
-Validation failures use user-friendly messages instead of raw technical exceptions. Field-specific problems are shown next to the relevant MudBlazor input, multi-field validation appears as a compact in-form alert near the related section, and snackbars are reserved mostly for success messages, system feedback, and failures that are not tied to a single field.
-
-## Dog Recommendations
-
-Adopter users can open:
-
-```text
-/adopter/recommendations
-```
-
-The adopter dashboard also shows a compact "Recommended for you" preview with the top matches.
-
-Recommendations are hybrid and safe by default:
-
-- C# rule-based scoring is always available and is the source of truth for hard filters.
-- Only `Available` and `Reserved` dogs are considered.
-- Scoring uses adopter profile fields such as city, housing type, yard, children, other pets, dog experience, favorites, and recently viewed dog traits.
-- Each recommendation includes a visible percentage-style match score, match label, short explanation, and categorized reasons such as Home fit, Experience fit, Location fit, Behavior fit, and Preferences fit.
-- OpenAI-assisted re-ranking/explanation refinement is optional, disabled by default, and only receives the top rule-based candidates.
-- If OpenAI is disabled, missing an API key, returns invalid output, or fails, PawConnect falls back to rule-based recommendations.
-- Sensitive adopter data such as full name, email, phone number, full address, additional notes, internal notes, passwords, tokens, and security fields is not sent to OpenAI.
-
-Configuration:
-
-```json
-"OpenAI": {
-  "Enabled": false,
-  "ApiKey": "",
-  "Model": "gpt-5.4-mini",
-  "ChatModel": "gpt-5.4-mini",
-  "EmbeddingModel": "text-embedding-3-small"
-}
-```
-
-Do not commit API keys. Use User Secrets or environment variables when testing OpenAI-assisted recommendations:
-
-```bash
-dotnet user-secrets set "OpenAI:ApiKey" "sk-..."
-dotnet user-secrets set "OpenAI:Enabled" "true"
-```
-
-## Semantic Dog Search and Adoption Copilot
-
-Adopter users can open:
-
-```text
-/adopter/copilot
-```
-
-The Adoption Copilot accepts natural language searches such as "calm apartment dog near Cluj", "friendly medium dog for a beginner", or "find me a dog in Zorilor" and returns real PawConnect dog cards with match scores, reasons, favorite actions, and links to dog details. The public `/dogs` page also includes a compact "Ask Copilot" entry point for adopters.
-
-The search architecture is hybrid and tool-based:
-
-- `DogSearchDocumentService` builds public-safe dog search documents.
-- `DogSearchEmbeddingService` stores one `DogSearchEmbedding` per searchable dog, with content hash tracking to avoid unnecessary regeneration.
-- `SemanticDogSearchService` compares query embeddings with stored dog embeddings, then applies hard filters and rule-based profile bonuses.
-- `AdoptionCopilotService` can optionally ask `gpt-5.4-mini` through OpenAI Responses API function calling/tools for a short adopter-friendly response and refined explanations.
-- The Copilot exposes controlled application tools such as `search_dogs`, sanitized adopter profile summary, aggregate favorite/recent preferences, and public dog details. The model can request these tools, but PawConnect executes them in C#.
-- Shelter neighborhood is included in search documents, and explicit neighborhood requests are applied as hard filters before semantic ranking or AI explanation.
-- If OpenAI is disabled, missing an API key, embeddings are unavailable, or the OpenAI call fails, PawConnect falls back to keyword/rule-based search.
-- Exact constraints such as `Medium` size or `Zorilor` neighborhood are enforced by the application even if the model omits or broadens them in a tool call.
-
-Semantic search uses the `DogSearchEmbeddings` table. That table is populated only when OpenAI embeddings are enabled and an API key is configured. Admin users can rebuild it from:
-
-```text
-/admin/dogs
-```
-
-Use **Rebuild Dog Search Index** after enabling OpenAI or after importing/editing demo dog data. The rebuild creates or updates embeddings for `Available` and `Reserved` dogs, skips unchanged content hashes, removes stale embeddings for `Adopted`/`InTreatment` dogs, and reports whether OpenAI is disabled or the API key is missing. If the table is empty, Copilot and semantic search continue with the safe rule-based/keyword fallback.
-
-OpenAI configuration:
-
-```json
-"OpenAI": {
-  "Enabled": false,
-  "ApiKey": "",
-  "Model": "gpt-5.4-mini",
-  "ChatModel": "gpt-5.4-mini",
-  "EmbeddingModel": "text-embedding-3-small"
-}
-```
-
-OpenAI remains disabled by default. Store the API key through User Secrets or environment variables, not committed JSON:
-
-```bash
-dotnet user-secrets set "OpenAI:ApiKey" "sk-..."
-dotnet user-secrets set "OpenAI:Enabled" "true"
-```
-
-Privacy safeguards:
-
-- Only sanitized adopter profile fields are sent: city, housing type, yard/pets/children flags, and dog experience.
-- Tool calls never accept an arbitrary user id; profile/preference tools always use the current authenticated adopter.
-- PawConnect does not send adopter full name, email, phone, exact address, additional notes, passwords, tokens, audit logs, SMTP credentials, shelter internal notes, or adoption request private notes.
-- Copilot responses can only reference candidate dog IDs already returned by PawConnect, and unknown IDs are ignored.
-- OpenAI prompts/responses are not stored in the database.
-
-Admin users can rebuild the dog search index from `/admin/dogs`. Dog creation/editing is not blocked if embedding generation fails; the app logs a safe warning and keeps normal dog management working.
-
-## Adoption Visit Scheduling
-
-Adoption requests remain the main concept in PawConnect, but the first positive shelter decision is now a visit confirmation rather than final adoption approval.
-
-The flow is:
-
-```text
-Adopter submits adoption request with preferred visit time
--> PawConnect validates the time against shelter visiting hours
--> Shelter confirms the visit or rejects the request
--> Adopter receives email/in-app notification with an .ics calendar attachment
--> After the visit, the shelter marks the dog/request as adopted or rejects/closes the request
-```
-
-Shelter visiting hours are stored on the `Shelter` profile with one daily time range and allowed visit weekdays. Admin users can edit these hours from `/admin/shelters`. Demo/default hours are Monday-Friday, 10:00-17:00.
-
-Visit confirmation reserves the dog but does not mark it as adopted. Final adoption happens only through the later "Mark as Adopted" action after the visit.
-
-## Visit Reminder Emails
-
-PawConnect can send automatic visit reminder emails 24 hours before confirmed shelter visits. The reminder uses Quartz.NET and the same SMTP/email template infrastructure as the confirmation email.
-
-Reminder emails include:
-
-- dog name
-- shelter name and contact details
-- visit date/time
-- shelter address/city
-- a generated `.ics` calendar attachment
-
-The reminder job is `VisitReminderJob`. It calls `IVisitReminderService`, which finds confirmed visits that are approximately 24 hours away and have not already received a reminder. Each adoption request stores `VisitReminderSentAt`; once it has a value, PawConnect will not send another reminder for that visit.
-
-Visit reminders are configured in `appsettings.json`:
-
-```json
-"VisitReminders": {
-  "Enabled": false,
-  "CheckIntervalMinutes": 30,
-  "ReminderHoursBeforeVisit": 24
-}
-```
-
-`Enabled` is `false` by default to avoid accidental development email spam. For local testing, enable it and use a local SMTP catcher such as smtp4dev. The reminder job does not use Google Calendar API/OAuth and does not store `.ics` files in the database.
-
-## Email Notifications
-
-PawConnect uses `IEmailService` with `SmtpEmailService` as the active implementation. The service sends email through a generic SMTP server using MailKit. Important notifications include a branded PawConnect HTML layout with a plain text fallback, so a local SMTP catcher can be used to inspect readable text bodies, richer HTML previews, and PDF attachments during development.
-
-Email notifications are triggered when:
-
-- A user requests a password reset through Forgot Password, sending an Identity reset link.
-- Identity account confirmation and email verification messages are sent.
-- An adopter submits a new adoption request, notifying the owning shelter.
-- A shelter confirms an adoption visit, notifying the adopter with a calendar invitation attachment.
-- A confirmed adoption visit is about 24 hours away, reminding the adopter with another calendar invitation attachment.
-- A shelter rejects or finalizes an adoption request after review/visit, notifying the adopter.
-- A shelter creates or updates a resource stock item that is at or below its low-stock threshold, notifying the shelter.
-
-Some notifications include PDF report attachments:
-
-- `AdoptionRequestReport.pdf` is attached when a new adoption request is sent to a shelter.
-- `AdoptionStatusReport.pdf` is attached when a request is finalized as adopted after the visit or rejected and the adopter is notified.
-- `LowStockResourceReport.pdf` is attached when a resource reaches low stock.
-- `ShelterSummaryReport-{yyyy-MM-dd}.pdf` is attached when a shelter summary report is sent manually or by the scheduler.
-
-Confirmed shelter visits and 24-hour visit reminders include an iCalendar invitation named `adoption-visit-{dog-name}-{yyyy-MM-dd}.ics`. PawConnect sends it as a `text/calendar; method=REQUEST` MIME part so compatible email clients may show an Add/Accept calendar action, and also keeps the `.ics` file as an attachment fallback. PawConnect does not use Google Calendar API/OAuth or Microsoft Graph; the generated `.ics` file can still be imported by common calendar applications.
-
-The reports are generated without charts. They use a clean PawConnect-style text and table layout with section headings, spacing, and a generated-date footer.
-
-Email or PDF generation failures are logged and do not cancel the main database action. For example, an adoption request can still be submitted even if SMTP credentials are missing or invalid.
-
-Forgot Password and other ASP.NET Core Identity emails use `PawConnectIdentityEmailSender`, which reuses the same configured `IEmailService` SMTP settings as the rest of the application. Password reset emails include a clean plain text body with the reset URL on its own line for easy copying from a local development inbox, plus a branded HTML body with a clickable action button when HTML preview is available. Demo users are seeded with confirmed email addresses so password reset emails can be sent during development/testing.
-
-## In-App Notifications
-
-PawConnect also stores important user-facing events as private in-app notifications. These complement email notifications and snackbar feedback; they do not replace either one.
-
-Authenticated users see a notification bell in the top app bar with an unread count. The dropdown groups recent notifications by category and links to the full notifications page:
-
-```text
-/notifications
-```
-
-Notification categories are:
-
-- Adoption
-- Shelter Applications
-- Resources
-- Reports
-- System
-
-The bell dropdown is intentionally compact: it shows a limited set of recent notifications, groups them by category, and collapses repeated same-day notifications with the same title/message, such as frequent scheduled "Summary report sent" notifications. The full notification history remains available on `/notifications`.
-
-Examples of role-based notifications:
-
-- Adopters receive notifications when a shelter visit is confirmed.
-- Adopters receive notifications when a 24-hour visit reminder is sent.
-- Adopters receive notifications when their adoption requests are finalized as adopted after the visit or rejected.
-- Shelters receive notifications for new adoption requests with preferred visit times, cancelled adopter requests, low-stock resources, and sent summary reports.
-- Admins receive notifications when a new shelter application is submitted.
-- Admins receive one summary notification when shelter application requests are imported from CSV.
-
-Scheduled shelter summary report notifications also use a simple duplicate guard so an enabled short demo interval does not create the same in-app report notification every minute. The report emails/PDF attachments are still sent according to the scheduler; only duplicate in-app notification clutter is reduced.
-
-Notifications belong to a single `ApplicationUser`. Users can view, mark as read, mark all as read, and delete only their own notifications. Notification text avoids sensitive values such as passwords, reset tokens, security stamps, and SMTP credentials.
-
-Email delivery uses the generic `SmtpEmailService`. The default development setup uses a local SMTP catcher so emails can be inspected without sending anything to real inboxes:
-
-```json
-"EmailSettings": {
-  "SmtpHost": "localhost",
-  "SmtpPort": 2525,
-  "SmtpUser": "",
-  "SmtpPassword": "",
-  "SenderEmail": "no-reply@pawconnect.local",
-  "SenderName": "PawConnect",
-  "EnableSsl": false,
-  "OpenLocalInboxOnStartup": false,
-  "LocalInboxUrl": "http://localhost:3000"
-}
-```
-
-Do not commit real SMTP credentials. If a real SMTP provider is configured later, put real values in .NET User Secrets or environment variables.
-
-## Local Email Testing
-
-For development, use a local SMTP catcher so no real emails are sent. Local catchers also let you inspect password reset emails, adoption/resource/shelter notifications, scheduled reports, HTML bodies, plain text bodies, and PDF attachments in a browser.
-
-Recommended option: smtp4dev.
-
-```bash
-docker run -d --name smtp4dev -p 3000:80 -p 2525:25 rnwood/smtp4dev
-```
-
-If smtp4dev is installed locally without Docker, run:
-
-```powershell
-smtp4dev --urls=http://localhost:3000 --smtpport=2525
-```
-
-smtp4dev web UI:
-
-```text
-http://localhost:3000
-```
-
-Development `EmailSettings` for smtp4dev:
-
-```json
-"EmailSettings": {
-  "SmtpHost": "localhost",
-  "SmtpPort": 2525,
-  "SmtpUser": "",
-  "SmtpPassword": "",
-  "SenderEmail": "no-reply@pawconnect.local",
-  "SenderName": "PawConnect",
-  "EnableSsl": false,
-  "OpenLocalInboxOnStartup": true,
-  "LocalInboxUrl": "http://localhost:3000"
-}
-```
-
-Alternative option: Mailpit.
-
-```bash
-docker run -d --name mailpit -p 1025:1025 -p 8025:8025 axllent/mailpit
-```
-
-Mailpit uses SMTP port `1025` and web UI `http://localhost:8025`.
-
-The SMTP service connects without authentication when `SmtpUser` and `SmtpPassword` are empty, which is the expected local smtp4dev/Mailpit setup. Real SMTP providers can still be configured later through the same `EmailSettings` keys, but they are not the default development path.
-
-In Development, PawConnect can open the local email inbox automatically when the app starts. This is controlled by `OpenLocalInboxOnStartup` and `LocalInboxUrl`; it opens the browser UI only and does not start the Mailpit/smtp4dev Docker container for you.
-
-The same SMTP path sends branded HTML and plain text email bodies, password reset links, adoption/resource/shelter notifications, scheduled report emails, PDF/CSV attachments, and `.ics` calendar invitations. PawConnect does not use Google Calendar API, Outlook/Microsoft Graph, or OAuth for visit invitations.
-
-## Scheduled Shelter Summary Reports
-
-PawConnect uses Quartz.NET for optional scheduled shelter summary reports. The job is in-process and uses Quartz's simple in-memory scheduling. No external cron job, Hangfire server, Quartz dashboard, or persistent Quartz job store is required.
-
-The scheduled job is `ShelterSummaryReportJob`. It calls `IShelterSummaryReportService`, which generates a PDF through `IPdfReportService` and sends it through the configured SMTP email service. The report summarizes:
-
-- adoption request counts and new requests in the report period
-- dog status counts and recently adopted dogs
-- low-stock resources with category, food type, quantity, unit, and threshold
-
-Shelter users can also send the same report manually from `/shelter/dashboard` with the "Send Summary Report" button. Manual sending works even when automatic scheduling is disabled, which is useful for demo/testing.
-
-Scheduled report settings are configured in `appsettings.json`:
-
-```json
-"ScheduledReports": {
-  "Enabled": false,
-  "RunOnStartupInDevelopment": false,
-  "ShelterReportIntervalMinutes": 5
-}
-```
-
-`Enabled` is `false` by default to avoid accidental email spam during local development. A 5-minute interval is convenient for demos; production values should usually be larger, such as `1440` minutes for daily reports. `RunOnStartupInDevelopment` only sends at startup when it is explicitly set to `true` in development. When scheduled reports are enabled, each run sends a summary report to every shelter that has an email address.
-
-## Report History
-
-PawConnect stores generated/sent report metadata in `ReportHistories`. This tracks when reports and exports were generated, who received emailed reports, whether sending succeeded, the file name, trigger type, and related shelter/entity information.
-
-Report history is metadata only:
-
-- PDF and CSV bytes are not stored in the database.
-- Password reset links, tokens, SMTP credentials, and other secrets are not stored.
-- Failed send attempts store a short user-safe error message.
-- History logging is best-effort and does not block email sending, PDF generation, scheduled reports, or browser downloads.
-
-Tracked examples include:
-
-- Manual Shelter Summary Reports from `/shelter/dashboard`
-- Quartz scheduled Shelter Summary Reports
-- Adoption request/status PDF notification reports
-- Low-stock resource PDF reports
-- Shelter registration request PDF reports
-- Admin and Shelter CSV/PDF exports
-
-Shelter users see recent metadata for their own shelter on `/shelter/dashboard`. Admin users can review all records at:
-
-```text
-/admin/report-history
-```
-
-Stored report download from history is intentionally not implemented because PawConnect does not persist generated files.
-
-## Shelter Map Integration
-
-PawConnect uses OpenStreetMap with Leaflet for shelter location maps and editable coordinate previews in shelter forms. No Google Maps API key or paid map service is required.
-
-Shelter coordinates are stored directly on the `Shelter` entity as optional `Latitude` and `Longitude` values. Shelters without coordinates still work normally and show a friendly fallback message instead of a broken map.
-
-Public shelter details keep the embedded Leaflet/OpenStreetMap map and also include an external "Open in Google Maps" link for navigation. The link opens in a new tab, uses stored coordinates when available, and falls back to the public address/city query when coordinates are missing. This external link does not require a Google Maps API key.
-
-Shelter applications and admin shelter editing use address information as the primary input. Latitude/Longitude are optional derived fields. Public applicants do not manually type coordinates; they can click "Find location" to perform a manual OpenStreetMap Nominatim lookup from address + city + Romania. The app does not geocode while typing, and applicants can still submit without coordinates if lookup fails.
-
-The public shelter application form uses an editable map as the user-facing coordinate editor. After address lookup, applicants can drag the marker or click the map to adjust the shelter location. Latitude and Longitude are stored internally, remain optional, and are not shown as raw numeric fields to public applicants or normal shelter location edit forms. Public shelter details maps remain read-only.
-
-Moving the marker or clicking the editable map can produce a suggested address through a reverse lookup. The "Update address from pin" action applies the displayed suggestion to the address/city fields; marker movement by itself does not automatically overwrite address fields.
-
-The public shelter pages are:
-
-- `/shelters`
-- `/shelters/{id:int}`
-
-The public `/shelters` page lists approved shelter profiles with public-safe contact/location details, optional neighborhood, public dog counts, a simple search by shelter name/neighborhood/city/address, and an "Apply as a Shelter" call-to-action that points to `/shelters/apply`. The application CTA is hidden for Admin and Shelter users because those roles either review applications or already have active shelter accounts.
-
-Demo shelters use approximate, fictional Cluj-Napoca, Romania locations for development and testing. The demo addresses and coordinates are not real shelter addresses and should not be treated as public contact/location data for real organizations.
-
-Public dog and shelter browsing uses a compact Filter/Sort toolbar with active filter chips instead of a large always-visible filter form. Shelter profiles can store an optional neighborhood, derived from Nominatim address details when possible and editable manually by applicants/admins/shelters. Dog cards prefer compact shelter neighborhood text such as `Happy Paws Shelter - Zorilor, Cluj-Napoca`, and `/dogs` can filter by distinct shelter neighborhoods. Nearby search remains available from the filter panel: users can type a city or address and choose a radius such as 5, 10, 25, 50, or 100 km. The Near input shows lightweight address suggestions after at least 3 characters with a debounce, using OpenStreetMap/Nominatim with a small result limit and in-memory caching for repeated queries. Selecting a suggestion fills the input and immediately applies nearby filtering with the selected coordinates and current radius; users can still type a custom address and use the compact search icon as a fallback. PawConnect geocodes only explicit nearby searches/suggestions with Nominatim/OpenStreetMap, then uses a local Haversine distance calculation against stored shelter coordinates. Users can also click "Use my location" to grant one-time browser location permission; those coordinates are used only in memory for filtering and are not stored or sent to Nominatim. Dogs are filtered by their shelter location, and shelters without coordinates are excluded only while a nearby filter is active. Nearby and neighborhood filters can be combined. Nearby results show active chips, distance labels, and helpful no-result guidance such as increasing the radius. PawConnect does not use Google Maps API, Google Places API, or route planning for this feature.
-
-After adding the map coordinate fields, apply migrations with:
-
-```bash
-dotnet tool run dotnet-ef database update
-```
-
-Nominatim integration notes:
-
-- Used only for low-volume/manual location lookup and explicit address updates from the selected pin.
-- No Google Maps API key is required.
-- Users select coordinates through address lookup and the editable map marker, not raw coordinate inputs.
-- Coordinates can be adjusted by dragging the map marker or clicking the editable map in shelter forms.
-- Moving the marker does not automatically overwrite address/city fields; users can review the suggested address and click "Update address from pin" when they want that update.
-- Missing coordinates show a friendly map fallback.
-- Route planning is not implemented. Nearby browsing uses explicit user searches, debounced address suggestions, or optional one-click browser geolocation, plus stored shelter coordinates.
-
-## Admin Exports
-
-Admin pages include export actions for platform data. Exports are generated on demand and downloaded in the browser; files are not stored in the database.
-
-CSV exports are available for:
-
-- `/admin/users`
-- `/admin/shelters`
-- `/admin/dogs`
-- `/admin/adoption-requests`
-- `/admin/shelter-requests`
-
-PDF exports are available where a formatted summary is useful:
-
-- `/admin/adoption-requests`
-- `/admin/shelter-requests`
-
-CSV files are UTF-8 encoded with a header row and can be opened in Excel. PDF files use a clean PawConnect report layout generated with QuestPDF. Admin user exports intentionally exclude sensitive Identity fields such as password hashes, security stamps, concurrency stamps, and reset tokens.
-
-Export buttons are shown only on Admin pages, which are protected with the `Admin` role. If export logic is reused later through endpoints, those endpoints should also require Admin authorization.
-
-## Shelter Exports
-
-Shelter pages include export actions for the authenticated shelter's own operational data. Exports are generated on demand and downloaded in the browser; files are not stored in the database.
-
-CSV exports are available for:
-
-- `/shelter/dogs`
-- `/shelter/adoption-requests`
-- `/shelter/resources`
-
-PDF exports are available where a formatted report is useful:
-
-- `/shelter/adoption-requests`
-- `/shelter/resources`
-
-CSV files are UTF-8 encoded with a header row and can be opened in Excel. PDF files use a clean PawConnect report layout generated with QuestPDF. Shelter exports are scoped by the current shelter profile, so a shelter user can export only their own dogs, adoption requests, and resource stock.
-
-## CSV Imports
-
-PawConnect supports CSV import for shelter-owned operational data. Imports use a preview-and-validate workflow:
-
-1. The Shelter user chooses a `.csv` file.
-2. PawConnect parses the header row and validates every row.
-3. The page shows total, valid, and invalid rows with row-level errors.
-4. The user confirms the import only after the preview is valid.
-5. Rows are saved for the current shelter only.
-
-The workflow is intentionally all-or-nothing: invalid rows are not imported silently. The user fixes the CSV and previews it again before confirming. Uploaded files are processed in memory, limited to small `.csv` files, and are not stored permanently.
-
-Supported imports:
-
-- `/shelter/resources`: Resource stock import
-- `/shelter/dogs`: Dog profile import
-- `/admin/shelters`: Shelter registration request import for Admin users
-
-Resource CSV template columns:
-
-```csv
-Name,Category,FoodType,Quantity,Unit,LowStockThreshold
-Adult dry food,Food,Adult dry food,25,kg,10
-Blankets,Blankets,,12,pieces,5
-Cleaning spray,Cleaning Supplies,,8,bottles,3
-```
-
-Dog CSV template columns:
-
-```csv
-Name,Breed,AgeYears,AgeMonths,Size,Status,Location,Description,PreferredFoodType,DailyFoodAmount,ImageUrls
-Buddy,Labrador Mix,2,6,Large,Available,Cluj-Napoca,Friendly dog,Adult dry food,480,"https://example.com/dog1.jpg;https://example.com/dog2.jpg"
-```
-
-Template download buttons are available on the import pages:
-
-- `pawconnect-resource-import-template.csv`
-- `pawconnect-dog-import-template.csv`
-- `pawconnect-shelter-requests-import-template.csv`
-
-Validation rules include required names/categories/units, non-negative quantities and thresholds, dog age validation, enum validation for dog size/status, optional semicolon-separated dog image URLs, duplicate row detection, and shelter ownership scoping. Existing resource stock items for the same shelter/name/category/food type are updated; new resource rows are created.
-
-Successful imports are recorded in the Activity Log with row counts, without storing full CSV content.
-
-Admin Shelter CSV import preserves the approval-based onboarding flow. Rows are imported as pending `ShelterRegistrationRequest` records, not as direct shelter accounts. Admins still review imported requests at `/admin/shelter-requests`; accepting a request uses the existing approval flow to create the `ApplicationUser`, assign the `Shelter` role, and create the linked `Shelter` profile.
-
-Admin shelter request template columns:
-
-```csv
-ShelterName,ContactPersonName,Email,PhoneNumber,City,Address,Description,Website,OpeningHours,ReasonForJoining,Latitude,Longitude
-Happy Tails Rescue,Alex Popescu,happytails@example.com,+40 700 000 100,Cluj-Napoca,Strada Exemplu 10,Fictional demo shelter for PawConnect testing,https://example.com,Mon-Fri 09:00-17:00,We want to list adoptable dogs,46.7712,23.6236
-```
-
-Duplicate pending shelter request emails and existing shelter/user emails are blocked case-insensitively. Latitude and longitude are optional but range-checked when present. Address and city are normalized separately so imported seed/demo-style rows do not duplicate the city inside the address.
-
-## Audit Log / Activity Log
-
-PawConnect records important activity in the `AuditLogs` table for traceability and administrative monitoring. The Admin-only page is:
-
-```text
-/admin/activity-log
-```
-
-Tracked actions include important dog management, dog image, medical record, adoption request, shelter registration request, shelter/resource update, report, and export events. Background actions are logged as `System` when no user is involved.
-
-The activity log intentionally does not store passwords, reset tokens, security stamps, SMTP credentials, or other sensitive Identity/security values. It is a lightweight activity log for accountability, not full event sourcing, rollback, or historical data restoration.
-
-## Database
-
-The connection string points to a SQL Server database named `PawConnect`:
-
-```json
-"DefaultConnection": "Server=(localdb)\\mssqllocaldb;Database=PawConnect;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True"
-```
-
-If your SSMS 2022 database uses another SQL Server instance, update only the `Server=` value in `appsettings.json`. For example:
-
-```json
-"Server=.\\SQLEXPRESS;Database=PawConnect;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True"
-```
-
-## How To Run
-
-```bash
-dotnet restore
-dotnet build
-dotnet tool restore
-dotnet tool run dotnet-ef database update
-dotnet run
-```
-
-Open the URL shown in the terminal, usually `https://localhost:7xxx` or `http://localhost:5xxx`.
-
-## Tests
-
-Run the service/domain test suite with:
-
-```bash
-dotnet test
-```
-
-The `PawConnect.Tests` project covers key business rules for dog management, dog image handling, adoption requests, favorites, shelter resources, shelter registration requests, Nominatim geocoding behavior, scheduled shelter summary reports, PDF report generation, admin export generation, shelter export generation, CSV import validation/import behavior, report history metadata tracking, audit log behavior, and in-app notification ownership/triggers. It also includes service-flow integration tests for public dog visibility, favorite deletion behavior, adoption request status changes, dog image/age behavior, resource stock rules, and email/PDF notification triggers.
-
-Tests use isolated in-memory databases and fake email/PDF services. They do not require SQL Server, a real SMTP provider, a running web server, or browser UI automation.
-
-## Migrations
-
-Create a new migration after changing entities:
-
-```bash
-dotnet tool run dotnet-ef migrations add MigrationName
-```
-
-Apply migrations to the `PawConnect` database:
-
-```bash
-dotnet tool run dotnet-ef database update
-```
-
-Recent feature migrations include:
-
-```text
-20260512203656_AddAuditLogs
-20260512210309_AddNotifications
-20260512222313_AddReportHistory
-```
-
-If `dotnet ef database update` cannot connect from your terminal, check that SQL Server/LocalDB is running and that the `DefaultConnection` server name matches the `PawConnect` database you created in SSMS.
-
-## Demo Users
-
-The presentation seed data creates three main demo accounts:
-
-| Role | Email | Password |
-| --- | --- | --- |
-| Admin | `admin@mail.com` | `Admin1!` |
-| Adopter | `adopter@mail.com` | `Adopter1!` |
-| Shelter | `shelter@mail.com` | `Shelter1!` |
-
-Newly registered users are assigned the `Adopter` role by default.
+The workflow runs on:
+
+- pushes to `main`
+- pull requests to `main`
+- manual `workflow_dispatch`
+
+It restores `PawConnect.sln`, builds in Release configuration, runs tests in Release configuration, and uploads `.trx` test results as artifacts.
+
+## API Documentation
+
+PawConnect currently uses Blazor Server pages and service-layer operations rather than a public Swagger/OpenAPI REST API. Swagger documentation is not configured in this repository.
+
+A public API with Swagger documentation would be a future improvement if PawConnect is split into separate web/mobile clients.
+
+## Project Structure
+
+| Path | Purpose |
+| ---- | ------- |
+| `Components/Pages` | Public, adopter, shelter, admin, Identity, and feature pages. |
+| `Components/Shared` | Shared UI components, dialogs, maps, image previews, and reusable widgets. |
+| `Components/Layout` | Application layout, navigation, and role-based sidebar UI. |
+| `Data` | EF Core `ApplicationDbContext`, Identity user, and seed data. |
+| `Entities` | Domain entities such as `Dog`, `Shelter`, `AdoptionRequest`, messages, reports, resources, and search embeddings. |
+| `Services` | Business logic, validation, integrations, AI clients, import/export, reporting, notifications, and messaging services. |
+| `Repositories` | Repository abstractions used by service logic where present. |
+| `Hubs` | SignalR hub for adoption-request messaging. |
+| `Jobs` | Quartz scheduled jobs. |
+| `ViewModels` | UI/form models used by pages and components. |
+| `wwwroot` | Static assets, CSS, JavaScript, Leaflet integration files, and uploads. |
+| `PawConnect.Tests` | xUnit automated tests and test helpers. |
+| `docs` | Thesis/demo/supporting technical documentation. |
+| `.github/workflows` | GitHub Actions CI workflow. |
+| `Dockerfile` / `docker-compose.yml` | Local containerized development setup. |
+
+## Security and Privacy Notes
+
+- Role-based authorization separates Public, Adopter, Shelter, and Admin workflows.
+- Service-layer ownership checks protect shelter-owned dogs/resources/requests and adopter-owned requests/favorites.
+- Public dog discovery, recommendations, Copilot, and semantic search use public-safe dog visibility rules.
+- Adopted and in-treatment dogs are excluded from public/adopter search flows where appropriate.
+- OpenAI does not access SQL directly. It can only receive sanitized backend-provided data and controlled tool outputs.
+- Copilot final dog IDs are validated against real PawConnect candidate dogs before display.
+- Sensitive data such as passwords, tokens, SMTP credentials, audit logs, private notes, and exact private adopter contact data should not be sent to OpenAI.
+- Email/PDF/report failures are handled as best-effort side effects and should not cancel the main business action.
+- Upload handling validates file types, sizes, and safe relative storage paths where local upload features are implemented.
+- `.env`, user secrets, API keys, SMTP credentials, database passwords, and generated uploads should not be committed.
+
+## Future Work
+
+- Add production deployment configuration after choosing a host.
+- Add browser end-to-end tests for the most important workflows.
+- Add public REST API and Swagger documentation if a mobile or separate frontend client is introduced.
+- Move private attachments to authorized download endpoints or cloud object storage for production.
+- Add stronger file scanning and moderation workflows for production uploads.
+- Add saved searches and adopter alerts.
+- Add PWA/mobile-friendly enhancements.
+- Add richer adoption/foster/volunteer modules if the product scope expands.
+
+## CV Summary
+
+- Built a full-stack ASP.NET Core Blazor Server platform for stray dog adoption and shelter management with public, adopter, shelter, and admin workflows.
+- Implemented adoption request lifecycle, visit confirmation, notifications, reports, maps, messaging, resource management, and role-based authorization using EF Core, SQL Server, and ASP.NET Core Identity.
+- Added AI-assisted dog discovery with backend-validated Copilot results, semantic search, deterministic fallback, and public-safe filtering.
+- Added automated tests, GitHub Actions CI, and Docker Compose support for a more reliable development and portfolio workflow.

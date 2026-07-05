@@ -1,0 +1,61 @@
+services:
+  pawconnect:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        DOTNET_VERSION: 10.0
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      smtp4dev:
+        condition: service_started
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Docker"
+      ASPNETCORE_URLS: "http://+:8080"
+      ConnectionStrings__DefaultConnection: "Server=sqlserver,1433;Database=${SQL_DATABASE:-PawConnect};User Id=sa;Password=${SQL_PASSWORD};TrustServerCertificate=True;Encrypt=False;MultipleActiveResultSets=True"
+      Database__ApplyMigrationsOnStartup: "${DATABASE_APPLY_MIGRATIONS_ON_STARTUP:-true}"
+      SeedData__Enabled: "${SEED_DATA_ENABLED:-true}"
+      OpenAI__Enabled: "${OPENAI_ENABLED:-false}"
+      OpenAI__ApiKey: "${OPENAI_API_KEY:-}"
+      EmailSettings__Enabled: "${EMAIL_ENABLED:-true}"
+      EmailSettings__SmtpHost: "${SMTP_HOST:-smtp4dev}"
+      EmailSettings__SmtpPort: "${SMTP_PORT:-25}"
+      EmailSettings__EnableSsl: "false"
+      ScheduledReports__Enabled: "${SCHEDULED_REPORTS_ENABLED:-false}"
+      VisitReminders__Enabled: "${VISIT_REMINDERS_ENABLED:-false}"
+      DogImageStorage__LocalRoot: "uploads/dogs"
+    ports:
+      - "${APP_HTTP_PORT:-8080}:8080"
+    volumes:
+      - pawconnect-uploads:/app/wwwroot/uploads
+    restart: unless-stopped
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Developer
+      MSSQL_SA_PASSWORD: "${SQL_PASSWORD}"
+    ports:
+      - "${SQLSERVER_HOST_PORT:-1433}:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "(/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD}\" -C -Q \"SELECT 1\" || /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD}\" -Q \"SELECT 1\") || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    restart: unless-stopped
+
+  smtp4dev:
+    image: rnwood/smtp4dev:latest
+    ports:
+      - "${SMTP4DEV_WEB_PORT:-5001}:80"
+      - "${SMTP4DEV_SMTP_HOST_PORT:-2525}:25"
+    restart: unless-stopped
+
+volumes:
+  sqlserver-data:
+  pawconnect-uploads:

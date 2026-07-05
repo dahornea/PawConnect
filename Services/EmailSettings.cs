@@ -2,6 +2,8 @@ namespace PawConnect.Services;
 
 public class EmailSettings
 {
+    public bool Enabled { get; set; } = true;
+
     public string SmtpHost { get; set; } = string.Empty;
 
     public int SmtpPort { get; set; } = 587;
