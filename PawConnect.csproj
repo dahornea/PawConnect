@@ -23,12 +23,15 @@
   <ItemGroup>
     <Compile Remove="PawConnect.Tests\**\*.cs" />
     <Compile Remove="PawConnect.IntegrationTests\**\*.cs" />
+    <Compile Remove="PawConnect.E2ETests\**\*.cs" />
     <Compile Remove="Tests\**\*.cs" />
     <Content Remove="PawConnect.Tests\**\*" />
     <Content Remove="PawConnect.IntegrationTests\**\*" />
+    <Content Remove="PawConnect.E2ETests\**\*" />
     <Content Remove="Tests\**\*" />
     <None Remove="PawConnect.Tests\**\*" />
     <None Remove="PawConnect.IntegrationTests\**\*" />
+    <None Remove="PawConnect.E2ETests\**\*" />
     <None Remove="Tests\**\*" />
   </ItemGroup>
 
