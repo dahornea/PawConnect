@@ -47,6 +47,9 @@ wwwroot/uploads/
 appsettings.Local.json
 appsettings.*.Local.json
 secrets.json
+.env
+.env.*
+!.env.example
 *.pfx
 *.p12
 *.key

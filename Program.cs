@@ -231,6 +231,22 @@ app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 app.MapHub<AdoptionChatHub>("/hubs/adoption-chat");
+app.MapGet("/health", async (
+        ApplicationDbContext context,
+        CancellationToken cancellationToken) =>
+    {
+        try
+        {
+            return await context.Database.CanConnectAsync(cancellationToken)
+                ? Results.Ok(new { status = "Healthy" })
+                : Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+        }
+        catch
+        {
+            return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+        }
+    })
+    .AllowAnonymous();
 app.MapGet("/message-attachments/{attachmentId:int}", async (
         int attachmentId,
         ClaimsPrincipal user,
@@ -256,18 +272,54 @@ app.MapGet("/message-attachments/{attachmentId:int}", async (
 // Add additional endpoints required by the Identity /Account Razor components.
 app.MapAdditionalIdentityEndpoints();
 
-try
+await ApplyConfiguredDatabaseMigrationsAsync(app);
+
+if (ShouldSeedData(app))
 {
-    await IdentitySeedData.SeedAsync(app.Services);
-}
-catch (Exception ex)
-{
-    app.Logger.LogWarning(ex, "Identity seed data was not applied. Run the EF database update command, then restart the app.");
+    try
+    {
+        await IdentitySeedData.SeedAsync(app.Services);
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogWarning(ex, "Identity seed data was not applied. Run the EF database update command, then restart the app.");
+    }
 }
 
 OpenLocalEmailInboxOnStartup(app);
 
 app.Run();
+
+static async Task ApplyConfiguredDatabaseMigrationsAsync(WebApplication app)
+{
+    if (!app.Configuration.GetValue<bool>("Database:ApplyMigrationsOnStartup"))
+    {
+        return;
+    }
+
+    try
+    {
+        await using var scope = app.Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        await context.Database.MigrateAsync();
+        app.Logger.LogInformation("Database migrations were applied on startup.");
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogWarning(ex, "Database migrations could not be applied on startup. Check SQL Server startup and connection string settings.");
+    }
+}
+
+static bool ShouldSeedData(WebApplication app)
+{
+    var configuredSeedEnabled = app.Configuration.GetValue<bool?>("SeedData:Enabled");
+    if (configuredSeedEnabled.HasValue)
+    {
+        return configuredSeedEnabled.Value;
+    }
+
+    return app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Docker");
+}
 
 static void OpenLocalEmailInboxOnStartup(WebApplication app)
 {

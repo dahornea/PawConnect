@@ -28,6 +28,13 @@ public class SmtpEmailService(
             return;
         }
 
+        if (!settings.Enabled)
+        {
+            logger.LogInformation("Email skipped because email delivery is disabled by configuration. Recipient: {Recipient}, Subject: {Subject}", to, subject);
+            await TryLogEmailDeliveryAsync(deliveryContext, NotificationDeliveryStatus.Skipped, "Email delivery is disabled by configuration.");
+            return;
+        }
+
         if (!deliveryContext.IsAccountSecurityEmail &&
             !string.IsNullOrWhiteSpace(deliveryContext.UserId) &&
             preferenceService is not null &&
