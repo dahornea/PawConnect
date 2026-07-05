@@ -11,7 +11,7 @@ cd D:\PawConnect
 or on the main laptop:
 
 ```powershell
-cd D:\Licenta\PawConnect
+cd D:\PawConnect
 ```
 
 ## 1. Start smtp4dev for Local Emails
@@ -350,4 +350,3 @@ If emails are not visible:
 2. Confirm smtp4dev uses SMTP port `2525`.
 3. Open `http://localhost:3000`.
 4. Restart PawConnect after changing email settings.
-
