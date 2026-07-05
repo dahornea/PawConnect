@@ -425,9 +425,24 @@ For Release configuration:
 dotnet test PawConnect.sln --configuration Release
 ```
 
-The test project is `PawConnect.Tests`. Tests use xUnit, EF Core InMemory, and fake services where appropriate. They do not require a real SQL Server instance, OpenAI API key, SMTP server, Docker container, or browser automation.
+The main test project is `PawConnect.Tests`. These tests use xUnit, EF Core InMemory, and fake services where appropriate. They do not require a real SQL Server instance, OpenAI API key, SMTP server, Docker container, or browser automation.
 
-The suite focuses on service-level business rules and integration-style flows such as dog visibility, adoption request transitions, shelter ownership, favorites, resources, notifications, reports, CSV import/export, recommendations, Copilot safety, and semantic search fallback behavior.
+`PawConnect.IntegrationTests` contains a small SQL Server integration suite that uses Testcontainers to start a temporary SQL Server container, apply the real EF Core migrations, and verify important persistence flows against the same database provider used by the application.
+
+Run only the SQL Server integration tests:
+
+```bash
+dotnet test PawConnect.IntegrationTests/PawConnect.IntegrationTests.csproj
+```
+
+Docker Desktop must be running for those tests. If Docker is not available, the integration tests are skipped with a clear message. They can also be skipped explicitly:
+
+```powershell
+$env:PAWCONNECT_SKIP_DOCKER_TESTS = "1"
+dotnet test PawConnect.sln
+```
+
+The suite focuses on service-level business rules and integration-style flows such as dog visibility, adoption request transitions, shelter ownership, favorites, resources, notifications, reports, CSV import/export, recommendations, Copilot safety, semantic search fallback behavior, and SQL Server migration/persistence checks.
 
 ## Continuous Integration
 
@@ -467,6 +482,7 @@ A public API with Swagger documentation would be a future improvement if PawConn
 | `ViewModels` | UI/form models used by pages and components. |
 | `wwwroot` | Static assets, CSS, JavaScript, Leaflet integration files, and uploads. |
 | `PawConnect.Tests` | xUnit automated tests and test helpers. |
+| `PawConnect.IntegrationTests` | Testcontainers-based SQL Server integration tests for migrations and persistence flows. |
 | `docs` | Thesis/demo/supporting technical documentation. |
 | `.github/workflows` | GitHub Actions CI workflow. |
 | `Dockerfile` / `docker-compose.yml` | Local containerized development setup. |
