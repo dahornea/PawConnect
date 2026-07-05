@@ -81,6 +81,8 @@ builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<INotificationPreferenceService, NotificationPreferenceService>();
 builder.Services.AddScoped<INotificationDeliveryLogService, NotificationDeliveryLogService>();
+builder.Services.AddScoped<INotificationOutboxService, NotificationOutboxService>();
+builder.Services.AddScoped<INotificationOutboxProcessor, NotificationOutboxProcessor>();
 builder.Services.AddScoped<IReportHistoryService, ReportHistoryService>();
 builder.Services.AddScoped<IAnalyticsService, AnalyticsService>();
 builder.Services.AddScoped<IVisitReminderService, VisitReminderService>();
@@ -109,11 +111,13 @@ builder.Services.AddSingleton<IConversationRealtimeNotifier, ConversationRealtim
 builder.Services.AddSingleton<IDistanceService, DistanceService>();
 builder.Services.AddScoped<ICorrelationIdAccessor, CorrelationIdAccessor>();
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
+builder.Services.Configure<NotificationOutboxSettings>(builder.Configuration.GetSection("NotificationOutbox"));
 builder.Services.Configure<ScheduledReportSettings>(builder.Configuration.GetSection("ScheduledReports"));
 builder.Services.Configure<VisitReminderSettings>(builder.Configuration.GetSection("VisitReminders"));
 builder.Services.Configure<OpenAiSettings>(builder.Configuration.GetSection("OpenAI"));
 builder.Services.Configure<DogImageStorageOptions>(builder.Configuration.GetSection("DogImageStorage"));
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
+builder.Services.AddHostedService<NotificationOutboxHostedService>();
 builder.Services.AddScoped<IEmailSender<ApplicationUser>, PawConnectIdentityEmailSender>();
 builder.Services.AddScoped<IDogImageStorageService, LocalDogImageStorageService>();
 builder.Services.AddHttpClient<IGeocodingService, NominatimGeocodingService>(client =>

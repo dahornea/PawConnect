@@ -43,6 +43,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
     public DbSet<NotificationDeliveryLog> NotificationDeliveryLogs => Set<NotificationDeliveryLog>();
 
+    public DbSet<NotificationOutboxMessage> NotificationOutboxMessages => Set<NotificationOutboxMessage>();
+
     public DbSet<ReportHistory> ReportHistories => Set<ReportHistory>();
 
     public DbSet<DogSearchEmbedding> DogSearchEmbeddings => Set<DogSearchEmbedding>();
@@ -838,6 +840,44 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
         builder.Entity<NotificationDeliveryLog>()
             .HasIndex(log => new { log.RelatedEntityType, log.RelatedEntityId });
+
+        builder.Entity<NotificationOutboxMessage>()
+            .HasOne(message => message.RecipientUser)
+            .WithMany()
+            .HasForeignKey(message => message.RecipientUserId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<NotificationOutboxMessage>()
+            .Property(message => message.CreatedAt)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<NotificationOutboxMessage>()
+            .Property(message => message.UpdatedAt)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<NotificationOutboxMessage>()
+            .HasIndex(message => new { message.Status, message.NextAttemptAt });
+
+        builder.Entity<NotificationOutboxMessage>()
+            .HasIndex(message => message.CreatedAt);
+
+        builder.Entity<NotificationOutboxMessage>()
+            .HasIndex(message => message.RecipientUserId);
+
+        builder.Entity<NotificationOutboxMessage>()
+            .HasIndex(message => message.Channel);
+
+        builder.Entity<NotificationOutboxMessage>()
+            .HasIndex(message => message.NotificationType);
+
+        builder.Entity<NotificationOutboxMessage>()
+            .HasIndex(message => message.CorrelationId);
+
+        builder.Entity<NotificationOutboxMessage>()
+            .HasIndex(message => message.IdempotencyKey)
+            .IsUnique()
+            .HasFilter("[IdempotencyKey] IS NOT NULL");
 
         builder.Entity<ReportHistory>()
             .HasOne(history => history.Shelter)

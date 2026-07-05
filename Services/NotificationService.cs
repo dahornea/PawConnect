@@ -8,7 +8,8 @@ public class NotificationService(
     IDbContextFactory<ApplicationDbContext> contextFactory,
     ILogger<NotificationService> logger,
     INotificationPreferenceService? preferenceService = null,
-    INotificationDeliveryLogService? deliveryLogService = null) : INotificationService
+    INotificationDeliveryLogService? deliveryLogService = null,
+    INotificationOutboxService? outboxService = null) : INotificationService
 {
     public async Task CreateNotificationAsync(
         string userId,
@@ -42,6 +43,16 @@ public class NotificationService(
             if (preferenceService is not null &&
                 !await preferenceService.IsChannelEnabledAsync(userId, notificationEventType, NotificationChannel.InApp))
             {
+                await TryEnqueueEmailOutboxAsync(
+                    userId,
+                    recipient,
+                    notificationEventType,
+                    normalizedTitle,
+                    normalizedMessage,
+                    link,
+                    relatedEntityName,
+                    relatedEntityId);
+
                 await TryLogDeliveryAsync(new NotificationDeliveryLogCreateRequest(
                     notificationEventType,
                     NotificationChannel.InApp,
@@ -112,6 +123,16 @@ public class NotificationService(
                 SentAt: now,
                 RelatedEntityType: relatedEntityName,
                 RelatedEntityId: relatedEntityId));
+
+            await TryEnqueueEmailOutboxAsync(
+                userId,
+                recipient,
+                notificationEventType,
+                normalizedTitle,
+                normalizedMessage,
+                link,
+                relatedEntityName,
+                relatedEntityId);
         }
         catch (Exception ex)
         {
@@ -248,4 +269,45 @@ public class NotificationService(
             logger.LogWarning(ex, "Notification delivery log creation failed for user {UserId}.", request.UserId);
         }
     }
+
+    private async Task TryEnqueueEmailOutboxAsync(
+        string userId,
+        string? recipient,
+        NotificationEventType notificationEventType,
+        string subject,
+        string body,
+        string? link,
+        string? relatedEntityName,
+        string? relatedEntityId)
+    {
+        if (outboxService is null || string.IsNullOrWhiteSpace(recipient))
+        {
+            return;
+        }
+
+        try
+        {
+            if (preferenceService is not null &&
+                !await preferenceService.IsChannelEnabledAsync(userId, notificationEventType, NotificationChannel.Email))
+            {
+                return;
+            }
+
+            await outboxService.EnqueueAsync(new NotificationOutboxCreateRequest(
+                notificationEventType,
+                NotificationChannel.Email,
+                subject,
+                body,
+                RecipientUserId: userId,
+                RecipientEmail: recipient,
+                Link: link,
+                RelatedEntityType: relatedEntityName,
+                RelatedEntityId: relatedEntityId));
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Notification email outbox enqueue failed for user {UserId}.", userId);
+        }
+    }
+
 }
