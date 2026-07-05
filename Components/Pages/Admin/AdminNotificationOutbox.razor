@@ -1,0 +1,207 @@
+@page "/admin/notification-outbox"
+@attribute [Authorize(Roles = "Admin")]
+
+<PageTitle>Notification Outbox</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.False" Class="px-0">
+    <MudStack Spacing="3">
+        <div class="page-header">
+            <MudText Typo="Typo.h4">Notification Outbox</MudText>
+            <MudText Typo="Typo.body2">Monitor queued notification work, retries, and dead-lettered delivery attempts.</MudText>
+        </div>
+
+        <MudGrid Spacing="2">
+            <MudItem xs="12" sm="6" md="2">
+                <MudPaper Elevation="0" Class="stat-card pa-3">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Pending</MudText>
+                    <MudText Typo="Typo.h5">@_summary.Pending</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="2">
+                <MudPaper Elevation="0" Class="stat-card pa-3">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Failed</MudText>
+                    <MudText Typo="Typo.h5">@_summary.Failed</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="2">
+                <MudPaper Elevation="0" Class="stat-card pa-3">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Dead letter</MudText>
+                    <MudText Typo="Typo.h5">@_summary.DeadLetter</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="2">
+                <MudPaper Elevation="0" Class="stat-card pa-3">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Sent</MudText>
+                    <MudText Typo="Typo.h5">@_summary.Sent</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="2">
+                <MudPaper Elevation="0" Class="stat-card pa-3">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Processing</MudText>
+                    <MudText Typo="Typo.h5">@_summary.Processing</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="2">
+                <MudPaper Elevation="0" Class="stat-card pa-3">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Total</MudText>
+                    <MudText Typo="Typo.h5">@_summary.Total</MudText>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        <MudPaper Elevation="0" Class="section-surface pa-3">
+            <MudGrid Spacing="2">
+                <MudItem xs="12" sm="6" md="2">
+                    <MudSelect T="string" Label="Status" @bind-Value="_statusFilter" Clearable="true" Variant="Variant.Outlined">
+                        @foreach (var status in _statuses)
+                        {
+                            <MudSelectItem Value="@status.ToString()">@FormatStatus(status)</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="2">
+                    <MudSelect T="string" Label="Channel" @bind-Value="_channelFilter" Clearable="true" Variant="Variant.Outlined">
+                        @foreach (var channel in _channels)
+                        {
+                            <MudSelectItem Value="@channel.ToString()">@FormatChannel(channel)</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudSelect T="string" Label="Type" @bind-Value="_typeFilter" Clearable="true" Variant="Variant.Outlined">
+                        @foreach (var type in _types)
+                        {
+                            <MudSelectItem Value="@type.NotificationType.ToString()">@type.DisplayName</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudTextField T="string" Label="Search" @bind-Value="_search" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" md="2">
+                    <MudStack Row="true" Spacing="1" Class="mt-2">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.FilterAlt" Disabled="_isLoading" OnClick="LoadMessagesAsync">Apply</MudButton>
+                        <MudButton Variant="Variant.Text" Color="Color.Default" Disabled="_isLoading" OnClick="ClearFiltersAsync">Clear</MudButton>
+                    </MudStack>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+
+        <MudStack Row="true" Justify="Justify.FlexEnd" Class="flex-wrap" Spacing="1">
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.PlayArrow"
+                       Disabled="_isProcessingNow"
+                       OnClick="ProcessNowAsync">
+                Process due now
+            </MudButton>
+            <MudButton Variant="Variant.Text"
+                       Color="Color.Default"
+                       StartIcon="@Icons.Material.Filled.Refresh"
+                       Disabled="_isLoading"
+                       OnClick="LoadMessagesAsync">
+                Refresh
+            </MudButton>
+        </MudStack>
+
+        @if (_isLoading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="py-8">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Loading outbox messages...</MudText>
+            </MudStack>
+        }
+        else if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <MudAlert Severity="Severity.Error">@_error</MudAlert>
+        }
+        else if (_messages.Count == 0)
+        {
+            <MudPaper Elevation="0" Class="empty-state pa-5">
+                <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.Outbox" Color="Color.Secondary" Size="Size.Large" />
+                    <MudText Typo="Typo.h6">No outbox messages found</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Queued notification work will appear here.</MudText>
+                </MudStack>
+            </MudPaper>
+        }
+        else
+        {
+            <MudTable Items="_messages" Dense="true" Hover="true" Class="table-shell" RowsPerPage="15">
+                <HeaderContent>
+                    <MudTh>Queued</MudTh>
+                    <MudTh>Status</MudTh>
+                    <MudTh>Channel</MudTh>
+                    <MudTh>Recipient</MudTh>
+                    <MudTh>Subject</MudTh>
+                    <MudTh>Attempts</MudTh>
+                    <MudTh>Next attempt</MudTh>
+                    <MudTh>Actions</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Queued">
+                        <MudText Typo="Typo.body2">@FormatDateTime(context.CreatedAt)</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@FormatType(context.NotificationType)</MudText>
+                    </MudTd>
+                    <MudTd DataLabel="Status">
+                        <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(context.Status)" Variant="Variant.Outlined">@FormatStatus(context.Status)</MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Channel">
+                        <MudChip T="string" Size="Size.Small" Color="@GetChannelColor(context.Channel)" Variant="Variant.Outlined">@FormatChannel(context.Channel)</MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Recipient">
+                        <MudText Typo="Typo.body2">@context.RecipientDisplayName</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@(context.RecipientEmail ?? "-")</MudText>
+                    </MudTd>
+                    <MudTd DataLabel="Subject">@Truncate(context.Subject, 80)</MudTd>
+                    <MudTd DataLabel="Attempts">@context.AttemptCount / @context.MaxAttempts</MudTd>
+                    <MudTd DataLabel="Next attempt">@FormatNullableDateTime(context.NextAttemptAt)</MudTd>
+                    <MudTd DataLabel="Actions">
+                        <MudStack Row="true" Spacing="1" Class="flex-wrap">
+                            <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" OnClick="@(() => SelectAsync(context.Id))">Details</MudButton>
+                            <MudButton Variant="Variant.Text" Color="Color.Warning" Size="Size.Small" Disabled="@(!CanRetry(context))" OnClick="@(() => RetryAsync(context.Id))">Retry</MudButton>
+                            <MudButton Variant="Variant.Text" Color="Color.Error" Size="Size.Small" Disabled="@(!CanCancel(context))" OnClick="@(() => CancelAsync(context.Id))">Cancel</MudButton>
+                        </MudStack>
+                    </MudTd>
+                </RowTemplate>
+                <PagerContent>
+                    <MudTablePager />
+                </PagerContent>
+            </MudTable>
+        }
+
+        @if (_selected is not null)
+        {
+            <MudPaper Elevation="0" Class="section-surface pa-4">
+                <MudStack Spacing="2">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                        <MudText Typo="Typo.h6">Outbox message #@_selected.Id</MudText>
+                        <MudIconButton Icon="@Icons.Material.Filled.Close" Color="Color.Default" OnClick="@(() => _selected = null)" />
+                    </MudStack>
+                    <MudGrid Spacing="2">
+                        <MudItem xs="12" md="6">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Subject</MudText>
+                            <MudText Typo="Typo.body1">@_selected.Subject</MudText>
+                        </MudItem>
+                        <MudItem xs="12" md="6">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Related entity</MudText>
+                            <MudText Typo="Typo.body1">@FormatRelated(_selected)</MudText>
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Body</MudText>
+                            <MudText Typo="Typo.body2">@_selected.Body</MudText>
+                        </MudItem>
+                        <MudItem xs="12" md="6">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Last error</MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Error">@(_selected.LastError ?? "-")</MudText>
+                        </MudItem>
+                        <MudItem xs="12" md="6">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Correlation / idempotency</MudText>
+                            <MudText Typo="Typo.body2">@(_selected.CorrelationId ?? "-") / @(_selected.IdempotencyKey ?? "-")</MudText>
+                        </MudItem>
+                    </MudGrid>
+                </MudStack>
+            </MudPaper>
+        }
+    </MudStack>
+</MudContainer>
