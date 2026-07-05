@@ -442,6 +442,8 @@ $env:PAWCONNECT_SKIP_DOCKER_TESTS = "1"
 dotnet test PawConnect.sln
 ```
 
+The default GitHub Actions test job also sets `PAWCONNECT_SKIP_DOCKER_TESTS=1` so the normal push/pull-request CI path remains stable and does not depend on starting Docker containers during the main test step. The SQL Server integration tests are still kept in the repository and can be run locally with Docker Desktop or from GitHub Actions by starting the workflow manually and selecting `run-sqlserver-integration=true`.
+
 `PawConnect.E2ETests` contains browser-based Playwright tests for the most important user-facing flows: app smoke loading, login, role-specific navigation, public dog browsing/details, shelter dog management, and admin notification outbox access.
 
 Install the Playwright browser binaries after building the E2E project:
@@ -490,7 +492,9 @@ The workflow runs on:
 - pull requests to `main`
 - manual `workflow_dispatch`
 
-It restores `PawConnect.sln`, builds in Release configuration, runs tests in Release configuration, and uploads `.trx` test results as artifacts.
+It restores `PawConnect.sln`, builds in Release configuration, runs the normal automated test suite in Release configuration, and uploads `.trx` test results as artifacts. The default CI test step skips Docker-backed SQL Server integration tests with `PAWCONNECT_SKIP_DOCKER_TESTS=1` because those tests require Testcontainers and a Docker daemon.
+
+To run the SQL Server integration tests in GitHub Actions, start the workflow manually and set `run-sqlserver-integration=true`. That manual job verifies Docker with `docker info`, builds `PawConnect.IntegrationTests`, runs the Testcontainers SQL Server tests, and uploads a separate `.trx` artifact.
 
 ## API Documentation
 
@@ -550,3 +554,4 @@ A public API with Swagger documentation would be a future improvement if PawConn
 - Implemented adoption request lifecycle, visit confirmation, notifications, reports, maps, messaging, resource management, and role-based authorization using EF Core, SQL Server, and ASP.NET Core Identity.
 - Added AI-assisted dog discovery with backend-validated Copilot results, semantic search, deterministic fallback, and public-safe filtering.
 - Added automated tests, GitHub Actions CI, and Docker Compose support for a more reliable development and portfolio workflow.
+
