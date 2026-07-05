@@ -1,8 +1,10 @@
 using System.Diagnostics;
 using System.Security.Claims;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.OpenApi;
 using MudBlazor;
 using MudBlazor.Services;
 using PawConnect.Components;
@@ -10,6 +12,7 @@ using PawConnect.Components.Account;
 using PawConnect.Data;
 using PawConnect.Hubs;
 using PawConnect.Jobs;
+using PawConnect.OpenApi;
 using PawConnect.Repositories;
 using PawConnect.Services;
 using Quartz;
@@ -23,6 +26,34 @@ builder.Logging.AddDebug();
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 builder.Services.AddSignalR();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    });
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "PawConnect Public API",
+        Version = "v1",
+        Description = "REST API for public dog discovery, shelters, adoption applications, notification preferences, and selected admin summaries.",
+        Contact = new OpenApiContact
+        {
+            Name = "PawConnect"
+        }
+    });
+
+    options.AddSecurityDefinition("PawConnectCookie", new OpenApiSecurityScheme
+    {
+        Type = SecuritySchemeType.ApiKey,
+        In = ParameterLocation.Cookie,
+        Name = ".AspNetCore.Identity.Application",
+        Description = "PawConnect uses ASP.NET Core Identity cookie authentication. Sign in through the Blazor UI in the same browser before calling protected endpoints from Swagger."
+    });
+    options.OperationFilter<AuthorizeOperationFilter>();
+});
 builder.Services.AddMudServices(config =>
 {
     config.SnackbarConfiguration.PositionClass = Defaults.Classes.Position.BottomRight;
@@ -40,6 +71,32 @@ builder.Services.AddAuthentication(options =>
     })
     .AddIdentityCookies();
 
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.Events.OnRedirectToLogin = context =>
+    {
+        if (IsApiRequest(context.Request))
+        {
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            return Task.CompletedTask;
+        }
+
+        context.Response.Redirect(context.RedirectUri);
+        return Task.CompletedTask;
+    };
+
+    options.Events.OnRedirectToAccessDenied = context =>
+    {
+        if (IsApiRequest(context.Request))
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            return Task.CompletedTask;
+        }
+
+        context.Response.Redirect(context.RedirectUri);
+        return Task.CompletedTask;
+    };
+});
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(connectionString));
@@ -223,14 +280,27 @@ else
     // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
+if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Docker"))
+{
+    app.UseSwagger();
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "PawConnect Public API v1");
+        options.RoutePrefix = "swagger";
+        options.DocumentTitle = "PawConnect Public API";
+    });
+}
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseHttpsRedirection();
 
 app.UseStaticFiles();
 
+app.UseAuthentication();
+app.UseAuthorization();
 app.UseAntiforgery();
 
+app.MapControllers();
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
@@ -294,6 +364,11 @@ OpenLocalEmailInboxOnStartup(app);
 
 app.Run();
 
+static bool IsApiRequest(HttpRequest request)
+{
+    return request.Path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase);
+}
+
 static async Task ApplyConfiguredDatabaseMigrationsAsync(WebApplication app)
 {
     if (!app.Configuration.GetValue<bool>("Database:ApplyMigrationsOnStartup"))
@@ -356,3 +431,6 @@ static void OpenLocalEmailInboxOnStartup(WebApplication app)
         app.Logger.LogWarning(ex, "Local email inbox could not be opened automatically.");
     }
 }
+
+public partial class Program;
+
