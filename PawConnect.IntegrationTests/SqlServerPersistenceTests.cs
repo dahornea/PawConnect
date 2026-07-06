@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using PawConnect.Data;
@@ -79,6 +80,72 @@ public class SqlServerPersistenceTests(SqlServerTestcontainerFixture fixture)
         Assert.Equal(DogStatus.Reserved, saved.Dog!.Status);
     }
 
+    [DockerFact]
+    public async Task DogTransfer_ShouldPersistCompletion_AndMoveDogToDestinationShelter()
+    {
+        var databaseName = SqlServerTestcontainerFixture.CreateDatabaseName();
+        await using var context = await fixture.CreateMigratedContextAsync(databaseName);
+        await IntegrationTestData.SeedIdentityAndShelterAsync(context);
+        var sourceShelterId = await context.Shelters.Select(shelter => shelter.Id).SingleAsync();
+        var destinationUserId = "integration-destination-shelter";
+        var destinationShelter = new Shelter
+        {
+            Name = "Integration Partner Shelter",
+            Description = "Destination shelter used by transfer integration tests.",
+            Address = "Partner Street 2",
+            City = "Cluj-Napoca",
+            Neighborhood = "Marasti",
+            Email = "integration.partner@pawconnect.local",
+            PhoneNumber = "+40 700 000 998",
+            ApplicationUserId = destinationUserId
+        };
+        context.Users.Add(new ApplicationUser
+        {
+            Id = destinationUserId,
+            UserName = "integration.partner@pawconnect.local",
+            NormalizedUserName = "INTEGRATION.PARTNER@PAWCONNECT.LOCAL",
+            Email = "integration.partner@pawconnect.local",
+            NormalizedEmail = "INTEGRATION.PARTNER@PAWCONNECT.LOCAL",
+            EmailConfirmed = true,
+            FullName = "Integration Partner Shelter"
+        });
+        context.UserRoles.Add(new IdentityUserRole<string>
+        {
+            UserId = destinationUserId,
+            RoleId = IdentitySeedData.ShelterRole
+        });
+        context.Shelters.Add(destinationShelter);
+        var dog = IntegrationTestData.CreateDog(sourceShelterId, "SQL Transfer Dog");
+        context.Dogs.Add(dog);
+        await context.SaveChangesAsync();
+        var service = new DogTransferService(context);
+
+        var transfer = await service.CreateTransferRequestAsync(
+            sourceShelterId,
+            IntegrationTestData.ShelterUserId,
+            new DogTransferCreateRequest(
+                dog.Id,
+                destinationShelter.Id,
+                DogTransferPriority.Normal,
+                "Partner shelter has room for this dog."));
+        await service.ApproveTransferAsync(
+            transfer.Id,
+            destinationShelter.Id,
+            destinationUserId,
+            new DogTransferDecisionRequest("Accepted for transfer."));
+        await service.CompleteTransferAsync(
+            transfer.Id,
+            sourceShelterId,
+            IntegrationTestData.ShelterUserId);
+
+        await using var verificationContext = await fixture.CreateMigratedContextAsync(databaseName);
+        var savedDog = await verificationContext.Dogs.SingleAsync(savedDog => savedDog.Id == dog.Id);
+        var savedTransfer = await verificationContext.DogTransferRequests.SingleAsync(request => request.Id == transfer.Id);
+
+        Assert.Equal(destinationShelter.Id, savedDog.ShelterId);
+        Assert.Equal(DogTransferStatus.Completed, savedTransfer.Status);
+        Assert.NotNull(savedTransfer.CompletedAtUtc);
+    }
     [DockerFact]
     public async Task NotificationPreferences_ShouldPersist_DisabledChannel()
     {

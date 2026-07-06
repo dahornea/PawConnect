@@ -28,6 +28,8 @@ public partial class DogDetails
     [Inject] private NavigationManager NavigationManager { get; set; } = default!;
     [Inject] private ISnackbar Snackbar { get; set; } = default!;
     [Inject] private IDialogService DialogService { get; set; } = default!;
+    [Inject] private IDogTransferService DogTransferService { get; set; } = default!;
+    [Inject] private IShelterService ShelterService { get; set; } = default!;
     [Inject] private ILogger<DogDetails> Logger { get; set; } = default!;
 
     [Parameter]
@@ -49,6 +51,8 @@ public partial class DogDetails
     private bool _showAdoptionForm;
     private bool _isSubmittingRequest;
     private bool _isHistoryLoading;
+    private int? _currentShelterId;
+    private IReadOnlyList<DogTransferHistoryItemDto> _transferHistory = [];
     private int _selectedImageIndex;
     private readonly HashSet<string> _unavailableImageUrls = new(StringComparer.OrdinalIgnoreCase);
     private AdopterProfile? _adopterProfile;
@@ -100,8 +104,33 @@ public partial class DogDetails
         {
             await LoadAdopterDogStateAsync();
         }
+
+        if (_dog is not null && (_currentUserIsShelter || _currentUserIsAdmin))
+        {
+            await LoadTransferHistoryAsync();
+        }
     }
 
+    private async Task LoadTransferHistoryAsync()
+    {
+        if (_dog is null)
+        {
+            return;
+        }
+
+        try
+        {
+            _transferHistory = await DogTransferService.GetDogTransferHistoryAsync(
+                _dog.Id,
+                _currentShelterId,
+                _currentUserIsAdmin);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Transfer history could not be loaded for dog {DogId}.", _dog.Id);
+            _transferHistory = [];
+        }
+    }
     private async Task LoadAdopterDogStateAsync()
     {
         if (_dog is null || string.IsNullOrWhiteSpace(_currentUserId))
@@ -260,14 +289,20 @@ public partial class DogDetails
         _currentUserIsAdopter = _currentUserIsAuthenticated && principal.IsInRole("Adopter");
         _currentUserIsShelter = _currentUserIsAuthenticated && principal.IsInRole("Shelter");
         _currentUserIsAdmin = _currentUserIsAuthenticated && principal.IsInRole("Admin");
-        if (!_currentUserIsAdopter)
+        if (!_currentUserIsAuthenticated)
         {
             _currentUserId = null;
             return;
         }
 
         var user = await UserManager.GetUserAsync(principal);
-        _currentUserId = user?.Id;
+        _currentUserId = user?.Id ?? principal.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (_currentUserIsShelter && !string.IsNullOrWhiteSpace(_currentUserId))
+        {
+            var shelter = await ShelterService.GetShelterForUserAsync(_currentUserId);
+            _currentShelterId = shelter?.Id;
+        }
     }
 
     private async Task ToggleFavoriteAsync()
@@ -558,6 +593,26 @@ public partial class DogDetails
         return VisitSchedulingHelper.FormatVisitingHours(_dog?.Shelter);
     }
 
+    private static Color GetTransferStatusColor(DogTransferStatus status) => status switch
+    {
+        DogTransferStatus.Pending => Color.Warning,
+        DogTransferStatus.Approved => Color.Info,
+        DogTransferStatus.Rejected => Color.Error,
+        DogTransferStatus.Cancelled => Color.Default,
+        DogTransferStatus.Completed => Color.Success,
+        _ => Color.Default
+    };
+
+    private static Color GetTransferPriorityColor(DogTransferPriority priority) => priority switch
+    {
+        DogTransferPriority.Low => Color.Default,
+        DogTransferPriority.Normal => Color.Info,
+        DogTransferPriority.High => Color.Warning,
+        DogTransferPriority.Urgent => Color.Error,
+        _ => Color.Default
+    };
+
+    private static string FormatTransferDate(DateTime value) => value.ToLocalTime().ToString("dd MMM yyyy, HH:mm");
     private static string FormatYesNo(bool value)
     {
         return value ? "Yes" : "No";

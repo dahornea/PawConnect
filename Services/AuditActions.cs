@@ -43,6 +43,12 @@ public static class AuditActions
     public const string ShelterAvailabilitySlotCreated = nameof(ShelterAvailabilitySlotCreated);
     public const string ShelterAvailabilitySlotCancelled = nameof(ShelterAvailabilitySlotCancelled);
     public const string ShelterAvailabilitySlotBooked = nameof(ShelterAvailabilitySlotBooked);
+    public const string DogTransferRequested = nameof(DogTransferRequested);
+    public const string DogTransferApproved = nameof(DogTransferApproved);
+    public const string DogTransferRejected = nameof(DogTransferRejected);
+    public const string DogTransferCancelled = nameof(DogTransferCancelled);
+    public const string DogTransferCompleted = nameof(DogTransferCompleted);
+    public const string DogTransferAdminNoteUpdated = nameof(DogTransferAdminNoteUpdated);
 
     public static readonly IReadOnlyList<string> All =
     [
@@ -86,6 +92,12 @@ public static class AuditActions
         CopilotEvaluationFailed,
         ShelterAvailabilitySlotCreated,
         ShelterAvailabilitySlotCancelled,
-        ShelterAvailabilitySlotBooked
+        ShelterAvailabilitySlotBooked,
+        DogTransferRequested,
+        DogTransferApproved,
+        DogTransferRejected,
+        DogTransferCancelled,
+        DogTransferCompleted,
+        DogTransferAdminNoteUpdated
     ];
 }

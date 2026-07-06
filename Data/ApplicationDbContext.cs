@@ -71,6 +71,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
     public DbSet<LostFoundPostImage> LostFoundPostImages => Set<LostFoundPostImage>();
 
+    public DbSet<DogTransferRequest> DogTransferRequests => Set<DogTransferRequest>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -899,6 +901,82 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         builder.Entity<ReportHistory>()
             .HasIndex(history => new { history.ShelterId, history.GeneratedAt });
 
+        builder.Entity<DogTransferRequest>()
+            .HasOne(transfer => transfer.Dog)
+            .WithMany()
+            .HasForeignKey(transfer => transfer.DogId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<DogTransferRequest>()
+            .HasOne(transfer => transfer.SourceShelter)
+            .WithMany()
+            .HasForeignKey(transfer => transfer.SourceShelterId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<DogTransferRequest>()
+            .HasOne(transfer => transfer.DestinationShelter)
+            .WithMany()
+            .HasForeignKey(transfer => transfer.DestinationShelterId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<DogTransferRequest>()
+            .HasOne(transfer => transfer.RequestedByUser)
+            .WithMany()
+            .HasForeignKey(transfer => transfer.RequestedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<DogTransferRequest>()
+            .HasOne(transfer => transfer.RespondedByUser)
+            .WithMany()
+            .HasForeignKey(transfer => transfer.RespondedByUserId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<DogTransferRequest>()
+            .HasOne(transfer => transfer.CompletedByUser)
+            .WithMany()
+            .HasForeignKey(transfer => transfer.CompletedByUserId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<DogTransferRequest>()
+            .Property(transfer => transfer.Reason)
+            .HasMaxLength(1000);
+
+        builder.Entity<DogTransferRequest>()
+            .Property(transfer => transfer.SourceShelterNotes)
+            .HasMaxLength(1000);
+
+        builder.Entity<DogTransferRequest>()
+            .Property(transfer => transfer.DestinationShelterResponseNotes)
+            .HasMaxLength(1000);
+
+        builder.Entity<DogTransferRequest>()
+            .Property(transfer => transfer.AdminNotes)
+            .HasMaxLength(1000);
+
+        builder.Entity<DogTransferRequest>()
+            .Property(transfer => transfer.CreatedAtUtc)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<DogTransferRequest>()
+            .Property(transfer => transfer.UpdatedAtUtc)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<DogTransferRequest>()
+            .HasIndex(transfer => transfer.DogId);
+
+        builder.Entity<DogTransferRequest>()
+            .HasIndex(transfer => transfer.SourceShelterId);
+
+        builder.Entity<DogTransferRequest>()
+            .HasIndex(transfer => transfer.DestinationShelterId);
+
+        builder.Entity<DogTransferRequest>()
+            .HasIndex(transfer => transfer.Status);
+
+        builder.Entity<DogTransferRequest>()
+            .HasIndex(transfer => transfer.RequestedAtUtc);
         SeedLookupData(builder);
     }
 

@@ -116,6 +116,7 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
 
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(EfRepository<>));
 builder.Services.AddScoped<IDogService, DogService>();
+builder.Services.AddScoped<IDogTransferService, DogTransferService>();
 builder.Services.AddScoped<IDogBreedService, DogBreedService>();
 builder.Services.AddScoped<IAdoptionRequestService, AdoptionRequestService>();
 builder.Services.AddScoped<IFavoriteDogService, FavoriteDogService>();
@@ -433,4 +434,3 @@ static void OpenLocalEmailInboxOnStartup(WebApplication app)
 }
 
 public partial class Program;
-

@@ -1,0 +1,122 @@
+﻿@using PawConnect.Entities
+@using PawConnect.Services
+
+<MudDialog>
+    <DialogContent>
+        @if (Transfer is not null)
+        {
+            <MudStack Spacing="3">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Class="flex-wrap" Spacing="1">
+                    <MudIcon Icon="@Icons.Material.Filled.SwapHoriz" Color="Color.Primary" />
+                    <MudText Typo="Typo.h6">@Transfer.DogName</MudText>
+                    <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(Transfer.Status)">@FormatStatus(Transfer.Status)</MudChip>
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="@GetPriorityColor(Transfer.Priority)">@Transfer.Priority</MudChip>
+                </MudStack>
+
+                <MudGrid Spacing="2">
+                    <MudItem xs="12" sm="6">
+                        <MudPaper Elevation="0" Class="pa-3 border-light">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Source shelter</MudText>
+                            <MudText Typo="Typo.body1">@Transfer.SourceShelterName</MudText>
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudPaper Elevation="0" Class="pa-3 border-light">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Destination shelter</MudText>
+                            <MudText Typo="Typo.body1">@Transfer.DestinationShelterName</MudText>
+                        </MudPaper>
+                    </MudItem>
+                </MudGrid>
+
+                <MudPaper Elevation="0" Class="pa-3 border-light">
+                    <MudText Typo="Typo.subtitle2">Reason</MudText>
+                    <MudText Typo="Typo.body2">@Transfer.Reason</MudText>
+                </MudPaper>
+
+                @if (!string.IsNullOrWhiteSpace(Transfer.SourceShelterNotes))
+                {
+                    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true">
+                        <MudText Typo="Typo.subtitle2">Source shelter notes</MudText>
+                        <MudText Typo="Typo.body2">@Transfer.SourceShelterNotes</MudText>
+                    </MudAlert>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(Transfer.DestinationShelterResponseNotes))
+                {
+                    <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Dense="true">
+                        <MudText Typo="Typo.subtitle2">Destination response</MudText>
+                        <MudText Typo="Typo.body2">@Transfer.DestinationShelterResponseNotes</MudText>
+                    </MudAlert>
+                }
+
+                @if (ShowAdminNotes && !string.IsNullOrWhiteSpace(Transfer.AdminNotes))
+                {
+                    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Dense="true">
+                        <MudText Typo="Typo.subtitle2">Admin notes</MudText>
+                        <MudText Typo="Typo.body2">@Transfer.AdminNotes</MudText>
+                    </MudAlert>
+                }
+
+                <MudDivider />
+                <MudStack Spacing="1">
+                    <MudText Typo="Typo.subtitle2">Timeline</MudText>
+                    <MudText Typo="Typo.body2">Requested: @FormatDateTime(Transfer.RequestedAtUtc) by @Transfer.RequestedByDisplayName</MudText>
+                    @if (Transfer.RespondedAtUtc is not null)
+                    {
+                        <MudText Typo="Typo.body2">Responded: @FormatDateTime(Transfer.RespondedAtUtc.Value) @(!string.IsNullOrWhiteSpace(Transfer.RespondedByDisplayName) ? $"by {Transfer.RespondedByDisplayName}" : string.Empty)</MudText>
+                    }
+                    @if (Transfer.CompletedAtUtc is not null)
+                    {
+                        <MudText Typo="Typo.body2">Completed: @FormatDateTime(Transfer.CompletedAtUtc.Value) @(!string.IsNullOrWhiteSpace(Transfer.CompletedByDisplayName) ? $"by {Transfer.CompletedByDisplayName}" : string.Empty)</MudText>
+                    }
+                    @if (Transfer.CancelledAtUtc is not null)
+                    {
+                        <MudText Typo="Typo.body2">Cancelled: @FormatDateTime(Transfer.CancelledAtUtc.Value)</MudText>
+                    }
+                </MudStack>
+            </MudStack>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Close">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public DogTransferDetailsDto? Transfer { get; set; }
+    [Parameter] public bool ShowAdminNotes { get; set; }
+
+    private void Close() => MudDialog.Close();
+
+    private static string FormatDateTime(DateTime value) => value.ToLocalTime().ToString("dd MMM yyyy HH:mm");
+
+    private static string FormatStatus(DogTransferStatus status) => status switch
+    {
+        DogTransferStatus.Pending => "Pending",
+        DogTransferStatus.Approved => "Approved",
+        DogTransferStatus.Rejected => "Rejected",
+        DogTransferStatus.Cancelled => "Cancelled",
+        DogTransferStatus.Completed => "Completed",
+        _ => status.ToString()
+    };
+
+    private static Color GetStatusColor(DogTransferStatus status) => status switch
+    {
+        DogTransferStatus.Pending => Color.Warning,
+        DogTransferStatus.Approved => Color.Info,
+        DogTransferStatus.Rejected => Color.Error,
+        DogTransferStatus.Cancelled => Color.Default,
+        DogTransferStatus.Completed => Color.Success,
+        _ => Color.Default
+    };
+
+    private static Color GetPriorityColor(DogTransferPriority priority) => priority switch
+    {
+        DogTransferPriority.Low => Color.Default,
+        DogTransferPriority.Normal => Color.Info,
+        DogTransferPriority.High => Color.Warning,
+        DogTransferPriority.Urgent => Color.Error,
+        _ => Color.Default
+    };
+}

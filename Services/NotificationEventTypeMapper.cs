@@ -24,12 +24,18 @@ public static class NotificationEventTypeMapper
             return NotificationEventType.LostFoundUpdates;
         }
 
+        if (IsRelatedEntity(relatedEntityName, "DogTransferRequest") || Contains(title, "transfer"))
+        {
+            return NotificationEventType.DogTransferUpdates;
+        }
+
         return category switch
         {
             NotificationCategory.Adoption => NotificationEventType.AdoptionRequestUpdates,
             NotificationCategory.Resource => NotificationEventType.ResourceAlerts,
             NotificationCategory.Report => NotificationEventType.ReportUpdates,
             NotificationCategory.ShelterApplication => NotificationEventType.ShelterApplicationUpdates,
+            NotificationCategory.Transfer => NotificationEventType.DogTransferUpdates,
             _ => NotificationEventType.SystemAnnouncements
         };
     }
@@ -64,6 +70,11 @@ public static class NotificationEventTypeMapper
         if (Contains(subject, "lost") || Contains(subject, "found"))
         {
             return NotificationEventType.LostFoundUpdates;
+        }
+
+        if (Contains(subject, "transfer"))
+        {
+            return NotificationEventType.DogTransferUpdates;
         }
 
         if (Contains(subject, "adoption") || Contains(subject, "request"))

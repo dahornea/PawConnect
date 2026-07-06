@@ -6,5 +6,7 @@ public enum NotificationCategory
     ShelterApplication = 1,
     Resource = 2,
     Report = 3,
-    System = 4
+    System = 4,
+    Transfer = 5
 }
+

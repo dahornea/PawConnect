@@ -24,6 +24,12 @@ public static class IdentitySeedData
 
     private const string SecondAdopterUserId = "00000000-0000-0000-0000-000000000002";
     private const string ThirdAdopterUserId = "00000000-0000-0000-0000-000000000003";
+    private const string HopeTailsShelterUserId = "11111111-1111-1111-1111-111111111112";
+    private const string SafeHavenShelterUserId = "11111111-1111-1111-1111-111111111113";
+    private const string GreenYardShelterUserId = "11111111-1111-1111-1111-111111111114";
+    private const string SecondChanceShelterUserId = "11111111-1111-1111-1111-111111111115";
+    private const string FriendlyTailsShelterUserId = "11111111-1111-1111-1111-111111111116";
+    private const string NorthStarShelterUserId = "11111111-1111-1111-1111-111111111117";
 
     private const int FoodCategoryId = 1;
     private const int MedicineCategoryId = 2;
@@ -40,7 +46,13 @@ public static class IdentitySeedData
     [
         new(AdopterUserId, AdopterDemoEmail, AdopterDemoPassword, "Ana Ionescu", AdopterRole, ["ana.ionescu@pawconnect.local"]),
         new(ShelterUserId, ShelterDemoEmail, ShelterDemoPassword, "Happy Paws Shelter Team", ShelterRole, ["happy-paws@pawconnect.local"]),
-        new(AdminUserId, AdminDemoEmail, AdminDemoPassword, "PawConnect Admin", AdminRole, ["admin@pawconnect.local"])
+        new(AdminUserId, AdminDemoEmail, AdminDemoPassword, "PawConnect Admin", AdminRole, ["admin@pawconnect.local"]),
+        new(HopeTailsShelterUserId, "hope-tails@mail.com", ShelterDemoPassword, "Hope Tails Rescue Team", ShelterRole, ["hope-tails@pawconnect.local"]),
+        new(SafeHavenShelterUserId, "safe-haven@mail.com", ShelterDemoPassword, "Safe Haven Dogs Team", ShelterRole, ["safe-haven@pawconnect.local"]),
+        new(GreenYardShelterUserId, "green-yard@mail.com", ShelterDemoPassword, "Green Yard Animal Care Team", ShelterRole, ["green-yard@pawconnect.local"]),
+        new(SecondChanceShelterUserId, "second-chance@mail.com", ShelterDemoPassword, "Second Chance Paws Team", ShelterRole, ["second-chance@pawconnect.local"]),
+        new(FriendlyTailsShelterUserId, "friendly-tails@mail.com", ShelterDemoPassword, "Friendly Tails Center Team", ShelterRole, ["friendly-tails@pawconnect.local"]),
+        new(NorthStarShelterUserId, "north-star@mail.com", ShelterDemoPassword, "North Star Animal Shelter Team", ShelterRole, ["north-star@pawconnect.local"])
     ];
 
     private static readonly Dictionary<string, string> DemoDogMainImageUrls = new(StringComparer.OrdinalIgnoreCase)
@@ -243,6 +255,7 @@ public static class IdentitySeedData
         await ReplaceMedicalRecordsAsync(context);
         await ReplaceShelterResourcesAsync(context);
         await ReplacePresentationRequestsAsync(context);
+        await ReplacePresentationTransferRequestsAsync(context);
         await SeedFavoritesAndRecentViewsAsync(context);
 
         await context.SaveChangesAsync();
@@ -569,6 +582,56 @@ public static class IdentitySeedData
         }
     }
 
+
+    private static async Task ReplacePresentationTransferRequestsAsync(ApplicationDbContext context)
+    {
+        var transferSeeds = GetTransferRequests();
+        var transferDogNames = transferSeeds.Select(seed => seed.DogName).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var dogIds = await context.Dogs
+            .Where(dog => transferDogNames.Contains(dog.Name))
+            .Select(dog => dog.Id)
+            .ToListAsync();
+
+        var existing = await context.DogTransferRequests
+            .Where(transfer => dogIds.Contains(transfer.DogId))
+            .ToListAsync();
+        context.DogTransferRequests.RemoveRange(existing);
+
+        var dogsByName = await context.Dogs.ToDictionaryAsync(dog => dog.Name, StringComparer.OrdinalIgnoreCase);
+        var sheltersByName = await context.Shelters.ToDictionaryAsync(shelter => shelter.Name, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var seed in transferSeeds)
+        {
+            if (!dogsByName.TryGetValue(seed.DogName, out var dog) ||
+                !sheltersByName.TryGetValue(seed.SourceShelterName, out var sourceShelter) ||
+                !sheltersByName.TryGetValue(seed.DestinationShelterName, out var destinationShelter))
+            {
+                continue;
+            }
+
+            context.DogTransferRequests.Add(new DogTransferRequest
+            {
+                DogId = dog.Id,
+                SourceShelterId = sourceShelter.Id,
+                DestinationShelterId = destinationShelter.Id,
+                RequestedByUserId = seed.RequestedByUserId,
+                RespondedByUserId = seed.RespondedByUserId,
+                CompletedByUserId = seed.CompletedByUserId,
+                Status = seed.Status,
+                Priority = seed.Priority,
+                Reason = seed.Reason,
+                SourceShelterNotes = seed.SourceShelterNotes,
+                DestinationShelterResponseNotes = seed.DestinationShelterResponseNotes,
+                AdminNotes = seed.AdminNotes,
+                RequestedAtUtc = seed.RequestedAtUtc,
+                RespondedAtUtc = seed.RespondedAtUtc,
+                CompletedAtUtc = seed.CompletedAtUtc,
+                CancelledAtUtc = seed.CancelledAtUtc,
+                CreatedAtUtc = seed.RequestedAtUtc,
+                UpdatedAtUtc = seed.CompletedAtUtc ?? seed.RespondedAtUtc ?? seed.CancelledAtUtc ?? seed.RequestedAtUtc
+            });
+        }
+    }
     private static async Task SeedFavoritesAndRecentViewsAsync(ApplicationDbContext context)
     {
         var dogsByName = await context.Dogs.ToDictionaryAsync(dog => dog.Name, StringComparer.OrdinalIgnoreCase);
@@ -692,7 +755,8 @@ public static class IdentitySeedData
                 "+40 700 000 102",
                 "hope-tails@pawconnect.local",
                 46.7842,
-                23.6157),
+                23.6157,
+                HopeTailsShelterUserId),
             new(
                 "Safe Haven Dogs",
                 "A small shelter profile focused on quieter dogs, senior companions, and gradual introductions. The team keeps detailed notes about routine, confidence, and home fit.",
@@ -701,7 +765,8 @@ public static class IdentitySeedData
                 "+40 700 000 103",
                 "safe-haven@pawconnect.local",
                 46.7509,
-                23.6022),
+                23.6022,
+                SafeHavenShelterUserId),
             new(
                 "Green Yard Animal Care",
                 "A spacious shelter profile for dogs that enjoy outdoor time and structured activity. The team works with adopters on exercise expectations before each visit.",
@@ -710,7 +775,8 @@ public static class IdentitySeedData
                 "+40 700 000 104",
                 "green-yard@pawconnect.local",
                 46.7719,
-                23.5458),
+                23.5458,
+                GreenYardShelterUserId),
             new(
                 "Second Chance Paws",
                 "A Manastur shelter profile that supports shy and recovering dogs with predictable daily routines. Adopters are encouraged to ask about introductions and transition plans.",
@@ -719,7 +785,8 @@ public static class IdentitySeedData
                 "+40 700 000 105",
                 "second-chance@pawconnect.local",
                 46.7478,
-                23.5486),
+                23.5486,
+                SecondChanceShelterUserId),
             new(
                 "Friendly Tails Center",
                 "A family-oriented shelter profile with dogs observed around visitors, older children, and steady household routines. The team highlights both strengths and caution notes.",
@@ -728,7 +795,8 @@ public static class IdentitySeedData
                 "+40 700 000 106",
                 "friendly-tails@pawconnect.local",
                 46.7624,
-                23.6226),
+                23.6226,
+                FriendlyTailsShelterUserId),
             new(
                 "North Star Animal Shelter",
                 "A north-side shelter profile for dogs from Iris and nearby industrial areas. The staff records activity needs, confidence around people, and compatibility observations.",
@@ -737,7 +805,8 @@ public static class IdentitySeedData
                 "+40 700 000 107",
                 "north-star@pawconnect.local",
                 46.7974,
-                23.6042)
+                23.6042,
+                NorthStarShelterUserId)
         ];
     }
 
@@ -1196,6 +1265,132 @@ public static class IdentitySeedData
         return resources;
     }
 
+
+    private static IReadOnlyList<TransferSeed> GetTransferRequests()
+    {
+        return
+        [
+            new(
+                "Bruno",
+                "Green Yard Animal Care",
+                "Happy Paws Shelter",
+                GreenYardShelterUserId,
+                DogTransferStatus.Pending,
+                DogTransferPriority.Normal,
+                "Green Yard is close to capacity this week and Bruno may benefit from a calmer kennel while a potential adopter in Zorilor reviews his profile.",
+                "Bruno travels calmly in a crate and should keep his usual feeding routine during the first days.",
+                null,
+                null,
+                new DateTime(2026, 5, 21, 9, 15, 0, DateTimeKind.Utc),
+                null,
+                null,
+                null,
+                null,
+                null),
+            new(
+                "Luna",
+                "Hope Tails Rescue",
+                "Happy Paws Shelter",
+                HopeTailsShelterUserId,
+                DogTransferStatus.Pending,
+                DogTransferPriority.Urgent,
+                "Luna needs access to Happy Paws' quieter recovery kennels while her skin follow-up is monitored.",
+                "Please review her treatment notes before accepting because she needs a low-stress space.",
+                null,
+                "Admin flagged this as urgent because medical follow-up capacity is limited at the source shelter.",
+                new DateTime(2026, 5, 21, 11, 40, 0, DateTimeKind.Utc),
+                null,
+                null,
+                null,
+                null,
+                null),
+            new(
+                "Bella",
+                "Happy Paws Shelter",
+                "Safe Haven Dogs",
+                ShelterUserId,
+                DogTransferStatus.Pending,
+                DogTransferPriority.High,
+                "Safe Haven has a quieter environment and may be better placed to continue Bella's calm-adopter matching process.",
+                "Bella is reserved, so please confirm availability before planning transport.",
+                null,
+                null,
+                new DateTime(2026, 5, 20, 14, 10, 0, DateTimeKind.Utc),
+                null,
+                null,
+                null,
+                null,
+                null),
+            new(
+                "Buddy",
+                "Happy Paws Shelter",
+                "Second Chance Paws",
+                ShelterUserId,
+                DogTransferStatus.Approved,
+                DogTransferPriority.Normal,
+                "Second Chance has kennel space for larger dogs and can support Buddy's structured outdoor routine.",
+                "Buddy should travel after his morning walk and food should be sent with him for the first week.",
+                "Approved. We can receive Buddy after 11:00 and will prepare a larger run.",
+                null,
+                new DateTime(2026, 5, 19, 8, 30, 0, DateTimeKind.Utc),
+                new DateTime(2026, 5, 19, 15, 20, 0, DateTimeKind.Utc),
+                SecondChanceShelterUserId,
+                null,
+                null,
+                null),
+            new(
+                "Nala",
+                "Safe Haven Dogs",
+                "Happy Paws Shelter",
+                SafeHavenShelterUserId,
+                DogTransferStatus.Completed,
+                DogTransferPriority.Normal,
+                "Nala was moved closer to a Zorilor adopter visit and to keep related adoption notes with the Happy Paws team.",
+                "Nala settled well during previous car rides and prefers a quiet first hour after arrival.",
+                "Approved after kennel check. Happy Paws confirmed space for a medium dog.",
+                null,
+                new DateTime(2026, 5, 13, 10, 0, 0, DateTimeKind.Utc),
+                new DateTime(2026, 5, 13, 12, 30, 0, DateTimeKind.Utc),
+                ShelterUserId,
+                new DateTime(2026, 5, 14, 9, 45, 0, DateTimeKind.Utc),
+                ShelterUserId,
+                null),
+            new(
+                "Oscar",
+                "Hope Tails Rescue",
+                "Happy Paws Shelter",
+                HopeTailsShelterUserId,
+                DogTransferStatus.Rejected,
+                DogTransferPriority.Low,
+                "Hope Tails asked whether Oscar could move closer to a potential adopter, but the timing did not fit Happy Paws kennel capacity.",
+                "Oscar can wait safely at Hope Tails if Happy Paws cannot receive him this week.",
+                "Rejected for now because Happy Paws has limited medium-dog space this week.",
+                null,
+                new DateTime(2026, 5, 12, 9, 20, 0, DateTimeKind.Utc),
+                new DateTime(2026, 5, 12, 16, 0, 0, DateTimeKind.Utc),
+                ShelterUserId,
+                null,
+                null,
+                null),
+            new(
+                "Max",
+                "Happy Paws Shelter",
+                "North Star Animal Shelter",
+                ShelterUserId,
+                DogTransferStatus.Cancelled,
+                DogTransferPriority.High,
+                "North Star was considered for Max because of outdoor space, but the source shelter paused the request after adopter interest changed.",
+                "Cancelled after internal review; keep Max listed at Happy Paws for now.",
+                null,
+                null,
+                new DateTime(2026, 5, 10, 13, 30, 0, DateTimeKind.Utc),
+                null,
+                null,
+                null,
+                null,
+                new DateTime(2026, 5, 11, 10, 0, 0, DateTimeKind.Utc))
+        ];
+    }
     private static IReadOnlyList<AdoptionRequestSeed> GetAdoptionRequests()
     {
         return
@@ -1368,6 +1563,24 @@ public static class IdentitySeedData
         int LowStockThreshold,
         int ResourceCategoryId,
         int? FoodTypeId);
+
+    private sealed record TransferSeed(
+        string DogName,
+        string SourceShelterName,
+        string DestinationShelterName,
+        string RequestedByUserId,
+        DogTransferStatus Status,
+        DogTransferPriority Priority,
+        string Reason,
+        string? SourceShelterNotes,
+        string? DestinationShelterResponseNotes,
+        string? AdminNotes,
+        DateTime RequestedAtUtc,
+        DateTime? RespondedAtUtc,
+        string? RespondedByUserId,
+        DateTime? CompletedAtUtc,
+        string? CompletedByUserId,
+        DateTime? CancelledAtUtc);
 
     private sealed record AdoptionRequestSeed(
         string DogName,

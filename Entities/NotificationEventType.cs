@@ -9,5 +9,7 @@ public enum NotificationEventType
     ReportUpdates = 4,
     ShelterApplicationUpdates = 5,
     LostFoundUpdates = 6,
-    SystemAnnouncements = 7
+    SystemAnnouncements = 7,
+    DogTransferUpdates = 8
 }
+

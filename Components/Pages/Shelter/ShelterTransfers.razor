@@ -1,0 +1,184 @@
+@page "/shelter/transfers"
+@attribute [Authorize(Roles = "Shelter")]
+
+<PageTitle>Dog Transfers</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.False" Class="px-0">
+    <MudStack Spacing="3">
+        <div class="page-header">
+            <MudText Typo="Typo.h4">Dog Transfers</MudText>
+            <MudText Typo="Typo.body2">Request, review, and complete transfer collaboration with other shelters.</MudText>
+        </div>
+
+        @if (_isLoading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="py-8">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Loading transfer workspace...</MudText>
+            </MudStack>
+        }
+        else if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <MudAlert Severity="Severity.Error">@_error</MudAlert>
+        }
+        else
+        {
+            <MudGrid Spacing="2">
+                <MudItem xs="12" sm="6" md="2">
+                    <MudPaper Elevation="0" Class="section-surface pa-3 h-100">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Incoming pending</MudText>
+                        <MudText Typo="Typo.h5">@_stats?.IncomingPending</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="2">
+                    <MudPaper Elevation="0" Class="section-surface pa-3 h-100">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Outgoing pending</MudText>
+                        <MudText Typo="Typo.h5">@_stats?.OutgoingPending</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="2">
+                    <MudPaper Elevation="0" Class="section-surface pa-3 h-100">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Approved</MudText>
+                        <MudText Typo="Typo.h5">@_stats?.ApprovedWaitingCompletion</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="2">
+                    <MudPaper Elevation="0" Class="section-surface pa-3 h-100">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Completed</MudText>
+                        <MudText Typo="Typo.h5">@_stats?.Completed</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="2">
+                    <MudPaper Elevation="0" Class="section-surface pa-3 h-100">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Urgent</MudText>
+                        <MudText Typo="Typo.h5">@_stats?.UrgentRequests</MudText>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+
+            <MudPaper Elevation="0" Class="section-surface pa-4">
+                <MudStack Spacing="3">
+                    <div>
+                        <MudText Typo="Typo.h6" Class="content-title">Request a transfer</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Choose one of your shelter dogs and request support from another shelter.</MudText>
+                    </div>
+                    <MudGrid Spacing="2">
+                        <MudItem xs="12" md="3">
+                            <MudSelect T="int?" Label="Dog" @bind-Value="_selectedDogId" Variant="Variant.Outlined" Required="true" Placeholder="Select dog">
+                                @foreach (var dog in _dogs)
+                                {
+                                    <MudSelectItem T="int?" Value="@((int?)dog.Id)">@dog.Name (@DogBreedFormatter.Format(dog))</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" md="3">
+                            <MudSelect T="int?" Label="Destination shelter" @bind-Value="_destinationShelterId" Variant="Variant.Outlined" Required="true" Placeholder="Select shelter">
+                                @foreach (var shelter in DestinationShelterOptions)
+                                {
+                                    <MudSelectItem T="int?" Value="@((int?)shelter.Id)">@shelter.Name</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" md="2">
+                            <MudSelect T="DogTransferPriority" Label="Priority" @bind-Value="_priority" Variant="Variant.Outlined">
+                                @foreach (var priority in Enum.GetValues<DogTransferPriority>())
+                                {
+                                    <MudSelectItem Value="@priority">@priority</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" md="4">
+                            <MudTextField T="string" Label="Reason" @bind-Value="_reason" Variant="Variant.Outlined" Required="true" MaxLength="1000" />
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudTextField T="string" Label="Optional source notes" @bind-Value="_sourceNotes" Variant="Variant.Outlined" Lines="3" MaxLength="1000" />
+                        </MudItem>
+                    </MudGrid>
+                    <MudStack Row="true" Justify="Justify.FlexEnd">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Send" Disabled="_isSaving" OnClick="CreateTransferAsync">Request Transfer</MudButton>
+                    </MudStack>
+                </MudStack>
+            </MudPaper>
+
+            <MudPaper Elevation="0" Class="section-surface pa-3">
+                <MudTabs Rounded="true" Elevation="0">
+                    <MudTabPanel Text="Incoming Requests">
+                        @RenderTransferTable(_incoming, incoming: true)
+                    </MudTabPanel>
+                    <MudTabPanel Text="Outgoing Requests">
+                        @RenderTransferTable(_outgoing, incoming: false)
+                    </MudTabPanel>
+                    <MudTabPanel Text="Completed / History">
+                        @RenderTransferTable(_history, incoming: false)
+                    </MudTabPanel>
+                </MudTabs>
+            </MudPaper>
+        }
+    </MudStack>
+</MudContainer>
+
+@code {
+    private RenderFragment RenderTransferTable(IReadOnlyList<DogTransferRequestDto> transfers, bool incoming) => @<div class="pt-3">
+        @if (transfers.Count == 0)
+        {
+            <MudPaper Elevation="0" Class="empty-state pa-5">
+                <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.SwapHoriz" Color="Color.Secondary" Size="Size.Large" />
+                    <MudText Typo="Typo.h6">No transfers in this section</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Transfer requests will appear here when shelters collaborate.</MudText>
+                </MudStack>
+            </MudPaper>
+        }
+        else
+        {
+            <MudTable Items="transfers" Dense="true" Hover="true" Class="table-shell" RowsPerPage="8">
+                <HeaderContent>
+                    <MudTh>Dog</MudTh>
+                    <MudTh>@(incoming ? "Source Shelter" : "Destination Shelter")</MudTh>
+                    <MudTh>Priority</MudTh>
+                    <MudTh>Reason</MudTh>
+                    <MudTh>Requested</MudTh>
+                    <MudTh>Status</MudTh>
+                    <MudTh></MudTh>
+                </HeaderContent>
+                <RowTemplate Context="transfer">
+                    <MudTd DataLabel="Dog">
+                        <MudText Typo="Typo.body2">@transfer.DogName</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@transfer.DogBreed</MudText>
+                    </MudTd>
+                    <MudTd DataLabel="Shelter">@(incoming ? transfer.SourceShelterName : transfer.DestinationShelterName)</MudTd>
+                    <MudTd DataLabel="Priority">
+                        <MudChip T="string" Size="Size.Small" Color="@GetPriorityColor(transfer.Priority)" Variant="Variant.Outlined">@transfer.Priority</MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Reason">@transfer.ReasonPreview</MudTd>
+                    <MudTd DataLabel="Requested">@FormatDateTime(transfer.RequestedAtUtc)</MudTd>
+                    <MudTd DataLabel="Status">
+                        <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(transfer.Status)">@FormatStatus(transfer.Status)</MudChip>
+                    </MudTd>
+                    <MudTd>
+                        <MudStack Row="true" Spacing="1" Class="flex-wrap">
+                            <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => ViewTransferAsync(transfer.Id))">View</MudButton>
+                            @if (transfer.CanApprove)
+                            {
+                                <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Success" Disabled="_isSaving" OnClick="@(() => ApproveAsync(transfer.Id))">Approve</MudButton>
+                            }
+                            @if (transfer.CanReject)
+                            {
+                                <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Error" Disabled="_isSaving" OnClick="@(() => RejectAsync(transfer.Id))">Reject</MudButton>
+                            }
+                            @if (transfer.CanCancel)
+                            {
+                                <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default" Disabled="_isSaving" OnClick="@(() => CancelAsync(transfer.Id))">Cancel</MudButton>
+                            }
+                            @if (transfer.CanComplete)
+                            {
+                                <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" Disabled="_isSaving" OnClick="@(() => CompleteAsync(transfer.Id))">Complete</MudButton>
+                            }
+                        </MudStack>
+                    </MudTd>
+                </RowTemplate>
+                <PagerContent><MudTablePager /></PagerContent>
+            </MudTable>
+        }
+    </div>;
+}

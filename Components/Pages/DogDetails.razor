@@ -478,6 +478,43 @@ else
                     </MudPaper>
                 </MudItem>
 
+                @if ((_currentUserIsShelter || _currentUserIsAdmin) && _transferHistory.Count > 0)
+                {
+                    <MudItem xs="12">
+                        <MudPaper Elevation="0" Class="section-surface pa-4">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                <MudIcon Icon="@Icons.Material.Filled.SwapHoriz" Color="Color.Primary" />
+                                <MudText Typo="Typo.h6" Class="content-title">Transfer History</MudText>
+                            </MudStack>
+                            <MudDivider Class="my-2" />
+                            <MudTable Items="_transferHistory" Dense="true" Hover="true" Class="table-shell">
+                                <HeaderContent>
+                                    <MudTh>Route</MudTh>
+                                    <MudTh>Priority</MudTh>
+                                    <MudTh>Status</MudTh>
+                                    <MudTh>Requested</MudTh>
+                                    <MudTh>Completed</MudTh>
+                                    <MudTh>Reason</MudTh>
+                                </HeaderContent>
+                                <RowTemplate Context="transfer">
+                                    <MudTd DataLabel="Route">
+                                        <MudText Typo="Typo.body2">@transfer.SourceShelterName</MudText>
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">to @transfer.DestinationShelterName</MudText>
+                                    </MudTd>
+                                    <MudTd DataLabel="Priority">
+                                        <MudChip T="string" Size="Size.Small" Color="@GetTransferPriorityColor(transfer.Priority)" Variant="Variant.Outlined">@transfer.Priority</MudChip>
+                                    </MudTd>
+                                    <MudTd DataLabel="Status">
+                                        <MudChip T="string" Size="Size.Small" Color="@GetTransferStatusColor(transfer.Status)">@transfer.Status</MudChip>
+                                    </MudTd>
+                                    <MudTd DataLabel="Requested">@FormatTransferDate(transfer.RequestedAtUtc)</MudTd>
+                                    <MudTd DataLabel="Completed">@(transfer.CompletedAtUtc.HasValue ? FormatTransferDate(transfer.CompletedAtUtc.Value) : "-")</MudTd>
+                                    <MudTd DataLabel="Reason">@transfer.ReasonPreview</MudTd>
+                                </RowTemplate>
+                            </MudTable>
+                        </MudPaper>
+                    </MudItem>
+                }
                 <MudItem xs="12" md="4">
                     <MudPaper Elevation="0" Class="section-surface info-panel pa-4 h-100">
                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
