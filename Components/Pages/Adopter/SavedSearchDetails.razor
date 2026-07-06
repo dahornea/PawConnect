@@ -1,0 +1,118 @@
+﻿@page "/adopter/saved-searches/{SavedSearchId:int}"
+@attribute [Authorize(Roles = "Adopter")]
+
+<PageTitle>Saved Search Matches</PageTitle>
+
+<div class="saved-search-details-page">
+<MudContainer MaxWidth="MaxWidth.False" Class="px-0">
+    <MudStack Spacing="3">
+        <MudButton Href="/adopter/saved-searches" Variant="Variant.Text" Color="Color.Default" StartIcon="@Icons.Material.Filled.ArrowBack">Back to saved searches</MudButton>
+
+        @if (_isLoading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="py-8">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Loading matches...</MudText>
+            </MudStack>
+        }
+        else if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <MudAlert Severity="Severity.Error">@_error</MudAlert>
+        }
+        else if (_details is not null)
+        {
+            <MudPaper Elevation="0" Class="section-surface pa-4">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Class="saved-search-header">
+                    <div>
+                        <MudText Typo="Typo.h4">@_details.Search.Name</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">@_details.Search.TotalMatches matching dogs · @(_details.Search.AlertsEnabled ? "Alerts enabled" : "Alerts paused")</MudText>
+                    </div>
+                    <MudSpacer />
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Refresh" OnClick="RefreshAsync">Refresh Matches</MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@(_details.Search.AlertsEnabled ? Icons.Material.Filled.NotificationsOff : Icons.Material.Filled.NotificationsActive)" OnClick="ToggleAlertsAsync">
+                        @(_details.Search.AlertsEnabled ? "Pause Alerts" : "Enable Alerts")
+                    </MudButton>
+                </MudStack>
+
+                <MudStack Row="true" Spacing="1" Class="criteria-chip-row mt-3">
+                    @foreach (var label in _details.Search.CriteriaLabels)
+                    {
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary">@label</MudChip>
+                    }
+                </MudStack>
+            </MudPaper>
+
+            @if (_details.Matches.Count == 0)
+            {
+                <MudPaper Elevation="0" Class="section-surface pa-6">
+                    <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                        <MudIcon Icon="@Icons.Material.Filled.SearchOff" Color="Color.Secondary" Size="Size.Large" />
+                        <MudText Typo="Typo.h6">No current matches</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Try refreshing later or broaden this search on the Dogs page.</MudText>
+                        <MudButton Href="/dogs" Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Search">Browse dogs</MudButton>
+                    </MudStack>
+                </MudPaper>
+            }
+            else
+            {
+                <MudGrid Spacing="3">
+                    @foreach (var match in _details.Matches)
+                    {
+                        <MudItem xs="12" md="6" lg="4">
+                            <MudCard Class="saved-match-card h-100">
+                                @if (string.IsNullOrWhiteSpace(match.MainImageUrl))
+                                {
+                                    <div class="match-image-placeholder">
+                                        <MudIcon Icon="@Icons.Material.Filled.Pets" Color="Color.Primary" />
+                                        <MudText Typo="Typo.caption">No image available</MudText>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <img class="match-image" src="@match.MainImageUrl" alt="@($"Photo of {match.DogName}")" />
+                                }
+                                <MudCardContent>
+                                    <MudStack Spacing="1">
+                                        <MudStack Row="true" AlignItems="AlignItems.Start">
+                                            <div>
+                                                <MudText Typo="Typo.h6">@match.DogName</MudText>
+                                                <MudText Typo="Typo.body2" Color="Color.Secondary">@match.BreedText, @match.AgeText</MudText>
+                                            </div>
+                                            <MudSpacer />
+                                            <MudChip T="string" Color="@GetStatusColor(match.Status)" Size="Size.Small">@match.Status</MudChip>
+                                        </MudStack>
+                                        <MudText Typo="Typo.body2">@match.Size dog in @match.Location</MudText>
+                                        @if (!string.IsNullOrWhiteSpace(match.ShelterName))
+                                        {
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">@match.ShelterName · @match.ShelterNeighborhood</MudText>
+                                        }
+                                        <MudStack Row="true" Spacing="1" Class="criteria-chip-row">
+                                            <MudChip T="string" Size="Size.Small" Color="@(match.StatusInSearch == SavedSearchMatchStatus.New ? Color.Warning : Color.Default)">@match.StatusInSearch</MudChip>
+                                            <MudChip T="string" Size="Size.Small" Color="Color.Primary">@match.MatchScore% match</MudChip>
+                                        </MudStack>
+                                        <MudStack Row="true" Spacing="1" Class="criteria-chip-row">
+                                            @foreach (var reason in match.MatchReasons.Take(4))
+                                            {
+                                                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@reason</MudChip>
+                                            }
+                                        </MudStack>
+                                    </MudStack>
+                                </MudCardContent>
+                                <MudCardActions>
+                                    <MudButton Href="@($"/dogs/{match.DogId}?returnUrl={Uri.EscapeDataString($"/adopter/saved-searches/{SavedSearchId}")}")" Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Visibility">View Dog</MudButton>
+                                    <MudSpacer />
+                                    @if (match.StatusInSearch == SavedSearchMatchStatus.New)
+                                    {
+                                        <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="@(() => MarkSeenAsync(match.Id))">Mark seen</MudButton>
+                                    }
+                                    <MudIconButton Icon="@Icons.Material.Filled.Close" Color="Color.Default" OnClick="@(() => DismissAsync(match.Id))" aria-label="Dismiss match" />
+                                </MudCardActions>
+                            </MudCard>
+                        </MudItem>
+                    }
+                </MudGrid>
+            }
+        }
+    </MudStack>
+</MudContainer>
+</div>

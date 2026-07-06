@@ -1,0 +1,45 @@
+﻿.saved-searches-page ::deep .criteria-chip-row,
+.saved-search-details-page ::deep .criteria-chip-row,
+.saved-search-details-page ::deep .saved-search-header {
+    flex-wrap: wrap;
+}
+
+.saved-searches-page ::deep .stat-card-soft {
+    border-left: 5px solid #2f6f5e;
+    background: linear-gradient(180deg, #ffffff, #f8fbf7);
+}
+
+.saved-search-details-page ::deep .saved-match-card {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    border-radius: 10px;
+    border: 1px solid rgba(47, 111, 94, 0.1);
+    box-shadow: 0 8px 24px rgba(31, 47, 42, 0.06);
+}
+
+.saved-search-details-page .match-image,
+.saved-search-details-page .match-image-placeholder {
+    width: 100%;
+    height: 220px;
+}
+
+.saved-search-details-page .match-image {
+    display: block;
+    object-fit: cover;
+    object-position: center center;
+}
+
+.saved-search-details-page .match-image-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 8px;
+    color: #2f6f5e;
+    background: linear-gradient(135deg, rgba(47, 111, 94, 0.1), rgba(217, 119, 6, 0.08)), #f4f7f2;
+}
+
+.saved-search-details-page ::deep .mud-card-actions {
+    margin-top: auto;
+}

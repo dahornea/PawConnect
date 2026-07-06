@@ -11,7 +11,9 @@ public enum NotificationEventType
     LostFoundUpdates = 6,
     SystemAnnouncements = 7,
     DogTransferUpdates = 8,
-    VolunteerTaskUpdates = 9
+    VolunteerTaskUpdates = 9,
+    SavedSearchMatches = 10
 }
+
 
 

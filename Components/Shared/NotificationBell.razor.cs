@@ -154,6 +154,7 @@ private List<Notification> _notifications = [];
             NotificationCategory.Resource => "Resources",
             NotificationCategory.Report => "Reports",
             NotificationCategory.System => "System",
+            NotificationCategory.SavedSearch => "Saved Searches",
             _ => "Adoption"
         };
     }
@@ -166,6 +167,7 @@ private List<Notification> _notifications = [];
             NotificationCategory.Resource => Icons.Material.Filled.Inventory,
             NotificationCategory.Report => Icons.Material.Filled.PictureAsPdf,
             NotificationCategory.System => Icons.Material.Filled.Info,
+            NotificationCategory.SavedSearch => Icons.Material.Filled.SavedSearch,
             _ => Icons.Material.Filled.Pets
         };
     }
@@ -178,6 +180,7 @@ private List<Notification> _notifications = [];
             NotificationCategory.Resource => "category-resource",
             NotificationCategory.Report => "category-report",
             NotificationCategory.System => "category-system",
+            NotificationCategory.SavedSearch => "category-saved-search",
             _ => "category-adoption"
         };
     }
@@ -221,4 +224,5 @@ private List<Notification> _notifications = [];
             : CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm");
     }
 }
+
 

@@ -1,0 +1,70 @@
+﻿<MudDialog>
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+            <MudIcon Icon="@Icons.Material.Filled.SavedSearch" Color="Color.Primary" />
+            <MudText Typo="Typo.h6">Save this dog search</MudText>
+        </MudStack>
+    </TitleContent>
+    <DialogContent>
+        <MudStack Spacing="2">
+            <MudTextField Label="Search name"
+                          @bind-Value="Name"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          Required="true"
+                          MaxLength="120"
+                          Immediate="true" />
+
+            @if (CriteriaLabels.Count > 0)
+            {
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Saved criteria</MudText>
+                <MudStack Row="true" Spacing="1" Class="saved-search-dialog-chip-row">
+                    @foreach (var label in CriteriaLabels)
+                    {
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary">@label</MudChip>
+                    }
+                </MudStack>
+            }
+
+            <MudSwitch T="bool" @bind-Value="AlertsEnabled" Color="Color.Primary" Label="Notify me when new dogs match this search" />
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="Cancel">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save" Disabled="@string.IsNullOrWhiteSpace(Name)" OnClick="Confirm">Save Search</MudButton>
+    </DialogActions>
+</MudDialog>
+
+<style>
+    .saved-search-dialog-chip-row {
+        flex-wrap: wrap;
+    }
+</style>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public string? SuggestedName { get; set; }
+    [Parameter] public IReadOnlyList<string> CriteriaLabels { get; set; } = [];
+
+    private string Name { get; set; } = string.Empty;
+    private bool AlertsEnabled { get; set; } = true;
+
+    protected override void OnInitialized()
+    {
+        Name = string.IsNullOrWhiteSpace(SuggestedName) ? "My dog search" : SuggestedName.Trim();
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private void Confirm()
+    {
+        if (string.IsNullOrWhiteSpace(Name))
+        {
+            return;
+        }
+
+        MudDialog.Close(DialogResult.Ok(new SaveDogSearchDialogResult(Name.Trim(), AlertsEnabled)));
+    }
+
+    public sealed record SaveDogSearchDialogResult(string Name, bool AlertsEnabled);
+}

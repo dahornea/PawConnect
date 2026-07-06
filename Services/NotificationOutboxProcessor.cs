@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using PawConnect.Data;
 using PawConnect.Entities;
 
@@ -282,6 +282,7 @@ public class NotificationOutboxProcessor(
             NotificationEventType.ShelterApplicationUpdates => NotificationCategory.ShelterApplication,
             NotificationEventType.LostFoundUpdates => NotificationCategory.System,
             NotificationEventType.VolunteerTaskUpdates => NotificationCategory.Volunteer,
+            NotificationEventType.SavedSearchMatches => NotificationCategory.SavedSearch,
             _ => NotificationCategory.System
         };
     }
@@ -310,4 +311,5 @@ public class NotificationOutboxProcessor(
         Cancelled
     }
 }
+
 

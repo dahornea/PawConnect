@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using PawConnect.Data;
 using PawConnect.Entities;
 
@@ -8,6 +8,7 @@ public class DogService(
     ApplicationDbContext context,
     IAuditLogService? auditLogService = null,
     IDogSearchEmbeddingService? dogSearchEmbeddingService = null,
+    ISavedDogSearchService? savedDogSearchService = null,
     ILogger<DogService>? logger = null) : IDogService
 {
     public Task<List<Dog>> GetAllAsync()
@@ -32,6 +33,7 @@ public class DogService(
         await context.SaveChangesAsync();
         await LogAsync(AuditActions.DogUpdated, "Dog", dog.Id.ToString(), $"Dog {dog.Name} was updated.");
         await RefreshDogSearchEmbeddingBestEffortAsync(dog.Id);
+        await RefreshSavedSearchMatchesBestEffortAsync(dog.Id);
     }
 
     public async Task DeleteAsync(int id)
@@ -205,6 +207,7 @@ public class DogService(
         await context.SaveChangesAsync();
         await LogAsync(AuditActions.DogCreated, "Dog", dog.Id.ToString(), $"Dog {dog.Name} was created.");
         await RefreshDogSearchEmbeddingBestEffortAsync(dog.Id);
+        await RefreshSavedSearchMatchesBestEffortAsync(dog.Id);
     }
 
     public async Task UpdateSuccessStoryAsync(int dogId, int shelterId, string? successStoryText, DateTime? adoptedAt)
@@ -226,6 +229,7 @@ public class DogService(
         await context.SaveChangesAsync();
         await LogAsync(AuditActions.DogUpdated, "Dog", dog.Id.ToString(), $"Success story information was updated for dog {dog.Name}.");
         await RefreshDogSearchEmbeddingBestEffortAsync(dog.Id);
+        await RefreshSavedSearchMatchesBestEffortAsync(dog.Id);
     }
 
     public Task<List<Dog>> GetDogsForShelterAsync(int shelterId)
@@ -272,6 +276,7 @@ public class DogService(
             $"Dog {dog.Name} was created by a shelter.",
             additionalData: $"ShelterId={shelterId}");
         await RefreshDogSearchEmbeddingBestEffortAsync(dog.Id);
+        await RefreshSavedSearchMatchesBestEffortAsync(dog.Id);
     }
 
     public async Task UpdateDogAsync(Dog dog, int shelterId, string? changedByUserId = null)
@@ -327,6 +332,7 @@ public class DogService(
             userId: changedByUserId,
             additionalData: $"ShelterId={shelterId}");
         await RefreshDogSearchEmbeddingBestEffortAsync(existingDog.Id);
+        await RefreshSavedSearchMatchesBestEffortAsync(existingDog.Id);
 
         if (oldStatus != existingDog.Status)
         {
@@ -626,6 +632,22 @@ public class DogService(
         return auditLogService?.LogAsync(action, entityName, entityId, description, userId: userId, additionalData: additionalData) ?? Task.CompletedTask;
     }
 
+    private async Task RefreshSavedSearchMatchesBestEffortAsync(int dogId)
+    {
+        if (savedDogSearchService is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await savedDogSearchService.EvaluateDogAgainstActiveSavedSearchesAsync(dogId);
+        }
+        catch (Exception ex)
+        {
+            logger?.LogWarning(ex, "Saved search evaluation failed after dog change for DogId {DogId}.", dogId);
+        }
+    }
     private async Task RefreshDogSearchEmbeddingBestEffortAsync(int dogId)
     {
         if (dogSearchEmbeddingService is null)
@@ -643,3 +665,5 @@ public class DogService(
         }
     }
 }
+
+

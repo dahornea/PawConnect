@@ -42,6 +42,7 @@ public static class NotificationEventTypeMapper
             NotificationCategory.ShelterApplication => NotificationEventType.ShelterApplicationUpdates,
             NotificationCategory.Transfer => NotificationEventType.DogTransferUpdates,
             NotificationCategory.Volunteer => NotificationEventType.VolunteerTaskUpdates,
+            NotificationCategory.SavedSearch => NotificationEventType.SavedSearchMatches,
             _ => NotificationEventType.SystemAnnouncements
         };
     }
@@ -114,5 +115,6 @@ public static class NotificationEventTypeMapper
         return value?.IndexOf(fragment, StringComparison.OrdinalIgnoreCase) >= 0;
     }
 }
+
 
 

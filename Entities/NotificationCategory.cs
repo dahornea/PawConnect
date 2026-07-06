@@ -8,5 +8,7 @@ public enum NotificationCategory
     Report = 3,
     System = 4,
     Transfer = 5,
-    Volunteer = 6
+    Volunteer = 6,
+    SavedSearch = 7
 }
+

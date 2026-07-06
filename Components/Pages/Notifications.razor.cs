@@ -131,6 +131,7 @@ private List<Notification> _notifications = [];
             NotificationCategory.Resource => "Resources",
             NotificationCategory.Report => "Reports",
             NotificationCategory.System => "System",
+            NotificationCategory.SavedSearch => "Saved Searches",
             _ => "Adoption"
         };
     }
@@ -143,6 +144,7 @@ private List<Notification> _notifications = [];
             NotificationCategory.Resource => Icons.Material.Filled.Inventory,
             NotificationCategory.Report => Icons.Material.Filled.PictureAsPdf,
             NotificationCategory.System => Icons.Material.Filled.Info,
+            NotificationCategory.SavedSearch => Icons.Material.Filled.SavedSearch,
             _ => Icons.Material.Filled.Pets
         };
     }
@@ -155,6 +157,7 @@ private List<Notification> _notifications = [];
             NotificationCategory.Report => Color.Success,
             NotificationCategory.System => Color.Default,
             NotificationCategory.ShelterApplication => Color.Secondary,
+            NotificationCategory.SavedSearch => Color.Primary,
             _ => Color.Info
         };
     }
@@ -181,4 +184,5 @@ private List<Notification> _notifications = [];
         };
     }
 }
+
 

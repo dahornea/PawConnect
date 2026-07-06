@@ -122,6 +122,7 @@ builder.Services.AddScoped<IVolunteerTaskService, VolunteerTaskService>();
 builder.Services.AddScoped<IDogBreedService, DogBreedService>();
 builder.Services.AddScoped<IAdoptionRequestService, AdoptionRequestService>();
 builder.Services.AddScoped<IFavoriteDogService, FavoriteDogService>();
+builder.Services.AddScoped<ISavedDogSearchService, SavedDogSearchService>();
 builder.Services.AddScoped<IShelterService, ShelterService>();
 builder.Services.AddScoped<IShelterAvailabilityService, ShelterAvailabilityService>();
 builder.Services.AddScoped<IResourceStockService, ResourceStockService>();
@@ -436,4 +437,5 @@ static void OpenLocalEmailInboxOnStartup(WebApplication app)
 }
 
 public partial class Program;
+
 

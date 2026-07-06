@@ -33,6 +33,10 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
     public DbSet<RecentlyViewedDog> RecentlyViewedDogs => Set<RecentlyViewedDog>();
 
+    public DbSet<SavedDogSearch> SavedDogSearches => Set<SavedDogSearch>();
+
+    public DbSet<SavedSearchMatch> SavedSearchMatches => Set<SavedSearchMatch>();
+
     public DbSet<ShelterRegistrationRequest> ShelterRegistrationRequests => Set<ShelterRegistrationRequest>();
 
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
@@ -655,22 +659,262 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .Property(s => s.VisitsAllowedFriday)
             .HasDefaultValue(true);
 
+        builder.Entity<SavedDogSearch>()
+            .HasOne(search => search.AdopterUser)
+            .WithMany()
+            .HasForeignKey(search => search.AdopterUserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<SavedDogSearch>()
+            .HasOne(search => search.Shelter)
+            .WithMany()
+            .HasForeignKey(search => search.ShelterId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.Entity<SavedDogSearch>()
+            .Property(search => search.CreatedAtUtc)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<SavedDogSearch>()
+            .Property(search => search.UpdatedAtUtc)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<SavedDogSearch>()
+            .HasIndex(search => search.AdopterUserId);
+
+        builder.Entity<SavedDogSearch>()
+            .HasIndex(search => new { search.AdopterUserId, search.Name })
+            .IsUnique();
+
+        builder.Entity<SavedDogSearch>()
+            .HasIndex(search => new { search.AlertsEnabled, search.LastEvaluatedAtUtc });
+
+        builder.Entity<SavedSearchMatch>()
+            .HasOne(match => match.SavedDogSearch)
+            .WithMany(search => search.Matches)
+            .HasForeignKey(match => match.SavedDogSearchId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<SavedSearchMatch>()
+            .HasOne(match => match.Dog)
+            .WithMany()
+            .HasForeignKey(match => match.DogId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<SavedSearchMatch>()
+            .Property(match => match.CreatedAtUtc)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<SavedSearchMatch>()
+            .Property(match => match.UpdatedAtUtc)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<SavedSearchMatch>()
+            .HasIndex(match => new { match.SavedDogSearchId, match.DogId })
+            .IsUnique();
+
+        builder.Entity<SavedSearchMatch>()
+            .HasIndex(match => match.DogId);
+
+        builder.Entity<SavedSearchMatch>()
+            .HasIndex(match => match.Status);
         builder.Entity<FavoriteDog>()
             .HasIndex(f => new { f.AdopterId, f.DogId })
             .IsUnique();
 
+        builder.Entity<SavedDogSearch>()
+            .HasOne(search => search.AdopterUser)
+            .WithMany()
+            .HasForeignKey(search => search.AdopterUserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<SavedDogSearch>()
+            .HasOne(search => search.Shelter)
+            .WithMany()
+            .HasForeignKey(search => search.ShelterId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.Entity<SavedDogSearch>()
+            .Property(search => search.CreatedAtUtc)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<SavedDogSearch>()
+            .Property(search => search.UpdatedAtUtc)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<SavedDogSearch>()
+            .HasIndex(search => search.AdopterUserId);
+
+        builder.Entity<SavedDogSearch>()
+            .HasIndex(search => new { search.AdopterUserId, search.Name })
+            .IsUnique();
+
+        builder.Entity<SavedDogSearch>()
+            .HasIndex(search => new { search.AlertsEnabled, search.LastEvaluatedAtUtc });
+
+        builder.Entity<SavedSearchMatch>()
+            .HasOne(match => match.SavedDogSearch)
+            .WithMany(search => search.Matches)
+            .HasForeignKey(match => match.SavedDogSearchId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<SavedSearchMatch>()
+            .HasOne(match => match.Dog)
+            .WithMany()
+            .HasForeignKey(match => match.DogId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<SavedSearchMatch>()
+            .Property(match => match.CreatedAtUtc)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<SavedSearchMatch>()
+            .Property(match => match.UpdatedAtUtc)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<SavedSearchMatch>()
+            .HasIndex(match => new { match.SavedDogSearchId, match.DogId })
+            .IsUnique();
+
+        builder.Entity<SavedSearchMatch>()
+            .HasIndex(match => match.DogId);
+
+        builder.Entity<SavedSearchMatch>()
+            .HasIndex(match => match.Status);
         builder.Entity<FavoriteDog>()
             .HasOne(f => f.Adopter)
             .WithMany(u => u.FavoriteDogs)
             .HasForeignKey(f => f.AdopterId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        builder.Entity<SavedDogSearch>()
+            .HasOne(search => search.AdopterUser)
+            .WithMany()
+            .HasForeignKey(search => search.AdopterUserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<SavedDogSearch>()
+            .HasOne(search => search.Shelter)
+            .WithMany()
+            .HasForeignKey(search => search.ShelterId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.Entity<SavedDogSearch>()
+            .Property(search => search.CreatedAtUtc)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<SavedDogSearch>()
+            .Property(search => search.UpdatedAtUtc)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<SavedDogSearch>()
+            .HasIndex(search => search.AdopterUserId);
+
+        builder.Entity<SavedDogSearch>()
+            .HasIndex(search => new { search.AdopterUserId, search.Name })
+            .IsUnique();
+
+        builder.Entity<SavedDogSearch>()
+            .HasIndex(search => new { search.AlertsEnabled, search.LastEvaluatedAtUtc });
+
+        builder.Entity<SavedSearchMatch>()
+            .HasOne(match => match.SavedDogSearch)
+            .WithMany(search => search.Matches)
+            .HasForeignKey(match => match.SavedDogSearchId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<SavedSearchMatch>()
+            .HasOne(match => match.Dog)
+            .WithMany()
+            .HasForeignKey(match => match.DogId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<SavedSearchMatch>()
+            .Property(match => match.CreatedAtUtc)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<SavedSearchMatch>()
+            .Property(match => match.UpdatedAtUtc)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<SavedSearchMatch>()
+            .HasIndex(match => new { match.SavedDogSearchId, match.DogId })
+            .IsUnique();
+
+        builder.Entity<SavedSearchMatch>()
+            .HasIndex(match => match.DogId);
+
+        builder.Entity<SavedSearchMatch>()
+            .HasIndex(match => match.Status);
         builder.Entity<FavoriteDog>()
             .HasOne(f => f.Dog)
             .WithMany(d => d.FavoriteDogs)
             .HasForeignKey(f => f.DogId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        builder.Entity<SavedDogSearch>()
+            .HasOne(search => search.AdopterUser)
+            .WithMany()
+            .HasForeignKey(search => search.AdopterUserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<SavedDogSearch>()
+            .HasOne(search => search.Shelter)
+            .WithMany()
+            .HasForeignKey(search => search.ShelterId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.Entity<SavedDogSearch>()
+            .Property(search => search.CreatedAtUtc)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<SavedDogSearch>()
+            .Property(search => search.UpdatedAtUtc)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<SavedDogSearch>()
+            .HasIndex(search => search.AdopterUserId);
+
+        builder.Entity<SavedDogSearch>()
+            .HasIndex(search => new { search.AdopterUserId, search.Name })
+            .IsUnique();
+
+        builder.Entity<SavedDogSearch>()
+            .HasIndex(search => new { search.AlertsEnabled, search.LastEvaluatedAtUtc });
+
+        builder.Entity<SavedSearchMatch>()
+            .HasOne(match => match.SavedDogSearch)
+            .WithMany(search => search.Matches)
+            .HasForeignKey(match => match.SavedDogSearchId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<SavedSearchMatch>()
+            .HasOne(match => match.Dog)
+            .WithMany()
+            .HasForeignKey(match => match.DogId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<SavedSearchMatch>()
+            .Property(match => match.CreatedAtUtc)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<SavedSearchMatch>()
+            .Property(match => match.UpdatedAtUtc)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<SavedSearchMatch>()
+            .HasIndex(match => new { match.SavedDogSearchId, match.DogId })
+            .IsUnique();
+
+        builder.Entity<SavedSearchMatch>()
+            .HasIndex(match => match.DogId);
+
+        builder.Entity<SavedSearchMatch>()
+            .HasIndex(match => match.Status);
         builder.Entity<FavoriteDog>()
             .Property(f => f.CreatedAt)
             .HasDefaultValueSql("GETUTCDATE()");
@@ -1163,5 +1407,6 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             new FoodType { Id = 5, Name = "Medical diet food", Description = "Special diet food recommended by a veterinarian." });
     }
 }
+
 
 

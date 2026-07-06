@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.Globalization;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Components;
@@ -23,6 +23,8 @@ public partial class Dogs
     [Inject] private IGeocodingService GeocodingService { get; set; } = default!;
     [Inject] private IDistanceService DistanceService { get; set; } = default!;
     [Inject] private IFavoriteDogService FavoriteDogService { get; set; } = default!;
+    [Inject] private ISavedDogSearchService SavedDogSearchService { get; set; } = default!;
+    [Inject] private IDialogService DialogService { get; set; } = default!;
     [Inject] private AuthenticationStateProvider AuthenticationStateProvider { get; set; } = default!;
     [Inject] private UserManager<ApplicationUser> UserManager { get; set; } = default!;
     [Inject] private NavigationManager NavigationManager { get; set; } = default!;
@@ -733,7 +735,7 @@ public partial class Dogs
 
         if (!string.IsNullOrWhiteSpace(shelterName) && !string.IsNullOrWhiteSpace(shelterLocation))
         {
-            return $"{shelterName} · {shelterLocation}";
+            return $"{shelterName} Â· {shelterLocation}";
         }
 
         return (string.IsNullOrWhiteSpace(shelterName), string.IsNullOrWhiteSpace(shelterLocation)) switch
@@ -914,3 +916,4 @@ public partial class Dogs
         return _favoriteDogIds.Contains(dogId) ? "Remove from favorites" : "Add to favorites";
     }
 }
+
