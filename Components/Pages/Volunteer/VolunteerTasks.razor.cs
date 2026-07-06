@@ -24,8 +24,13 @@ public partial class VolunteerTasks
     private VolunteerTaskStatsDto? _stats;
     private bool _isLoading = true;
     private bool _isSaving;
+    private int _activeTabIndex;
     private string? _error;
     private string? _currentUserId;
+
+    private int AssignedTaskCount => _myTasks.Count(task => task.Status is VolunteerTaskStatus.Assigned or VolunteerTaskStatus.InProgress);
+
+    private int CompletedTaskCount => _myTasks.Count(task => task.Status == VolunteerTaskStatus.Completed);
 
     protected override async Task OnInitializedAsync()
     {
@@ -82,6 +87,7 @@ public partial class VolunteerTasks
         _openTasks.AddRange(openTasks);
 
         _stats = await VolunteerTaskService.GetTaskStatsAsync(volunteerUserId: _currentUserId);
+        _activeTabIndex = _openTasks.Count > 0 ? 0 : AssignedTaskCount > 0 ? 1 : 0;
     }
 
     private Task AcceptAsync(int taskId) =>

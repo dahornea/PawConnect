@@ -3,13 +3,13 @@
 @using PawConnect.Entities
 @using PawConnect.Services
 
-<PageTitle>My Volunteer Tasks</PageTitle>
+<PageTitle>Volunteer Tasks</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.False" Class="px-0">
     <MudStack Spacing="3">
         <div class="page-header">
-            <MudText Typo="Typo.h4">My Volunteer Tasks</MudText>
-            <MudText Typo="Typo.body2">Accept open shelter tasks and update work assigned to you.</MudText>
+            <MudText Typo="Typo.h4">Volunteer Task Board</MudText>
+            <MudText Typo="Typo.body2">Browse open shelter tasks, accept work, and update tasks assigned to you.</MudText>
         </div>
 
         @if (_isLoading)
@@ -34,7 +34,13 @@
             <MudGrid Spacing="2">
                 <MudItem xs="12" sm="6" md="3">
                     <MudPaper Elevation="0" Class="section-surface pa-3 h-100">
-                        <MudText Typo="Typo.caption" Color="Color.Secondary">Assigned</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Available to accept</MudText>
+                        <MudText Typo="Typo.h5">@_openTasks.Count</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudPaper Elevation="0" Class="section-surface pa-3 h-100">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Assigned to me</MudText>
                         <MudText Typo="Typo.h5">@_stats?.AssignedTasks</MudText>
                     </MudPaper>
                 </MudItem>
@@ -50,24 +56,37 @@
                         <MudText Typo="Typo.h5">@_stats?.CompletedThisWeek</MudText>
                     </MudPaper>
                 </MudItem>
-                <MudItem xs="12" sm="6" md="3">
-                    <MudPaper Elevation="0" Class="section-surface pa-3 h-100">
-                        <MudText Typo="Typo.caption" Color="Color.Secondary">Open tasks</MudText>
-                        <MudText Typo="Typo.h5">@_openTasks.Count</MudText>
-                    </MudPaper>
-                </MudItem>
             </MudGrid>
 
             <MudPaper Elevation="0" Class="section-surface pa-3">
-                <MudTabs Rounded="true" Elevation="0">
-                    <MudTabPanel Text="Assigned to me">
-                        @RenderTaskTable(_myTasks.Where(task => task.Status is VolunteerTaskStatus.Assigned or VolunteerTaskStatus.InProgress).ToList(), showAccept: false)
+                @if (_openTasks.Count > 0)
+                {
+                    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-3">
+                        @_openTasks.Count available task@(_openTasks.Count == 1 ? " is" : "s are") ready to accept. Open tasks are shown first.
+                    </MudAlert>
+                }
+
+                <MudTabs Rounded="true" Elevation="0" @bind-ActivePanelIndex="_activeTabIndex">
+                    <MudTabPanel Text="@($"Available tasks ({_openTasks.Count})")">
+                        @RenderTaskTable(
+                            _openTasks,
+                            showAccept: true,
+                            "No available tasks right now",
+                            "Open shelter tasks that match your volunteer profile will appear here.")
                     </MudTabPanel>
-                    <MudTabPanel Text="Available tasks">
-                        @RenderTaskTable(_openTasks, showAccept: true)
+                    <MudTabPanel Text="@($"Assigned to me ({AssignedTaskCount})")">
+                        @RenderTaskTable(
+                            _myTasks.Where(task => task.Status is VolunteerTaskStatus.Assigned or VolunteerTaskStatus.InProgress).ToList(),
+                            showAccept: false,
+                            "No assigned tasks",
+                            "Tasks you accept or shelter teams assign to you will appear here.")
                     </MudTabPanel>
-                    <MudTabPanel Text="Completed history">
-                        @RenderTaskTable(_myTasks.Where(task => task.Status == VolunteerTaskStatus.Completed).ToList(), showAccept: false)
+                    <MudTabPanel Text="@($"Completed history ({CompletedTaskCount})")">
+                        @RenderTaskTable(
+                            _myTasks.Where(task => task.Status == VolunteerTaskStatus.Completed).ToList(),
+                            showAccept: false,
+                            "No completed tasks yet",
+                            "Completed volunteer work will appear here for your history.")
                     </MudTabPanel>
                 </MudTabs>
             </MudPaper>
@@ -76,14 +95,14 @@
 </MudContainer>
 
 @code {
-    private RenderFragment RenderTaskTable(IReadOnlyList<VolunteerTaskDto> tasks, bool showAccept) => @<div class="pt-3">
+    private RenderFragment RenderTaskTable(IReadOnlyList<VolunteerTaskDto> tasks, bool showAccept, string emptyTitle, string emptyDescription) => @<div class="pt-3">
         @if (tasks.Count == 0)
         {
             <MudPaper Elevation="0" Class="empty-state pa-5">
                 <MudStack AlignItems="AlignItems.Center" Spacing="2">
                     <MudIcon Icon="@Icons.Material.Filled.EventAvailable" Color="Color.Secondary" Size="Size.Large" />
-                    <MudText Typo="Typo.h6">No tasks in this section</MudText>
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">Volunteer tasks will appear here when shelters schedule or assign them.</MudText>
+                    <MudText Typo="Typo.h6">@emptyTitle</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">@emptyDescription</MudText>
                 </MudStack>
             </MudPaper>
         }
