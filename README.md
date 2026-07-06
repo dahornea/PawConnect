@@ -366,50 +366,56 @@ Highlights:
 
 Docker support is included through `Dockerfile`, `docker-compose.yml`, `.dockerignore`, `.env.example`, and `appsettings.Docker.json`.
 
-The compose setup starts:
+The Compose setup starts the PawConnect web app, SQL Server 2022 Developer edition, and smtp4dev for local email capture. It is designed as a zero-cost local demo environment: no paid hosting, paid database, paid email provider, or paid AI API is required.
 
-- PawConnect Blazor Server app
-- SQL Server 2022 Developer edition
-- smtp4dev local email inbox
-
-Create a local environment file:
+Quick start:
 
 ```powershell
 Copy-Item .env.example .env
-```
-
-Edit `.env` and set a strong local `SQL_PASSWORD`. Do not commit `.env`.
-
-Start the stack:
-
-```bash
 docker compose up --build
 ```
+
+On macOS/Linux:
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+If your Docker installation does not support the `docker compose` plugin command, use the legacy `docker-compose` command with the same arguments.
 
 Open:
 
 ```text
-App:       http://localhost:8080
-smtp4dev:  http://localhost:5001
+App:          http://localhost:8080
+Swagger UI:   http://localhost:8080/swagger
+OpenAPI JSON: http://localhost:8080/swagger/v1/swagger.json
+Health:       http://localhost:8080/health
+smtp4dev:     http://localhost:5001
 ```
 
 Useful commands:
 
 ```bash
 docker compose logs -f pawconnect
+docker compose logs -f sqlserver
 docker compose down
 docker compose down -v
 ```
 
-`docker compose down -v` removes SQL Server and upload volumes, so the next start creates a clean local database.
+`docker compose down -v` removes SQL Server and upload volumes, so the next start creates a clean local database. Use it only when you intentionally want to reset local Docker data.
 
 Docker notes:
 
-- `ASPNETCORE_ENVIRONMENT` is set to `Docker`.
-- EF Core migrations are applied at startup only in the Docker environment.
-- OpenAI is disabled by default in Docker. Set `OPENAI_ENABLED=true` and `OPENAI_API_KEY` in `.env` to test AI features.
+- `ASPNETCORE_ENVIRONMENT` defaults to `Docker`.
+- EF Core migrations are applied at startup in the Docker environment through `DATABASE_APPLY_MIGRATIONS_ON_STARTUP=true`.
+- Demo seed data is enabled through `SEED_DATA_ENABLED=true`.
+- OpenAI is disabled by default. Set `OPENAI_ENABLED=true` and `OPENAI_API_KEY` in `.env` only if you want to test optional AI features locally.
 - Emails are routed to smtp4dev by default.
 - Uploaded dog images and message attachments are stored in the `pawconnect-uploads` volume.
+- SQL Server data is stored in the `sqlserver-data` volume.
+
+For the complete local Docker runbook, reset commands, troubleshooting, demo users, and API notes, see [docs/LOCAL_DOCKER_RUNBOOK.md](docs/LOCAL_DOCKER_RUNBOOK.md).
 
 ## Running Tests
 
@@ -498,9 +504,25 @@ To run the SQL Server integration tests in GitHub Actions, start the workflow ma
 
 ## API Documentation
 
-PawConnect currently uses Blazor Server pages and service-layer operations rather than a public Swagger/OpenAPI REST API. Swagger documentation is not configured in this repository.
+PawConnect includes ASP.NET Core API controllers under `Controllers/Api/V1` and Swagger/OpenAPI configuration in `Program.cs`.
 
-A public API with Swagger documentation would be a future improvement if PawConnect is split into separate web/mobile clients.
+Swagger is enabled in `Development` and `Docker` environments.
+
+Local Docker URLs:
+
+```text
+Swagger UI:   http://localhost:8080/swagger
+OpenAPI JSON: http://localhost:8080/swagger/v1/swagger.json
+```
+
+Local `dotnet run` URLs use whichever HTTP/HTTPS ports are printed by the application, for example:
+
+```text
+https://localhost:7125/swagger
+https://localhost:7125/swagger/v1/swagger.json
+```
+
+Implemented API groups include public dog/shelter discovery plus protected adoption application, saved search, notification preference, transfer, volunteer task, and admin endpoints. Protected endpoints use ASP.NET Core Identity cookie authentication, so sign in through the Blazor UI in the same browser before trying protected Swagger operations.
 
 ## Project Structure
 
@@ -554,4 +576,3 @@ A public API with Swagger documentation would be a future improvement if PawConn
 - Implemented adoption request lifecycle, visit confirmation, notifications, reports, maps, messaging, resource management, and role-based authorization using EF Core, SQL Server, and ASP.NET Core Identity.
 - Added AI-assisted dog discovery with backend-validated Copilot results, semantic search, deterministic fallback, and public-safe filtering.
 - Added automated tests, GitHub Actions CI, and Docker Compose support for a more reliable development and portfolio workflow.
-

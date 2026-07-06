@@ -11,7 +11,7 @@ services:
       smtp4dev:
         condition: service_started
     environment:
-      ASPNETCORE_ENVIRONMENT: "Docker"
+      ASPNETCORE_ENVIRONMENT: "${ASPNETCORE_ENVIRONMENT:-Docker}"
       ASPNETCORE_URLS: "http://+:8080"
       ConnectionStrings__DefaultConnection: "Server=sqlserver,1433;Database=${SQL_DATABASE:-PawConnect};User Id=sa;Password=${SQL_PASSWORD};TrustServerCertificate=True;Encrypt=False;MultipleActiveResultSets=True"
       Database__ApplyMigrationsOnStartup: "${DATABASE_APPLY_MIGRATIONS_ON_STARTUP:-true}"
