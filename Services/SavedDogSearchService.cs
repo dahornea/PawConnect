@@ -72,11 +72,15 @@ public class SavedDogSearchService(
             .AsNoTracking()
             .ToListAsync(cancellationToken);
 
+        var lastMatchAtUtc = searches.Count == 0
+            ? null
+            : searches.Max(search => search.LastMatchAtUtc);
+
         return new SavedSearchStatsDto(
             searches.Count,
             searches.Count(search => search.AlertsEnabled),
             searches.Sum(search => search.Matches.Count(match => match.Status == SavedSearchMatchStatus.New)),
-            searches.Max(search => search.LastMatchAtUtc));
+            lastMatchAtUtc);
     }
 
     public async Task<SavedDogSearchDto> CreateSavedSearchAsync(
@@ -658,9 +662,15 @@ public class SavedDogSearchService(
             throw new InvalidOperationException("Current adopter account could not be found.");
         }
 
-        var isAdopter = await context.UserRoles.AnyAsync(
-            role => role.UserId == adopterUserId && role.RoleId == IdentitySeedData.AdopterRole,
-            cancellationToken);
+        var isAdopter = await context.UserRoles
+            .Join(
+                context.Roles,
+                userRole => userRole.RoleId,
+                role => role.Id,
+                (userRole, role) => new { userRole, role })
+            .AnyAsync(
+                item => item.userRole.UserId == adopterUserId && item.role.Name == IdentitySeedData.AdopterRole,
+                cancellationToken);
         if (!isAdopter)
         {
             throw new InvalidOperationException("Only adopter accounts can manage saved searches.");
@@ -752,3 +762,4 @@ public class SavedDogSearchService(
 
     private sealed record SearchMatchCandidate(Dog Dog, int Score, IReadOnlyList<string> Reasons);
 }
+
