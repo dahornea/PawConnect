@@ -548,6 +548,8 @@ Implemented API groups include public dog/shelter discovery plus protected adopt
 
 ## Security and Privacy Notes
 
+Detailed security notes are available in [docs/SECURITY.md](docs/SECURITY.md).
+
 - Role-based authorization separates Public, Adopter, Shelter, and Admin workflows.
 - Service-layer ownership checks protect shelter-owned dogs/resources/requests and adopter-owned requests/favorites.
 - Public dog discovery, recommendations, Copilot, and semantic search use public-safe dog visibility rules.
@@ -563,7 +565,7 @@ Implemented API groups include public dog/shelter discovery plus protected adopt
 
 - Add production deployment configuration after choosing a host.
 - Add browser end-to-end tests for the most important workflows.
-- Add public REST API and Swagger documentation if a mobile or separate frontend client is introduced.
+- Expand the existing API/Swagger surface if a mobile or separate frontend client is introduced.
 - Move private attachments to authorized download endpoints or cloud object storage for production.
 - Add stronger file scanning and moderation workflows for production uploads.
 - Add saved searches and adopter alerts.

@@ -36,6 +36,20 @@ public class PublicApiEndpointTests
     }
 
     [Fact]
+    public async Task PublicApiResponse_IncludesSecurityHeaders()
+    {
+        await using var factory = new PawConnectApiFactory();
+        var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/api/v1/dogs");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        AssertHeader(response, "X-Content-Type-Options", "nosniff");
+        AssertHeader(response, "X-Frame-Options", "SAMEORIGIN");
+        AssertHeader(response, "Referrer-Policy", "strict-origin-when-cross-origin");
+        AssertHeader(response, "Permissions-Policy", "camera=(), microphone=(), payment=(), usb=(), geolocation=(self)");
+    }
+    [Fact]
     public async Task DogsEndpoint_ReturnsOnlyPublicSafeDogs()
     {
         await using var factory = new PawConnectApiFactory();
@@ -92,6 +106,11 @@ public class PublicApiEndpointTests
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
+    private static void AssertHeader(HttpResponseMessage response, string name, string expectedValue)
+    {
+        Assert.True(response.Headers.TryGetValues(name, out var values), $"Expected response header '{name}'.");
+        Assert.Contains(expectedValue, values);
+    }
     private static Shelter CreateShelter()
     {
         return new Shelter

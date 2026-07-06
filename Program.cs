@@ -1,10 +1,12 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
+using System.Threading.RateLimiting;
 using System.Security.Claims;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
+using Microsoft.AspNetCore.RateLimiting;
 using MudBlazor;
 using MudBlazor.Services;
 using PawConnect.Components;
@@ -32,6 +34,30 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("ApiFixedWindow", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            GetRateLimitPartitionKey(context),
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 120,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
+    options.AddPolicy("AuthenticatedDownload", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            GetRateLimitPartitionKey(context),
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 60,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
+});
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo
@@ -73,6 +99,14 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.ConfigureApplicationCookie(options =>
 {
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SameSite = SameSiteMode.Lax;
+    options.Cookie.SecurePolicy = builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Docker")
+        ? CookieSecurePolicy.SameAsRequest
+        : CookieSecurePolicy.Always;
+    options.SlidingExpiration = true;
+    options.ExpireTimeSpan = TimeSpan.FromHours(8);
+
     options.Events.OnRedirectToLogin = context =>
     {
         if (IsApiRequest(context.Request))
@@ -284,6 +318,16 @@ else
     // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
+app.Use(async (context, next) =>
+{
+    context.Response.OnStarting(() =>
+    {
+        AddSecurityHeaders(context);
+        return Task.CompletedTask;
+    });
+
+    await next(context);
+});
 if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Docker"))
 {
     app.UseSwagger();
@@ -303,8 +347,9 @@ app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseAntiforgery();
+app.UseRateLimiter();
 
-app.MapControllers();
+app.MapControllers().RequireRateLimiting("ApiFixedWindow");
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
@@ -345,7 +390,8 @@ app.MapGet("/message-attachments/{attachmentId:int}", async (
                 attachment.ContentType,
                 enableRangeProcessing: true);
     })
-    .RequireAuthorization();
+    .RequireAuthorization()
+    .RequireRateLimiting("AuthenticatedDownload");
 
 // Add additional endpoints required by the Identity /Account Razor components.
 app.MapAdditionalIdentityEndpoints();
@@ -368,6 +414,26 @@ OpenLocalEmailInboxOnStartup(app);
 
 app.Run();
 
+static string GetRateLimitPartitionKey(HttpContext context)
+{
+    var userId = context.User.FindFirstValue(ClaimTypes.NameIdentifier);
+    if (!string.IsNullOrWhiteSpace(userId))
+    {
+        return $"user:{userId}";
+    }
+
+    var remoteIp = context.Connection.RemoteIpAddress?.ToString();
+    return string.IsNullOrWhiteSpace(remoteIp) ? "anonymous:unknown" : $"ip:{remoteIp}";
+}
+
+static void AddSecurityHeaders(HttpContext context)
+{
+    var headers = context.Response.Headers;
+    headers["X-Content-Type-Options"] = "nosniff";
+    headers["X-Frame-Options"] = "SAMEORIGIN";
+    headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    headers["Permissions-Policy"] = "camera=(), microphone=(), payment=(), usb=(), geolocation=(self)";
+}
 static bool IsApiRequest(HttpRequest request)
 {
     return request.Path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase);
@@ -437,5 +503,4 @@ static void OpenLocalEmailInboxOnStartup(WebApplication app)
 }
 
 public partial class Program;
-
 
