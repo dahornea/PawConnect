@@ -9,23 +9,27 @@ public static class IntegrationTestData
     public const string AdopterId = "integration-adopter";
     public const string ShelterUserId = "integration-shelter";
     public const string AdminId = "integration-admin";
+    public const string VolunteerId = "integration-volunteer";
 
     public static async Task SeedIdentityAndShelterAsync(ApplicationDbContext context)
     {
         context.Roles.AddRange(
             Role(IdentitySeedData.AdopterRole),
             Role(IdentitySeedData.ShelterRole),
-            Role(IdentitySeedData.AdminRole));
+            Role(IdentitySeedData.AdminRole),
+            Role(IdentitySeedData.VolunteerRole));
 
         context.Users.AddRange(
             User(AdopterId, "integration.adopter@pawconnect.local", "Integration Adopter"),
             User(ShelterUserId, "integration.shelter@pawconnect.local", "Integration Shelter"),
-            User(AdminId, "integration.admin@pawconnect.local", "Integration Admin"));
+            User(AdminId, "integration.admin@pawconnect.local", "Integration Admin"),
+            User(VolunteerId, "integration.volunteer@pawconnect.local", "Integration Volunteer"));
 
         context.UserRoles.AddRange(
             UserRole(AdopterId, IdentitySeedData.AdopterRole),
             UserRole(ShelterUserId, IdentitySeedData.ShelterRole),
-            UserRole(AdminId, IdentitySeedData.AdminRole));
+            UserRole(AdminId, IdentitySeedData.AdminRole),
+            UserRole(VolunteerId, IdentitySeedData.VolunteerRole));
 
         context.Shelters.Add(CreateShelter());
         await context.SaveChangesAsync();

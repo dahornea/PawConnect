@@ -1,4 +1,4 @@
-using PawConnect.Entities;
+﻿using PawConnect.Entities;
 
 namespace PawConnect.Services;
 
@@ -29,6 +29,11 @@ public static class NotificationEventTypeMapper
             return NotificationEventType.DogTransferUpdates;
         }
 
+        if (IsRelatedEntity(relatedEntityName, "VolunteerTask") || Contains(title, "volunteer task"))
+        {
+            return NotificationEventType.VolunteerTaskUpdates;
+        }
+
         return category switch
         {
             NotificationCategory.Adoption => NotificationEventType.AdoptionRequestUpdates,
@@ -36,6 +41,7 @@ public static class NotificationEventTypeMapper
             NotificationCategory.Report => NotificationEventType.ReportUpdates,
             NotificationCategory.ShelterApplication => NotificationEventType.ShelterApplicationUpdates,
             NotificationCategory.Transfer => NotificationEventType.DogTransferUpdates,
+            NotificationCategory.Volunteer => NotificationEventType.VolunteerTaskUpdates,
             _ => NotificationEventType.SystemAnnouncements
         };
     }
@@ -77,6 +83,11 @@ public static class NotificationEventTypeMapper
             return NotificationEventType.DogTransferUpdates;
         }
 
+        if (Contains(subject, "volunteer") || Contains(subject, "task"))
+        {
+            return NotificationEventType.VolunteerTaskUpdates;
+        }
+
         if (Contains(subject, "adoption") || Contains(subject, "request"))
         {
             return NotificationEventType.AdoptionRequestUpdates;
@@ -103,3 +114,5 @@ public static class NotificationEventTypeMapper
         return value?.IndexOf(fragment, StringComparison.OrdinalIgnoreCase) >= 0;
     }
 }
+
+

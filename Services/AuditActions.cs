@@ -1,4 +1,4 @@
-namespace PawConnect.Services;
+﻿namespace PawConnect.Services;
 
 public static class AuditActions
 {
@@ -49,6 +49,17 @@ public static class AuditActions
     public const string DogTransferCancelled = nameof(DogTransferCancelled);
     public const string DogTransferCompleted = nameof(DogTransferCompleted);
     public const string DogTransferAdminNoteUpdated = nameof(DogTransferAdminNoteUpdated);
+    public const string VolunteerProfileCreated = nameof(VolunteerProfileCreated);
+    public const string VolunteerProfileUpdated = nameof(VolunteerProfileUpdated);
+    public const string VolunteerTaskCreated = nameof(VolunteerTaskCreated);
+    public const string VolunteerTaskUpdated = nameof(VolunteerTaskUpdated);
+    public const string VolunteerTaskAssigned = nameof(VolunteerTaskAssigned);
+    public const string VolunteerTaskAccepted = nameof(VolunteerTaskAccepted);
+    public const string VolunteerTaskStarted = nameof(VolunteerTaskStarted);
+    public const string VolunteerTaskCompleted = nameof(VolunteerTaskCompleted);
+    public const string VolunteerTaskCancelled = nameof(VolunteerTaskCancelled);
+    public const string VolunteerTaskReopened = nameof(VolunteerTaskReopened);
+    public const string VolunteerTaskCommentAdded = nameof(VolunteerTaskCommentAdded);
 
     public static readonly IReadOnlyList<string> All =
     [
@@ -98,6 +109,19 @@ public static class AuditActions
         DogTransferRejected,
         DogTransferCancelled,
         DogTransferCompleted,
-        DogTransferAdminNoteUpdated
+        DogTransferAdminNoteUpdated,
+        VolunteerProfileCreated,
+        VolunteerProfileUpdated,
+        VolunteerTaskCreated,
+        VolunteerTaskUpdated,
+        VolunteerTaskAssigned,
+        VolunteerTaskAccepted,
+        VolunteerTaskStarted,
+        VolunteerTaskCompleted,
+        VolunteerTaskCancelled,
+        VolunteerTaskReopened,
+        VolunteerTaskCommentAdded
     ];
 }
+
+

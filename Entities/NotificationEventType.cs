@@ -1,4 +1,4 @@
-namespace PawConnect.Entities;
+﻿namespace PawConnect.Entities;
 
 public enum NotificationEventType
 {
@@ -10,6 +10,8 @@ public enum NotificationEventType
     ShelterApplicationUpdates = 5,
     LostFoundUpdates = 6,
     SystemAnnouncements = 7,
-    DogTransferUpdates = 8
+    DogTransferUpdates = 8,
+    VolunteerTaskUpdates = 9
 }
+
 

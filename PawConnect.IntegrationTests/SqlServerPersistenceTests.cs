@@ -147,6 +147,56 @@ public class SqlServerPersistenceTests(SqlServerTestcontainerFixture fixture)
         Assert.NotNull(savedTransfer.CompletedAtUtc);
     }
     [DockerFact]
+    public async Task VolunteerTask_ShouldPersist_AssignmentAndCompletion()
+    {
+        var databaseName = SqlServerTestcontainerFixture.CreateDatabaseName();
+        await using var context = await fixture.CreateMigratedContextAsync(databaseName);
+        await IntegrationTestData.SeedIdentityAndShelterAsync(context);
+        var shelterId = await context.Shelters.Select(shelter => shelter.Id).SingleAsync();
+        var dog = IntegrationTestData.CreateDog(shelterId, "SQL Volunteer Dog");
+        context.Dogs.Add(dog);
+        context.VolunteerProfiles.Add(new VolunteerProfile
+        {
+            UserId = IntegrationTestData.VolunteerId,
+            DisplayName = "Integration Volunteer",
+            Email = "integration.volunteer@pawconnect.local",
+            PreferredShelterId = shelterId,
+            Skills = "Dog walking, feeding",
+            AvailabilityNotes = "Weekday mornings",
+            IsActive = true,
+            CreatedAtUtc = DateTime.UtcNow,
+            UpdatedAtUtc = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
+        var service = new VolunteerTaskService(context);
+        var start = DateTime.UtcNow.AddDays(1).AddHours(8);
+
+        var task = await service.CreateTaskAsync(
+            shelterId,
+            IntegrationTestData.ShelterUserId,
+            new VolunteerTaskCreateRequest(
+                "SQL morning walk",
+                "Help with a calm morning walk.",
+                VolunteerTaskCategory.DogWalking,
+                VolunteerTaskPriority.Normal,
+                start,
+                start.AddHours(1),
+                start.AddHours(1),
+                dog.Id));
+        await service.AcceptTaskAsync(task.Id, IntegrationTestData.VolunteerId);
+        await service.StartTaskAsync(task.Id, IntegrationTestData.VolunteerId);
+        await service.CompleteTaskAsync(task.Id, IntegrationTestData.VolunteerId, new VolunteerTaskActionRequest("Completed during integration test."));
+
+        await using var verificationContext = await fixture.CreateMigratedContextAsync(databaseName);
+        var saved = await verificationContext.VolunteerTasks
+            .Include(volunteerTask => volunteerTask.Activities)
+            .SingleAsync(volunteerTask => volunteerTask.Id == task.Id);
+
+        Assert.Equal(VolunteerTaskStatus.Completed, saved.Status);
+        Assert.NotNull(saved.CompletedAtUtc);
+        Assert.Contains(saved.Activities, activity => activity.ActivityType == VolunteerTaskActivityType.Completed);
+    }
+    [DockerFact]
     public async Task NotificationPreferences_ShouldPersist_DisabledChannel()
     {
         var databaseName = SqlServerTestcontainerFixture.CreateDatabaseName();

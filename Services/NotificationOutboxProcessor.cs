@@ -281,6 +281,7 @@ public class NotificationOutboxProcessor(
             NotificationEventType.ReportUpdates => NotificationCategory.Report,
             NotificationEventType.ShelterApplicationUpdates => NotificationCategory.ShelterApplication,
             NotificationEventType.LostFoundUpdates => NotificationCategory.System,
+            NotificationEventType.VolunteerTaskUpdates => NotificationCategory.Volunteer,
             _ => NotificationCategory.System
         };
     }
@@ -309,3 +310,4 @@ public class NotificationOutboxProcessor(
         Cancelled
     }
 }
+

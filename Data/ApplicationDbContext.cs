@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using PawConnect.Entities;
@@ -72,6 +72,12 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<LostFoundPostImage> LostFoundPostImages => Set<LostFoundPostImage>();
 
     public DbSet<DogTransferRequest> DogTransferRequests => Set<DogTransferRequest>();
+
+    public DbSet<VolunteerProfile> VolunteerProfiles => Set<VolunteerProfile>();
+
+    public DbSet<VolunteerTask> VolunteerTasks => Set<VolunteerTask>();
+
+    public DbSet<VolunteerTaskActivity> VolunteerTaskActivities => Set<VolunteerTaskActivity>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -977,6 +983,163 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
         builder.Entity<DogTransferRequest>()
             .HasIndex(transfer => transfer.RequestedAtUtc);
+        builder.Entity<VolunteerProfile>()
+            .HasOne(profile => profile.User)
+            .WithMany()
+            .HasForeignKey(profile => profile.UserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<VolunteerProfile>()
+            .HasOne(profile => profile.PreferredShelter)
+            .WithMany()
+            .HasForeignKey(profile => profile.PreferredShelterId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.Entity<VolunteerProfile>()
+            .Property(profile => profile.DisplayName)
+            .HasMaxLength(120);
+
+        builder.Entity<VolunteerProfile>()
+            .Property(profile => profile.Email)
+            .HasMaxLength(256);
+
+        builder.Entity<VolunteerProfile>()
+            .Property(profile => profile.PhoneNumber)
+            .HasMaxLength(40);
+
+        builder.Entity<VolunteerProfile>()
+            .Property(profile => profile.Skills)
+            .HasMaxLength(1000);
+
+        builder.Entity<VolunteerProfile>()
+            .Property(profile => profile.AvailabilityNotes)
+            .HasMaxLength(1000);
+
+        builder.Entity<VolunteerProfile>()
+            .Property(profile => profile.CreatedAtUtc)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<VolunteerProfile>()
+            .Property(profile => profile.UpdatedAtUtc)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<VolunteerProfile>()
+            .HasIndex(profile => profile.UserId)
+            .IsUnique();
+
+        builder.Entity<VolunteerProfile>()
+            .HasIndex(profile => profile.PreferredShelterId);
+
+        builder.Entity<VolunteerProfile>()
+            .HasIndex(profile => profile.IsActive);
+
+        builder.Entity<VolunteerTask>()
+            .HasOne(task => task.Shelter)
+            .WithMany()
+            .HasForeignKey(task => task.ShelterId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<VolunteerTask>()
+            .HasOne(task => task.Dog)
+            .WithMany()
+            .HasForeignKey(task => task.DogId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.Entity<VolunteerTask>()
+            .HasOne(task => task.CreatedByUser)
+            .WithMany()
+            .HasForeignKey(task => task.CreatedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<VolunteerTask>()
+            .HasOne(task => task.AssignedVolunteerProfile)
+            .WithMany(profile => profile.AssignedTasks)
+            .HasForeignKey(task => task.AssignedVolunteerProfileId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.Entity<VolunteerTask>()
+            .Property(task => task.Title)
+            .HasMaxLength(160);
+
+        builder.Entity<VolunteerTask>()
+            .Property(task => task.Description)
+            .HasMaxLength(1000);
+
+        builder.Entity<VolunteerTask>()
+            .Property(task => task.Location)
+            .HasMaxLength(250);
+
+        builder.Entity<VolunteerTask>()
+            .Property(task => task.RequiredSkills)
+            .HasMaxLength(500);
+
+        builder.Entity<VolunteerTask>()
+            .Property(task => task.ShelterNotes)
+            .HasMaxLength(1000);
+
+        builder.Entity<VolunteerTask>()
+            .Property(task => task.VolunteerNotes)
+            .HasMaxLength(1000);
+
+        builder.Entity<VolunteerTask>()
+            .Property(task => task.CompletionNotes)
+            .HasMaxLength(1000);
+
+        builder.Entity<VolunteerTask>()
+            .Property(task => task.CreatedAtUtc)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<VolunteerTask>()
+            .Property(task => task.UpdatedAtUtc)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<VolunteerTask>()
+            .HasIndex(task => task.ShelterId);
+
+        builder.Entity<VolunteerTask>()
+            .HasIndex(task => task.AssignedVolunteerProfileId);
+
+        builder.Entity<VolunteerTask>()
+            .HasIndex(task => task.Status);
+
+        builder.Entity<VolunteerTask>()
+            .HasIndex(task => task.Category);
+
+        builder.Entity<VolunteerTask>()
+            .HasIndex(task => task.ScheduledStartUtc);
+
+        builder.Entity<VolunteerTask>()
+            .HasIndex(task => task.DueAtUtc);
+
+        builder.Entity<VolunteerTaskActivity>()
+            .HasOne(activity => activity.VolunteerTask)
+            .WithMany(task => task.Activities)
+            .HasForeignKey(activity => activity.VolunteerTaskId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<VolunteerTaskActivity>()
+            .HasOne(activity => activity.ActorUser)
+            .WithMany()
+            .HasForeignKey(activity => activity.ActorUserId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<VolunteerTaskActivity>()
+            .Property(activity => activity.Message)
+            .HasMaxLength(1000);
+
+        builder.Entity<VolunteerTaskActivity>()
+            .Property(activity => activity.CreatedAtUtc)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<VolunteerTaskActivity>()
+            .HasIndex(activity => new { activity.VolunteerTaskId, activity.CreatedAtUtc });
+
+        builder.Entity<VolunteerTaskActivity>()
+            .HasIndex(activity => activity.ActorUserId);
         SeedLookupData(builder);
     }
 
@@ -1000,3 +1163,5 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             new FoodType { Id = 5, Name = "Medical diet food", Description = "Special diet food recommended by a veterinarian." });
     }
 }
+
+

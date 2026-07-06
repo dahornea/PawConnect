@@ -1,4 +1,4 @@
-namespace PawConnect.Entities;
+﻿namespace PawConnect.Entities;
 
 public enum NotificationCategory
 {
@@ -7,6 +7,6 @@ public enum NotificationCategory
     Resource = 2,
     Report = 3,
     System = 4,
-    Transfer = 5
+    Transfer = 5,
+    Volunteer = 6
 }
-

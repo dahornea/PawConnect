@@ -1,0 +1,222 @@
+@page "/shelter/volunteer-tasks"
+@attribute [Authorize(Roles = "Shelter")]
+@using PawConnect.Entities
+@using PawConnect.Services
+
+<PageTitle>Volunteer Tasks</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.False" Class="px-0">
+    <MudStack Spacing="3">
+        <div class="page-header">
+            <MudText Typo="Typo.h4">Volunteer Tasks</MudText>
+            <MudText Typo="Typo.body2">Create, assign, and monitor day-to-day volunteer work for your shelter.</MudText>
+        </div>
+
+        @if (_isLoading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="py-8">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Loading volunteer workspace...</MudText>
+            </MudStack>
+        }
+        else if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <MudAlert Severity="Severity.Error">@_error</MudAlert>
+        }
+        else
+        {
+            <MudGrid Spacing="2">
+                <MudItem xs="12" sm="6" md="2">
+                    <MudPaper Elevation="0" Class="section-surface pa-3 h-100">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Open</MudText>
+                        <MudText Typo="Typo.h5">@_stats?.OpenTasks</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="2">
+                    <MudPaper Elevation="0" Class="section-surface pa-3 h-100">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Assigned</MudText>
+                        <MudText Typo="Typo.h5">@_stats?.AssignedTasks</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="2">
+                    <MudPaper Elevation="0" Class="section-surface pa-3 h-100">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">In progress</MudText>
+                        <MudText Typo="Typo.h5">@_stats?.InProgressTasks</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="2">
+                    <MudPaper Elevation="0" Class="section-surface pa-3 h-100">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Completed this week</MudText>
+                        <MudText Typo="Typo.h5">@_stats?.CompletedThisWeek</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="2">
+                    <MudPaper Elevation="0" Class="section-surface pa-3 h-100">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Overdue</MudText>
+                        <MudText Typo="Typo.h5">@_stats?.OverdueTasks</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="2">
+                    <MudPaper Elevation="0" Class="section-surface pa-3 h-100">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Active volunteers</MudText>
+                        <MudText Typo="Typo.h5">@_stats?.ActiveVolunteers</MudText>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+
+            <MudPaper Elevation="0" Class="section-surface pa-4">
+                <MudStack Spacing="3">
+                    <div>
+                        <MudText Typo="Typo.h6" Class="content-title">Create volunteer task</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Schedule work such as walking, feeding, cleaning, transport, or event support.</MudText>
+                    </div>
+                    <MudGrid Spacing="2">
+                        <MudItem xs="12" md="3">
+                            <MudTextField T="string" Label="Title" @bind-Value="_title" Variant="Variant.Outlined" Required="true" MaxLength="160" />
+                        </MudItem>
+                        <MudItem xs="12" md="2">
+                            <MudSelect T="VolunteerTaskCategory" Label="Category" @bind-Value="_category" Variant="Variant.Outlined">
+                                @foreach (var category in Enum.GetValues<VolunteerTaskCategory>())
+                                {
+                                    <MudSelectItem Value="@category">@FormatCategory(category)</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" md="2">
+                            <MudSelect T="VolunteerTaskPriority" Label="Priority" @bind-Value="_priority" Variant="Variant.Outlined">
+                                @foreach (var priority in Enum.GetValues<VolunteerTaskPriority>())
+                                {
+                                    <MudSelectItem Value="@priority">@priority</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" md="2">
+                            <MudDatePicker Label="Date" @bind-Date="_taskDate" Variant="Variant.Outlined" Required="true" />
+                        </MudItem>
+                        <MudItem xs="6" md="1">
+                            <MudTextField Label="Start" @bind-Value="_startTime" Placeholder="09:00" Variant="Variant.Outlined" />
+                        </MudItem>
+                        <MudItem xs="6" md="1">
+                            <MudTextField Label="End" @bind-Value="_endTime" Placeholder="10:00" Variant="Variant.Outlined" />
+                        </MudItem>
+                        <MudItem xs="12" md="1" Class="d-flex align-center">
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Disabled="_isSaving" OnClick="CreateTaskAsync">Add</MudButton>
+                        </MudItem>
+                        <MudItem xs="12" md="3">
+                            <MudSelect T="int?" Label="Dog optional" @bind-Value="_dogId" Variant="Variant.Outlined" Clearable="true" Placeholder="No dog">
+                                @foreach (var dog in _dogs)
+                                {
+                                    <MudSelectItem T="int?" Value="@((int?)dog.Id)">@dog.Name</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" md="3">
+                            <MudSelect T="int?" Label="Assign optional" @bind-Value="_assignedVolunteerId" Variant="Variant.Outlined" Clearable="true" Placeholder="Unassigned">
+                                @foreach (var volunteer in _volunteers)
+                                {
+                                    <MudSelectItem T="int?" Value="@((int?)volunteer.Id)">@volunteer.DisplayName</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" md="3">
+                            <MudTextField T="string" Label="Location" @bind-Value="_location" Variant="Variant.Outlined" MaxLength="250" />
+                        </MudItem>
+                        <MudItem xs="12" md="3">
+                            <MudTextField T="string" Label="Required skills" @bind-Value="_requiredSkills" Variant="Variant.Outlined" MaxLength="500" />
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudTextField T="string" Label="Description / shelter notes" @bind-Value="_description" Variant="Variant.Outlined" Lines="2" MaxLength="1000" />
+                        </MudItem>
+                    </MudGrid>
+                </MudStack>
+            </MudPaper>
+
+            <MudPaper Elevation="0" Class="section-surface pa-3">
+                <MudTabs Rounded="true" Elevation="0">
+                    <MudTabPanel Text="Today">
+                        @RenderTaskTable(TodayTasks)
+                    </MudTabPanel>
+                    <MudTabPanel Text="Upcoming">
+                        @RenderTaskTable(UpcomingTasks)
+                    </MudTabPanel>
+                    <MudTabPanel Text="Open">
+                        @RenderTaskTable(OpenTasks)
+                    </MudTabPanel>
+                    <MudTabPanel Text="Assigned">
+                        @RenderTaskTable(AssignedTasks)
+                    </MudTabPanel>
+                    <MudTabPanel Text="Completed">
+                        @RenderTaskTable(CompletedTasks)
+                    </MudTabPanel>
+                </MudTabs>
+            </MudPaper>
+        }
+    </MudStack>
+</MudContainer>
+
+@code {
+    private RenderFragment RenderTaskTable(IReadOnlyList<VolunteerTaskDto> tasks) => @<div class="pt-3">
+        @if (tasks.Count == 0)
+        {
+            <MudPaper Elevation="0" Class="empty-state pa-5">
+                <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.EventNote" Color="Color.Secondary" Size="Size.Large" />
+                    <MudText Typo="Typo.h6">No volunteer tasks here</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Tasks will appear here when they match this view.</MudText>
+                </MudStack>
+            </MudPaper>
+        }
+        else
+        {
+            <MudTable Items="tasks" Dense="true" Hover="true" Class="table-shell" RowsPerPage="8">
+                <HeaderContent>
+                    <MudTh>Task</MudTh>
+                    <MudTh>Schedule</MudTh>
+                    <MudTh>Volunteer</MudTh>
+                    <MudTh>Priority</MudTh>
+                    <MudTh>Status</MudTh>
+                    <MudTh></MudTh>
+                </HeaderContent>
+                <RowTemplate Context="task">
+                    <MudTd DataLabel="Task">
+                        <MudText Typo="Typo.body2">@task.Title</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@FormatCategory(task.Category) @(!string.IsNullOrWhiteSpace(task.DogName) ? $"for {task.DogName}" : string.Empty)</MudText>
+                    </MudTd>
+                    <MudTd DataLabel="Schedule">@FormatDateTime(task.ScheduledStartUtc) - @FormatTime(task.ScheduledEndUtc)</MudTd>
+                    <MudTd DataLabel="Volunteer">
+                        @if (task.CanAssign)
+                        {
+                            <MudSelect T="int?" Value="task.AssignedVolunteerProfileId" ValueChanged="@((int? value) => AssignAsync(task.Id, value))" Dense="true" Variant="Variant.Outlined" Clearable="true" Placeholder="Unassigned">
+                                @foreach (var volunteer in _volunteers)
+                                {
+                                    <MudSelectItem T="int?" Value="@((int?)volunteer.Id)">@volunteer.DisplayName</MudSelectItem>
+                                }
+                            </MudSelect>
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.body2">@(task.AssignedVolunteerName ?? "Unassigned")</MudText>
+                        }
+                    </MudTd>
+                    <MudTd DataLabel="Priority">
+                        <MudChip T="string" Size="Size.Small" Color="@GetPriorityColor(task.Priority)" Variant="Variant.Outlined">@task.Priority</MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Status">
+                        <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(task.Status)">@FormatStatus(task.Status)</MudChip>
+                    </MudTd>
+                    <MudTd>
+                        <MudStack Row="true" Spacing="1" Justify="Justify.FlexEnd" Class="flex-wrap">
+                            <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => ViewTaskAsync(task.Id))">View</MudButton>
+                            <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Info" Disabled="_isSaving" OnClick="@(() => AddCommentAsync(task.Id))">Note</MudButton>
+                            @if (task.CanCancel)
+                            {
+                                <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default" Disabled="_isSaving" OnClick="@(() => CancelAsync(task.Id))">Cancel</MudButton>
+                            }
+                        </MudStack>
+                    </MudTd>
+                </RowTemplate>
+                <PagerContent><MudTablePager /></PagerContent>
+            </MudTable>
+        }
+    </div>;
+}

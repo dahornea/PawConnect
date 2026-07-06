@@ -10,6 +10,7 @@ public static class IdentitySeedData
     public const string AdopterRole = "Adopter";
     public const string ShelterRole = "Shelter";
     public const string AdminRole = "Admin";
+    public const string VolunteerRole = "Volunteer";
 
     public const string AdminDemoEmail = "admin@mail.com";
     public const string AdminDemoPassword = "Admin1!";
@@ -17,10 +18,14 @@ public static class IdentitySeedData
     public const string AdopterDemoPassword = "Adopter1!";
     public const string ShelterDemoEmail = "shelter@mail.com";
     public const string ShelterDemoPassword = "Shelter1!";
+    public const string VolunteerDemoEmail = "volunteer@mail.com";
+    public const string VolunteerDemoPassword = "Volunteer1!";
 
     public const string AdopterUserId = "00000000-0000-0000-0000-000000000001";
     public const string ShelterUserId = "11111111-1111-1111-1111-111111111111";
     public const string AdminUserId = "22222222-2222-2222-2222-222222222222";
+    public const string VolunteerUserId = "33333333-3333-3333-3333-333333333331";
+    private const string SecondVolunteerUserId = "33333333-3333-3333-3333-333333333332";
 
     private const string SecondAdopterUserId = "00000000-0000-0000-0000-000000000002";
     private const string ThirdAdopterUserId = "00000000-0000-0000-0000-000000000003";
@@ -52,7 +57,9 @@ public static class IdentitySeedData
         new(GreenYardShelterUserId, "green-yard@mail.com", ShelterDemoPassword, "Green Yard Animal Care Team", ShelterRole, ["green-yard@pawconnect.local"]),
         new(SecondChanceShelterUserId, "second-chance@mail.com", ShelterDemoPassword, "Second Chance Paws Team", ShelterRole, ["second-chance@pawconnect.local"]),
         new(FriendlyTailsShelterUserId, "friendly-tails@mail.com", ShelterDemoPassword, "Friendly Tails Center Team", ShelterRole, ["friendly-tails@pawconnect.local"]),
-        new(NorthStarShelterUserId, "north-star@mail.com", ShelterDemoPassword, "North Star Animal Shelter Team", ShelterRole, ["north-star@pawconnect.local"])
+        new(NorthStarShelterUserId, "north-star@mail.com", ShelterDemoPassword, "North Star Animal Shelter Team", ShelterRole, ["north-star@pawconnect.local"]),
+        new(VolunteerUserId, VolunteerDemoEmail, VolunteerDemoPassword, "Mara Dobre", VolunteerRole, ["mara.volunteer@pawconnect.local"]),
+        new(SecondVolunteerUserId, "volunteer2@mail.com", VolunteerDemoPassword, "Andrei Rusu", VolunteerRole, ["andrei.volunteer@pawconnect.local"])
     ];
 
     private static readonly Dictionary<string, string> DemoDogMainImageUrls = new(StringComparer.OrdinalIgnoreCase)
@@ -109,7 +116,7 @@ public static class IdentitySeedData
         var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
         var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-        foreach (var role in new[] { AdopterRole, ShelterRole, AdminRole })
+        foreach (var role in new[] { AdopterRole, ShelterRole, AdminRole, VolunteerRole })
         {
             if (!await roleManager.RoleExistsAsync(role))
             {
@@ -256,6 +263,7 @@ public static class IdentitySeedData
         await ReplaceShelterResourcesAsync(context);
         await ReplacePresentationRequestsAsync(context);
         await ReplacePresentationTransferRequestsAsync(context);
+        await ReplacePresentationVolunteerTasksAsync(context);
         await SeedFavoritesAndRecentViewsAsync(context);
 
         await context.SaveChangesAsync();
@@ -632,6 +640,146 @@ public static class IdentitySeedData
             });
         }
     }
+
+    private static async Task ReplacePresentationVolunteerTasksAsync(ApplicationDbContext context)
+    {
+        foreach (var seed in GetVolunteerProfiles())
+        {
+            var profile = await context.VolunteerProfiles.FirstOrDefaultAsync(volunteer => volunteer.UserId == seed.UserId);
+            if (profile is null)
+            {
+                profile = new VolunteerProfile { UserId = seed.UserId };
+                context.VolunteerProfiles.Add(profile);
+            }
+
+            var preferredShelterId = seed.PreferredShelterName is null
+                ? null
+                : await context.Shelters
+                    .Where(shelter => shelter.Name == seed.PreferredShelterName)
+                    .Select(shelter => (int?)shelter.Id)
+                    .FirstOrDefaultAsync();
+
+            profile.DisplayName = seed.DisplayName;
+            profile.Email = seed.Email;
+            profile.PhoneNumber = seed.PhoneNumber;
+            profile.PreferredShelterId = preferredShelterId;
+            profile.Skills = seed.Skills;
+            profile.AvailabilityNotes = seed.AvailabilityNotes;
+            profile.IsActive = seed.IsActive;
+            profile.UpdatedAtUtc = DateTime.UtcNow;
+        }
+
+        await context.SaveChangesAsync();
+
+        var taskSeeds = GetVolunteerTasks();
+        var taskTitles = taskSeeds.Select(seed => seed.Title).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var existingTasks = await context.VolunteerTasks
+            .Include(task => task.Activities)
+            .Where(task => taskTitles.Contains(task.Title))
+            .ToListAsync();
+        context.VolunteerTasks.RemoveRange(existingTasks);
+        await context.SaveChangesAsync();
+
+        var sheltersByName = await context.Shelters.ToDictionaryAsync(shelter => shelter.Name, StringComparer.OrdinalIgnoreCase);
+        var dogsByName = await context.Dogs.ToDictionaryAsync(dog => dog.Name, StringComparer.OrdinalIgnoreCase);
+        var profilesByUserId = await context.VolunteerProfiles.ToDictionaryAsync(profile => profile.UserId, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var seed in taskSeeds)
+        {
+            if (!sheltersByName.TryGetValue(seed.ShelterName, out var shelter))
+            {
+                continue;
+            }
+
+            var dogId = seed.DogName is not null && dogsByName.TryGetValue(seed.DogName, out var dog)
+                ? dog.Id
+                : (int?)null;
+            var assignedProfile = seed.AssignedVolunteerUserId is not null && profilesByUserId.TryGetValue(seed.AssignedVolunteerUserId, out var profile)
+                ? profile
+                : null;
+            var now = DateTime.UtcNow;
+            var task = new VolunteerTask
+            {
+                ShelterId = shelter.Id,
+                DogId = dogId,
+                CreatedByUserId = seed.CreatedByUserId,
+                AssignedVolunteerProfileId = assignedProfile?.Id,
+                Title = seed.Title,
+                Description = seed.ShelterNotes ?? seed.Title,
+                Category = seed.Category,
+                Status = seed.Status,
+                Priority = seed.Priority,
+                ScheduledStartUtc = seed.ScheduledStartUtc,
+                ScheduledEndUtc = seed.ScheduledEndUtc,
+                DueAtUtc = seed.DueAtUtc,
+                Location = seed.Location,
+                RequiredSkills = seed.RequiredSkills,
+                ShelterNotes = seed.ShelterNotes,
+                VolunteerNotes = seed.VolunteerNotes,
+                CompletionNotes = seed.CompletionNotes,
+                AssignedAtUtc = assignedProfile is null ? null : seed.ScheduledStartUtc.AddHours(-4),
+                StartedAtUtc = seed.Status is VolunteerTaskStatus.InProgress or VolunteerTaskStatus.Completed ? seed.ScheduledStartUtc : null,
+                CompletedAtUtc = seed.Status == VolunteerTaskStatus.Completed ? seed.ScheduledEndUtc : null,
+                CancelledAtUtc = seed.Status == VolunteerTaskStatus.Cancelled ? seed.ScheduledStartUtc.AddHours(-8) : null,
+                CreatedAtUtc = seed.ScheduledStartUtc.AddDays(-2),
+                UpdatedAtUtc = now
+            };
+
+            task.Activities.Add(new VolunteerTaskActivity
+            {
+                ActorUserId = seed.CreatedByUserId,
+                ActivityType = VolunteerTaskActivityType.Created,
+                Message = "Seeded volunteer task created for the demo workspace.",
+                CreatedAtUtc = task.CreatedAtUtc
+            });
+
+            if (assignedProfile is not null)
+            {
+                task.Activities.Add(new VolunteerTaskActivity
+                {
+                    ActorUserId = seed.CreatedByUserId,
+                    ActivityType = VolunteerTaskActivityType.Assigned,
+                    Message = $"Assigned to {assignedProfile.DisplayName}.",
+                    CreatedAtUtc = task.AssignedAtUtc ?? task.CreatedAtUtc
+                });
+            }
+
+            if (task.StartedAtUtc.HasValue)
+            {
+                task.Activities.Add(new VolunteerTaskActivity
+                {
+                    ActorUserId = assignedProfile?.UserId,
+                    ActivityType = VolunteerTaskActivityType.Started,
+                    Message = "Volunteer started the task.",
+                    CreatedAtUtc = task.StartedAtUtc.Value
+                });
+            }
+
+            if (task.CompletedAtUtc.HasValue)
+            {
+                task.Activities.Add(new VolunteerTaskActivity
+                {
+                    ActorUserId = assignedProfile?.UserId,
+                    ActivityType = VolunteerTaskActivityType.Completed,
+                    Message = task.CompletionNotes ?? "Volunteer completed the task.",
+                    CreatedAtUtc = task.CompletedAtUtc.Value
+                });
+            }
+
+            if (task.CancelledAtUtc.HasValue)
+            {
+                task.Activities.Add(new VolunteerTaskActivity
+                {
+                    ActorUserId = seed.CreatedByUserId,
+                    ActivityType = VolunteerTaskActivityType.Cancelled,
+                    Message = "Task cancelled because the appointment was moved.",
+                    CreatedAtUtc = task.CancelledAtUtc.Value
+                });
+            }
+
+            context.VolunteerTasks.Add(task);
+        }
+    }
     private static async Task SeedFavoritesAndRecentViewsAsync(ApplicationDbContext context)
     {
         var dogsByName = await context.Dogs.ToDictionaryAsync(dog => dog.Name, StringComparer.OrdinalIgnoreCase);
@@ -831,7 +979,7 @@ public static class IdentitySeedData
             new(
                 "Happy Paws Shelter",
                 "Nala",
-                "Border Collie × Corgi Mix",
+                "Border Collie Ã— Corgi Mix",
                 "Brown and white",
                 2,
                 0,
@@ -845,7 +993,7 @@ public static class IdentitySeedData
             new(
                 "Happy Paws Shelter",
                 "Max",
-                "Shar Pei × German Shepherd Mix",
+                "Shar Pei Ã— German Shepherd Mix",
                 "Black and tan",
                 3,
                 0,
@@ -957,7 +1105,7 @@ public static class IdentitySeedData
             new(
                 "Green Yard Animal Care",
                 "Bruno",
-                "Labrador Retriever × German Shepherd Mix",
+                "Labrador Retriever Ã— German Shepherd Mix",
                 "Brown",
                 4,
                 0,
@@ -1199,7 +1347,7 @@ public static class IdentitySeedData
             new(
                 "North Star Animal Shelter",
                 "Ollie",
-                "Poodle × Bichon Mix",
+                "Poodle Ã— Bichon Mix",
                 "White",
                 1,
                 8,
@@ -1266,6 +1414,141 @@ public static class IdentitySeedData
     }
 
 
+
+    private static IReadOnlyList<VolunteerProfileSeed> GetVolunteerProfiles()
+    {
+        return
+        [
+            new(
+                VolunteerUserId,
+                "Mara Dobre",
+                VolunteerDemoEmail,
+                "+40 700 000 301",
+                "Happy Paws Shelter",
+                "Dog walking, calm introductions, feeding support",
+                "Weekday mornings and Saturday adoption events.",
+                true),
+            new(
+                SecondVolunteerUserId,
+                "Andrei Rusu",
+                "volunteer2@mail.com",
+                "+40 700 000 302",
+                null,
+                "Transport support, cleaning shifts, event desk support",
+                "Usually available evenings and Sunday mornings.",
+                true)
+        ];
+    }
+
+    private static IReadOnlyList<VolunteerTaskSeed> GetVolunteerTasks()
+    {
+        var today = DateTime.UtcNow.Date;
+        return
+        [
+            new(
+                "Morning walk for Bella",
+                "Happy Paws Shelter",
+                "Bella",
+                ShelterUserId,
+                VolunteerUserId,
+                VolunteerTaskCategory.DogWalking,
+                VolunteerTaskStatus.Assigned,
+                VolunteerTaskPriority.Normal,
+                today.AddHours(8),
+                today.AddHours(9),
+                today.AddHours(9),
+                "Zorilor quiet walking route",
+                "Comfortable with calm, reserved dogs",
+                "Bella prefers a steady pace and quiet streets.",
+                null,
+                null),
+            new(
+                "Prepare wet food portions",
+                "Happy Paws Shelter",
+                null,
+                ShelterUserId,
+                null,
+                VolunteerTaskCategory.Feeding,
+                VolunteerTaskStatus.Open,
+                VolunteerTaskPriority.High,
+                today.AddHours(12),
+                today.AddHours(13),
+                today.AddHours(13),
+                "Happy Paws kitchen",
+                "Food handling",
+                "Portions are labelled by kennel row.",
+                null,
+                null),
+            new(
+                "Socialization support for Buddy",
+                "Happy Paws Shelter",
+                "Buddy",
+                ShelterUserId,
+                SecondVolunteerUserId,
+                VolunteerTaskCategory.Socialization,
+                VolunteerTaskStatus.InProgress,
+                VolunteerTaskPriority.Normal,
+                today.AddHours(-1),
+                today.AddHours(1),
+                today.AddHours(1),
+                "Happy Paws training yard",
+                "Confident handler, treat-based guidance",
+                "Keep sessions short and structured.",
+                "Buddy settled after the first few minutes.",
+                null),
+            new(
+                "Vet transport support for Luna",
+                "Hope Tails Rescue",
+                "Luna",
+                HopeTailsShelterUserId,
+                SecondVolunteerUserId,
+                VolunteerTaskCategory.Transport,
+                VolunteerTaskStatus.Cancelled,
+                VolunteerTaskPriority.Urgent,
+                today.AddDays(1).AddHours(10),
+                today.AddDays(1).AddHours(12),
+                today.AddDays(1).AddHours(10),
+                "Hope Tails Rescue reception",
+                "Car transport, crate handling",
+                "Original visit moved by the clinic.",
+                null,
+                null),
+            new(
+                "Adoption event welcome desk",
+                "Friendly Tails Center",
+                null,
+                FriendlyTailsShelterUserId,
+                SecondVolunteerUserId,
+                VolunteerTaskCategory.AdoptionEventSupport,
+                VolunteerTaskStatus.Completed,
+                VolunteerTaskPriority.Low,
+                today.AddDays(-2).AddHours(9),
+                today.AddDays(-2).AddHours(12),
+                today.AddDays(-2).AddHours(12),
+                "Gheorgheni community hall",
+                "Visitor greeting, basic adopter guidance",
+                "Share dog profiles and direct visitors to staff for application questions.",
+                null,
+                "Visitor questions were recorded for the shelter team."),
+            new(
+                "Evening kennel cleaning support",
+                "Green Yard Animal Care",
+                null,
+                GreenYardShelterUserId,
+                null,
+                VolunteerTaskCategory.Cleaning,
+                VolunteerTaskStatus.Open,
+                VolunteerTaskPriority.Normal,
+                today.AddHours(18),
+                today.AddHours(20),
+                today.AddHours(20),
+                "Grigorescu kennel block B",
+                "Cleaning supplies, comfortable around large dogs",
+                "Staff will prepare disinfectant and gloves.",
+                null,
+                null)
+        ];
+    }
     private static IReadOnlyList<TransferSeed> GetTransferRequests()
     {
         return
@@ -1564,6 +1847,34 @@ public static class IdentitySeedData
         int ResourceCategoryId,
         int? FoodTypeId);
 
+
+    private sealed record VolunteerProfileSeed(
+        string UserId,
+        string DisplayName,
+        string Email,
+        string? PhoneNumber,
+        string? PreferredShelterName,
+        string? Skills,
+        string? AvailabilityNotes,
+        bool IsActive);
+
+    private sealed record VolunteerTaskSeed(
+        string Title,
+        string ShelterName,
+        string? DogName,
+        string CreatedByUserId,
+        string? AssignedVolunteerUserId,
+        VolunteerTaskCategory Category,
+        VolunteerTaskStatus Status,
+        VolunteerTaskPriority Priority,
+        DateTime ScheduledStartUtc,
+        DateTime ScheduledEndUtc,
+        DateTime? DueAtUtc,
+        string? Location,
+        string? RequiredSkills,
+        string? ShelterNotes,
+        string? VolunteerNotes,
+        string? CompletionNotes);
     private sealed record TransferSeed(
         string DogName,
         string SourceShelterName,
@@ -1606,3 +1917,8 @@ public static class IdentitySeedData
         string Role,
         string[] LegacyEmails);
 }
+
+
+
+
+

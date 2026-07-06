@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using PawConnect.Data;
 using PawConnect.Entities;
 
@@ -16,6 +16,7 @@ public class NotificationPreferenceService(IDbContextFactory<ApplicationDbContex
         new(NotificationEventType.ShelterApplicationUpdates, "Shelter application updates", "Review results for shelter registration requests.", true, true),
         new(NotificationEventType.LostFoundUpdates, "Lost & Found updates", "Moderation or status updates for lost and found posts.", true, false),
         new(NotificationEventType.DogTransferUpdates, "Dog transfer updates", "Requests, approvals, and completions for shelter dog transfers.", true, true),
+        new(NotificationEventType.VolunteerTaskUpdates, "Volunteer task updates", "Assignments, schedule changes, and completion updates for volunteer tasks.", true, true),
         new(NotificationEventType.SystemAnnouncements, "System announcements", "General PawConnect account and platform updates.", true, false)
     ];
 
@@ -133,3 +134,5 @@ public class NotificationPreferenceService(IDbContextFactory<ApplicationDbContex
         }
     }
 }
+
+

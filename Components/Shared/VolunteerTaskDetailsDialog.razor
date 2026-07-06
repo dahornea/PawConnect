@@ -1,0 +1,178 @@
+@using PawConnect.Entities
+@using PawConnect.Services
+
+<MudDialog>
+    <DialogContent>
+        @if (Task is not null)
+        {
+            <MudStack Spacing="3">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Class="flex-wrap" Spacing="1">
+                    <MudIcon Icon="@Icons.Material.Filled.EventNote" Color="Color.Primary" />
+                    <MudText Typo="Typo.h6">@Task.Title</MudText>
+                    <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(Task.Status)">@FormatStatus(Task.Status)</MudChip>
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="@GetPriorityColor(Task.Priority)">@Task.Priority</MudChip>
+                </MudStack>
+
+                <MudGrid Spacing="2">
+                    <MudItem xs="12" sm="6">
+                        <MudPaper Elevation="0" Class="pa-3 border-light">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Shelter</MudText>
+                            <MudText Typo="Typo.body1">@Task.ShelterName</MudText>
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudPaper Elevation="0" Class="pa-3 border-light">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Assigned volunteer</MudText>
+                            <MudText Typo="Typo.body1">@(Task.AssignedVolunteerName ?? "Unassigned")</MudText>
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudPaper Elevation="0" Class="pa-3 border-light">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Schedule</MudText>
+                            <MudText Typo="Typo.body1">@FormatDateTime(Task.ScheduledStartUtc) - @FormatTime(Task.ScheduledEndUtc)</MudText>
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudPaper Elevation="0" Class="pa-3 border-light">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Category</MudText>
+                            <MudText Typo="Typo.body1">@FormatCategory(Task.Category)</MudText>
+                        </MudPaper>
+                    </MudItem>
+                </MudGrid>
+
+                @if (!string.IsNullOrWhiteSpace(Task.DogName) || !string.IsNullOrWhiteSpace(Task.Location))
+                {
+                    <MudPaper Elevation="0" Class="pa-3 border-light">
+                        @if (!string.IsNullOrWhiteSpace(Task.DogName))
+                        {
+                            <MudText Typo="Typo.subtitle2">Dog</MudText>
+                            <MudText Typo="Typo.body2">@Task.DogName @(!string.IsNullOrWhiteSpace(Task.DogBreed) ? $"({Task.DogBreed})" : string.Empty)</MudText>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(Task.Location))
+                        {
+                            <MudText Typo="Typo.subtitle2" Class="mt-2">Location</MudText>
+                            <MudText Typo="Typo.body2">@Task.Location</MudText>
+                        }
+                    </MudPaper>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(Task.Description))
+                {
+                    <MudPaper Elevation="0" Class="pa-3 border-light">
+                        <MudText Typo="Typo.subtitle2">Description</MudText>
+                        <MudText Typo="Typo.body2">@Task.Description</MudText>
+                    </MudPaper>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(Task.RequiredSkills))
+                {
+                    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true">
+                        <MudText Typo="Typo.subtitle2">Required skills</MudText>
+                        <MudText Typo="Typo.body2">@Task.RequiredSkills</MudText>
+                    </MudAlert>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(Task.ShelterNotes))
+                {
+                    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true">
+                        <MudText Typo="Typo.subtitle2">Shelter notes</MudText>
+                        <MudText Typo="Typo.body2">@Task.ShelterNotes</MudText>
+                    </MudAlert>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(Task.VolunteerNotes))
+                {
+                    <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Dense="true">
+                        <MudText Typo="Typo.subtitle2">Volunteer notes</MudText>
+                        <MudText Typo="Typo.body2">@Task.VolunteerNotes</MudText>
+                    </MudAlert>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(Task.CompletionNotes))
+                {
+                    <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Dense="true">
+                        <MudText Typo="Typo.subtitle2">Completion notes</MudText>
+                        <MudText Typo="Typo.body2">@Task.CompletionNotes</MudText>
+                    </MudAlert>
+                }
+
+                <MudDivider />
+                <MudStack Spacing="1">
+                    <MudText Typo="Typo.subtitle2">Activity</MudText>
+                    @if (Task.Activities.Count == 0)
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">No activity recorded yet.</MudText>
+                    }
+                    else
+                    {
+                        @foreach (var activity in Task.Activities)
+                        {
+                            <MudText Typo="Typo.body2">
+                                <strong>@FormatActivity(activity.ActivityType)</strong>
+                                @(!string.IsNullOrWhiteSpace(activity.ActorDisplayName) ? $" by {activity.ActorDisplayName}" : string.Empty)
+                                - @FormatDateTime(activity.CreatedAtUtc)
+                            </MudText>
+                            @if (!string.IsNullOrWhiteSpace(activity.Message))
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">@activity.Message</MudText>
+                            }
+                        }
+                    }
+                </MudStack>
+            </MudStack>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Close">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public VolunteerTaskDetailsDto? Task { get; set; }
+
+    private void Close() => MudDialog.Close();
+
+    private static string FormatDateTime(DateTime value) => value.ToLocalTime().ToString("dd MMM yyyy HH:mm");
+
+    private static string FormatTime(DateTime value) => value.ToLocalTime().ToString("HH:mm");
+
+    private static string FormatCategory(VolunteerTaskCategory category) => category switch
+    {
+        VolunteerTaskCategory.DogWalking => "Dog walking",
+        VolunteerTaskCategory.MedicalVisitSupport => "Medical visit support",
+        VolunteerTaskCategory.AdoptionEventSupport => "Adoption event support",
+        _ => category.ToString()
+    };
+
+    private static string FormatStatus(VolunteerTaskStatus status) => status switch
+    {
+        VolunteerTaskStatus.InProgress => "In progress",
+        _ => status.ToString()
+    };
+
+    private static string FormatActivity(VolunteerTaskActivityType activityType) => activityType switch
+    {
+        VolunteerTaskActivityType.CommentAdded => "Comment",
+        _ => activityType.ToString()
+    };
+
+    private static Color GetStatusColor(VolunteerTaskStatus status) => status switch
+    {
+        VolunteerTaskStatus.Open => Color.Info,
+        VolunteerTaskStatus.Assigned => Color.Warning,
+        VolunteerTaskStatus.InProgress => Color.Primary,
+        VolunteerTaskStatus.Completed => Color.Success,
+        VolunteerTaskStatus.Cancelled => Color.Default,
+        _ => Color.Default
+    };
+
+    private static Color GetPriorityColor(VolunteerTaskPriority priority) => priority switch
+    {
+        VolunteerTaskPriority.Low => Color.Default,
+        VolunteerTaskPriority.Normal => Color.Info,
+        VolunteerTaskPriority.High => Color.Warning,
+        VolunteerTaskPriority.Urgent => Color.Error,
+        _ => Color.Default
+    };
+}

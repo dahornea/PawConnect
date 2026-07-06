@@ -1,4 +1,4 @@
-<MudNavMenu Rounded="true" Margin="Margin.Dense" Color="Color.Primary" Class="paw-nav pa-3">
+﻿<MudNavMenu Rounded="true" Margin="Margin.Dense" Color="Color.Primary" Class="paw-nav pa-3">
     <div class="nav-brand">
         <span class="nav-brand-icon"><MudIcon Icon="@Icons.Material.Filled.Pets" /></span>
         <div>
@@ -59,12 +59,25 @@
             </MudNavGroup>
             <MudNavGroup Title="Operations" Icon="@Icons.Material.Filled.Inventory" Expanded="true">
                 <MudNavLink Href="/shelter/resources" Icon="@Icons.Material.Filled.Inventory">Resources</MudNavLink>
+                <MudNavLink Href="/shelter/volunteer-tasks" Icon="@Icons.Material.Filled.EventNote">Volunteer Tasks</MudNavLink>
                 <MudNavLink Href="/notifications" Icon="@Icons.Material.Filled.Notifications">Notifications</MudNavLink>
                 <MudNavLink Href="/notification-preferences" Icon="@Icons.Material.Filled.Tune">Notification Preferences</MudNavLink>
             </MudNavGroup>
         </div>
     </AuthorizeView>
 
+
+    <AuthorizeView Roles="Volunteer">
+        <div class="nav-group">
+            <MudDivider Class="my-3" />
+            <MudText Typo="Typo.caption" Class="px-4 nav-section-label">Volunteer</MudText>
+            <MudNavGroup Title="Tasks" Icon="@Icons.Material.Filled.EventAvailable" Expanded="true">
+                <MudNavLink Href="/volunteer/tasks" Icon="@Icons.Material.Filled.EventNote">My Tasks</MudNavLink>
+                <MudNavLink Href="/notifications" Icon="@Icons.Material.Filled.Notifications">Notifications</MudNavLink>
+                <MudNavLink Href="/notification-preferences" Icon="@Icons.Material.Filled.Tune">Notification Preferences</MudNavLink>
+            </MudNavGroup>
+        </div>
+    </AuthorizeView>
     <AuthorizeView Roles="Admin">
         <div class="nav-group">
             <MudDivider Class="my-3" />
@@ -80,6 +93,7 @@
                 <MudNavLink Href="/admin/dogs" Icon="@Icons.Material.Filled.Pets">Dogs</MudNavLink>
                 <MudNavLink Href="/admin/adoption-requests" Icon="@Icons.Material.Filled.FactCheck">Adoption Requests</MudNavLink>
                 <MudNavLink Href="/admin/transfers" Icon="@Icons.Material.Filled.SwapHoriz">Transfers</MudNavLink>
+                <MudNavLink Href="/admin/volunteer-tasks" Icon="@Icons.Material.Filled.EventNote">Volunteer Tasks</MudNavLink>
             </MudNavGroup>
             <MudNavGroup Title="AI & Search" Icon="@Icons.Material.Filled.AutoAwesome" Expanded="true">
                 <MudNavLink Href="/admin/search" Icon="@Icons.Material.Filled.Search">Operational Search</MudNavLink>
@@ -100,3 +114,4 @@
         </div>
     </AuthorizeView>
 </MudNavMenu>
+
