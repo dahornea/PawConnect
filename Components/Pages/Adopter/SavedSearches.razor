@@ -1,4 +1,4 @@
-﻿@page "/adopter/saved-searches"
+@page "/adopter/saved-searches"
 @attribute [Authorize(Roles = "Adopter")]
 
 <PageTitle>Saved Searches</PageTitle>
@@ -19,14 +19,11 @@
 
         @if (_isLoading)
         {
-            <MudStack AlignItems="AlignItems.Center" Class="py-8">
-                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
-                <MudText Typo="Typo.body2" Color="Color.Secondary">Loading saved searches...</MudText>
-            </MudStack>
+            <AppLoadingState Message="Loading saved searches..." />
         }
         else if (!string.IsNullOrWhiteSpace(_error))
         {
-            <MudAlert Severity="Severity.Error">@_error</MudAlert>
+            <AppErrorState Title="Saved searches could not be loaded" Message="@_error" OnRetry="LoadAsync" />
         }
         else
         {
@@ -54,16 +51,16 @@
             <MudPaper Elevation="0" Class="section-surface pa-4">
                 @if (_searches.Count == 0)
                 {
-                    <MudStack AlignItems="AlignItems.Center" Class="py-6" Spacing="2">
-                        <MudIcon Icon="@Icons.Material.Filled.SavedSearch" Color="Color.Primary" Size="Size.Large" />
-                        <MudText Typo="Typo.h6">No saved searches yet</MudText>
-                        <MudText Typo="Typo.body2" Color="Color.Secondary">Filter the dogs page, then save that search to watch for future matches.</MudText>
+                    <AppEmptyState Title="No saved searches yet"
+                                   Message="Save your dog search criteria to get matching alerts later. Start from the dog list, choose filters, then save the search."
+                                   Icon="@Icons.Material.Filled.SavedSearch"
+                                   IconColor="Color.Primary">
                         <MudButton Href="/dogs" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Search">Create from dog filters</MudButton>
-                    </MudStack>
+                    </AppEmptyState>
                 }
                 else
                 {
-                    <MudTable Items="_searches" Hover="true" Dense="false">
+                    <MudTable Items="_searches" Hover="true" Dense="false" Class="table-shell" Breakpoint="Breakpoint.Sm">
                         <HeaderContent>
                             <MudTh>Name</MudTh>
                             <MudTh>Criteria</MudTh>
@@ -117,3 +114,5 @@
     </MudStack>
 </MudContainer>
 </div>
+
+

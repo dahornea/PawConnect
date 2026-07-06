@@ -1,0 +1,27 @@
+<MudPaper Elevation="0" Class="@ContainerClass">
+    <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="2">
+        @if (!string.IsNullOrWhiteSpace(Icon))
+        {
+            <MudIcon Icon="@Icon" Color="@IconColor" Size="Size.Large" />
+        }
+        <MudText Typo="Typo.h6">@Title</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="ui-state-message">@Message</MudText>
+        @if (ChildContent is not null)
+        {
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="1" Class="ui-state-actions">
+                @ChildContent
+            </MudStack>
+        }
+    </MudStack>
+</MudPaper>
+
+@code {
+    [Parameter] public string Title { get; set; } = "Nothing to show yet";
+    [Parameter] public string Message { get; set; } = "When there is data to show, it will appear here.";
+    [Parameter] public string Icon { get; set; } = Icons.Material.Filled.Info;
+    [Parameter] public Color IconColor { get; set; } = Color.Secondary;
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private string ContainerClass => string.Join(" ", new[] { "ui-state", "empty-state", Class }.Where(value => !string.IsNullOrWhiteSpace(value)));
+}

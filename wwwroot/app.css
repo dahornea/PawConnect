@@ -537,3 +537,121 @@ h1:focus {
     background-color: rgba(8, 22, 18, 0.82) !important;
     backdrop-filter: blur(3px);
 }
+
+.ui-state {
+    min-height: 168px;
+    padding: 28px;
+}
+
+.ui-state-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(47, 111, 94, 0.1);
+    border-radius: 12px;
+    background: rgba(255, 254, 251, 0.62);
+}
+
+.ui-state-message {
+    max-width: 560px;
+    text-align: center;
+    line-height: 1.5;
+}
+
+.ui-state-actions {
+    max-width: 100%;
+    flex-wrap: wrap;
+    margin-top: 4px;
+}
+
+.ui-error-state {
+    min-height: auto;
+    border: 1px solid rgba(185, 28, 28, 0.18);
+    border-left: 5px solid #b91c1c;
+    border-radius: 12px;
+    background: linear-gradient(180deg, rgba(255, 251, 249, 0.96), rgba(252, 247, 244, 0.92));
+    box-shadow: 0 12px 28px rgba(185, 28, 28, 0.055);
+}
+
+.ui-error-content {
+    gap: 14px;
+}
+
+.ui-error-icon {
+    display: inline-flex;
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9px;
+    background: rgba(185, 28, 28, 0.08);
+}
+
+.ui-error-copy {
+    min-width: 0;
+}
+
+.table-shell {
+    border: 1px solid rgba(47, 111, 94, 0.12);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 12px 32px rgba(31, 47, 42, 0.05);
+}
+
+.table-shell .mud-table-container {
+    overflow-x: auto;
+}
+
+.table-shell .mud-table-head th,
+.table-shell .mud-table-cell {
+    vertical-align: middle;
+}
+
+.table-shell .mud-table-cell {
+    max-width: 360px;
+    overflow-wrap: anywhere;
+}
+
+.flex-wrap,
+.responsive-actions,
+.form-action-row {
+    flex-wrap: wrap;
+}
+
+@media (max-width: 700px) {
+    .page-header .mud-stack-row,
+    .page-header-row,
+    .filter-toolbar-row,
+    .filter-panel-actions,
+    .responsive-actions,
+    .form-action-row {
+        align-items: stretch !important;
+        flex-direction: column !important;
+    }
+
+    .page-header .mud-button-root,
+    .filter-toolbar-row .mud-button-root,
+    .filter-panel-actions .mud-button-root,
+    .responsive-actions .mud-button-root,
+    .form-action-row .mud-button-root {
+        width: 100%;
+    }
+
+    .ui-state {
+        min-height: 150px;
+        padding: 22px 16px;
+    }
+
+    .ui-error-content {
+        flex-direction: column !important;
+    }
+
+    .ui-error-state .mud-button-root {
+        width: 100%;
+    }
+
+    .table-shell .mud-table-cell {
+        max-width: none;
+    }
+}

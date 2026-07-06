@@ -1,0 +1,13 @@
+<MudPaper Elevation="0" Class="@ContainerClass" role="status" aria-live="polite">
+    <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="2">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+        <MudText Typo="Typo.body2" Color="Color.Secondary">@Message</MudText>
+    </MudStack>
+</MudPaper>
+
+@code {
+    [Parameter] public string Message { get; set; } = "Loading...";
+    [Parameter] public string? Class { get; set; }
+
+    private string ContainerClass => string.Join(" ", new[] { "ui-state", "ui-state-loading", Class }.Where(value => !string.IsNullOrWhiteSpace(value)));
+}

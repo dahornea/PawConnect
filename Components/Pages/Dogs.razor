@@ -1,4 +1,4 @@
-﻿@page "/dogs"
+@page "/dogs"
 @using Microsoft.AspNetCore.Identity
 @using PawConnect.Data
 
@@ -282,14 +282,11 @@
 
         @if (_isLoading)
         {
-            <MudStack AlignItems="AlignItems.Center" Class="py-8">
-                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
-                <MudText Typo="Typo.body2" Color="Color.Secondary">Loading dogs...</MudText>
-            </MudStack>
+            <AppLoadingState Message="Loading dogs..." />
         }
         else if (!string.IsNullOrWhiteSpace(_error))
         {
-            <MudAlert Severity="Severity.Error">@_error</MudAlert>
+            <AppErrorState Title="Dogs could not be loaded" Message="@_error" OnRetry="ApplyFiltersAsync" />
         }
         else if (_dogs.Count == 0)
         {
@@ -387,5 +384,6 @@
     </MudStack>
 </MudContainer>
 </div>
+
 
 

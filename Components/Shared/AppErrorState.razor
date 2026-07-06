@@ -1,0 +1,32 @@
+<MudPaper Elevation="0" Class="@ContainerClass" role="alert">
+    <MudStack Row="true" AlignItems="AlignItems.Start" Spacing="2" Class="ui-error-content">
+        <span class="ui-error-icon" aria-hidden="true">
+            <MudIcon Icon="@Icon" Color="Color.Error" />
+        </span>
+        <div class="ui-error-copy">
+            <MudText Typo="Typo.subtitle1">@Title</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">@Message</MudText>
+        </div>
+        @if (OnRetry.HasDelegate)
+        {
+            <MudSpacer />
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Refresh"
+                       OnClick="OnRetry">
+                @RetryText
+            </MudButton>
+        }
+    </MudStack>
+</MudPaper>
+
+@code {
+    [Parameter] public string Title { get; set; } = "Something could not be loaded";
+    [Parameter] public string Message { get; set; } = "Please try again in a moment.";
+    [Parameter] public string RetryText { get; set; } = "Retry";
+    [Parameter] public string Icon { get; set; } = Icons.Material.Filled.ErrorOutline;
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public EventCallback OnRetry { get; set; }
+
+    private string ContainerClass => string.Join(" ", new[] { "ui-state", "ui-error-state", Class }.Where(value => !string.IsNullOrWhiteSpace(value)));
+}

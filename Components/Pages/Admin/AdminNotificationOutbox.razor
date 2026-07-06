@@ -127,7 +127,7 @@
         }
         else
         {
-            <MudTable Items="_messages" Dense="true" Hover="true" Class="table-shell" RowsPerPage="15">
+            <MudTable Items="_messages" Dense="true" Hover="true" Class="table-shell" RowsPerPage="15" Breakpoint="Breakpoint.Sm">
                 <HeaderContent>
                     <MudTh>Queued</MudTh>
                     <MudTh>Status</MudTh>
@@ -176,7 +176,7 @@
                 <MudStack Spacing="2">
                     <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
                         <MudText Typo="Typo.h6">Outbox message #@_selected.Id</MudText>
-                        <MudIconButton Icon="@Icons.Material.Filled.Close" Color="Color.Default" OnClick="@(() => _selected = null)" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Close" Color="Color.Default" OnClick="@(() => _selected = null)" aria-label="Close outbox message details" />
                     </MudStack>
                     <MudGrid Spacing="2">
                         <MudItem xs="12" md="6">
@@ -205,3 +205,5 @@
         }
     </MudStack>
 </MudContainer>
+
+

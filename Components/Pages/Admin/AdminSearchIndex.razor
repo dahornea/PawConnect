@@ -222,6 +222,7 @@
                                                Color="Color.Primary"
                                                Size="Size.Small"
                                                Disabled="@(!context.IsPublicSafe)"
+                                               aria-label="Preview public-safe search document"
                                                OnClick="@(() => PreviewAsync(context))" />
                             </MudTooltip>
                             <MudTooltip Text="Rebuild this embedding">
@@ -229,12 +230,14 @@
                                                Color="Color.Primary"
                                                Size="Size.Small"
                                                Disabled="@(!CanRebuild || !context.IsPublicSafe || context.LifecycleStatus == EmbeddingLifecycleStatus.UpToDate)"
+                                               aria-label="Rebuild this dog embedding"
                                                OnClick="@(() => RebuildDogAsync(context))" />
                             </MudTooltip>
                             <MudTooltip Text="Open public dog details">
                                 <MudIconButton Icon="@Icons.Material.Filled.OpenInNew"
                                                Color="Color.Default"
                                                Size="Size.Small"
+                                               aria-label="Open public dog details"
                                                OnClick="@(() => OpenDog(context.DogId))" />
                             </MudTooltip>
                         </MudStack>
@@ -250,3 +253,6 @@
         }
     </MudStack>
 </MudContainer>
+
+
+

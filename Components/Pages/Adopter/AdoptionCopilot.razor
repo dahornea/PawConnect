@@ -263,6 +263,7 @@
                                                        Variant="Variant.Text"
                                                        Color="@(IsFeedbackSelected(dog.Id, CopilotFeedbackType.Positive) ? Color.Success : Color.Default)"
                                                        Size="Size.Small"
+                                                       aria-label="Mark suggestion as helpful"
                                                        OnClick="@(() => SubmitFeedbackAsync(result, CopilotFeedbackType.Positive))" />
                                     </MudTooltip>
                                     <MudTooltip Text="Not helpful">
@@ -270,6 +271,7 @@
                                                        Variant="Variant.Text"
                                                        Color="@(IsFeedbackSelected(dog.Id, CopilotFeedbackType.Negative) ? Color.Warning : Color.Default)"
                                                        Size="Size.Small"
+                                                       aria-label="Mark suggestion as not helpful"
                                                        OnClick="@(() => SubmitFeedbackAsync(result, CopilotFeedbackType.Negative))" />
                                     </MudTooltip>
                                     <MudTooltip Text="Not relevant">
@@ -277,6 +279,7 @@
                                                        Variant="Variant.Text"
                                                        Color="@(IsFeedbackSelected(dog.Id, CopilotFeedbackType.NotRelevant) ? Color.Error : Color.Default)"
                                                        Size="Size.Small"
+                                                       aria-label="Mark suggestion as not relevant"
                                                        OnClick="@(() => SubmitFeedbackAsync(result, CopilotFeedbackType.NotRelevant))" />
                                     </MudTooltip>
                                     <MudButton Variant="Variant.Text"
@@ -295,4 +298,7 @@
     </MudStack>
 </MudContainer>
 </div>
+
+
+
 
