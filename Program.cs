@@ -17,6 +17,7 @@ using PawConnect.Jobs;
 using PawConnect.OpenApi;
 using PawConnect.Repositories;
 using PawConnect.Services;
+using PawConnect.Services.Caching;
 using Quartz;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -84,6 +85,7 @@ builder.Services.AddMudServices(config =>
 {
     config.SnackbarConfiguration.PositionClass = Defaults.Classes.Position.BottomRight;
 });
+builder.Services.AddMemoryCache();
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddCascadingAuthenticationState();
@@ -151,6 +153,7 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(EfRepository<>));
 builder.Services.AddScoped<IDogService, DogService>();
 builder.Services.AddScoped<IDogTransferService, DogTransferService>();
+builder.Services.AddSingleton<ILocalCacheService, LocalCacheService>();
 
 builder.Services.AddScoped<IVolunteerTaskService, VolunteerTaskService>();
 builder.Services.AddScoped<IDogBreedService, DogBreedService>();

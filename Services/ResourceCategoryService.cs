@@ -1,17 +1,37 @@
 using Microsoft.EntityFrameworkCore;
 using PawConnect.Data;
 using PawConnect.Entities;
+using PawConnect.Services.Caching;
 
 namespace PawConnect.Services;
 
-public class ResourceCategoryService(ApplicationDbContext context) : IResourceCategoryService
+public class ResourceCategoryService(
+    ApplicationDbContext context,
+    ILocalCacheService? cache = null) : IResourceCategoryService
 {
+    private static readonly TimeSpan LookupCacheTtl = TimeSpan.FromMinutes(30);
+
     public Task<List<ResourceCategory>> GetAllAsync()
     {
         return GetAllResourceCategoriesAsync();
     }
 
-    public Task<List<ResourceCategory>> GetAllResourceCategoriesAsync()
+    public async Task<List<ResourceCategory>> GetAllResourceCategoriesAsync()
+    {
+        if (cache is null)
+        {
+            return await QueryAllResourceCategoriesAsync();
+        }
+
+        var categories = await cache.GetOrCreateAsync(
+            CacheKeys.ResourceCategoriesAll,
+            QueryAllResourceCategoriesAsync,
+            LookupCacheTtl);
+
+        return categories.ToList();
+    }
+
+    private Task<List<ResourceCategory>> QueryAllResourceCategoriesAsync()
     {
         return context.ResourceCategories
             .AsNoTracking()
@@ -31,12 +51,14 @@ public class ResourceCategoryService(ApplicationDbContext context) : IResourceCa
     {
         context.ResourceCategories.Add(resourceCategory);
         await context.SaveChangesAsync();
+        cache?.Remove(CacheKeys.ResourceCategoriesAll);
     }
 
     public async Task UpdateAsync(ResourceCategory resourceCategory)
     {
         context.ResourceCategories.Update(resourceCategory);
         await context.SaveChangesAsync();
+        cache?.Remove(CacheKeys.ResourceCategoriesAll);
     }
 
     public async Task DeleteAsync(int id)
@@ -49,5 +71,6 @@ public class ResourceCategoryService(ApplicationDbContext context) : IResourceCa
 
         context.ResourceCategories.Remove(resourceCategory);
         await context.SaveChangesAsync();
+        cache?.Remove(CacheKeys.ResourceCategoriesAll);
     }
 }

@@ -79,96 +79,78 @@ public class DogService(
 
     public Task<List<Dog>> SearchDogsAsync(string? searchTerm, string? breed, int? maxAge, DogSize? size, string? location, DogStatus? status, DogSortOption sortOption = DogSortOption.NameAsc, int? shelterId = null, string? neighborhood = null, string? coatColor = null, CatCompatibility? catCompatibility = null, ChildrenCompatibility? childrenCompatibility = null, DogActivityLevel? activityLevel = null, ApartmentSuitability? apartmentSuitability = null)
     {
-        var query = context.Dogs
-            .Include(d => d.Shelter)
-            .Include(d => d.DogBreed)
-            .Include(d => d.SecondaryBreed)
-            .Include(d => d.Images)
-            .Include(d => d.PreferredFoodType)
-            .Where(d => d.Status == DogStatus.Available || d.Status == DogStatus.Reserved)
-            .AsQueryable();
-
-        if (!string.IsNullOrWhiteSpace(searchTerm))
-        {
-            query = query.Where(d => d.Name.Contains(searchTerm));
-        }
-
-        if (!string.IsNullOrWhiteSpace(breed))
-        {
-            var normalizedBreed = breed.Trim().ToUpper();
-            query = query.Where(d =>
-                d.Breed.ToUpper().Contains(normalizedBreed) ||
-                (d.CustomBreedName != null && d.CustomBreedName.ToUpper().Contains(normalizedBreed)) ||
-                (d.DogBreed != null && d.DogBreed.Name.ToUpper().Contains(normalizedBreed)) ||
-                (d.SecondaryBreed != null && d.SecondaryBreed.Name.ToUpper().Contains(normalizedBreed)) ||
-                (d.IsMixedBreed && d.DogBreed != null && d.SecondaryBreed != null && (d.DogBreed.Name + " " + d.SecondaryBreed.Name + " Mix").ToUpper().Contains(normalizedBreed)) ||
-                (d.IsMixedBreed && d.DogBreed != null && (d.DogBreed.Name + " Mix").ToUpper().Contains(normalizedBreed)));
-        }
-
-        if (maxAge.HasValue)
-        {
-            query = query.Where(d => d.AgeYears <= maxAge.Value);
-        }
-
-        if (size.HasValue)
-        {
-            query = query.Where(d => d.Size == size.Value);
-        }
-
-        if (!string.IsNullOrWhiteSpace(location))
-        {
-            query = query.Where(d => d.Location == location);
-        }
-
-        if (status.HasValue)
-        {
-            query = query.Where(d => d.Status == status.Value);
-        }
-
-        if (shelterId.HasValue)
-        {
-            query = query.Where(d => d.ShelterId == shelterId.Value);
-        }
-
-        if (!string.IsNullOrWhiteSpace(neighborhood))
-        {
-            var normalizedNeighborhood = neighborhood.Trim().ToUpper();
-            query = query.Where(d =>
-                d.Shelter != null &&
-                d.Shelter.Neighborhood != null &&
-                d.Shelter.Neighborhood.Trim().ToUpper() == normalizedNeighborhood);
-        }
-
-        var normalizedCoatColor = DogCoatColorOptions.Normalize(coatColor);
-        if (!string.IsNullOrWhiteSpace(normalizedCoatColor))
-        {
-            var upperCoatColor = normalizedCoatColor.ToUpper();
-            query = query.Where(d => d.CoatColor != null && d.CoatColor.ToUpper() == upperCoatColor);
-        }
-
-        if (catCompatibility is { } catValue && catValue != CatCompatibility.Unknown)
-        {
-            query = query.Where(d => d.CatCompatibility == catValue);
-        }
-
-        if (childrenCompatibility is { } childrenValue && childrenValue != ChildrenCompatibility.Unknown)
-        {
-            query = query.Where(d => d.ChildrenCompatibility == childrenValue);
-        }
-
-        if (activityLevel is { } activityValue && activityValue != DogActivityLevel.Unknown)
-        {
-            query = query.Where(d => d.ActivityLevel == activityValue);
-        }
-
-        if (apartmentSuitability is { } apartmentValue && apartmentValue != ApartmentSuitability.Unknown)
-        {
-            query = query.Where(d => d.ApartmentSuitability == apartmentValue);
-        }
+        var query = BuildPublicDogSearchQuery(
+            searchTerm,
+            breed,
+            maxAge,
+            size,
+            location,
+            status,
+            shelterId,
+            neighborhood,
+            coatColor,
+            catCompatibility,
+            childrenCompatibility,
+            activityLevel,
+            apartmentSuitability);
 
         return ApplyDogSorting(query, sortOption)
             .AsNoTracking()
             .ToListAsync();
+    }
+
+    public async Task<PagedResult<Dog>> SearchDogsPagedAsync(
+        string? searchTerm,
+        string? breed,
+        int? maxAge,
+        DogSize? size,
+        string? location,
+        DogStatus? status,
+        DogSortOption sortOption = DogSortOption.NameAsc,
+        int? shelterId = null,
+        string? neighborhood = null,
+        string? coatColor = null,
+        CatCompatibility? catCompatibility = null,
+        ChildrenCompatibility? childrenCompatibility = null,
+        DogActivityLevel? activityLevel = null,
+        ApartmentSuitability? apartmentSuitability = null,
+        int page = 1,
+        int pageSize = 24,
+        CancellationToken cancellationToken = default)
+    {
+        var (normalizedPage, normalizedPageSize) = PagedResult<Dog>.Normalize(page, pageSize);
+        var query = BuildPublicDogSearchQuery(
+            searchTerm,
+            breed,
+            maxAge,
+            size,
+            location,
+            status,
+            shelterId,
+            neighborhood,
+            coatColor,
+            catCompatibility,
+            childrenCompatibility,
+            activityLevel,
+            apartmentSuitability);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+        var totalPages = totalCount == 0
+            ? 0
+            : (int)Math.Ceiling(totalCount / (double)normalizedPageSize);
+
+        var items = await ApplyDogSorting(query, sortOption)
+            .Skip((normalizedPage - 1) * normalizedPageSize)
+            .Take(normalizedPageSize)
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+
+        return new PagedResult<Dog>(
+            items,
+            normalizedPage,
+            normalizedPageSize,
+            totalCount,
+            totalPages);
     }
 
     public Task<List<Dog>> GetAllDogsAsync()
@@ -480,6 +462,111 @@ public class DogService(
             DogSortOption.NearestFirst => query.OrderBy(d => d.Name),
             _ => query.OrderBy(d => d.Name)
         };
+    }
+
+    private IQueryable<Dog> BuildPublicDogSearchQuery(
+        string? searchTerm,
+        string? breed,
+        int? maxAge,
+        DogSize? size,
+        string? location,
+        DogStatus? status,
+        int? shelterId,
+        string? neighborhood,
+        string? coatColor,
+        CatCompatibility? catCompatibility,
+        ChildrenCompatibility? childrenCompatibility,
+        DogActivityLevel? activityLevel,
+        ApartmentSuitability? apartmentSuitability)
+    {
+        var query = context.Dogs
+            .Include(d => d.Shelter)
+            .Include(d => d.DogBreed)
+            .Include(d => d.SecondaryBreed)
+            .Include(d => d.Images)
+            .Include(d => d.PreferredFoodType)
+            .Where(d => d.Status == DogStatus.Available || d.Status == DogStatus.Reserved)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            query = query.Where(d => d.Name.Contains(searchTerm));
+        }
+
+        if (!string.IsNullOrWhiteSpace(breed))
+        {
+            var normalizedBreed = breed.Trim().ToUpper();
+            query = query.Where(d =>
+                d.Breed.ToUpper().Contains(normalizedBreed) ||
+                (d.CustomBreedName != null && d.CustomBreedName.ToUpper().Contains(normalizedBreed)) ||
+                (d.DogBreed != null && d.DogBreed.Name.ToUpper().Contains(normalizedBreed)) ||
+                (d.SecondaryBreed != null && d.SecondaryBreed.Name.ToUpper().Contains(normalizedBreed)) ||
+                (d.IsMixedBreed && d.DogBreed != null && d.SecondaryBreed != null && (d.DogBreed.Name + " " + d.SecondaryBreed.Name + " Mix").ToUpper().Contains(normalizedBreed)) ||
+                (d.IsMixedBreed && d.DogBreed != null && (d.DogBreed.Name + " Mix").ToUpper().Contains(normalizedBreed)));
+        }
+
+        if (maxAge.HasValue)
+        {
+            query = query.Where(d => d.AgeYears <= maxAge.Value);
+        }
+
+        if (size.HasValue)
+        {
+            query = query.Where(d => d.Size == size.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(location))
+        {
+            query = query.Where(d => d.Location == location);
+        }
+
+        if (status.HasValue)
+        {
+            query = query.Where(d => d.Status == status.Value);
+        }
+
+        if (shelterId.HasValue)
+        {
+            query = query.Where(d => d.ShelterId == shelterId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(neighborhood))
+        {
+            var normalizedNeighborhood = neighborhood.Trim().ToUpper();
+            query = query.Where(d =>
+                d.Shelter != null &&
+                d.Shelter.Neighborhood != null &&
+                d.Shelter.Neighborhood.Trim().ToUpper() == normalizedNeighborhood);
+        }
+
+        var normalizedCoatColor = DogCoatColorOptions.Normalize(coatColor);
+        if (!string.IsNullOrWhiteSpace(normalizedCoatColor))
+        {
+            var upperCoatColor = normalizedCoatColor.ToUpper();
+            query = query.Where(d => d.CoatColor != null && d.CoatColor.ToUpper() == upperCoatColor);
+        }
+
+        if (catCompatibility is { } catValue && catValue != CatCompatibility.Unknown)
+        {
+            query = query.Where(d => d.CatCompatibility == catValue);
+        }
+
+        if (childrenCompatibility is { } childrenValue && childrenValue != ChildrenCompatibility.Unknown)
+        {
+            query = query.Where(d => d.ChildrenCompatibility == childrenValue);
+        }
+
+        if (activityLevel is { } activityValue && activityValue != DogActivityLevel.Unknown)
+        {
+            query = query.Where(d => d.ActivityLevel == activityValue);
+        }
+
+        if (apartmentSuitability is { } apartmentValue && apartmentValue != ApartmentSuitability.Unknown)
+        {
+            query = query.Where(d => d.ApartmentSuitability == apartmentValue);
+        }
+
+        return query;
     }
 
     private async Task ValidateAndNormalizeDogAsync(Dog dog)

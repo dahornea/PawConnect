@@ -1,17 +1,37 @@
 using Microsoft.EntityFrameworkCore;
 using PawConnect.Data;
 using PawConnect.Entities;
+using PawConnect.Services.Caching;
 
 namespace PawConnect.Services;
 
-public class FoodTypeService(ApplicationDbContext context) : IFoodTypeService
+public class FoodTypeService(
+    ApplicationDbContext context,
+    ILocalCacheService? cache = null) : IFoodTypeService
 {
+    private static readonly TimeSpan LookupCacheTtl = TimeSpan.FromMinutes(30);
+
     public Task<List<FoodType>> GetAllAsync()
     {
         return GetAllFoodTypesAsync();
     }
 
-    public Task<List<FoodType>> GetAllFoodTypesAsync()
+    public async Task<List<FoodType>> GetAllFoodTypesAsync()
+    {
+        if (cache is null)
+        {
+            return await QueryAllFoodTypesAsync();
+        }
+
+        var foodTypes = await cache.GetOrCreateAsync(
+            CacheKeys.FoodTypesAll,
+            QueryAllFoodTypesAsync,
+            LookupCacheTtl);
+
+        return foodTypes.ToList();
+    }
+
+    private Task<List<FoodType>> QueryAllFoodTypesAsync()
     {
         return context.FoodTypes
             .AsNoTracking()
@@ -32,12 +52,14 @@ public class FoodTypeService(ApplicationDbContext context) : IFoodTypeService
     {
         context.FoodTypes.Add(foodType);
         await context.SaveChangesAsync();
+        cache?.Remove(CacheKeys.FoodTypesAll);
     }
 
     public async Task UpdateAsync(FoodType foodType)
     {
         context.FoodTypes.Update(foodType);
         await context.SaveChangesAsync();
+        cache?.Remove(CacheKeys.FoodTypesAll);
     }
 
     public async Task DeleteAsync(int id)
@@ -50,5 +72,6 @@ public class FoodTypeService(ApplicationDbContext context) : IFoodTypeService
 
         context.FoodTypes.Remove(foodType);
         await context.SaveChangesAsync();
+        cache?.Remove(CacheKeys.FoodTypesAll);
     }
 }

@@ -24,6 +24,7 @@ PawConnect is a multi-role web application that connects adopters with animal sh
 - [API Documentation](#api-documentation)
 - [Project Structure](#project-structure)
 - [Security and Privacy Notes](#security-and-privacy-notes)
+- [Performance Notes](#performance-notes)
 - [Future Work](#future-work)
 - [CV Summary](#cv-summary)
 
@@ -560,6 +561,15 @@ Detailed security notes are available in [docs/SECURITY.md](docs/SECURITY.md).
 - Email/PDF/report failures are handled as best-effort side effects and should not cancel the main business action.
 - Upload handling validates file types, sizes, and safe relative storage paths where local upload features are implemented.
 - `.env`, user secrets, API keys, SMTP credentials, database passwords, and generated uploads should not be committed.
+
+## Performance Notes
+
+Performance and caching details are documented in [docs/PERFORMANCE.md](docs/PERFORMANCE.md).
+
+- Public dog API searches use server-side pagination through the service layer.
+- Stable lookup data such as dog breeds, food types, and resource categories uses short local `IMemoryCache` caching.
+- Admin and shelter analytics dashboards use short-lived scoped cache entries after authorization checks.
+- PawConnect intentionally avoids paid or external cache infrastructure; the current cache is local and in-process.
 
 ## Future Work
 

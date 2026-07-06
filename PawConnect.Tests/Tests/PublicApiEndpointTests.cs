@@ -77,6 +77,34 @@ public class PublicApiEndpointTests
     }
 
     [Fact]
+    public async Task DogsEndpoint_ReturnsRequestedPageWithoutCountingHiddenDogs()
+    {
+        await using var factory = new PawConnectApiFactory();
+        await factory.SeedAsync(context =>
+        {
+            context.Shelters.Add(CreateShelter());
+            context.Dogs.AddRange(
+                CreateDog("Alpha Api Dog", DogStatus.Available),
+                CreateDog("Bravo Api Dog", DogStatus.Available),
+                CreateDog("Charlie Api Dog", DogStatus.Reserved),
+                CreateDog("Adopted Api Dog", DogStatus.Adopted));
+        });
+        var client = factory.CreateClient();
+
+        var result = await client.GetFromJsonAsync<ApiPagedResult<DogListItemApiDto>>(
+            "/api/v1/dogs?page=2&pageSize=1",
+            JsonOptions);
+
+        Assert.NotNull(result);
+        Assert.Equal(2, result.Page);
+        Assert.Equal(1, result.PageSize);
+        Assert.Equal(3, result.TotalCount);
+        Assert.Equal(3, result.TotalPages);
+        var dog = Assert.Single(result.Items);
+        Assert.Equal("Bravo Api Dog", dog.Name);
+    }
+
+    [Fact]
     public async Task DogDetailsEndpoint_ReturnsNotFoundForNonPublicDog()
     {
         await using var factory = new PawConnectApiFactory();

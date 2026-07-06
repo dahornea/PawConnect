@@ -1,12 +1,17 @@
 using Microsoft.EntityFrameworkCore;
 using PawConnect.Data;
 using PawConnect.Entities;
+using PawConnect.Services.Caching;
 
 namespace PawConnect.Services;
 
-public class AnalyticsService(ApplicationDbContext context) : IAnalyticsService
+public class AnalyticsService(
+    ApplicationDbContext context,
+    ILocalCacheService? cache = null) : IAnalyticsService
 {
     private const int TopListSize = 6;
+    private static readonly TimeSpan DashboardCacheTtl = TimeSpan.FromSeconds(45);
+    private static readonly TimeSpan LookupCacheTtl = TimeSpan.FromMinutes(10);
 
     public async Task<IReadOnlyList<AnalyticsShelterOptionDto>> GetAdminShelterOptionsAsync(
         string adminUserId,
@@ -14,6 +19,20 @@ public class AnalyticsService(ApplicationDbContext context) : IAnalyticsService
     {
         await EnsureUserInRoleAsync(adminUserId, IdentitySeedData.AdminRole, cancellationToken);
 
+        if (cache is not null)
+        {
+            return await cache.GetOrCreateAsync(
+                CacheKeys.AdminShelterOptions,
+                () => GetAdminShelterOptionsCoreAsync(cancellationToken),
+                LookupCacheTtl);
+        }
+
+        return await GetAdminShelterOptionsCoreAsync(cancellationToken);
+    }
+
+    private async Task<IReadOnlyList<AnalyticsShelterOptionDto>> GetAdminShelterOptionsCoreAsync(
+        CancellationToken cancellationToken)
+    {
         return await context.Shelters
             .AsNoTracking()
             .OrderBy(shelter => shelter.Name)
@@ -35,7 +54,28 @@ public class AnalyticsService(ApplicationDbContext context) : IAnalyticsService
             throw new InvalidOperationException("The selected shelter does not exist.");
         }
 
-        var shelterOptions = await GetAdminShelterOptionsAsync(adminUserId, cancellationToken);
+        if (cache is not null)
+        {
+            return await cache.GetOrCreateAsync(
+                CacheKeys.AdminAnalytics(range, shelterId),
+                () => GetAdminAnalyticsCoreAsync(range, shelterId, cancellationToken),
+                DashboardCacheTtl);
+        }
+
+        return await GetAdminAnalyticsCoreAsync(range, shelterId, cancellationToken);
+    }
+
+    private async Task<AdminAnalyticsDashboardDto> GetAdminAnalyticsCoreAsync(
+        AnalyticsDateRange range,
+        int? shelterId,
+        CancellationToken cancellationToken)
+    {
+        var shelterOptions = cache is null
+            ? await GetAdminShelterOptionsCoreAsync(cancellationToken)
+            : await cache.GetOrCreateAsync(
+                CacheKeys.AdminShelterOptions,
+                () => GetAdminShelterOptionsCoreAsync(cancellationToken),
+                LookupCacheTtl);
         var funnel = await BuildAdoptionFunnelAsync(range, shelterId, cancellationToken);
         var trends = await BuildRequestTrendsAsync(range, shelterId, cancellationToken);
         var dogStatusBreakdown = await BuildDogStatusBreakdownAsync(shelterId, cancellationToken);
@@ -79,6 +119,22 @@ public class AnalyticsService(ApplicationDbContext context) : IAnalyticsService
             throw new InvalidOperationException("No shelter profile is linked to this account.");
         }
 
+        if (cache is not null)
+        {
+            return await cache.GetOrCreateAsync(
+                CacheKeys.ShelterAnalytics(shelter.Id, range),
+                () => GetShelterAnalyticsCoreAsync(range, shelter, cancellationToken),
+                DashboardCacheTtl);
+        }
+
+        return await GetShelterAnalyticsCoreAsync(range, shelter, cancellationToken);
+    }
+
+    private async Task<ShelterAnalyticsDashboardDto> GetShelterAnalyticsCoreAsync(
+        AnalyticsDateRange range,
+        Shelter shelter,
+        CancellationToken cancellationToken)
+    {
         var funnel = await BuildAdoptionFunnelAsync(range, shelter.Id, cancellationToken);
         var trends = await BuildRequestTrendsAsync(range, shelter.Id, cancellationToken);
         var dogStatusBreakdown = await BuildDogStatusBreakdownAsync(shelter.Id, cancellationToken);

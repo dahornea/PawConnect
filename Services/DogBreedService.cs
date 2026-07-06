@@ -1,12 +1,32 @@
 using Microsoft.EntityFrameworkCore;
 using PawConnect.Data;
 using PawConnect.Entities;
+using PawConnect.Services.Caching;
 
 namespace PawConnect.Services;
 
-public class DogBreedService(ApplicationDbContext context) : IDogBreedService
+public class DogBreedService(
+    ApplicationDbContext context,
+    ILocalCacheService? cache = null) : IDogBreedService
 {
-    public Task<List<DogBreed>> GetActiveBreedsAsync()
+    private static readonly TimeSpan LookupCacheTtl = TimeSpan.FromMinutes(30);
+
+    public async Task<List<DogBreed>> GetActiveBreedsAsync()
+    {
+        if (cache is null)
+        {
+            return await QueryActiveBreedsAsync();
+        }
+
+        var breeds = await cache.GetOrCreateAsync(
+            CacheKeys.ActiveDogBreeds,
+            QueryActiveBreedsAsync,
+            LookupCacheTtl);
+
+        return breeds.ToList();
+    }
+
+    private Task<List<DogBreed>> QueryActiveBreedsAsync()
     {
         return context.DogBreeds
             .Where(breed => breed.IsActive)

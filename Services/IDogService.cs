@@ -20,6 +20,8 @@ public interface IDogService
 
     Task<List<Dog>> SearchDogsAsync(string? searchTerm, string? breed, int? maxAge, DogSize? size, string? location, DogStatus? status, DogSortOption sortOption = DogSortOption.NameAsc, int? shelterId = null, string? neighborhood = null, string? coatColor = null, CatCompatibility? catCompatibility = null, ChildrenCompatibility? childrenCompatibility = null, DogActivityLevel? activityLevel = null, ApartmentSuitability? apartmentSuitability = null);
 
+    Task<PagedResult<Dog>> SearchDogsPagedAsync(string? searchTerm, string? breed, int? maxAge, DogSize? size, string? location, DogStatus? status, DogSortOption sortOption = DogSortOption.NameAsc, int? shelterId = null, string? neighborhood = null, string? coatColor = null, CatCompatibility? catCompatibility = null, ChildrenCompatibility? childrenCompatibility = null, DogActivityLevel? activityLevel = null, ApartmentSuitability? apartmentSuitability = null, int page = 1, int pageSize = 24, CancellationToken cancellationToken = default);
+
     Task<Dog?> GetDogDetailsAsync(int id);
 
     Task<List<Dog>> GetAllDogsAsync();

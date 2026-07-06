@@ -28,9 +28,10 @@ public class DogsController(IDogService dogService) : ControllerBase
         [FromQuery] DogActivityLevel? activityLevel = null,
         [FromQuery] ApartmentSuitability? apartmentSuitability = null,
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 24)
+        [FromQuery] int pageSize = 24,
+        CancellationToken cancellationToken = default)
     {
-        var dogs = await dogService.SearchDogsAsync(
+        var dogs = await dogService.SearchDogsPagedAsync(
             search,
             breed,
             maxAge,
@@ -44,12 +45,17 @@ public class DogsController(IDogService dogService) : ControllerBase
             catCompatibility,
             childrenCompatibility,
             activityLevel,
-            apartmentSuitability);
-
-        return Ok(ApiPagedResult<DogListItemApiDto>.Create(
-            dogs.Select(ApiDtoMapper.ToDogListItem),
+            apartmentSuitability,
             page,
-            pageSize));
+            pageSize,
+            cancellationToken);
+
+        return Ok(new ApiPagedResult<DogListItemApiDto>(
+            dogs.Items.Select(ApiDtoMapper.ToDogListItem).ToList(),
+            dogs.Page,
+            dogs.PageSize,
+            dogs.TotalCount,
+            dogs.TotalPages));
     }
 
     [HttpGet("{id:int}")]

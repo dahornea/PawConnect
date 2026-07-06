@@ -157,6 +157,38 @@ public class DogServiceTests
     }
 
     [Fact]
+    public async Task SearchDogsPagedAsync_ReturnsRequestedPageAndTotalCount()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        context.Dogs.AddRange(
+            TestDbContextFactory.CreateDog("Alpha Dog"),
+            TestDbContextFactory.CreateDog("Bravo Dog"),
+            TestDbContextFactory.CreateDog("Charlie Dog"),
+            TestDbContextFactory.CreateDog("Adopted Dog", DogStatus.Adopted));
+        await context.SaveChangesAsync();
+
+        var service = new DogService(context);
+
+        var page = await service.SearchDogsPagedAsync(
+            searchTerm: null,
+            breed: null,
+            maxAge: null,
+            size: null,
+            location: null,
+            status: null,
+            sortOption: DogSortOption.NameAsc,
+            page: 2,
+            pageSize: 1);
+
+        Assert.Equal(2, page.Page);
+        Assert.Equal(1, page.PageSize);
+        Assert.Equal(3, page.TotalCount);
+        Assert.Equal(3, page.TotalPages);
+        var dog = Assert.Single(page.Items);
+        Assert.Equal("Bravo Dog", dog.Name);
+    }
+
+    [Fact]
     public async Task CreateDogAsync_AllowsCustomBreedName()
     {
         await using var context = TestDbContextFactory.CreateContext();
