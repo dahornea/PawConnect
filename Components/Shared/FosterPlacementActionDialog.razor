@@ -1,0 +1,47 @@
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="2">
+            <MudText Typo="Typo.body1">@Message</MudText>
+            @if (RequireDate)
+            {
+                <MudDatePicker Label="@DateLabel" Date="@ActionDate" DateChanged="@((DateTime? date) => ActionDate = date)" Variant="Variant.Outlined" Required="true" />
+            }
+            <MudTextField T="string" Label="Notes" @bind-Value="Notes" Variant="Variant.Outlined" Lines="4" MaxLength="1000" />
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="@ConfirmColor" Variant="Variant.Filled" OnClick="Confirm">@ConfirmText</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public string Message { get; set; } = "Add an optional note for this action.";
+    [Parameter] public string ConfirmText { get; set; } = "Confirm";
+    [Parameter] public Color ConfirmColor { get; set; } = Color.Primary;
+    [Parameter] public bool RequireDate { get; set; }
+    [Parameter] public string DateLabel { get; set; } = "Date";
+    [Parameter] public DateTime? DefaultDate { get; set; }
+    private DateTime? ActionDate { get; set; }
+    private string? Notes { get; set; }
+
+    protected override void OnInitialized()
+    {
+        ActionDate = DefaultDate ?? DateTime.Today;
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private void Confirm()
+    {
+        if (RequireDate && ActionDate is null)
+        {
+            return;
+        }
+
+        MudDialog.Close(DialogResult.Ok(new FosterPlacementActionResult(Notes, ActionDate)));
+    }
+
+    public sealed record FosterPlacementActionResult(string? Notes, DateTime? Date);
+}

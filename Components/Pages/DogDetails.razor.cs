@@ -29,6 +29,7 @@ public partial class DogDetails
     [Inject] private ISnackbar Snackbar { get; set; } = default!;
     [Inject] private IDialogService DialogService { get; set; } = default!;
     [Inject] private IDogTransferService DogTransferService { get; set; } = default!;
+    [Inject] private IFosterPlacementService FosterPlacementService { get; set; } = default!;
     [Inject] private IShelterService ShelterService { get; set; } = default!;
     [Inject] private ILogger<DogDetails> Logger { get; set; } = default!;
 
@@ -53,6 +54,7 @@ public partial class DogDetails
     private bool _isHistoryLoading;
     private int? _currentShelterId;
     private IReadOnlyList<DogTransferHistoryItemDto> _transferHistory = [];
+    private IReadOnlyList<DogFosterHistoryItemDto> _fosterHistory = [];
     private int _selectedImageIndex;
     private readonly HashSet<string> _unavailableImageUrls = new(StringComparer.OrdinalIgnoreCase);
     private AdopterProfile? _adopterProfile;
@@ -108,6 +110,28 @@ public partial class DogDetails
         if (_dog is not null && (_currentUserIsShelter || _currentUserIsAdmin))
         {
             await LoadTransferHistoryAsync();
+            await LoadFosterHistoryAsync();
+        }
+    }
+
+    private async Task LoadFosterHistoryAsync()
+    {
+        if (_dog is null)
+        {
+            return;
+        }
+
+        try
+        {
+            _fosterHistory = await FosterPlacementService.GetDogFosterHistoryAsync(
+                _dog.Id,
+                _currentShelterId,
+                _currentUserIsAdmin);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Foster history could not be loaded for dog {DogId}.", _dog.Id);
+            _fosterHistory = [];
         }
     }
 
@@ -613,6 +637,27 @@ public partial class DogDetails
     };
 
     private static string FormatTransferDate(DateTime value) => value.ToLocalTime().ToString("dd MMM yyyy, HH:mm");
+
+    private static Color GetFosterStatusColor(FosterPlacementStatus status) => status switch
+    {
+        FosterPlacementStatus.Pending => Color.Warning,
+        FosterPlacementStatus.Approved => Color.Info,
+        FosterPlacementStatus.Active => Color.Success,
+        FosterPlacementStatus.Completed => Color.Primary,
+        FosterPlacementStatus.Cancelled => Color.Default,
+        _ => Color.Default
+    };
+
+    private static string FormatFosterReason(FosterPlacementReason reason) => reason switch
+    {
+        FosterPlacementReason.MedicalRecovery => "Medical recovery",
+        FosterPlacementReason.PuppyCare => "Puppy care",
+        FosterPlacementReason.BehavioralObservation => "Behavioral observation",
+        FosterPlacementReason.TemporaryEmergencyCare => "Temporary emergency care",
+        FosterPlacementReason.AdoptionTrialSupport => "Adoption trial support",
+        FosterPlacementReason.Overcrowding => "Overcrowding",
+        _ => "Other"
+    };
     private static string FormatYesNo(bool value)
     {
         return value ? "Yes" : "No";

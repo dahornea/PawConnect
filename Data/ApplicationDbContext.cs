@@ -73,6 +73,12 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
     public DbSet<DogTransferRequest> DogTransferRequests => Set<DogTransferRequest>();
 
+    public DbSet<FosterCaregiverProfile> FosterCaregiverProfiles => Set<FosterCaregiverProfile>();
+
+    public DbSet<FosterPlacement> FosterPlacements => Set<FosterPlacement>();
+
+    public DbSet<FosterPlacementActivity> FosterPlacementActivities => Set<FosterPlacementActivity>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -977,6 +983,168 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
         builder.Entity<DogTransferRequest>()
             .HasIndex(transfer => transfer.RequestedAtUtc);
+        builder.Entity<FosterCaregiverProfile>()
+            .HasOne(caregiver => caregiver.User)
+            .WithMany()
+            .HasForeignKey(caregiver => caregiver.UserId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<FosterCaregiverProfile>()
+            .HasOne(caregiver => caregiver.PreferredShelter)
+            .WithMany()
+            .HasForeignKey(caregiver => caregiver.PreferredShelterId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<FosterCaregiverProfile>()
+            .Property(caregiver => caregiver.DisplayName)
+            .HasMaxLength(120);
+
+        builder.Entity<FosterCaregiverProfile>()
+            .Property(caregiver => caregiver.Email)
+            .HasMaxLength(256);
+
+        builder.Entity<FosterCaregiverProfile>()
+            .Property(caregiver => caregiver.PhoneNumber)
+            .HasMaxLength(40);
+
+        builder.Entity<FosterCaregiverProfile>()
+            .Property(caregiver => caregiver.AddressSummary)
+            .HasMaxLength(250);
+
+        builder.Entity<FosterCaregiverProfile>()
+            .Property(caregiver => caregiver.ExperienceNotes)
+            .HasMaxLength(1000);
+
+        builder.Entity<FosterCaregiverProfile>()
+            .Property(caregiver => caregiver.HomeEnvironmentNotes)
+            .HasMaxLength(1000);
+
+        builder.Entity<FosterCaregiverProfile>()
+            .Property(caregiver => caregiver.CreatedAtUtc)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<FosterCaregiverProfile>()
+            .Property(caregiver => caregiver.UpdatedAtUtc)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<FosterCaregiverProfile>()
+            .HasIndex(caregiver => caregiver.PreferredShelterId);
+
+        builder.Entity<FosterCaregiverProfile>()
+            .HasIndex(caregiver => caregiver.IsActive);
+
+        builder.Entity<FosterPlacement>()
+            .HasOne(placement => placement.Dog)
+            .WithMany()
+            .HasForeignKey(placement => placement.DogId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<FosterPlacement>()
+            .HasOne(placement => placement.Shelter)
+            .WithMany()
+            .HasForeignKey(placement => placement.ShelterId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<FosterPlacement>()
+            .HasOne(placement => placement.FosterCaregiverProfile)
+            .WithMany(caregiver => caregiver.Placements)
+            .HasForeignKey(placement => placement.FosterCaregiverProfileId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<FosterPlacement>()
+            .HasOne(placement => placement.CreatedByUser)
+            .WithMany()
+            .HasForeignKey(placement => placement.CreatedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<FosterPlacement>()
+            .HasOne(placement => placement.ApprovedByUser)
+            .WithMany()
+            .HasForeignKey(placement => placement.ApprovedByUserId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<FosterPlacement>()
+            .HasOne(placement => placement.EndedByUser)
+            .WithMany()
+            .HasForeignKey(placement => placement.EndedByUserId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<FosterPlacement>()
+            .Property(placement => placement.CareInstructions)
+            .HasMaxLength(1000);
+
+        builder.Entity<FosterPlacement>()
+            .Property(placement => placement.MedicalNotesSummary)
+            .HasMaxLength(1000);
+
+        builder.Entity<FosterPlacement>()
+            .Property(placement => placement.ShelterNotes)
+            .HasMaxLength(1000);
+
+        builder.Entity<FosterPlacement>()
+            .Property(placement => placement.FosterNotes)
+            .HasMaxLength(1000);
+
+        builder.Entity<FosterPlacement>()
+            .Property(placement => placement.CompletionNotes)
+            .HasMaxLength(1000);
+
+        builder.Entity<FosterPlacement>()
+            .Property(placement => placement.CreatedAtUtc)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<FosterPlacement>()
+            .Property(placement => placement.UpdatedAtUtc)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<FosterPlacement>()
+            .HasIndex(placement => placement.DogId);
+
+        builder.Entity<FosterPlacement>()
+            .HasIndex(placement => placement.ShelterId);
+
+        builder.Entity<FosterPlacement>()
+            .HasIndex(placement => placement.FosterCaregiverProfileId);
+
+        builder.Entity<FosterPlacement>()
+            .HasIndex(placement => placement.Status);
+
+        builder.Entity<FosterPlacement>()
+            .HasIndex(placement => placement.StartDateUtc);
+
+        builder.Entity<FosterPlacement>()
+            .HasIndex(placement => placement.PlannedEndDateUtc);
+
+        builder.Entity<FosterPlacementActivity>()
+            .HasOne(activity => activity.FosterPlacement)
+            .WithMany(placement => placement.Activities)
+            .HasForeignKey(activity => activity.FosterPlacementId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<FosterPlacementActivity>()
+            .HasOne(activity => activity.ActorUser)
+            .WithMany()
+            .HasForeignKey(activity => activity.ActorUserId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<FosterPlacementActivity>()
+            .Property(activity => activity.Message)
+            .HasMaxLength(1000);
+
+        builder.Entity<FosterPlacementActivity>()
+            .Property(activity => activity.CreatedAtUtc)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<FosterPlacementActivity>()
+            .HasIndex(activity => activity.FosterPlacementId);
+
+        builder.Entity<FosterPlacementActivity>()
+            .HasIndex(activity => activity.CreatedAtUtc);
         SeedLookupData(builder);
     }
 

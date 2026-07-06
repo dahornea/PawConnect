@@ -7,6 +7,7 @@ public enum NotificationCategory
     Resource = 2,
     Report = 3,
     System = 4,
-    Transfer = 5
+    Transfer = 5,
+    FosterCare = 6
 }
 

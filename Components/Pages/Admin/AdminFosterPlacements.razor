@@ -1,0 +1,159 @@
+@page "/admin/foster-placements"
+@attribute [Authorize(Roles = "Admin")]
+
+<PageTitle>Foster Care Oversight</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.False" Class="px-0">
+    <MudStack Spacing="3">
+        <div class="page-header">
+            <MudText Typo="Typo.h4">Foster Care Oversight</MudText>
+            <MudText Typo="Typo.body2">Monitor foster placements across all shelters.</MudText>
+        </div>
+
+        @if (_isLoading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="py-8">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Loading foster care overview...</MudText>
+            </MudStack>
+        }
+        else if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <MudAlert Severity="Severity.Error">@_error</MudAlert>
+        }
+        else
+        {
+            <MudGrid Spacing="2">
+                <MudItem xs="12" sm="6" md="2">
+                    <MudPaper Elevation="0" Class="section-surface pa-3 h-100">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Pending</MudText>
+                        <MudText Typo="Typo.h5">@_stats?.Pending</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="2">
+                    <MudPaper Elevation="0" Class="section-surface pa-3 h-100">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Active</MudText>
+                        <MudText Typo="Typo.h5">@_stats?.Active</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="2">
+                    <MudPaper Elevation="0" Class="section-surface pa-3 h-100">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Ending soon</MudText>
+                        <MudText Typo="Typo.h5">@_stats?.EndingSoon</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="2">
+                    <MudPaper Elevation="0" Class="section-surface pa-3 h-100">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Overdue</MudText>
+                        <MudText Typo="Typo.h5">@_stats?.Overdue</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="2">
+                    <MudPaper Elevation="0" Class="section-surface pa-3 h-100">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Completed this month</MudText>
+                        <MudText Typo="Typo.h5">@_stats?.CompletedThisMonth</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="2">
+                    <MudPaper Elevation="0" Class="section-surface pa-3 h-100">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Available caregivers</MudText>
+                        <MudText Typo="Typo.h5">@_stats?.AvailableCaregivers</MudText>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+
+            <MudPaper Elevation="0" Class="section-surface pa-3">
+                <MudGrid Spacing="2">
+                    <MudItem xs="12" sm="6" md="2">
+                        <MudSelect T="FosterPlacementStatus?" Label="Status" @bind-Value="_statusFilter" Variant="Variant.Outlined" Clearable="true">
+                            @foreach (var status in Enum.GetValues<FosterPlacementStatus>())
+                            {
+                                <MudSelectItem T="FosterPlacementStatus?" Value="@((FosterPlacementStatus?)status)">@status</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12" sm="6" md="2">
+                        <MudSelect T="FosterPlacementPriority?" Label="Priority" @bind-Value="_priorityFilter" Variant="Variant.Outlined" Clearable="true">
+                            @foreach (var priority in Enum.GetValues<FosterPlacementPriority>())
+                            {
+                                <MudSelectItem T="FosterPlacementPriority?" Value="@((FosterPlacementPriority?)priority)">@priority</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12" sm="6" md="2">
+                        <MudSelect T="FosterPlacementReason?" Label="Reason" @bind-Value="_reasonFilter" Variant="Variant.Outlined" Clearable="true">
+                            @foreach (var reason in Enum.GetValues<FosterPlacementReason>())
+                            {
+                                <MudSelectItem T="FosterPlacementReason?" Value="@((FosterPlacementReason?)reason)">@FormatReason(reason)</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12" sm="6" md="3">
+                        <MudSelect T="int?" Label="Shelter" @bind-Value="_shelterFilter" Variant="Variant.Outlined" Clearable="true">
+                            @foreach (var shelter in _shelters)
+                            {
+                                <MudSelectItem T="int?" Value="@((int?)shelter.Id)">@shelter.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12" md="3">
+                        <MudTextField T="string" Label="Search" @bind-Value="_search" Variant="Variant.Outlined" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudStack Row="true" Justify="Justify.FlexEnd">
+                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="LoadPlacementsAsync">Apply filters</MudButton>
+                        </MudStack>
+                    </MudItem>
+                </MudGrid>
+            </MudPaper>
+
+            <MudPaper Elevation="0" Class="section-surface pa-3">
+                <MudTable Items="_placements" Dense="true" Hover="true" Class="table-shell" RowsPerPage="10">
+                    <HeaderContent>
+                        <MudTh>Dog</MudTh>
+                        <MudTh>Shelter</MudTh>
+                        <MudTh>Caregiver</MudTh>
+                        <MudTh>Reason</MudTh>
+                        <MudTh>Dates</MudTh>
+                        <MudTh>Status</MudTh>
+                        <MudTh>Priority</MudTh>
+                        <MudTh></MudTh>
+                    </HeaderContent>
+                    <RowTemplate Context="placement">
+                        <MudTd DataLabel="Dog">
+                            <MudText Typo="Typo.body2">@placement.DogName</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">@placement.DogBreed</MudText>
+                        </MudTd>
+                        <MudTd DataLabel="Shelter">@placement.ShelterName</MudTd>
+                        <MudTd DataLabel="Caregiver">@placement.CaregiverName</MudTd>
+                        <MudTd DataLabel="Reason">@FormatReason(placement.Reason)</MudTd>
+                        <MudTd DataLabel="Dates">
+                            <MudText Typo="Typo.body2">@FormatDate(placement.StartDateUtc)</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">End: @(placement.PlannedEndDateUtc is null ? "not set" : FormatDate(placement.PlannedEndDateUtc.Value))</MudText>
+                        </MudTd>
+                        <MudTd DataLabel="Status">
+                            <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(placement.Status)">@placement.Status</MudChip>
+                        </MudTd>
+                        <MudTd DataLabel="Priority">
+                            <MudChip T="string" Size="Size.Small" Color="@GetPriorityColor(placement.Priority)" Variant="Variant.Outlined">@placement.Priority</MudChip>
+                        </MudTd>
+                        <MudTd>
+                            <MudStack Row="true" Spacing="1" Class="flex-wrap">
+                                <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => ViewPlacementAsync(placement.Id))">View</MudButton>
+                                @if (placement.CanComplete)
+                                {
+                                    <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" Disabled="_isSaving" OnClick="@(() => CompleteAsync(placement.Id))">Complete</MudButton>
+                                }
+                                @if (placement.CanCancel)
+                                {
+                                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default" Disabled="_isSaving" OnClick="@(() => CancelAsync(placement.Id))">Cancel</MudButton>
+                                }
+                            </MudStack>
+                        </MudTd>
+                    </RowTemplate>
+                    <PagerContent><MudTablePager /></PagerContent>
+                </MudTable>
+            </MudPaper>
+        }
+    </MudStack>
+</MudContainer>

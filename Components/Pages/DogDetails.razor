@@ -515,11 +515,46 @@ else
                         </MudPaper>
                     </MudItem>
                 }
+                @if (_fosterHistory.Count > 0)
+                {
+                    <MudItem xs="12">
+                        <MudPaper Elevation="0" Class="section-surface pa-4">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                <MudIcon Icon="@Icons.Material.Filled.HomeWork" Color="Color.Primary" />
+                                <MudText Typo="Typo.h6" Class="content-title">Foster Care History</MudText>
+                            </MudStack>
+                            <MudDivider Class="my-2" />
+                            <MudTable Items="_fosterHistory" Dense="true" Hover="true" Class="table-shell">
+                                <HeaderContent>
+                                    <MudTh>Caregiver</MudTh>
+                                    <MudTh>Reason</MudTh>
+                                    <MudTh>Status</MudTh>
+                                    <MudTh>Start</MudTh>
+                                    <MudTh>Planned end</MudTh>
+                                    <MudTh>Summary</MudTh>
+                                </HeaderContent>
+                                <RowTemplate Context="placement">
+                                    <MudTd DataLabel="Caregiver">
+                                        <MudText Typo="Typo.body2">@placement.CaregiverName</MudText>
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">@placement.ShelterName</MudText>
+                                    </MudTd>
+                                    <MudTd DataLabel="Reason">@FormatFosterReason(placement.Reason)</MudTd>
+                                    <MudTd DataLabel="Status">
+                                        <MudChip T="string" Size="Size.Small" Color="@GetFosterStatusColor(placement.Status)">@placement.Status</MudChip>
+                                    </MudTd>
+                                    <MudTd DataLabel="Start">@FormatTransferDate(placement.StartDateUtc)</MudTd>
+                                    <MudTd DataLabel="Planned end">@(placement.PlannedEndDateUtc.HasValue ? FormatTransferDate(placement.PlannedEndDateUtc.Value) : "-")</MudTd>
+                                    <MudTd DataLabel="Summary">@placement.Summary</MudTd>
+                                </RowTemplate>
+                            </MudTable>
+                        </MudPaper>
+                    </MudItem>
+                }
                 <MudItem xs="12" md="4">
                     <MudPaper Elevation="0" Class="section-surface info-panel pa-4 h-100">
                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
                             <MudIcon Icon="@Icons.Material.Filled.Business" Color="Color.Primary" />
-                                    <MudText Typo="Typo.h6" Class="content-title">Shelter</MudText>
+                            <MudText Typo="Typo.h6" Class="content-title">Shelter</MudText>
                         </MudStack>
                         <MudDivider Class="my-2" />
                         @if (_dog.Shelter is null)

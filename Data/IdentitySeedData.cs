@@ -256,6 +256,7 @@ public static class IdentitySeedData
         await ReplaceShelterResourcesAsync(context);
         await ReplacePresentationRequestsAsync(context);
         await ReplacePresentationTransferRequestsAsync(context);
+        await ReplacePresentationFosterCareAsync(context);
         await SeedFavoritesAndRecentViewsAsync(context);
 
         await context.SaveChangesAsync();
@@ -630,6 +631,167 @@ public static class IdentitySeedData
                 CreatedAtUtc = seed.RequestedAtUtc,
                 UpdatedAtUtc = seed.CompletedAtUtc ?? seed.RespondedAtUtc ?? seed.CancelledAtUtc ?? seed.RequestedAtUtc
             });
+        }
+    }
+
+    private static async Task ReplacePresentationFosterCareAsync(ApplicationDbContext context)
+    {
+        var caregiverSeeds = GetFosterCaregivers();
+        var placementSeeds = GetFosterPlacements();
+        var caregiverEmails = caregiverSeeds.Select(seed => seed.Email).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var placementDogNames = placementSeeds.Select(seed => seed.DogName).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var dogIds = await context.Dogs
+            .Where(dog => placementDogNames.Contains(dog.Name))
+            .Select(dog => dog.Id)
+            .ToListAsync();
+
+        var existingPlacementIds = await context.FosterPlacements
+            .Where(placement => dogIds.Contains(placement.DogId))
+            .Select(placement => placement.Id)
+            .ToListAsync();
+        var existingActivities = await context.FosterPlacementActivities
+            .Where(activity => existingPlacementIds.Contains(activity.FosterPlacementId))
+            .ToListAsync();
+        context.FosterPlacementActivities.RemoveRange(existingActivities);
+
+        var existingPlacements = await context.FosterPlacements
+            .Where(placement => existingPlacementIds.Contains(placement.Id))
+            .ToListAsync();
+        context.FosterPlacements.RemoveRange(existingPlacements);
+
+        var existingCaregivers = await context.FosterCaregiverProfiles
+            .Where(caregiver => caregiverEmails.Contains(caregiver.Email))
+            .ToListAsync();
+        context.FosterCaregiverProfiles.RemoveRange(existingCaregivers);
+        await context.SaveChangesAsync();
+
+        var sheltersByName = await context.Shelters.ToDictionaryAsync(shelter => shelter.Name, StringComparer.OrdinalIgnoreCase);
+        foreach (var seed in caregiverSeeds)
+        {
+            sheltersByName.TryGetValue(seed.PreferredShelterName, out var preferredShelter);
+            context.FosterCaregiverProfiles.Add(new FosterCaregiverProfile
+            {
+                DisplayName = seed.DisplayName,
+                Email = seed.Email,
+                PhoneNumber = seed.PhoneNumber,
+                AddressSummary = seed.AddressSummary,
+                PreferredShelterId = preferredShelter?.Id,
+                ExperienceNotes = seed.ExperienceNotes,
+                HomeEnvironmentNotes = seed.HomeEnvironmentNotes,
+                Capacity = seed.Capacity,
+                ActivePlacementCount = 0,
+                IsActive = seed.IsActive,
+                CreatedAtUtc = seed.CreatedAtUtc,
+                UpdatedAtUtc = seed.CreatedAtUtc
+            });
+        }
+
+        await context.SaveChangesAsync();
+
+        var dogsByName = await context.Dogs.ToDictionaryAsync(dog => dog.Name, StringComparer.OrdinalIgnoreCase);
+        var caregiversByEmail = await context.FosterCaregiverProfiles.ToDictionaryAsync(caregiver => caregiver.Email, StringComparer.OrdinalIgnoreCase);
+        foreach (var seed in placementSeeds)
+        {
+            if (!dogsByName.TryGetValue(seed.DogName, out var dog) ||
+                !sheltersByName.TryGetValue(seed.ShelterName, out var shelter) ||
+                !caregiversByEmail.TryGetValue(seed.CaregiverEmail, out var caregiver))
+            {
+                continue;
+            }
+
+            var placement = new FosterPlacement
+            {
+                DogId = dog.Id,
+                ShelterId = shelter.Id,
+                FosterCaregiverProfileId = caregiver.Id,
+                CreatedByUserId = seed.CreatedByUserId,
+                ApprovedByUserId = seed.ApprovedByUserId,
+                EndedByUserId = seed.EndedByUserId,
+                Status = seed.Status,
+                Priority = seed.Priority,
+                Reason = seed.Reason,
+                StartDateUtc = seed.StartDateUtc,
+                PlannedEndDateUtc = seed.PlannedEndDateUtc,
+                ActualEndDateUtc = seed.ActualEndDateUtc,
+                CareInstructions = seed.CareInstructions,
+                MedicalNotesSummary = seed.MedicalNotesSummary,
+                ShelterNotes = seed.ShelterNotes,
+                FosterNotes = seed.FosterNotes,
+                CompletionNotes = seed.CompletionNotes,
+                CreatedAtUtc = seed.CreatedAtUtc,
+                UpdatedAtUtc = seed.ActualEndDateUtc ?? seed.CreatedAtUtc
+            };
+
+            context.FosterPlacements.Add(placement);
+            if (seed.Status == FosterPlacementStatus.Active)
+            {
+                caregiver.ActivePlacementCount++;
+            }
+        }
+
+        await context.SaveChangesAsync();
+
+        var fosterPlacements = await context.FosterPlacements
+            .Where(placement => dogIds.Contains(placement.DogId))
+            .ToListAsync();
+        foreach (var placement in fosterPlacements)
+        {
+            context.FosterPlacementActivities.Add(new FosterPlacementActivity
+            {
+                FosterPlacementId = placement.Id,
+                ActorUserId = placement.CreatedByUserId,
+                ActivityType = FosterPlacementActivityType.Created,
+                Message = "Demo foster placement created.",
+                CreatedAtUtc = placement.CreatedAtUtc
+            });
+
+            if (placement.Status is FosterPlacementStatus.Approved or FosterPlacementStatus.Active or FosterPlacementStatus.Completed)
+            {
+                context.FosterPlacementActivities.Add(new FosterPlacementActivity
+                {
+                    FosterPlacementId = placement.Id,
+                    ActorUserId = placement.ApprovedByUserId ?? placement.CreatedByUserId,
+                    ActivityType = FosterPlacementActivityType.Approved,
+                    Message = "Placement approved for demo workflow.",
+                    CreatedAtUtc = placement.CreatedAtUtc.AddHours(2)
+                });
+            }
+
+            if (placement.Status is FosterPlacementStatus.Active or FosterPlacementStatus.Completed)
+            {
+                context.FosterPlacementActivities.Add(new FosterPlacementActivity
+                {
+                    FosterPlacementId = placement.Id,
+                    ActorUserId = placement.ApprovedByUserId ?? placement.CreatedByUserId,
+                    ActivityType = FosterPlacementActivityType.Started,
+                    Message = "Dog moved into foster care.",
+                    CreatedAtUtc = placement.StartDateUtc
+                });
+            }
+
+            if (placement.Status == FosterPlacementStatus.Completed)
+            {
+                context.FosterPlacementActivities.Add(new FosterPlacementActivity
+                {
+                    FosterPlacementId = placement.Id,
+                    ActorUserId = placement.EndedByUserId ?? placement.CreatedByUserId,
+                    ActivityType = FosterPlacementActivityType.Completed,
+                    Message = "Foster placement completed and dog returned to shelter care.",
+                    CreatedAtUtc = placement.ActualEndDateUtc ?? placement.UpdatedAtUtc
+                });
+            }
+
+            if (placement.Status == FosterPlacementStatus.Cancelled)
+            {
+                context.FosterPlacementActivities.Add(new FosterPlacementActivity
+                {
+                    FosterPlacementId = placement.Id,
+                    ActorUserId = placement.EndedByUserId ?? placement.CreatedByUserId,
+                    ActivityType = FosterPlacementActivityType.Cancelled,
+                    Message = "Foster placement cancelled before start.",
+                    CreatedAtUtc = placement.ActualEndDateUtc ?? placement.UpdatedAtUtc
+                });
+            }
         }
     }
     private static async Task SeedFavoritesAndRecentViewsAsync(ApplicationDbContext context)
@@ -1266,6 +1428,33 @@ public static class IdentitySeedData
     }
 
 
+
+    private static IReadOnlyList<FosterCaregiverSeed> GetFosterCaregivers()
+    {
+        return
+        [
+            new("Mara Popescu", "mara.popescu@foster.pawconnect.local", "+40 700 010 201", "Zorilor, Cluj-Napoca", "Happy Paws Shelter", "Has fostered calm adult dogs and can support medication routines.", "Quiet apartment with nearby green space; no resident pets.", 2, true, new DateTime(2026, 4, 10, 8, 0, 0, DateTimeKind.Utc)),
+            new("Andrei Ionescu", "andrei.ionescu@foster.pawconnect.local", "+40 700 010 202", "Buna Ziua, Cluj-Napoca", "Safe Haven Dogs", "Comfortable with shy dogs that need predictable routines.", "House with fenced yard and calm evenings.", 1, true, new DateTime(2026, 4, 12, 9, 30, 0, DateTimeKind.Utc)),
+            new("Elena Radu", "elena.radu@foster.pawconnect.local", "+40 700 010 203", "Marasti, Cluj-Napoca", "Hope Tails Rescue", "Can provide short medical recovery stays after vet checks.", "Calm home environment; works from home most days.", 2, true, new DateTime(2026, 4, 16, 12, 0, 0, DateTimeKind.Utc)),
+            new("Ioana Muresan", "ioana.muresan@foster.pawconnect.local", "+40 700 010 204", "Gheorgheni, Cluj-Napoca", "Friendly Tails Center", "Experienced with puppies and gradual socialization.", "Apartment with a stable routine and supervised outdoor breaks.", 1, false, new DateTime(2026, 4, 18, 15, 0, 0, DateTimeKind.Utc)),
+            new("Radu Matei", "radu.matei@foster.pawconnect.local", "+40 700 010 205", "Manastur, Cluj-Napoca", "Second Chance Paws", "Can take short emergency placements for sensitive small dogs.", "Quiet home close to walking routes; prefers one foster dog at a time.", 1, true, new DateTime(2026, 4, 20, 10, 0, 0, DateTimeKind.Utc)),
+            new("Claudia Stan", "claudia.stan@foster.pawconnect.local", "+40 700 010 206", "Grigorescu, Cluj-Napoca", "Green Yard Animal Care", "Comfortable with larger dogs that need structured outdoor routines.", "Household with a fenced yard and experience with leash training.", 1, true, new DateTime(2026, 4, 22, 10, 0, 0, DateTimeKind.Utc)),
+            new("Simona Dobre", "simona.dobre@foster.pawconnect.local", "+40 700 010 207", "Iris, Cluj-Napoca", "North Star Animal Shelter", "Can support calm older dogs and careful medication schedules.", "Single-floor apartment with a predictable routine and quiet evenings.", 1, true, new DateTime(2026, 4, 24, 10, 0, 0, DateTimeKind.Utc))
+        ];
+    }
+
+    private static IReadOnlyList<FosterPlacementSeed> GetFosterPlacements()
+    {
+        return
+        [
+            new("Alma", "Friendly Tails Center", "ioana.muresan@foster.pawconnect.local", ShelterUserId, null, null, FosterPlacementStatus.Pending, FosterPlacementPriority.Normal, FosterPlacementReason.BehavioralObservation, new DateTime(2026, 6, 8, 9, 0, 0, DateTimeKind.Utc), new DateTime(2026, 6, 22, 9, 0, 0, DateTimeKind.Utc), null, "Observe how Alma settles in a quieter home and note response to daily walks.", null, "Pending caregiver reactivation before approval.", null, null, new DateTime(2026, 6, 3, 10, 0, 0, DateTimeKind.Utc)),
+            new("Finn", "Second Chance Paws", "radu.matei@foster.pawconnect.local", SecondChanceShelterUserId, SecondChanceShelterUserId, null, FosterPlacementStatus.Approved, FosterPlacementPriority.High, FosterPlacementReason.TemporaryEmergencyCare, new DateTime(2026, 6, 7, 8, 0, 0, DateTimeKind.Utc), new DateTime(2026, 6, 17, 8, 0, 0, DateTimeKind.Utc), null, "Keep introductions slow and report appetite changes during the first two days.", null, "Approved while shelter prepares transport.", null, null, new DateTime(2026, 6, 2, 13, 30, 0, DateTimeKind.Utc)),
+            new("Luna", "Hope Tails Rescue", "elena.radu@foster.pawconnect.local", HopeTailsShelterUserId, HopeTailsShelterUserId, null, FosterPlacementStatus.Active, FosterPlacementPriority.Urgent, FosterPlacementReason.MedicalRecovery, new DateTime(2026, 5, 30, 10, 0, 0, DateTimeKind.Utc), DateTime.UtcNow.Date.AddDays(3), null, "Give medication after breakfast and avoid high-stress walks.", "Skin follow-up scheduled; monitor scratching and appetite.", "Ending soon; shelter should call caregiver before return.", null, null, new DateTime(2026, 5, 28, 11, 0, 0, DateTimeKind.Utc)),
+            new("Bruno", "Green Yard Animal Care", "claudia.stan@foster.pawconnect.local", GreenYardShelterUserId, GreenYardShelterUserId, null, FosterPlacementStatus.Active, FosterPlacementPriority.High, FosterPlacementReason.Overcrowding, new DateTime(2026, 5, 18, 9, 0, 0, DateTimeKind.Utc), DateTime.UtcNow.Date.AddDays(-2), null, "Longer walks are fine, but keep training sessions structured and calm.", null, "Overdue planned end date kept intentionally for dashboard warning demo.", null, null, new DateTime(2026, 5, 17, 9, 0, 0, DateTimeKind.Utc)),
+            new("Poppy", "North Star Animal Shelter", "simona.dobre@foster.pawconnect.local", NorthStarShelterUserId, NorthStarShelterUserId, NorthStarShelterUserId, FosterPlacementStatus.Completed, FosterPlacementPriority.Normal, FosterPlacementReason.AdoptionTrialSupport, new DateTime(2026, 5, 1, 9, 0, 0, DateTimeKind.Utc), new DateTime(2026, 5, 14, 9, 0, 0, DateTimeKind.Utc), new DateTime(2026, 5, 13, 16, 0, 0, DateTimeKind.Utc), "Keep routine gentle and avoid stairs when possible.", "Senior wellness check was stable before placement.", "Trial support completed successfully.", "Poppy rested well and followed the evening routine.", "Returned to shelter with clear notes for adopter discussions.", new DateTime(2026, 4, 29, 14, 0, 0, DateTimeKind.Utc)),
+            new("Oscar", "Hope Tails Rescue", "elena.radu@foster.pawconnect.local", HopeTailsShelterUserId, null, HopeTailsShelterUserId, FosterPlacementStatus.Cancelled, FosterPlacementPriority.Low, FosterPlacementReason.Other, new DateTime(2026, 5, 24, 9, 0, 0, DateTimeKind.Utc), new DateTime(2026, 6, 1, 9, 0, 0, DateTimeKind.Utc), new DateTime(2026, 5, 23, 18, 0, 0, DateTimeKind.Utc), "Short observation stay was planned before matching.", null, "Cancelled because transport could not be arranged.", null, "Cancelled before the start date.", new DateTime(2026, 5, 22, 10, 0, 0, DateTimeKind.Utc))
+        ];
+    }
     private static IReadOnlyList<TransferSeed> GetTransferRequests()
     {
         return
@@ -1563,6 +1752,38 @@ public static class IdentitySeedData
         int LowStockThreshold,
         int ResourceCategoryId,
         int? FoodTypeId);
+
+    private sealed record FosterCaregiverSeed(
+        string DisplayName,
+        string Email,
+        string? PhoneNumber,
+        string? AddressSummary,
+        string PreferredShelterName,
+        string? ExperienceNotes,
+        string? HomeEnvironmentNotes,
+        int Capacity,
+        bool IsActive,
+        DateTime CreatedAtUtc);
+
+    private sealed record FosterPlacementSeed(
+        string DogName,
+        string ShelterName,
+        string CaregiverEmail,
+        string CreatedByUserId,
+        string? ApprovedByUserId,
+        string? EndedByUserId,
+        FosterPlacementStatus Status,
+        FosterPlacementPriority Priority,
+        FosterPlacementReason Reason,
+        DateTime StartDateUtc,
+        DateTime? PlannedEndDateUtc,
+        DateTime? ActualEndDateUtc,
+        string? CareInstructions,
+        string? MedicalNotesSummary,
+        string? ShelterNotes,
+        string? FosterNotes,
+        string? CompletionNotes,
+        DateTime CreatedAtUtc);
 
     private sealed record TransferSeed(
         string DogName,

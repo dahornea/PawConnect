@@ -1,0 +1,169 @@
+@using PawConnect.Entities
+@using PawConnect.Services
+
+<MudDialog>
+    <DialogContent>
+        @if (Placement is not null)
+        {
+            <MudStack Spacing="3">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Class="flex-wrap" Spacing="1">
+                    <MudIcon Icon="@Icons.Material.Filled.HomeWork" Color="Color.Primary" />
+                    <MudText Typo="Typo.h6">@Placement.DogName</MudText>
+                    <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(Placement.Status)">@FormatStatus(Placement.Status)</MudChip>
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="@GetPriorityColor(Placement.Priority)">@Placement.Priority</MudChip>
+                </MudStack>
+
+                <MudGrid Spacing="2">
+                    <MudItem xs="12" sm="6">
+                        <MudPaper Elevation="0" Class="pa-3 border-light">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Shelter</MudText>
+                            <MudText Typo="Typo.body1">@Placement.ShelterName</MudText>
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudPaper Elevation="0" Class="pa-3 border-light">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Foster caregiver</MudText>
+                            <MudText Typo="Typo.body1">@Placement.CaregiverName</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">@Placement.CaregiverEmail @Placement.CaregiverPhoneNumber</MudText>
+                        </MudPaper>
+                    </MudItem>
+                </MudGrid>
+
+                <MudGrid Spacing="2">
+                    <MudItem xs="12" sm="4">
+                        <MudPaper Elevation="0" Class="pa-3 border-light">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Reason</MudText>
+                            <MudText Typo="Typo.body2">@FormatReason(Placement.Reason)</MudText>
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudPaper Elevation="0" Class="pa-3 border-light">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Start date</MudText>
+                            <MudText Typo="Typo.body2">@FormatDate(Placement.StartDateUtc)</MudText>
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudPaper Elevation="0" Class="pa-3 border-light">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Planned end</MudText>
+                            <MudText Typo="Typo.body2">@(Placement.PlannedEndDateUtc is null ? "Not set" : FormatDate(Placement.PlannedEndDateUtc.Value))</MudText>
+                        </MudPaper>
+                    </MudItem>
+                </MudGrid>
+
+                @if (!string.IsNullOrWhiteSpace(Placement.CareInstructions))
+                {
+                    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true">
+                        <MudText Typo="Typo.subtitle2">Care instructions</MudText>
+                        <MudText Typo="Typo.body2">@Placement.CareInstructions</MudText>
+                    </MudAlert>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(Placement.MedicalNotesSummary))
+                {
+                    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Dense="true">
+                        <MudText Typo="Typo.subtitle2">Medical context</MudText>
+                        <MudText Typo="Typo.body2">@Placement.MedicalNotesSummary</MudText>
+                    </MudAlert>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(Placement.ShelterNotes))
+                {
+                    <MudPaper Elevation="0" Class="pa-3 border-light">
+                        <MudText Typo="Typo.subtitle2">Shelter notes</MudText>
+                        <MudText Typo="Typo.body2">@Placement.ShelterNotes</MudText>
+                    </MudPaper>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(Placement.FosterNotes) || !string.IsNullOrWhiteSpace(Placement.CompletionNotes))
+                {
+                    <MudPaper Elevation="0" Class="pa-3 border-light">
+                        <MudText Typo="Typo.subtitle2">Completion notes</MudText>
+                        @if (!string.IsNullOrWhiteSpace(Placement.FosterNotes))
+                        {
+                            <MudText Typo="Typo.body2">@Placement.FosterNotes</MudText>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(Placement.CompletionNotes))
+                        {
+                            <MudText Typo="Typo.body2">@Placement.CompletionNotes</MudText>
+                        }
+                    </MudPaper>
+                }
+
+                <MudDivider />
+                <MudStack Spacing="1">
+                    <MudText Typo="Typo.subtitle2">Activity timeline</MudText>
+                    @if (Placement.Activities.Count == 0)
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">No activity recorded yet.</MudText>
+                    }
+                    else
+                    {
+                        @foreach (var activity in Placement.Activities)
+                        {
+                            <MudText Typo="Typo.body2">
+                                <strong>@FormatDateTime(activity.CreatedAtUtc)</strong> - @FormatActivity(activity.ActivityType): @activity.Message
+                                @if (!string.IsNullOrWhiteSpace(activity.ActorDisplayName))
+                                {
+                                    <span>by @activity.ActorDisplayName</span>
+                                }
+                            </MudText>
+                        }
+                    }
+                </MudStack>
+            </MudStack>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Close">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public FosterPlacementDetailsDto? Placement { get; set; }
+
+    private void Close() => MudDialog.Close();
+
+    private static string FormatDate(DateTime value) => value.ToLocalTime().ToString("dd MMM yyyy");
+
+    private static string FormatDateTime(DateTime value) => value.ToLocalTime().ToString("dd MMM yyyy HH:mm");
+
+    private static string FormatStatus(FosterPlacementStatus status) => status.ToString();
+
+    private static string FormatReason(FosterPlacementReason reason) => reason switch
+    {
+        FosterPlacementReason.MedicalRecovery => "Medical recovery",
+        FosterPlacementReason.PuppyCare => "Puppy care",
+        FosterPlacementReason.BehavioralObservation => "Behavioral observation",
+        FosterPlacementReason.TemporaryEmergencyCare => "Temporary emergency care",
+        FosterPlacementReason.AdoptionTrialSupport => "Adoption trial support",
+        FosterPlacementReason.Overcrowding => "Overcrowding",
+        _ => "Other"
+    };
+
+    private static string FormatActivity(FosterPlacementActivityType activityType) => activityType switch
+    {
+        FosterPlacementActivityType.NoteAdded => "Note added",
+        FosterPlacementActivityType.FollowUpScheduled => "Follow-up scheduled",
+        _ => activityType.ToString()
+    };
+
+    private static Color GetStatusColor(FosterPlacementStatus status) => status switch
+    {
+        FosterPlacementStatus.Pending => Color.Warning,
+        FosterPlacementStatus.Approved => Color.Info,
+        FosterPlacementStatus.Active => Color.Success,
+        FosterPlacementStatus.Completed => Color.Primary,
+        FosterPlacementStatus.Cancelled => Color.Default,
+        _ => Color.Default
+    };
+
+    private static Color GetPriorityColor(FosterPlacementPriority priority) => priority switch
+    {
+        FosterPlacementPriority.Low => Color.Default,
+        FosterPlacementPriority.Normal => Color.Info,
+        FosterPlacementPriority.High => Color.Warning,
+        FosterPlacementPriority.Urgent => Color.Error,
+        _ => Color.Default
+    };
+}

@@ -147,7 +147,76 @@ public class SqlServerPersistenceTests(SqlServerTestcontainerFixture fixture)
         Assert.NotNull(savedTransfer.CompletedAtUtc);
     }
     [DockerFact]
-    public async Task NotificationPreferences_ShouldPersist_DisabledChannel()
+    public async Task FosterPlacement_ShouldPersistLifecycle_AndCaregiverCapacity()
+    {
+        var databaseName = SqlServerTestcontainerFixture.CreateDatabaseName();
+        await using var context = await fixture.CreateMigratedContextAsync(databaseName);
+        await IntegrationTestData.SeedIdentityAndShelterAsync(context);
+        var shelterId = await context.Shelters.Select(shelter => shelter.Id).SingleAsync();
+        var dog = IntegrationTestData.CreateDog(shelterId, "SQL Foster Dog");
+        var caregiver = new FosterCaregiverProfile
+        {
+            DisplayName = "SQL Foster Caregiver",
+            Email = "sql.foster@pawconnect.local",
+            PreferredShelterId = shelterId,
+            Capacity = 1,
+            IsActive = true,
+            CreatedAtUtc = DateTime.UtcNow,
+            UpdatedAtUtc = DateTime.UtcNow
+        };
+        context.Dogs.Add(dog);
+        context.FosterCaregiverProfiles.Add(caregiver);
+        await context.SaveChangesAsync();
+        var service = new FosterPlacementService(context);
+        var startDate = DateTime.UtcNow.Date.AddDays(1);
+
+        var placement = await service.CreatePlacementAsync(
+            shelterId,
+            IntegrationTestData.ShelterUserId,
+            new FosterPlacementCreateRequest(
+                dog.Id,
+                caregiver.Id,
+                FosterPlacementPriority.High,
+                FosterPlacementReason.MedicalRecovery,
+                startDate,
+                startDate.AddDays(7),
+                "Give medication after breakfast and keep the routine quiet.",
+                "Follow-up check needed after foster stay.",
+                "Integration test shelter note."));
+        await service.ApprovePlacementAsync(
+            placement.Id,
+            shelterId,
+            IntegrationTestData.ShelterUserId,
+            new FosterPlacementDecisionRequest("Approved for SQL integration test."));
+        await service.StartPlacementAsync(
+            placement.Id,
+            shelterId,
+            IntegrationTestData.ShelterUserId,
+            new FosterPlacementStartRequest("Started foster stay."));
+        await service.CompletePlacementAsync(
+            placement.Id,
+            shelterId,
+            IntegrationTestData.ShelterUserId,
+            isAdmin: false,
+            new FosterPlacementCompleteRequest(startDate.AddDays(5), "Returned after recovery."));
+
+        await using var verificationContext = await fixture.CreateMigratedContextAsync(databaseName);
+        var savedPlacement = await verificationContext.FosterPlacements
+            .Include(item => item.FosterCaregiverProfile)
+            .SingleAsync(item => item.Id == placement.Id);
+        var activityTypes = await verificationContext.FosterPlacementActivities
+            .Where(activity => activity.FosterPlacementId == placement.Id)
+            .Select(activity => activity.ActivityType)
+            .ToListAsync();
+
+        Assert.Equal(FosterPlacementStatus.Completed, savedPlacement.Status);
+        Assert.NotNull(savedPlacement.ActualEndDateUtc);
+        Assert.Equal(0, savedPlacement.FosterCaregiverProfile!.ActivePlacementCount);
+        Assert.Contains(FosterPlacementActivityType.Started, activityTypes);
+        Assert.Contains(FosterPlacementActivityType.Completed, activityTypes);
+    }
+
+    [DockerFact]    public async Task NotificationPreferences_ShouldPersist_DisabledChannel()
     {
         var databaseName = SqlServerTestcontainerFixture.CreateDatabaseName();
         await using var context = await fixture.CreateMigratedContextAsync(databaseName);

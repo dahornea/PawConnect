@@ -237,6 +237,7 @@
                             <MudStack Row="true" Spacing="1">
                                 <MudButton Href="@($"/shelter/dogs/edit/{context.Id}")" Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Edit">Edit</MudButton>
                                 <MudButton Href="@($"/shelter/transfers?dogId={context.Id}")" Variant="Variant.Text" Color="Color.Info" StartIcon="@Icons.Material.Filled.SwapHoriz">Transfer</MudButton>
+                                <MudButton Href="@($"/shelter/foster-placements?dogId={context.Id}")" Variant="Variant.Text" Color="Color.Success" StartIcon="@Icons.Material.Filled.HomeWork">Foster</MudButton>
                                 <MudButton Variant="Variant.Text" Color="Color.Error" StartIcon="@Icons.Material.Filled.Delete" Disabled="_isDeleting" OnClick="@(() => ConfirmDeleteAsync(context))">Delete</MudButton>
                             </MudStack>
                         </MudTd>

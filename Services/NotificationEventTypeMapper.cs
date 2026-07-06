@@ -29,6 +29,11 @@ public static class NotificationEventTypeMapper
             return NotificationEventType.DogTransferUpdates;
         }
 
+        if (IsRelatedEntity(relatedEntityName, "FosterPlacement") || Contains(title, "foster"))
+        {
+            return NotificationEventType.FosterCareUpdates;
+        }
+
         return category switch
         {
             NotificationCategory.Adoption => NotificationEventType.AdoptionRequestUpdates,
@@ -36,6 +41,7 @@ public static class NotificationEventTypeMapper
             NotificationCategory.Report => NotificationEventType.ReportUpdates,
             NotificationCategory.ShelterApplication => NotificationEventType.ShelterApplicationUpdates,
             NotificationCategory.Transfer => NotificationEventType.DogTransferUpdates,
+            NotificationCategory.FosterCare => NotificationEventType.FosterCareUpdates,
             _ => NotificationEventType.SystemAnnouncements
         };
     }
@@ -75,6 +81,11 @@ public static class NotificationEventTypeMapper
         if (Contains(subject, "transfer"))
         {
             return NotificationEventType.DogTransferUpdates;
+        }
+
+        if (Contains(subject, "foster"))
+        {
+            return NotificationEventType.FosterCareUpdates;
         }
 
         if (Contains(subject, "adoption") || Contains(subject, "request"))

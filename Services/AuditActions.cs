@@ -49,6 +49,15 @@ public static class AuditActions
     public const string DogTransferCancelled = nameof(DogTransferCancelled);
     public const string DogTransferCompleted = nameof(DogTransferCompleted);
     public const string DogTransferAdminNoteUpdated = nameof(DogTransferAdminNoteUpdated);
+    public const string FosterCaregiverCreated = nameof(FosterCaregiverCreated);
+    public const string FosterCaregiverUpdated = nameof(FosterCaregiverUpdated);
+    public const string FosterPlacementCreated = nameof(FosterPlacementCreated);
+    public const string FosterPlacementUpdated = nameof(FosterPlacementUpdated);
+    public const string FosterPlacementApproved = nameof(FosterPlacementApproved);
+    public const string FosterPlacementStarted = nameof(FosterPlacementStarted);
+    public const string FosterPlacementCompleted = nameof(FosterPlacementCompleted);
+    public const string FosterPlacementCancelled = nameof(FosterPlacementCancelled);
+    public const string FosterPlacementNoteAdded = nameof(FosterPlacementNoteAdded);
 
     public static readonly IReadOnlyList<string> All =
     [
@@ -98,6 +107,15 @@ public static class AuditActions
         DogTransferRejected,
         DogTransferCancelled,
         DogTransferCompleted,
-        DogTransferAdminNoteUpdated
+        DogTransferAdminNoteUpdated,
+        FosterCaregiverCreated,
+        FosterCaregiverUpdated,
+        FosterPlacementCreated,
+        FosterPlacementUpdated,
+        FosterPlacementApproved,
+        FosterPlacementStarted,
+        FosterPlacementCompleted,
+        FosterPlacementCancelled,
+        FosterPlacementNoteAdded
     ];
 }
