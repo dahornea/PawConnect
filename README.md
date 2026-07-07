@@ -101,6 +101,9 @@ PawConnect is a multi-role web application that connects adopters with animal sh
 - Quartz.NET scheduled jobs for shelter summaries and visit reminders.
 - CSV import/export and PDF/CSV report history.
 - SignalR messaging for adoption-request conversations.
+- Global command palette with `Ctrl+K` / `Cmd+K`, role-aware navigation, scoped entity search, contextual commands, and recent commands.
+
+See [docs/COMMAND_PALETTE.md](docs/COMMAND_PALETTE.md) for the command palette behavior, security notes, and extension guide.
 
 ## Tech Stack
 

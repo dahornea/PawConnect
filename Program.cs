@@ -18,6 +18,7 @@ using PawConnect.OpenApi;
 using PawConnect.Repositories;
 using PawConnect.Services;
 using PawConnect.Services.Caching;
+using PawConnect.Services.CommandPalette;
 using Quartz;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -200,6 +201,7 @@ builder.Services.AddScoped<IDogProfileQualityService, DogProfileQualityService>(
 builder.Services.AddScoped<IAiReportSummaryService, AiReportSummaryService>();
 builder.Services.AddScoped<INaturalLanguageSearchService, NaturalLanguageSearchService>();
 builder.Services.AddScoped<IShelterOperationsAssistantService, ShelterOperationsAssistantService>();
+builder.Services.AddScoped<ICommandPaletteService, CommandPaletteService>();
 builder.Services.AddScoped<IConversationService, ConversationService>();
 builder.Services.AddScoped<IMessageService, MessageService>();
 builder.Services.AddScoped<IMessageReportService, MessageReportService>();
