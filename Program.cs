@@ -380,6 +380,7 @@ app.MapGet("/health", async (
 app.MapGet("/message-attachments/{attachmentId:int}", async (
         int attachmentId,
         ClaimsPrincipal user,
+        HttpContext httpContext,
         IMessageService messageService,
         CancellationToken cancellationToken) =>
     {
@@ -390,11 +391,16 @@ app.MapGet("/message-attachments/{attachmentId:int}", async (
         }
 
         var attachment = await messageService.GetAttachmentFileAsync(attachmentId, userId, cancellationToken);
+        httpContext.Response.Headers.CacheControl = "private, no-store";
+        httpContext.Response.Headers.Pragma = "no-cache";
+        httpContext.Response.Headers.Expires = "0";
+
         return attachment is null
             ? Results.NotFound()
             : Results.File(
                 attachment.Content,
                 attachment.ContentType,
+                fileDownloadName: attachment.OriginalFileName,
                 enableRangeProcessing: true);
     })
     .RequireAuthorization()
