@@ -23,6 +23,7 @@ public partial class ManageDogs
     [Inject] private IExportService ExportService { get; set; } = default!;
     [Inject] private ICsvImportService CsvImportService { get; set; } = default!;
     [Inject] private IBrowserFileDownloadService FileDownloadService { get; set; } = default!;
+    [Inject] private IDogProfileCompletenessService DogProfileCompletenessService { get; set; } = default!;
     [Inject] private AuthenticationStateProvider AuthenticationStateProvider { get; set; } = default!;
     [Inject] private UserManager<ApplicationUser> UserManager { get; set; } = default!;
     [Inject] private ISnackbar Snackbar { get; set; } = default!;
@@ -37,7 +38,11 @@ public partial class ManageDogs
     private string? _searchTerm;
     private DogStatus? _statusFilter;
     private DogSize? _sizeFilter;
+    private string? _completenessFilter;
+    private string _sortOption = "Name";
     private int? _shelterId;
+    private IReadOnlyDictionary<int, DogProfileCompletenessDto> _completenessByDog = new Dictionary<int, DogProfileCompletenessDto>();
+    private DogProfileCompletenessSummaryDto? _completenessSummary;
     private IBrowserFile? _dogImportFile;
     private CsvImportResult? _importResult;
     private int _dogImportInputKey;
@@ -64,7 +69,18 @@ public partial class ManageDogs
                 query = query.Where(d => d.Size == _sizeFilter.Value);
             }
 
-            return query;
+            if (!string.IsNullOrWhiteSpace(_completenessFilter))
+            {
+                query = query.Where(d => TryGetCompleteness(d.Id, out var completeness) &&
+                    completeness.Label == _completenessFilter);
+            }
+
+            return _sortOption switch
+            {
+                "CompletenessAsc" => query.OrderBy(d => TryGetCompleteness(d.Id, out var completeness) ? completeness.ScorePercent : 0).ThenBy(d => d.Name),
+                "CompletenessDesc" => query.OrderByDescending(d => TryGetCompleteness(d.Id, out var completeness) ? completeness.ScorePercent : 0).ThenBy(d => d.Name),
+                _ => query.OrderBy(d => d.Name)
+            };
         }
     }
 
@@ -80,6 +96,7 @@ public partial class ManageDogs
             }
 
             _dogs = await DogService.GetDogsForShelterAsync(_shelterId.Value);
+            RefreshCompleteness();
         }
         catch
         {
@@ -190,6 +207,7 @@ public partial class ManageDogs
             }
 
             _dogs = await DogService.GetDogsForShelterAsync(_shelterId.Value);
+            RefreshCompleteness();
             Snackbar.Add("Dogs imported successfully.", Severity.Success);
             ClearDogImportPreview();
         }
@@ -249,6 +267,7 @@ public partial class ManageDogs
         {
             await DogService.DeleteDogAsync(dog.Id, _shelterId.Value);
             _dogs.Remove(dog);
+            RefreshCompleteness();
             Snackbar.Add("Dog deleted.", Severity.Success);
         }
         catch (InvalidOperationException ex)
@@ -298,6 +317,30 @@ public partial class ManageDogs
     private static string? GetImageUrl(Dog dog)
     {
         return DogImageUrlValidator.GetPrimaryRealDogImageUrl(dog.Images);
+    }
+
+    private void RefreshCompleteness()
+    {
+        _completenessByDog = DogProfileCompletenessService.CalculateForDogs(_dogs);
+        var results = _completenessByDog.Values.ToList();
+        _completenessSummary = new DogProfileCompletenessSummaryDto(
+            results.Count,
+            results.Count == 0 ? 0 : Math.Round(results.Average(item => item.ScorePercent), 1),
+            results.Count(item => item.Label == "Excellent"),
+            results.Count(item => item.Label == "Good"),
+            results.Count(item => item.Label == "Needs Work"),
+            results.Count(item => item.Label == "Incomplete"),
+            results
+                .Where(item => item.ScorePercent < 70 || item.MissingItems.Any(missing => missing.IsCritical))
+                .OrderBy(item => item.ScorePercent)
+                .ThenBy(item => item.DogName)
+                .Take(8)
+                .ToList());
+    }
+
+    private bool TryGetCompleteness(int dogId, out DogProfileCompletenessDto completeness)
+    {
+        return _completenessByDog.TryGetValue(dogId, out completeness!);
     }
 
     private static Color GetStatusColor(DogStatus status)

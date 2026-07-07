@@ -1,0 +1,12 @@
+.profile-completeness-card {
+    border: 1px solid rgba(32, 75, 65, 0.12);
+    border-radius: 12px;
+    background: #fbfdf9;
+}
+
+.profile-completeness-section,
+.profile-completeness-recommendation {
+    border: 1px solid rgba(32, 75, 65, 0.10);
+    border-radius: 10px;
+    background: #f7fbf6;
+}

@@ -39,6 +39,36 @@
             <MudAlert Severity="_searchIndexSeverity" Variant="Variant.Outlined" Dense="true">@_searchIndexMessage</MudAlert>
         }
 
+        @if (_completenessSummary is not null)
+        {
+            <MudGrid Spacing="2">
+                <MudItem xs="12" sm="6" md="3">
+                    <MudPaper Elevation="0" Class="section-surface pa-3">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Average completeness</MudText>
+                        <MudText Typo="Typo.h5">@_completenessSummary.AverageScorePercent.ToString("0.#")%</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudPaper Elevation="0" Class="section-surface pa-3">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Excellent profiles</MudText>
+                        <MudText Typo="Typo.h5">@_completenessSummary.ExcellentCount</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudPaper Elevation="0" Class="section-surface pa-3">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Need work</MudText>
+                        <MudText Typo="Typo.h5">@(_completenessSummary.NeedsWorkCount + _completenessSummary.IncompleteCount)</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudPaper Elevation="0" Class="section-surface pa-3">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Profiles reviewed</MudText>
+                        <MudText Typo="Typo.h5">@_completenessSummary.TotalDogs</MudText>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        }
+
         @if (_isLoading)
         {
             <MudStack AlignItems="AlignItems.Center" Class="py-8">
@@ -71,6 +101,7 @@
                     <MudTh>Location</MudTh>
                     <MudTh>Shelter</MudTh>
                     <MudTh>Status</MudTh>
+                    <MudTh>Profile Quality</MudTh>
                     <MudTh>Success Story</MudTh>
                     <MudTh Class="actions-heading">Actions</MudTh>
                 </HeaderContent>
@@ -100,6 +131,18 @@
                     <MudTd DataLabel="Shelter" Class="nowrap-cell">@(context.Shelter?.Name ?? "-")</MudTd>
                     <MudTd DataLabel="Status" Class="nowrap-cell">
                         <MudChip T="string" Color="@GetStatusColor(context.Status)" Size="Size.Small">@context.Status</MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Profile Quality" Class="nowrap-cell">
+                        @if (TryGetCompleteness(context.Id, out var completeness))
+                        {
+                            <DogProfileCompletenessBadge Result="completeness" />
+                            @if (completeness.ScorePercent < 70)
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mt-1">
+                                    @completeness.MissingItems.FirstOrDefault()?.Label
+                                </MudText>
+                            }
+                        }
                     </MudTd>
                     <MudTd DataLabel="Success Story" Class="success-story-cell">
                         <MudStack Spacing="1">

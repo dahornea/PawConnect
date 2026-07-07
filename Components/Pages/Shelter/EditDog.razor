@@ -33,6 +33,11 @@
                 </MudAlert>
             }
 
+            @if (_completeness is not null)
+            {
+                <DogProfileCompletenessCard Result="_completeness" />
+            }
+
             <MudCard Class="form-card">
                 <MudCardContent>
                     @if (!string.IsNullOrWhiteSpace(_formError))

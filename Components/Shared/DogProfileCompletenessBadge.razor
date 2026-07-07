@@ -1,0 +1,32 @@
+@using PawConnect.Services
+
+<MudTooltip Text="@TooltipText">
+    <MudChip T="string"
+             Color="@GetColor(Result.Label)"
+             Variant="Variant.Outlined"
+             Size="Size.Small"
+             Icon="@Icons.Material.Filled.FactCheck">
+        @Result.ScorePercent% @Result.Label
+    </MudChip>
+</MudTooltip>
+
+@code {
+    [Parameter, EditorRequired]
+    public DogProfileCompletenessDto Result { get; set; } = default!;
+
+    private string TooltipText => Result.MissingItems.Count == 0
+        ? "Profile completeness looks strong."
+        : $"Missing: {string.Join(", ", Result.MissingItems.Take(3).Select(item => item.Label))}";
+
+    private static Color GetColor(string label)
+    {
+        return label switch
+        {
+            "Excellent" => Color.Success,
+            "Good" => Color.Info,
+            "Needs Work" => Color.Warning,
+            "Incomplete" => Color.Error,
+            _ => Color.Default
+        };
+    }
+}

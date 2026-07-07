@@ -31,6 +31,7 @@ public partial class EditDog
     [Inject] private ISnackbar Snackbar { get; set; } = default!;
     [Inject] private IDialogService DialogService { get; set; } = default!;
     [Inject] private IDogProfileQualityService DogProfileQualityService { get; set; } = default!;
+    [Inject] private IDogProfileCompletenessService DogProfileCompletenessService { get; set; } = default!;
 
     [Parameter]
     public int Id { get; set; }
@@ -48,6 +49,7 @@ public partial class EditDog
     private IReadOnlyList<IBrowserFile> _selectedImageFiles = [];
     private MedicalRecord _medicalRecordModel = new() { RecordDate = DateTime.Today };
     private DateTime? _medicalRecordDate = DateTime.Today;
+    private DogProfileCompletenessDto? _completeness;
     private MudForm? _form;
     private MudForm? _imageForm;
     private MudForm? _medicalForm;
@@ -295,6 +297,22 @@ public partial class EditDog
                 _statusHistoryError = "Status history could not be loaded. If this is a new feature, apply the latest database migration.";
             }
         }
+
+        RefreshCompleteness();
+    }
+
+    private void RefreshCompleteness()
+    {
+        if (_model is null)
+        {
+            _completeness = null;
+            return;
+        }
+
+        _model.Images = _images;
+        _model.MedicalRecords = _medicalRecords;
+        _model.PreferredFoodType = _foodTypes.FirstOrDefault(type => type.Id == _model.PreferredFoodTypeId);
+        _completeness = DogProfileCompletenessService.CalculateForDog(_model);
     }
 
     private DogProfileQualityRequest BuildProfileQualityRequest()
@@ -421,6 +439,7 @@ public partial class EditDog
                 dogImage.IsMainImage = dogImage.Id == image.Id;
             }
 
+            RefreshCompleteness();
             Snackbar.Add("Main image updated.", Severity.Success);
         }
         catch (InvalidOperationException ex)
@@ -537,6 +556,7 @@ public partial class EditDog
         {
             await DogImageService.DeleteDogImageAsync(image.Id, _shelterId.Value);
             _images.Remove(image);
+            RefreshCompleteness();
             Snackbar.Add("Dog image deleted.", Severity.Success);
         }
         catch (InvalidOperationException ex)
@@ -638,6 +658,7 @@ public partial class EditDog
         {
             await MedicalRecordService.DeleteMedicalRecordAsync(record.Id, _shelterId.Value);
             _medicalRecords.Remove(record);
+            RefreshCompleteness();
             Snackbar.Add("Medical record deleted.", Severity.Success);
         }
         catch (InvalidOperationException ex)

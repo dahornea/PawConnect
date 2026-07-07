@@ -27,6 +27,36 @@
             </MudStack>
         </MudPaper>
 
+        @if (_completenessSummary is not null)
+        {
+            <MudGrid Spacing="2">
+                <MudItem xs="12" sm="6" md="3">
+                    <MudPaper Elevation="0" Class="section-surface pa-3">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Average completeness</MudText>
+                        <MudText Typo="Typo.h5">@_completenessSummary.AverageScorePercent.ToString("0.#")%</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudPaper Elevation="0" Class="section-surface pa-3">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Excellent profiles</MudText>
+                        <MudText Typo="Typo.h5">@_completenessSummary.ExcellentCount</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudPaper Elevation="0" Class="section-surface pa-3">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Need work</MudText>
+                        <MudText Typo="Typo.h5">@(_completenessSummary.NeedsWorkCount + _completenessSummary.IncompleteCount)</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudPaper Elevation="0" Class="section-surface pa-3">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Profiles reviewed</MudText>
+                        <MudText Typo="Typo.h5">@_completenessSummary.TotalDogs</MudText>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        }
+
         <MudPaper Elevation="0" Class="section-surface import-export-card pa-4">
             <MudGrid Spacing="3">
                 <MudItem xs="12" md="7">
@@ -80,10 +110,10 @@
 
         <MudPaper Elevation="0" Class="section-surface filter-panel pa-3">
             <MudGrid Spacing="2">
-                <MudItem xs="12" md="6">
+                <MudItem xs="12" md="4">
                     <MudTextField Label="Search by name" @bind-Value="_searchTerm" Immediate="true" Variant="Variant.Outlined" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
                 </MudItem>
-                <MudItem xs="12" sm="6" md="3">
+                <MudItem xs="12" sm="6" md="2">
                     <MudSelect T="DogStatus?" Label="Status" @bind-Value="_statusFilter" Clearable="true" Variant="Variant.Outlined">
                         @foreach (var status in Enum.GetValues<DogStatus>())
                         {
@@ -91,12 +121,27 @@
                         }
                     </MudSelect>
                 </MudItem>
-                <MudItem xs="12" sm="6" md="3">
+                <MudItem xs="12" sm="6" md="2">
                     <MudSelect T="DogSize?" Label="Size" @bind-Value="_sizeFilter" Clearable="true" Variant="Variant.Outlined">
                         @foreach (var size in Enum.GetValues<DogSize>())
                         {
                             <MudSelectItem T="DogSize?" Value="@((DogSize?)size)">@size</MudSelectItem>
                         }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="2">
+                    <MudSelect T="string" Label="Completeness" @bind-Value="_completenessFilter" Clearable="true" Variant="Variant.Outlined">
+                        <MudSelectItem Value="@("Incomplete")">Incomplete</MudSelectItem>
+                        <MudSelectItem Value="@("Needs Work")">Needs Work</MudSelectItem>
+                        <MudSelectItem Value="@("Good")">Good</MudSelectItem>
+                        <MudSelectItem Value="@("Excellent")">Excellent</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="2">
+                    <MudSelect T="string" Label="Sort" @bind-Value="_sortOption" Variant="Variant.Outlined">
+                        <MudSelectItem Value="@("Name")">Name A-Z</MudSelectItem>
+                        <MudSelectItem Value="@("CompletenessAsc")">Completeness low-high</MudSelectItem>
+                        <MudSelectItem Value="@("CompletenessDesc")">Completeness high-low</MudSelectItem>
                     </MudSelect>
                 </MudItem>
             </MudGrid>
@@ -197,6 +242,7 @@
                         <MudTh>Size</MudTh>
                         <MudTh>Location</MudTh>
                         <MudTh>Status</MudTh>
+                        <MudTh>Profile Quality</MudTh>
                         <MudTh>Food</MudTh>
                         <MudTh></MudTh>
                     </HeaderContent>
@@ -226,6 +272,18 @@
                         <MudTd DataLabel="Status">
                             <MudChip T="string" Color="@GetStatusColor(context.Status)" Size="Size.Small">@context.Status</MudChip>
                         </MudTd>
+                        <MudTd DataLabel="Profile Quality">
+                            @if (TryGetCompleteness(context.Id, out var completeness))
+                            {
+                                <DogProfileCompletenessBadge Result="completeness" />
+                                @if (completeness.ScorePercent < 70)
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="d-block mt-1">
+                                        @completeness.MissingItems.FirstOrDefault()?.Label
+                                    </MudText>
+                                }
+                            }
+                        </MudTd>
                         <MudTd DataLabel="Food">
                             <MudText Typo="Typo.body2">@(context.PreferredFoodType?.Name ?? "-")</MudText>
                             @if (context.DailyFoodAmountGrams.HasValue)
@@ -236,6 +294,10 @@
                         <MudTd>
                             <MudStack Row="true" Spacing="1">
                                 <MudButton Href="@($"/shelter/dogs/edit/{context.Id}")" Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Edit">Edit</MudButton>
+                                @if (TryGetCompleteness(context.Id, out var actionCompleteness) && actionCompleteness.ScorePercent < 70)
+                                {
+                                    <MudButton Href="@($"/shelter/dogs/edit/{context.Id}")" Variant="Variant.Text" Color="Color.Warning" StartIcon="@Icons.Material.Filled.FactCheck">Improve</MudButton>
+                                }
                                 <MudButton Href="@($"/shelter/transfers?dogId={context.Id}")" Variant="Variant.Text" Color="Color.Info" StartIcon="@Icons.Material.Filled.SwapHoriz">Transfer</MudButton>
                                 <MudButton Variant="Variant.Text" Color="Color.Error" StartIcon="@Icons.Material.Filled.Delete" Disabled="_isDeleting" OnClick="@(() => ConfirmDeleteAsync(context))">Delete</MudButton>
                             </MudStack>

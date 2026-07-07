@@ -222,6 +222,7 @@ public class DogService(
             .Include(d => d.SecondaryBreed)
             .Include(d => d.Images)
             .Include(d => d.PreferredFoodType)
+            .Include(d => d.MedicalRecords)
             .Where(d => d.ShelterId == shelterId)
             .OrderBy(d => d.Name)
             .AsNoTracking()
@@ -236,6 +237,7 @@ public class DogService(
             .Include(d => d.SecondaryBreed)
             .Include(d => d.Images)
             .Include(d => d.PreferredFoodType)
+            .Include(d => d.MedicalRecords)
             .AsNoTracking()
             .FirstOrDefaultAsync(d => d.Id == dogId && d.ShelterId == shelterId);
     }
@@ -365,6 +367,7 @@ public class DogService(
             .Include(d => d.SecondaryBreed)
             .Include(d => d.Images)
             .Include(d => d.PreferredFoodType)
+            .Include(d => d.MedicalRecords)
             .OrderBy(d => d.Name)
             .AsNoTracking()
             .ToListAsync();

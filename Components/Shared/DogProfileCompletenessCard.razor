@@ -1,0 +1,121 @@
+@using PawConnect.Services
+
+<MudPaper Elevation="0" Class="profile-completeness-card pa-4">
+    <MudStack Spacing="3">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Class="flex-wrap" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.FactCheck" Color="@GetColor(Result.Label)" />
+            <div>
+                <MudText Typo="Typo.h6">Profile completeness</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Actionable profile quality score for shelter and admin review.</MudText>
+            </div>
+            <MudSpacer />
+            <MudChip T="string" Color="@GetColor(Result.Label)" Size="Size.Small">@Result.ScorePercent% - @Result.Label</MudChip>
+        </MudStack>
+
+        <MudProgressLinear Value="@Result.ScorePercent"
+                           Color="@GetColor(Result.Label)"
+                           Rounded="true"
+                           Size="Size.Large" />
+
+        <MudGrid Spacing="2">
+            @foreach (var section in Result.Sections)
+            {
+                <MudItem xs="12" sm="6" md="4">
+                    <MudPaper Elevation="0" Class="profile-completeness-section pa-3">
+                        <MudStack Spacing="1">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                <MudText Typo="Typo.subtitle2">@section.Name</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">@section.ScorePercent%</MudText>
+                            </MudStack>
+                            <MudProgressLinear Value="@section.ScorePercent" Color="@GetSectionColor(section.ScorePercent)" Rounded="true" />
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">@section.CompletedItems / @section.TotalItems items complete</MudText>
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+            }
+        </MudGrid>
+
+        @if (Result.MissingItems.Count > 0)
+        {
+            <MudStack Spacing="1">
+                <MudText Typo="Typo.subtitle2">Top missing items</MudText>
+                @foreach (var item in Result.MissingItems.Take(5))
+                {
+                    <MudAlert Severity="@(item.IsCritical ? Severity.Warning : Severity.Info)" Dense="true" Variant="Variant.Outlined">
+                        <strong>@item.Label:</strong> @item.Description
+                    </MudAlert>
+                }
+            </MudStack>
+        }
+
+        @if (Result.Recommendations.Count > 0)
+        {
+            <MudStack Spacing="1">
+                <MudText Typo="Typo.subtitle2">Recommended next actions</MudText>
+                @foreach (var recommendation in Result.Recommendations.Take(4))
+                {
+                    <MudPaper Elevation="0" Class="profile-completeness-recommendation pa-3">
+                        <MudText Typo="Typo.subtitle2">@recommendation.Title</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">@recommendation.Description</MudText>
+                    </MudPaper>
+                }
+            </MudStack>
+        }
+
+        @if (Result.AttentionFlags.Count > 0)
+        {
+            <MudStack Spacing="1">
+                <MudText Typo="Typo.subtitle2">Attention flags</MudText>
+                <MudStack Row="true" Spacing="1" Class="flex-wrap">
+                    @foreach (var flag in Result.AttentionFlags)
+                    {
+                        <MudChip T="string" Color="Color.Warning" Variant="Variant.Outlined" Size="Size.Small">@flag</MudChip>
+                    }
+                </MudStack>
+            </MudStack>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(EditUrl))
+        {
+            <MudStack Row="true" Justify="Justify.FlexEnd">
+                <MudButton Href="@EditUrl"
+                           Variant="Variant.Outlined"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Edit">
+                    Improve profile
+                </MudButton>
+            </MudStack>
+        }
+    </MudStack>
+</MudPaper>
+
+@code {
+    [Parameter, EditorRequired]
+    public DogProfileCompletenessDto Result { get; set; } = default!;
+
+    [Parameter]
+    public string? EditUrl { get; set; }
+
+    private static Color GetColor(string label)
+    {
+        return label switch
+        {
+            "Excellent" => Color.Success,
+            "Good" => Color.Info,
+            "Needs Work" => Color.Warning,
+            "Incomplete" => Color.Error,
+            _ => Color.Default
+        };
+    }
+
+    private static Color GetSectionColor(int score)
+    {
+        return score switch
+        {
+            >= 85 => Color.Success,
+            >= 70 => Color.Info,
+            >= 45 => Color.Warning,
+            _ => Color.Error
+        };
+    }
+}

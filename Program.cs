@@ -198,6 +198,7 @@ builder.Services.AddScoped<ICopilotCriteriaComparisonService, CopilotCriteriaCom
 builder.Services.AddScoped<ICopilotEvaluationService, CopilotEvaluationService>();
 builder.Services.AddScoped<ICopilotStateService, CopilotStateService>();
 builder.Services.AddScoped<IDogProfileQualityService, DogProfileQualityService>();
+builder.Services.AddScoped<IDogProfileCompletenessService, DogProfileCompletenessService>();
 builder.Services.AddScoped<IAiReportSummaryService, AiReportSummaryService>();
 builder.Services.AddScoped<INaturalLanguageSearchService, NaturalLanguageSearchService>();
 builder.Services.AddScoped<IShelterOperationsAssistantService, ShelterOperationsAssistantService>();

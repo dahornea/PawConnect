@@ -26,10 +26,13 @@ public partial class AdminDogs
     [Inject] private IExportService ExportService { get; set; } = default!;
     [Inject] private IBrowserFileDownloadService FileDownloadService { get; set; } = default!;
     [Inject] private IDogSearchEmbeddingService DogSearchEmbeddingService { get; set; } = default!;
+    [Inject] private IDogProfileCompletenessService DogProfileCompletenessService { get; set; } = default!;
     [Inject] private ISnackbar Snackbar { get; set; } = default!;
     [Inject] private IDialogService DialogService { get; set; } = default!;
 
-private List<Dog> _dogs = [];
+    private List<Dog> _dogs = [];
+    private IReadOnlyDictionary<int, DogProfileCompletenessDto> _completenessByDog = new Dictionary<int, DogProfileCompletenessDto>();
+    private DogProfileCompletenessSummaryDto? _completenessSummary;
     private bool _isLoading = true;
     private bool _isDeleting;
     private bool _isHistoryLoading;
@@ -44,6 +47,7 @@ private List<Dog> _dogs = [];
         try
         {
             _dogs = await DogService.GetAllDogsForAdminAsync();
+            RefreshCompleteness();
         }
         catch
         {
@@ -147,6 +151,7 @@ private List<Dog> _dogs = [];
         {
             await DogService.DeleteDogForAdminAsync(dog.Id);
             _dogs.Remove(dog);
+            RefreshCompleteness();
             Snackbar.Add("Dog deleted.", Severity.Success);
         }
         catch (InvalidOperationException ex)
@@ -191,6 +196,30 @@ private List<Dog> _dogs = [];
     private static string? GetImageUrl(Dog dog)
     {
         return DogImageUrlValidator.GetPrimaryRealDogImageUrl(dog.Images);
+    }
+
+    private void RefreshCompleteness()
+    {
+        _completenessByDog = DogProfileCompletenessService.CalculateForDogs(_dogs);
+        var results = _completenessByDog.Values.ToList();
+        _completenessSummary = new DogProfileCompletenessSummaryDto(
+            results.Count,
+            results.Count == 0 ? 0 : Math.Round(results.Average(item => item.ScorePercent), 1),
+            results.Count(item => item.Label == "Excellent"),
+            results.Count(item => item.Label == "Good"),
+            results.Count(item => item.Label == "Needs Work"),
+            results.Count(item => item.Label == "Incomplete"),
+            results
+                .Where(item => item.ScorePercent < 70 || item.MissingItems.Any(missing => missing.IsCritical))
+                .OrderBy(item => item.ScorePercent)
+                .ThenBy(item => item.DogName)
+                .Take(8)
+                .ToList());
+    }
+
+    private bool TryGetCompleteness(int dogId, out DogProfileCompletenessDto completeness)
+    {
+        return _completenessByDog.TryGetValue(dogId, out completeness!);
     }
 
     private static Color GetStatusColor(DogStatus status)
