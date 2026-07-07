@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Globalization;
 using System.Security.Claims;
+using System.Text.Json;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Forms;
@@ -18,6 +19,11 @@ namespace PawConnect.Components.Pages;
 
 public partial class Dogs
 {
+    private static readonly JsonSerializerOptions SavedViewJsonOptions = new(JsonSerializerDefaults.Web);
+
+    [SupplyParameterFromQuery(Name = "savedViewId")]
+    public int? SavedViewId { get; set; }
+
     [Inject] private IDogService DogService { get; set; } = default!;
     [Inject] private IShelterService ShelterService { get; set; } = default!;
     [Inject] private IGeocodingService GeocodingService { get; set; } = default!;
@@ -112,6 +118,35 @@ public partial class Dogs
     private string? NearestDogText => _nearbyOrigin is not null && _nearestDogDistanceKm.HasValue
         ? $"Nearest dog is {FormatDistance(_nearestDogDistanceKm.Value)} away."
         : null;
+    private SavedViewRoleScope DogSavedViewRoleScope => _currentUserIsAdopter
+        ? SavedViewRoleScope.Adopter
+        : SavedViewRoleScope.Global;
+    private string DogSavedViewFilterStateJson => JsonSerializer.Serialize(
+        new DogBrowsingSavedViewState(
+            _searchTerm,
+            _selectedShelterId,
+            _selectedBreed,
+            _selectedCoatColor,
+            _maxAge,
+            _selectedSize,
+            _selectedLocation,
+            _selectedNeighborhood,
+            _selectedStatus,
+            _selectedCatCompatibility,
+            _selectedChildrenCompatibility,
+            _selectedActivityLevel,
+            _selectedApartmentSuitability,
+            _nearbySearchTerm,
+            _activeNearbyLabel,
+            _activeNearbyDisplayName,
+            _nearbyOrigin?.Latitude,
+            _nearbyOrigin?.Longitude,
+            _nearbyUsesBrowserLocation,
+            _selectedRadiusKm,
+            _sortOption),
+        SavedViewJsonOptions);
+    private string DogSavedViewSortStateJson => JsonSerializer.Serialize(new { sort = _sortOption.ToString() }, SavedViewJsonOptions);
+    private IReadOnlyList<string> DogSavedViewSummaryLabels => BuildDogSavedViewSummaryLabels();
     private bool HasManualNearbyText => !string.IsNullOrWhiteSpace(_nearbySearchTerm) &&
         _nearbySearchTerm.Trim().Length >= 3 &&
         _selectedNearbySuggestion is null &&
@@ -275,6 +310,53 @@ public partial class Dogs
         _filtersOpen = false;
     }
 
+    private async Task ApplySavedViewAsync(SavedViewDto savedView)
+    {
+        try
+        {
+            var state = JsonSerializer.Deserialize<DogBrowsingSavedViewState>(savedView.FilterStateJson, SavedViewJsonOptions);
+            if (state is null)
+            {
+                return;
+            }
+
+            _searchTerm = state.SearchTerm;
+            _selectedShelterId = state.ShelterId;
+            _selectedBreed = state.Breed ?? string.Empty;
+            _selectedCoatColor = state.CoatColor ?? string.Empty;
+            _maxAge = state.MaxAge;
+            _selectedSize = state.Size ?? string.Empty;
+            _selectedLocation = state.Location ?? string.Empty;
+            _selectedNeighborhood = state.Neighborhood ?? string.Empty;
+            _selectedStatus = state.Status ?? string.Empty;
+            _selectedCatCompatibility = state.CatCompatibility ?? string.Empty;
+            _selectedChildrenCompatibility = state.ChildrenCompatibility ?? string.Empty;
+            _selectedActivityLevel = state.ActivityLevel ?? string.Empty;
+            _selectedApartmentSuitability = state.ApartmentSuitability ?? string.Empty;
+            _nearbySearchTerm = state.NearbySearchTerm;
+            _activeNearbyLabel = state.NearbyLabel;
+            _activeNearbyDisplayName = state.NearbyDisplayName;
+            _nearbyUsesBrowserLocation = state.NearbyUsesBrowserLocation;
+            _selectedRadiusKm = RadiusOptions.Contains(state.RadiusKm) ? state.RadiusKm : 25;
+            _sortOption = state.SortOption;
+            _selectedNearbySuggestion = null;
+            _nearbyError = null;
+            _nearbyOrigin = state.NearbyLatitude.HasValue && state.NearbyLongitude.HasValue
+                ? new GeocodingResult(
+                    state.NearbyLatitude.Value,
+                    state.NearbyLongitude.Value,
+                    state.NearbyDisplayName ?? state.NearbyLabel ?? "Saved location")
+                : null;
+
+            await ApplyFiltersAsync();
+            _filtersOpen = true;
+        }
+        catch (JsonException)
+        {
+            Snackbar.Add("Saved view filters could not be applied.", Severity.Warning);
+        }
+    }
+
     private void ToggleFilters()
     {
         _filtersOpen = !_filtersOpen;
@@ -361,6 +443,13 @@ public partial class Dogs
         }
 
         return chips;
+    }
+
+    private IReadOnlyList<string> BuildDogSavedViewSummaryLabels()
+    {
+        var labels = ActiveFilterChips.Select(chip => chip.Label).ToList();
+        labels.Add($"Sort: {CurrentSortLabel}");
+        return labels;
     }
 
     private async Task ClearSearchFilterAsync()
@@ -958,5 +1047,28 @@ public partial class Dogs
     {
         return _favoriteDogIds.Contains(dogId) ? "Remove from favorites" : "Add to favorites";
     }
+
+    private sealed record DogBrowsingSavedViewState(
+        string? SearchTerm,
+        int? ShelterId,
+        string? Breed,
+        string? CoatColor,
+        int? MaxAge,
+        string? Size,
+        string? Location,
+        string? Neighborhood,
+        string? Status,
+        string? CatCompatibility,
+        string? ChildrenCompatibility,
+        string? ActivityLevel,
+        string? ApartmentSuitability,
+        string? NearbySearchTerm,
+        string? NearbyLabel,
+        string? NearbyDisplayName,
+        double? NearbyLatitude,
+        double? NearbyLongitude,
+        bool NearbyUsesBrowserLocation,
+        int RadiusKm,
+        DogSortOption SortOption);
 }
 

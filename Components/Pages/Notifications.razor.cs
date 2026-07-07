@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text.Json;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using MudBlazor;
@@ -9,6 +10,11 @@ namespace PawConnect.Components.Pages;
 
 public partial class Notifications
 {
+    private static readonly JsonSerializerOptions SavedViewJsonOptions = new(JsonSerializerDefaults.Web);
+
+    [SupplyParameterFromQuery(Name = "savedViewId")]
+    public int? SavedViewId { get; set; }
+
     [Inject] private AuthenticationStateProvider AuthenticationStateProvider { get; set; } = default!;
     [Inject] private INotificationCenterService NotificationCenterService { get; set; } = default!;
     [Inject] private NavigationManager NavigationManager { get; set; } = default!;
@@ -35,6 +41,10 @@ public partial class Notifications
     private string? NotificationEmptyPrimaryActionText => HasActiveFilters ? "Clear filters" : null;
     private string? NotificationEmptyPrimaryActionHref => HasActiveFilters ? null : "/notification-preferences";
     private string NotificationEmptyPrimaryActionIcon => HasActiveFilters ? Icons.Material.Filled.FilterAltOff : Icons.Material.Filled.Tune;
+    private string NotificationSavedViewFilterStateJson => JsonSerializer.Serialize(
+        new NotificationSavedViewState(_searchTerm, _categoryFilter, _readState),
+        SavedViewJsonOptions);
+    private IReadOnlyList<string> NotificationSavedViewSummaryLabels => BuildNotificationSavedViewSummaryLabels();
 
     protected override async Task OnInitializedAsync()
     {
@@ -108,6 +118,22 @@ public partial class Notifications
         _readState = NotificationReadState.All;
         _searchTerm = null;
         await LoadNotificationsAsync();
+    }
+
+    private async Task ApplySavedViewAsync(SavedViewDto savedView)
+    {
+        try
+        {
+            var state = JsonSerializer.Deserialize<NotificationSavedViewState>(savedView.FilterStateJson, SavedViewJsonOptions);
+            _searchTerm = state?.SearchTerm;
+            _categoryFilter = state?.Category;
+            _readState = state?.ReadState ?? NotificationReadState.All;
+            await LoadNotificationsAsync();
+        }
+        catch (JsonException)
+        {
+            Snackbar.Add("Saved view filters could not be applied.", Severity.Warning);
+        }
     }
 
     private async Task MarkAsReadAsync(NotificationCenterItemDto notification)
@@ -192,6 +218,27 @@ public partial class Notifications
         return PawConnect.Services.NotificationCenterService.GetCategoryLabel(category);
     }
 
+    private IReadOnlyList<string> BuildNotificationSavedViewSummaryLabels()
+    {
+        var labels = new List<string>();
+        if (!string.IsNullOrWhiteSpace(_searchTerm))
+        {
+            labels.Add($"Search: {_searchTerm.Trim()}");
+        }
+
+        if (_categoryFilter.HasValue)
+        {
+            labels.Add($"Category: {GetCategoryLabel(_categoryFilter.Value)}");
+        }
+
+        if (_readState != NotificationReadState.All)
+        {
+            labels.Add($"Status: {_readState}");
+        }
+
+        return labels;
+    }
+
     private static string GetCategoryIcon(NotificationCategory category)
     {
         return category switch
@@ -245,4 +292,9 @@ public partial class Notifications
             _ => Color.Info
         };
     }
+
+    private sealed record NotificationSavedViewState(
+        string? SearchTerm,
+        NotificationCategory? Category,
+        NotificationReadState ReadState);
 }

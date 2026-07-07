@@ -631,6 +631,25 @@ h1:focus {
     overflow-wrap: anywhere;
 }
 
+.saved-view-toolbar {
+    border: 1px solid rgba(47, 111, 94, 0.12);
+    border-left: 4px solid #2f6f5e;
+    border-radius: 12px;
+    background: rgba(255, 254, 251, 0.86);
+}
+
+.saved-view-select {
+    min-width: 230px;
+}
+
+.saved-view-name-field {
+    min-width: 220px;
+}
+
+.saved-view-save-row {
+    row-gap: 8px;
+}
+
 .flex-wrap,
 .responsive-actions,
 .form-action-row {
@@ -671,5 +690,11 @@ h1:focus {
 
     .table-shell .mud-table-cell {
         max-width: none;
+    }
+
+    .saved-view-select,
+    .saved-view-name-field,
+    .saved-view-toolbar .mud-button-root {
+        width: 100%;
     }
 }

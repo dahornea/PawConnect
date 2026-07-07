@@ -52,6 +52,33 @@ public class CommandPaletteServiceTests
     }
 
     [Fact]
+    public async Task SearchAsync_ReturnsPinnedSavedViews()
+    {
+        await using var context = TestDbContextFactory.CreateContext();
+        context.UserSavedViews.Add(new UserSavedView
+        {
+            UserId = TestDbContextFactory.AdopterId,
+            Name = "Small dogs preset",
+            PageKey = "Dogs.Search",
+            RoleScope = SavedViewRoleScope.Adopter,
+            FilterStateJson = """{"size":"Small"}""",
+            IsPinned = true
+        });
+        await context.SaveChangesAsync();
+        var service = new CommandPaletteService(context);
+
+        var commands = await service.SearchAsync(new CommandPaletteSearchRequest(
+            Principal(TestDbContextFactory.AdopterId, IdentitySeedData.AdopterRole),
+            string.Empty,
+            "/dogs"));
+
+        Assert.Contains(commands, command =>
+            command.Id.StartsWith("saved-view-", StringComparison.Ordinal) &&
+            command.Title == "Small dogs preset" &&
+            command.Route.StartsWith("/dogs?savedViewId=", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task SearchAsync_ShelterDogResultsAreScopedToOwnShelter()
     {
         await using var context = TestDbContextFactory.CreateContext();

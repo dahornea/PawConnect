@@ -9,6 +9,11 @@ namespace PawConnect.Components.Pages.Admin;
 
 public partial class AdminActivityLog
 {
+    private static readonly JsonSerializerOptions SavedViewJsonOptions = new(JsonSerializerDefaults.Web);
+
+    [SupplyParameterFromQuery(Name = "savedViewId")]
+    public int? SavedViewId { get; set; }
+
     [Inject] private IAuditLogService AuditLogService { get; set; } = default!;
     [Inject] private IBrowserFileDownloadService FileDownloadService { get; set; } = default!;
     [Inject] private ISnackbar Snackbar { get; set; } = default!;
@@ -69,6 +74,10 @@ public partial class AdminActivityLog
     private IReadOnlyList<string> AuditEmptyTips => HasAuditFilters
         ? ["Filters are combined, so a narrow date range plus entity filter can hide valid events."]
         : ["Audit logs are created by key platform actions such as Copilot, exports, and workflow changes."];
+    private string AuditSavedViewFilterStateJson => JsonSerializer.Serialize(
+        new AuditSavedViewState(_search, _actionFilter, _entityFilter, _severityFilter, _eventTypeFilter, _fromDate, _toDate),
+        SavedViewJsonOptions);
+    private IReadOnlyList<string> AuditSavedViewSummaryLabels => BuildAuditSavedViewSummaryLabels();
 
     protected override async Task OnInitializedAsync()
     {
@@ -112,6 +121,26 @@ public partial class AdminActivityLog
         _fromDate = null;
         _toDate = null;
         await LoadLogsAsync();
+    }
+
+    private async Task ApplySavedViewAsync(SavedViewDto savedView)
+    {
+        try
+        {
+            var state = JsonSerializer.Deserialize<AuditSavedViewState>(savedView.FilterStateJson, SavedViewJsonOptions);
+            _search = state?.Search;
+            _actionFilter = state?.Action;
+            _entityFilter = state?.Entity;
+            _severityFilter = state?.Severity;
+            _eventTypeFilter = state?.EventType;
+            _fromDate = state?.FromDate;
+            _toDate = state?.ToDate;
+            await LoadLogsAsync();
+        }
+        catch (JsonException)
+        {
+            Snackbar.Add("Saved view filters could not be applied.", Severity.Warning);
+        }
     }
 
     private async Task ExportCsvAsync()
@@ -185,6 +214,47 @@ public partial class AdminActivityLog
         return Color.Primary;
     }
 
+    private IReadOnlyList<string> BuildAuditSavedViewSummaryLabels()
+    {
+        var labels = new List<string>();
+        if (!string.IsNullOrWhiteSpace(_search))
+        {
+            labels.Add($"Search: {_search.Trim()}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(_actionFilter))
+        {
+            labels.Add($"Action: {_actionFilter}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(_entityFilter))
+        {
+            labels.Add($"Entity: {_entityFilter}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(_severityFilter))
+        {
+            labels.Add($"Severity: {_severityFilter}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(_eventTypeFilter))
+        {
+            labels.Add($"Event type: {_eventTypeFilter}");
+        }
+
+        if (_fromDate.HasValue)
+        {
+            labels.Add($"From: {_fromDate.Value:dd MMM yyyy}");
+        }
+
+        if (_toDate.HasValue)
+        {
+            labels.Add($"To: {_toDate.Value:dd MMM yyyy}");
+        }
+
+        return labels;
+    }
+
     private static Color GetSeverityColor(string severity)
     {
         return severity switch
@@ -246,4 +316,13 @@ public partial class AdminActivityLog
             ? $"\"{escaped}\""
             : escaped;
     }
+
+    private sealed record AuditSavedViewState(
+        string? Search,
+        string? Action,
+        string? Entity,
+        string? Severity,
+        string? EventType,
+        DateTime? FromDate,
+        DateTime? ToDate);
 }

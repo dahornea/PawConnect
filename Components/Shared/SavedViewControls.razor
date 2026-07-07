@@ -1,0 +1,411 @@
+@using System.Security.Claims
+
+@if (_isAuthenticated)
+{
+    <MudPaper Elevation="0" Class="saved-view-toolbar pa-3">
+        <MudStack Spacing="2">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Spacing="2" Class="flex-wrap">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="flex-wrap">
+                    <MudIcon Icon="@Icons.Material.Filled.Bookmarks" Color="Color.Primary" Size="Size.Small" />
+                    <MudText Typo="Typo.subtitle2">@Title</MudText>
+                    @if (_activeView is not null)
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">
+                            Active: @_activeView.Name
+                        </MudChip>
+                    }
+                </MudStack>
+
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="flex-wrap">
+                    <MudSelect T="int?"
+                               Label="Views"
+                               Value="_selectedViewId"
+                               ValueChanged="OnSelectedViewChangedAsync"
+                               Disabled="@Disabled"
+                               Dense="true"
+                               Variant="Variant.Outlined"
+                               Class="saved-view-select">
+                        <MudSelectItem T="int?" Value="@((int?)null)">Choose view</MudSelectItem>
+                        @foreach (var view in _views)
+                        {
+                            <MudSelectItem T="int?" Value="@((int?)view.Id)">@GetViewLabel(view)</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudButton Variant="Variant.Text"
+                               Color="Color.Default"
+                               Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.FilterAltOff"
+                               Disabled="@Disabled"
+                               OnClick="ClearCurrentViewAsync">
+                        Reset
+                    </MudButton>
+                </MudStack>
+            </MudStack>
+
+            @if (_views.Any(view => view.IsPinned))
+            {
+                <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Class="flex-wrap">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Pinned</MudText>
+                    @foreach (var view in _views.Where(view => view.IsPinned))
+                    {
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="Color.Primary"
+                                   Size="Size.Small"
+                                   StartIcon="@Icons.Material.Filled.PushPin"
+                                   Disabled="@Disabled"
+                                   OnClick="@(() => ApplyViewAsync(view))">
+                            @view.Name
+                        </MudButton>
+                    }
+                </MudStack>
+            }
+
+            <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Class="flex-wrap saved-view-save-row">
+                <MudTextField T="string"
+                              Label="New view name"
+                              @bind-Value="_newViewName"
+                              Variant="Variant.Outlined"
+                              Margin="Margin.Dense"
+                              Disabled="@Disabled"
+                              Class="saved-view-name-field" />
+                <MudCheckBox T="bool" @bind-Value="_savePinned" Color="Color.Primary" Dense="true" Label="Pin" Disabled="@Disabled" />
+                <MudCheckBox T="bool" @bind-Value="_saveDefault" Color="Color.Primary" Dense="true" Label="Default" Disabled="@Disabled" />
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.Save"
+                           Disabled="@Disabled"
+                           OnClick="SaveCurrentViewAsync">
+                    Save view
+                </MudButton>
+
+                @if (_activeView is { IsSystemView: false })
+                {
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Primary"
+                               Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.Update"
+                               Disabled="@Disabled"
+                               OnClick="UpdateActiveViewAsync">
+                        Update
+                    </MudButton>
+                    <MudButton Variant="Variant.Text"
+                               Color="Color.Primary"
+                               Size="Size.Small"
+                               StartIcon="@(_activeView.IsDefault ? Icons.Material.Filled.Star : Icons.Material.Outlined.StarBorder)"
+                               Disabled="@Disabled"
+                               OnClick="SetActiveDefaultAsync">
+                        Default
+                    </MudButton>
+                    <MudButton Variant="Variant.Text"
+                               Color="Color.Primary"
+                               Size="Size.Small"
+                               StartIcon="@(_activeView.IsPinned ? Icons.Material.Filled.PushPin : Icons.Material.Outlined.PushPin)"
+                               Disabled="@Disabled"
+                               OnClick="ToggleActivePinnedAsync">
+                        @(_activeView.IsPinned ? "Unpin" : "Pin")
+                    </MudButton>
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                   Color="Color.Error"
+                                   Size="Size.Small"
+                                   Disabled="@Disabled"
+                                   OnClick="DeleteActiveViewAsync"
+                                   aria-label="Delete saved view" />
+                }
+            </MudStack>
+
+            @if (CurrentSummaryLabels.Count > 0)
+            {
+                <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Class="flex-wrap">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Current filters</MudText>
+                    @foreach (var label in CurrentSummaryLabels.Take(8))
+                    {
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default">@label</MudChip>
+                    }
+                </MudStack>
+            }
+        </MudStack>
+    </MudPaper>
+}
+
+@code {
+    [Inject] private ISavedViewService SavedViewService { get; set; } = default!;
+    [Inject] private AuthenticationStateProvider AuthenticationStateProvider { get; set; } = default!;
+    [Inject] private ISnackbar Snackbar { get; set; } = default!;
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+
+    [Parameter, EditorRequired] public string PageKey { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public SavedViewRoleScope RoleScope { get; set; } = SavedViewRoleScope.Global;
+    [Parameter] public string Title { get; set; } = "Saved views";
+    [Parameter] public string CurrentFilterStateJson { get; set; } = "{}";
+    [Parameter] public string? CurrentSortStateJson { get; set; }
+    [Parameter] public string? CurrentColumnStateJson { get; set; }
+    [Parameter] public string? ViewMode { get; set; }
+    [Parameter] public IReadOnlyList<string> CurrentSummaryLabels { get; set; } = [];
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public bool AutoApplyDefault { get; set; } = true;
+    [Parameter] public int? InitialViewId { get; set; }
+    [Parameter] public EventCallback<SavedViewDto> OnApply { get; set; }
+    [Parameter] public EventCallback OnClear { get; set; }
+
+    private IReadOnlyList<SavedViewDto> _views = [];
+    private IReadOnlyList<string> _roles = [];
+    private string? _userId;
+    private string? _newViewName;
+    private bool _savePinned;
+    private bool _saveDefault;
+    private bool _isAuthenticated;
+    private bool _defaultApplied;
+    private int? _appliedInitialViewId;
+    private int? _selectedViewId;
+    private SavedViewDto? _activeView;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadIdentityAsync();
+        if (_isAuthenticated)
+        {
+            await LoadViewsAsync();
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_isAuthenticated && InitialViewId.HasValue && _appliedInitialViewId != InitialViewId && !Disabled)
+        {
+            var requestedView = _views.FirstOrDefault(view => view.Id == InitialViewId.Value);
+            if (requestedView is not null)
+            {
+                _appliedInitialViewId = InitialViewId;
+                _defaultApplied = true;
+                await ApplyViewAsync(requestedView, showMessage: false);
+                return;
+            }
+        }
+
+        if (_isAuthenticated && !InitialViewId.HasValue && AutoApplyDefault && !_defaultApplied && !Disabled)
+        {
+            _defaultApplied = true;
+            var defaultView = _views.FirstOrDefault(view => view.IsDefault);
+            if (defaultView is not null)
+            {
+                await ApplyViewAsync(defaultView, showMessage: false);
+            }
+        }
+    }
+
+    private async Task LoadIdentityAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        _isAuthenticated = user.Identity?.IsAuthenticated == true;
+        if (!_isAuthenticated)
+        {
+            return;
+        }
+
+        _userId = user.FindFirstValue(ClaimTypes.NameIdentifier);
+        _roles = user.FindAll(ClaimTypes.Role)
+            .Concat(user.FindAll("role"))
+            .Select(claim => claim.Value)
+            .Where(role => !string.IsNullOrWhiteSpace(role))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private async Task LoadViewsAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_userId))
+        {
+            return;
+        }
+
+        try
+        {
+            _views = await SavedViewService.GetViewsForPageAsync(_userId, _roles, PageKey);
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+            _views = [];
+        }
+    }
+
+    private async Task OnSelectedViewChangedAsync(int? viewId)
+    {
+        _selectedViewId = viewId;
+        var view = _views.FirstOrDefault(candidate => candidate.Id == viewId);
+        if (view is not null)
+        {
+            await ApplyViewAsync(view);
+        }
+    }
+
+    private async Task ApplyViewAsync(SavedViewDto view, bool showMessage = true)
+    {
+        _selectedViewId = view.Id;
+        _activeView = view;
+        await OnApply.InvokeAsync(view);
+
+        if (!string.IsNullOrWhiteSpace(_userId))
+        {
+            await SavedViewService.MarkViewUsedAsync(view.Id, _userId, _roles);
+        }
+
+        if (showMessage)
+        {
+            Snackbar.Add($"Applied saved view: {view.Name}", Severity.Info);
+        }
+    }
+
+    private async Task ClearCurrentViewAsync()
+    {
+        _selectedViewId = null;
+        _activeView = null;
+        await OnClear.InvokeAsync();
+        Snackbar.Add("Filters reset.", Severity.Info);
+    }
+
+    private async Task SaveCurrentViewAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_userId))
+        {
+            return;
+        }
+
+        try
+        {
+            var saved = await SavedViewService.CreateViewAsync(
+                _userId,
+                _roles,
+                new SavedViewCreateRequest(
+                    _newViewName ?? string.Empty,
+                    PageKey,
+                    RoleScope,
+                    null,
+                    CurrentFilterStateJson,
+                    CurrentSortStateJson,
+                    CurrentColumnStateJson,
+                    ViewMode,
+                    _savePinned,
+                    _saveDefault,
+                    CurrentSummaryLabels));
+
+            _newViewName = null;
+            _savePinned = false;
+            _saveDefault = false;
+            await LoadViewsAsync();
+            _activeView = saved;
+            _selectedViewId = saved.Id;
+            Snackbar.Add("Saved view created.", Severity.Success);
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+    }
+
+    private async Task UpdateActiveViewAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_userId) || _activeView is null || _activeView.IsSystemView)
+        {
+            return;
+        }
+
+        try
+        {
+            var updated = await SavedViewService.UpdateViewAsync(
+                _activeView.Id,
+                _userId,
+                _roles,
+                new SavedViewUpdateRequest(
+                    _activeView.Name,
+                    _activeView.Description,
+                    CurrentFilterStateJson,
+                    CurrentSortStateJson,
+                    CurrentColumnStateJson,
+                    ViewMode,
+                    _activeView.IsPinned,
+                    _activeView.IsDefault,
+                    CurrentSummaryLabels));
+
+            await LoadViewsAsync();
+            _activeView = updated;
+            _selectedViewId = updated.Id;
+            Snackbar.Add("Saved view updated.", Severity.Success);
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+    }
+
+    private async Task SetActiveDefaultAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_userId) || _activeView is null || _activeView.IsSystemView)
+        {
+            return;
+        }
+
+        await SavedViewService.SetDefaultViewAsync(_activeView.Id, _userId, _roles);
+        await LoadViewsAsync();
+        _activeView = _views.FirstOrDefault(view => view.Id == _activeView.Id);
+        Snackbar.Add("Default view updated.", Severity.Success);
+    }
+
+    private async Task ToggleActivePinnedAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_userId) || _activeView is null || _activeView.IsSystemView)
+        {
+            return;
+        }
+
+        if (_activeView.IsPinned)
+        {
+            await SavedViewService.UnpinViewAsync(_activeView.Id, _userId);
+        }
+        else
+        {
+            await SavedViewService.PinViewAsync(_activeView.Id, _userId);
+        }
+
+        await LoadViewsAsync();
+        _activeView = _views.FirstOrDefault(view => view.Id == _activeView.Id);
+    }
+
+    private async Task DeleteActiveViewAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_userId) || _activeView is null || _activeView.IsSystemView)
+        {
+            return;
+        }
+
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Delete saved view '{_activeView.Name}'?");
+        if (!confirmed)
+        {
+            return;
+        }
+
+        await SavedViewService.DeleteViewAsync(_activeView.Id, _userId);
+        _activeView = null;
+        _selectedViewId = null;
+        await LoadViewsAsync();
+        Snackbar.Add("Saved view deleted.", Severity.Success);
+    }
+
+    private static string GetViewLabel(SavedViewDto view)
+    {
+        var badges = new List<string>();
+        if (view.IsDefault)
+        {
+            badges.Add("default");
+        }
+
+        if (view.IsSystemView)
+        {
+            badges.Add("system");
+        }
+
+        return badges.Count == 0 ? view.Name : $"{view.Name} ({string.Join(", ", badges)})";
+    }
+}

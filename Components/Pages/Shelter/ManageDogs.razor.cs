@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.Globalization;
 using System.Security.Claims;
+using System.Text.Json;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Forms;
@@ -18,6 +19,11 @@ namespace PawConnect.Components.Pages.Shelter;
 
 public partial class ManageDogs
 {
+    private static readonly JsonSerializerOptions SavedViewJsonOptions = new(JsonSerializerDefaults.Web);
+
+    [SupplyParameterFromQuery(Name = "savedViewId")]
+    public int? SavedViewId { get; set; }
+
     [Inject] private IDogService DogService { get; set; } = default!;
     [Inject] private IShelterService ShelterService { get; set; } = default!;
     [Inject] private IExportService ExportService { get; set; } = default!;
@@ -67,6 +73,11 @@ public partial class ManageDogs
     private IReadOnlyList<string> ManageDogsEmptyTips => _dogs.Count == 0
         ? ["Use the CSV import when you already have a shelter spreadsheet.", "Complete breed, images, medical, and compatibility fields for better public profiles."]
         : ["Clear filters to return to the full shelter dog list.", "Try changing only one filter if you want to keep part of this view."];
+    private string ManageDogsSavedViewFilterStateJson => JsonSerializer.Serialize(
+        new ManageDogsSavedViewState(_searchTerm, _statusFilter, _sizeFilter, _completenessFilter, _sortOption),
+        SavedViewJsonOptions);
+    private string ManageDogsSavedViewSortStateJson => JsonSerializer.Serialize(new { sort = _sortOption }, SavedViewJsonOptions);
+    private IReadOnlyList<string> ManageDogsSavedViewSummaryLabels => BuildManageDogsSavedViewSummaryLabels();
 
     private IEnumerable<Dog> FilteredDogs
     {
@@ -111,11 +122,35 @@ public partial class ManageDogs
             return Task.CompletedTask;
         }
 
+        return ClearSavedViewFiltersAsync();
+    }
+
+    private Task ClearSavedViewFiltersAsync()
+    {
         _searchTerm = null;
         _statusFilter = null;
         _sizeFilter = null;
         _completenessFilter = null;
         _sortOption = "Name";
+        return Task.CompletedTask;
+    }
+
+    private Task ApplySavedViewAsync(SavedViewDto savedView)
+    {
+        try
+        {
+            var state = JsonSerializer.Deserialize<ManageDogsSavedViewState>(savedView.FilterStateJson, SavedViewJsonOptions);
+            _searchTerm = state?.SearchTerm;
+            _statusFilter = state?.Status;
+            _sizeFilter = state?.Size;
+            _completenessFilter = state?.Completeness;
+            _sortOption = string.IsNullOrWhiteSpace(state?.SortOption) ? "Name" : state.SortOption;
+        }
+        catch (JsonException)
+        {
+            Snackbar.Add("Saved view filters could not be applied.", Severity.Warning);
+        }
+
         return Task.CompletedTask;
     }
 
@@ -156,6 +191,39 @@ public partial class ManageDogs
         }
 
         await DeleteAsync(dog);
+    }
+
+    private IReadOnlyList<string> BuildManageDogsSavedViewSummaryLabels()
+    {
+        var labels = new List<string>();
+        if (!string.IsNullOrWhiteSpace(_searchTerm))
+        {
+            labels.Add($"Search: {_searchTerm.Trim()}");
+        }
+
+        if (_statusFilter.HasValue)
+        {
+            labels.Add($"Status: {_statusFilter.Value}");
+        }
+
+        if (_sizeFilter.HasValue)
+        {
+            labels.Add($"Size: {_sizeFilter.Value}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(_completenessFilter))
+        {
+            labels.Add($"Completeness: {_completenessFilter}");
+        }
+
+        labels.Add(_sortOption switch
+        {
+            "CompletenessAsc" => "Sort: Completeness low-high",
+            "CompletenessDesc" => "Sort: Completeness high-low",
+            _ => "Sort: Name A-Z"
+        });
+
+        return labels;
     }
 
     private async Task ExportDogsCsvAsync()
@@ -404,4 +472,11 @@ public partial class ManageDogs
     {
         return string.Join(" ", row.Errors.Select(error => error.Message));
     }
+
+    private sealed record ManageDogsSavedViewState(
+        string? SearchTerm,
+        DogStatus? Status,
+        DogSize? Size,
+        string? Completeness,
+        string SortOption);
 }

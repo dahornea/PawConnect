@@ -69,6 +69,16 @@
             </MudGrid>
         </MudPaper>
 
+        <SavedViewControls PageKey="Admin.Audit"
+                           RoleScope="@SavedViewRoleScope.Admin"
+                           Title="Audit log views"
+                           CurrentFilterStateJson="@AuditSavedViewFilterStateJson"
+                           CurrentSummaryLabels="@AuditSavedViewSummaryLabels"
+                           Disabled="_isLoading"
+                           InitialViewId="@SavedViewId"
+                           OnApply="ApplySavedViewAsync"
+                           OnClear="ClearFiltersAsync" />
+
         @if (_isLoading)
         {
             <AppLoadingState Message="Loading audit logs..." />

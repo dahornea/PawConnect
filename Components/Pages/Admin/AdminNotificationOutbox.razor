@@ -87,6 +87,16 @@
             </MudGrid>
         </MudPaper>
 
+        <SavedViewControls PageKey="Admin.Notifications.Outbox"
+                           RoleScope="@SavedViewRoleScope.Admin"
+                           Title="Outbox views"
+                           CurrentFilterStateJson="@OutboxSavedViewFilterStateJson"
+                           CurrentSummaryLabels="@OutboxSavedViewSummaryLabels"
+                           Disabled="_isLoading"
+                           InitialViewId="@SavedViewId"
+                           OnApply="ApplySavedViewAsync"
+                           OnClear="ClearFiltersAsync" />
+
         <MudStack Row="true" Justify="Justify.FlexEnd" Class="flex-wrap" Spacing="1">
             <MudButton Variant="Variant.Outlined"
                        Color="Color.Primary"

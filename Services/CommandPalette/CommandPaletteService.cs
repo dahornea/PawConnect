@@ -16,6 +16,7 @@ public sealed class CommandPaletteService(ApplicationDbContext context) : IComma
     private const string Admin = "Admin";
     private const string QuickActions = "Quick Actions";
     private const string Volunteer = "Volunteer";
+    private const string SavedViews = "Saved Views";
 
     public async Task<IReadOnlyList<CommandPaletteCommand>> SearchAsync(CommandPaletteSearchRequest request)
     {
@@ -35,6 +36,19 @@ public sealed class CommandPaletteService(ApplicationDbContext context) : IComma
             .Concat(BuildContextualCommands(request.CurrentPath, isAdopter, isShelter, isAdmin, shelterId))
             .Where(command => Matches(command, query))
             .ToList();
+
+        if (isAuthenticated && !string.IsNullOrWhiteSpace(userId))
+        {
+            commands.AddRange(await SearchSavedViewsAsync(
+                userId,
+                query,
+                request.LimitPerGroup,
+                isAdmin,
+                isShelter,
+                isAdopter,
+                isVolunteer,
+                request.CancellationToken));
+        }
 
         if (!string.IsNullOrWhiteSpace(query))
         {
@@ -245,6 +259,67 @@ public sealed class CommandPaletteService(ApplicationDbContext context) : IComma
                 new[] { dog.Name, dog.Breed, dog.Location },
                 dog.Status.ToString()))
             .ToListAsync(cancellationToken);
+    }
+
+    private async Task<IReadOnlyList<CommandPaletteCommand>> SearchSavedViewsAsync(
+        string userId,
+        string query,
+        int limit,
+        bool isAdmin,
+        bool isShelter,
+        bool isAdopter,
+        bool isVolunteer,
+        CancellationToken cancellationToken)
+    {
+        var allowedScopes = GetAllowedSavedViewScopes(isAdmin, isShelter, isAdopter, isVolunteer);
+        var savedViews = context.UserSavedViews
+            .AsNoTracking()
+            .Where(view => view.UserId == userId || (view.IsSystemView && allowedScopes.Contains(view.RoleScope)));
+
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            savedViews = savedViews.Where(view => view.IsPinned || view.IsDefault);
+        }
+        else
+        {
+            savedViews = savedViews.Where(view =>
+                view.Name.Contains(query) ||
+                view.PageKey.Contains(query) ||
+                (view.Description != null && view.Description.Contains(query)) ||
+                (view.FilterSummaryJson != null && view.FilterSummaryJson.Contains(query)));
+        }
+
+        var views = await savedViews
+            .OrderByDescending(view => view.IsPinned)
+            .ThenByDescending(view => view.IsDefault)
+            .ThenBy(view => view.Name)
+            .Take(limit)
+            .Select(view => new
+            {
+                view.Id,
+                view.Name,
+                view.PageKey,
+                view.Description,
+                view.IsPinned,
+                view.IsDefault,
+                view.IsSystemView,
+                view.FilterSummaryJson
+            })
+            .ToListAsync(cancellationToken);
+
+        return views
+            .Select(view => new { View = view, Route = GetSavedViewRoute(view.PageKey, view.Id) })
+            .Where(item => item.Route is not null)
+            .Select(item => Command(
+                $"saved-view-{item.View.Id}",
+                item.View.Name,
+                GetSavedViewDescription(item.View.PageKey, item.View.Description, item.View.FilterSummaryJson),
+                SavedViews,
+                item.Route!,
+                Icons.Material.Filled.Bookmarks,
+                new[] { "saved view", "filter preset", item.View.PageKey, item.View.Name },
+                item.View.IsPinned ? "Pinned" : item.View.IsDefault ? "Default" : item.View.IsSystemView ? "System" : null))
+            .ToList();
     }
 
     private async Task<IReadOnlyList<CommandPaletteCommand>> SearchNotificationsAsync(
@@ -496,9 +571,83 @@ public sealed class CommandPaletteService(ApplicationDbContext context) : IComma
             Applications => 3,
             ShelterOperations => 4,
             Volunteer => 5,
-            Notifications => 6,
-            Admin => 7,
+            SavedViews => 6,
+            Notifications => 7,
+            Admin => 8,
             _ => 99
+        };
+    }
+
+    private static SavedViewRoleScope[] GetAllowedSavedViewScopes(
+        bool isAdmin,
+        bool isShelter,
+        bool isAdopter,
+        bool isVolunteer)
+    {
+        var scopes = new List<SavedViewRoleScope> { SavedViewRoleScope.Global };
+        if (isAdmin)
+        {
+            scopes.Add(SavedViewRoleScope.Admin);
+        }
+
+        if (isShelter)
+        {
+            scopes.Add(SavedViewRoleScope.Shelter);
+        }
+
+        if (isAdopter)
+        {
+            scopes.Add(SavedViewRoleScope.Adopter);
+        }
+
+        if (isVolunteer)
+        {
+            scopes.Add(SavedViewRoleScope.Volunteer);
+        }
+
+        return scopes.ToArray();
+    }
+
+    private static string? GetSavedViewRoute(string pageKey, int savedViewId)
+    {
+        var route = pageKey switch
+        {
+            "Dogs.Search" => "/dogs",
+            "Shelter.Dogs" => "/shelter/dogs",
+            "Admin.Notifications.Outbox" => "/admin/notification-outbox",
+            "Admin.Audit" => "/admin/audit-logs",
+            "Notifications.Center" => "/notifications",
+            _ => null
+        };
+
+        return route is null ? null : $"{route}?savedViewId={savedViewId}";
+    }
+
+    private static string GetSavedViewDescription(string pageKey, string? description, string? filterSummaryJson)
+    {
+        if (!string.IsNullOrWhiteSpace(description))
+        {
+            return description;
+        }
+
+        if (!string.IsNullOrWhiteSpace(filterSummaryJson))
+        {
+            return $"{GetSavedViewPageLabel(pageKey)} filter preset";
+        }
+
+        return $"Open {GetSavedViewPageLabel(pageKey)} with saved filters.";
+    }
+
+    private static string GetSavedViewPageLabel(string pageKey)
+    {
+        return pageKey switch
+        {
+            "Dogs.Search" => "dog browsing",
+            "Shelter.Dogs" => "shelter dogs",
+            "Admin.Notifications.Outbox" => "notification outbox",
+            "Admin.Audit" => "audit logs",
+            "Notifications.Center" => "notifications",
+            _ => "this page"
         };
     }
 

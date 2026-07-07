@@ -147,6 +147,17 @@
             </MudGrid>
         </MudPaper>
 
+        <SavedViewControls PageKey="Shelter.Dogs"
+                           RoleScope="@SavedViewRoleScope.Shelter"
+                           Title="Dog list views"
+                           CurrentFilterStateJson="@ManageDogsSavedViewFilterStateJson"
+                           CurrentSortStateJson="@ManageDogsSavedViewSortStateJson"
+                           CurrentSummaryLabels="@ManageDogsSavedViewSummaryLabels"
+                           Disabled="_isLoading"
+                           InitialViewId="@SavedViewId"
+                           OnApply="ApplySavedViewAsync"
+                           OnClear="ClearSavedViewFiltersAsync" />
+
         @if (_isLoading)
         {
             <AppLoadingState Message="Loading shelter dogs..." />

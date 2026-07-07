@@ -74,6 +74,17 @@
             </MudStack>
         </MudPaper>
 
+        <SavedViewControls PageKey="Dogs.Search"
+                           RoleScope="@DogSavedViewRoleScope"
+                           Title="Dog browsing views"
+                           CurrentFilterStateJson="@DogSavedViewFilterStateJson"
+                           CurrentSortStateJson="@DogSavedViewSortStateJson"
+                           CurrentSummaryLabels="@DogSavedViewSummaryLabels"
+                           Disabled="_isLoading"
+                           InitialViewId="@SavedViewId"
+                           OnApply="ApplySavedViewAsync"
+                           OnClear="ClearFiltersAsync" />
+
         @if (_filtersOpen)
         {
             <MudPaper Elevation="0" Class="section-surface filter-panel pa-4">

@@ -37,6 +37,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
     public DbSet<SavedSearchMatch> SavedSearchMatches => Set<SavedSearchMatch>();
 
+    public DbSet<UserSavedView> UserSavedViews => Set<UserSavedView>();
+
     public DbSet<ShelterRegistrationRequest> ShelterRegistrationRequests => Set<ShelterRegistrationRequest>();
 
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
@@ -259,6 +261,57 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         builder.Entity<LostFoundPostImage>()
             .Property(image => image.CreatedAt)
             .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<UserSavedView>()
+            .HasOne(view => view.User)
+            .WithMany()
+            .HasForeignKey(view => view.UserId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<UserSavedView>()
+            .Property(view => view.FilterStateJson)
+            .HasMaxLength(8000);
+
+        builder.Entity<UserSavedView>()
+            .Property(view => view.SortStateJson)
+            .HasMaxLength(4000);
+
+        builder.Entity<UserSavedView>()
+            .Property(view => view.ColumnStateJson)
+            .HasMaxLength(4000);
+
+        builder.Entity<UserSavedView>()
+            .Property(view => view.FilterSummaryJson)
+            .HasMaxLength(2000);
+
+        builder.Entity<UserSavedView>()
+            .Property(view => view.CreatedAtUtc)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<UserSavedView>()
+            .Property(view => view.UpdatedAtUtc)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<UserSavedView>()
+            .HasIndex(view => view.UserId);
+
+        builder.Entity<UserSavedView>()
+            .HasIndex(view => new { view.UserId, view.PageKey });
+
+        builder.Entity<UserSavedView>()
+            .HasIndex(view => new { view.UserId, view.PageKey, view.Name })
+            .IsUnique()
+            .HasFilter("[UserId] IS NOT NULL AND [IsSystemView] = 0");
+
+        builder.Entity<UserSavedView>()
+            .HasIndex(view => new { view.UserId, view.PageKey, view.IsDefault });
+
+        builder.Entity<UserSavedView>()
+            .HasIndex(view => new { view.UserId, view.PageKey, view.IsPinned });
+
+        builder.Entity<UserSavedView>()
+            .HasIndex(view => new { view.PageKey, view.IsSystemView });
 
         builder.Entity<LostFoundPostImage>()
             .HasIndex(image => image.LostFoundPostId);

@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text.Json;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using MudBlazor;
@@ -9,6 +10,11 @@ namespace PawConnect.Components.Pages.Admin;
 
 public partial class AdminNotificationOutbox
 {
+    private static readonly JsonSerializerOptions SavedViewJsonOptions = new(JsonSerializerDefaults.Web);
+
+    [SupplyParameterFromQuery(Name = "savedViewId")]
+    public int? SavedViewId { get; set; }
+
     [Inject] private INotificationOutboxService OutboxService { get; set; } = default!;
     [Inject] private INotificationOutboxProcessor OutboxProcessor { get; set; } = default!;
     [Inject] private INotificationPreferenceService PreferenceService { get; set; } = default!;
@@ -42,6 +48,10 @@ public partial class AdminNotificationOutbox
     private IReadOnlyList<string> OutboxEmptyTips => HasOutboxFilters
         ? ["Status, channel, type, and search filters are all applied together."]
         : ["A clear queue is normal when notification jobs are caught up.", "Use Process due now only when pending work exists."];
+    private string OutboxSavedViewFilterStateJson => JsonSerializer.Serialize(
+        new OutboxSavedViewState(_statusFilter, _channelFilter, _typeFilter, _search),
+        SavedViewJsonOptions);
+    private IReadOnlyList<string> OutboxSavedViewSummaryLabels => BuildOutboxSavedViewSummaryLabels();
 
     protected override async Task OnInitializedAsync()
     {
@@ -82,6 +92,23 @@ public partial class AdminNotificationOutbox
         _typeFilter = null;
         _search = null;
         await LoadMessagesAsync();
+    }
+
+    private async Task ApplySavedViewAsync(SavedViewDto savedView)
+    {
+        try
+        {
+            var state = JsonSerializer.Deserialize<OutboxSavedViewState>(savedView.FilterStateJson, SavedViewJsonOptions);
+            _statusFilter = state?.Status;
+            _channelFilter = state?.Channel;
+            _typeFilter = state?.Type;
+            _search = state?.Search;
+            await LoadMessagesAsync();
+        }
+        catch (JsonException)
+        {
+            Snackbar.Add("Saved view filters could not be applied.", Severity.Warning);
+        }
     }
 
     private Task OutboxEmptyPrimaryActionAsync()
@@ -156,6 +183,32 @@ public partial class AdminNotificationOutbox
             TryParse<NotificationChannel>(_channelFilter),
             TryParse<NotificationEventType>(_typeFilter),
             Search: _search);
+    }
+
+    private IReadOnlyList<string> BuildOutboxSavedViewSummaryLabels()
+    {
+        var labels = new List<string>();
+        if (!string.IsNullOrWhiteSpace(_statusFilter) && TryParse<NotificationOutboxStatus>(_statusFilter) is { } status)
+        {
+            labels.Add($"Status: {FormatStatus(status)}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(_channelFilter) && TryParse<NotificationChannel>(_channelFilter) is { } channel)
+        {
+            labels.Add($"Channel: {FormatChannel(channel)}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(_typeFilter) && TryParse<NotificationEventType>(_typeFilter) is { } type)
+        {
+            labels.Add($"Type: {FormatType(type)}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(_search))
+        {
+            labels.Add($"Search: {_search.Trim()}");
+        }
+
+        return labels;
     }
 
     private async Task<string> GetCurrentUserIdAsync()
@@ -258,4 +311,10 @@ public partial class AdminNotificationOutbox
         var normalized = value.Trim();
         return normalized.Length <= maxLength ? normalized : $"{normalized[..maxLength]}...";
     }
+
+    private sealed record OutboxSavedViewState(
+        string? Status,
+        string? Channel,
+        string? Type,
+        string? Search);
 }

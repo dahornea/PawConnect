@@ -55,6 +55,16 @@
             </MudStack>
         </MudPaper>
 
+        <SavedViewControls PageKey="Notifications.Center"
+                           RoleScope="@SavedViewRoleScope.Global"
+                           Title="Notification views"
+                           CurrentFilterStateJson="@NotificationSavedViewFilterStateJson"
+                           CurrentSummaryLabels="@NotificationSavedViewSummaryLabels"
+                           Disabled="_isLoading"
+                           InitialViewId="@SavedViewId"
+                           OnApply="ApplySavedViewAsync"
+                           OnClear="ClearFiltersAsync" />
+
         @if (_isLoading)
         {
             <AppLoadingState Message="Loading notifications..." />
