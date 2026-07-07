@@ -168,6 +168,8 @@
         }
         else
         {
+            <BulkActionResultSummary Result="_bulkActionResult" OnDismiss="@(() => _bulkActionResult = null)" />
+
             @if (_importResult is not null)
             {
                 <MudPaper Elevation="0" Class="section-surface pa-4">
@@ -243,8 +245,36 @@
             }
             else
             {
+                <BulkSelectionToolbar Title="Dog bulk actions"
+                                      SelectedCount="@VisibleSelectedDogIds.Count"
+                                      TotalVisibleCount="@VisibleFilteredDogs.Count"
+                                      IsAllVisibleSelected="@AreAllVisibleDogsSelected"
+                                      Disabled="@_isBulkActionRunning"
+                                      OnSelectAllVisible="SelectAllVisibleDogsAsync"
+                                      OnClearSelection="ClearDogSelection">
+                    <Actions>
+                        <MudMenu Dense="true"
+                                 Label="Change status"
+                                 StartIcon="@Icons.Material.Filled.SyncAlt"
+                                 Disabled="@(_isBulkActionRunning || VisibleSelectedDogIds.Count == 0)"
+                                 Color="Color.Primary"
+                                 Variant="Variant.Filled">
+                            <MudMenuItem OnClick="@(() => ConfirmBulkDogStatusAsync(DogStatus.Available))">Mark available</MudMenuItem>
+                            <MudMenuItem OnClick="@(() => ConfirmBulkDogStatusAsync(DogStatus.Reserved))">Mark reserved</MudMenuItem>
+                            <MudMenuItem OnClick="@(() => ConfirmBulkDogStatusAsync(DogStatus.InTreatment))">Mark in treatment</MudMenuItem>
+                        </MudMenu>
+                    </Actions>
+                </BulkSelectionToolbar>
+
                 <MudTable Items="FilteredDogs" Dense="true" Hover="true" Class="table-shell">
                     <HeaderContent>
+                        <MudTh>
+                            <MudCheckBox T="bool"
+                                         Value="@AreAllVisibleDogsSelected"
+                                         ValueChanged="SetAllVisibleDogsSelectedAsync"
+                                         Disabled="@(_isBulkActionRunning || VisibleFilteredDogs.Count == 0)"
+                                         aria-label="Select all visible dogs" />
+                        </MudTh>
                         <MudTh>Dog</MudTh>
                         <MudTh>Breed</MudTh>
                         <MudTh>Age</MudTh>
@@ -256,6 +286,13 @@
                         <MudTh></MudTh>
                     </HeaderContent>
                     <RowTemplate>
+                        <MudTd DataLabel="Select">
+                            <MudCheckBox T="bool"
+                                         Value="@_selectedDogIds.Contains(context.Id)"
+                                         ValueChanged="@((bool selected) => ToggleDogSelection(context.Id, selected))"
+                                         Disabled="_isBulkActionRunning"
+                                         aria-label="@($"Select {context.Name}")" />
+                        </MudTd>
                         <MudTd DataLabel="Dog">
                             @{
                                 var imageUrl = GetImageUrl(context);

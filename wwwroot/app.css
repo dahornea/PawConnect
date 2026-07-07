@@ -650,6 +650,21 @@ h1:focus {
     row-gap: 8px;
 }
 
+.bulk-selection-toolbar {
+    border: 1px solid rgba(45, 122, 99, 0.22);
+    border-radius: 10px;
+    background: rgba(246, 250, 247, 0.96);
+    margin-bottom: 0.75rem;
+}
+
+.bulk-action-result {
+    margin-bottom: 0.75rem;
+}
+
+.bulk-action-result-list {
+    max-width: 720px;
+}
+
 .flex-wrap,
 .responsive-actions,
 .form-action-row {

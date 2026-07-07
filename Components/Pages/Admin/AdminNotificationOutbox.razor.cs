@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using MudBlazor;
+using PawConnect.Components.Shared;
 using PawConnect.Entities;
 using PawConnect.Services;
 
@@ -17,9 +18,11 @@ public partial class AdminNotificationOutbox
 
     [Inject] private INotificationOutboxService OutboxService { get; set; } = default!;
     [Inject] private INotificationOutboxProcessor OutboxProcessor { get; set; } = default!;
+    [Inject] private IBulkNotificationOutboxActionService BulkOutboxActionService { get; set; } = default!;
     [Inject] private INotificationPreferenceService PreferenceService { get; set; } = default!;
     [Inject] private AuthenticationStateProvider AuthenticationStateProvider { get; set; } = default!;
     [Inject] private ISnackbar Snackbar { get; set; } = default!;
+    [Inject] private IDialogService DialogService { get; set; } = default!;
 
     private readonly IReadOnlyList<NotificationOutboxStatus> _statuses = Enum.GetValues<NotificationOutboxStatus>();
     private readonly IReadOnlyList<NotificationChannel> _channels = Enum.GetValues<NotificationChannel>();
@@ -34,6 +37,9 @@ public partial class AdminNotificationOutbox
     private string? _error;
     private bool _isLoading = true;
     private bool _isProcessingNow;
+    private bool _isBulkActionRunning;
+    private BulkActionResultDto? _bulkActionResult;
+    private readonly HashSet<int> _selectedOutboxMessageIds = [];
     private bool HasOutboxFilters =>
         !string.IsNullOrWhiteSpace(_statusFilter) ||
         !string.IsNullOrWhiteSpace(_channelFilter) ||
@@ -52,6 +58,12 @@ public partial class AdminNotificationOutbox
         new OutboxSavedViewState(_statusFilter, _channelFilter, _typeFilter, _search),
         SavedViewJsonOptions);
     private IReadOnlyList<string> OutboxSavedViewSummaryLabels => BuildOutboxSavedViewSummaryLabels();
+    private IReadOnlyList<int> VisibleSelectedOutboxIds => _messages
+        .Where(message => _selectedOutboxMessageIds.Contains(message.Id))
+        .Select(message => message.Id)
+        .ToList();
+    private bool AreAllVisibleOutboxMessagesSelected => _messages.Count > 0 &&
+        _messages.All(message => _selectedOutboxMessageIds.Contains(message.Id));
 
     protected override async Task OnInitializedAsync()
     {
@@ -70,6 +82,7 @@ public partial class AdminNotificationOutbox
             var filter = BuildFilter();
             _messages = (await OutboxService.GetAdminMessagesAsync(filter, adminUserId)).ToList();
             _summary = await OutboxService.GetAdminSummaryAsync(filter, adminUserId);
+            RemoveHiddenOutboxSelections();
         }
         catch (InvalidOperationException ex)
         {
@@ -91,6 +104,7 @@ public partial class AdminNotificationOutbox
         _channelFilter = null;
         _typeFilter = null;
         _search = null;
+        ClearOutboxSelection();
         await LoadMessagesAsync();
     }
 
@@ -103,6 +117,7 @@ public partial class AdminNotificationOutbox
             _channelFilter = state?.Channel;
             _typeFilter = state?.Type;
             _search = state?.Search;
+            ClearOutboxSelection();
             await LoadMessagesAsync();
         }
         catch (JsonException)
@@ -154,6 +169,135 @@ public partial class AdminNotificationOutbox
         {
             Snackbar.Add(ex.Message, Severity.Error);
         }
+    }
+
+    private Task SelectAllVisibleOutboxMessagesAsync()
+    {
+        return SetAllVisibleOutboxMessagesSelectedAsync(true);
+    }
+
+    private Task SetAllVisibleOutboxMessagesSelectedAsync(bool selected)
+    {
+        foreach (var message in _messages)
+        {
+            if (selected)
+            {
+                _selectedOutboxMessageIds.Add(message.Id);
+            }
+            else
+            {
+                _selectedOutboxMessageIds.Remove(message.Id);
+            }
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private void ToggleOutboxSelection(int id, bool selected)
+    {
+        if (selected)
+        {
+            _selectedOutboxMessageIds.Add(id);
+        }
+        else
+        {
+            _selectedOutboxMessageIds.Remove(id);
+        }
+    }
+
+    private void ClearOutboxSelection()
+    {
+        _selectedOutboxMessageIds.Clear();
+    }
+
+    private void RemoveHiddenOutboxSelections()
+    {
+        _selectedOutboxMessageIds.RemoveWhere(id => _messages.All(message => message.Id != id));
+    }
+
+    private async Task ConfirmBulkRetryAsync()
+    {
+        var selectedIds = VisibleSelectedOutboxIds;
+        if (selectedIds.Count == 0)
+        {
+            Snackbar.Add("Select at least one visible outbox message first.", Severity.Info);
+            return;
+        }
+
+        if (!await ConfirmAsync(
+            "Retry selected notifications",
+            $"This will queue {selectedIds.Count} selected notification outbox messages for another delivery attempt. Sent or cancelled items will be reported as failed.",
+            "Retry selected",
+            Color.Warning,
+            Icons.Material.Filled.Replay))
+        {
+            return;
+        }
+
+        await RunBulkOutboxActionAsync(selectedIds, retry: true);
+    }
+
+    private async Task ConfirmBulkCancelAsync()
+    {
+        var selectedIds = VisibleSelectedOutboxIds;
+        if (selectedIds.Count == 0)
+        {
+            Snackbar.Add("Select at least one visible outbox message first.", Severity.Info);
+            return;
+        }
+
+        if (!await ConfirmAsync(
+            "Cancel selected notifications",
+            $"This will cancel {selectedIds.Count} selected notification outbox messages that have not already been sent.",
+            "Cancel selected",
+            Color.Error,
+            Icons.Material.Filled.Cancel))
+        {
+            return;
+        }
+
+        await RunBulkOutboxActionAsync(selectedIds, retry: false);
+    }
+
+    private async Task RunBulkOutboxActionAsync(IReadOnlyCollection<int> selectedIds, bool retry)
+    {
+        _isBulkActionRunning = true;
+
+        try
+        {
+            var adminUserId = await GetCurrentUserIdAsync();
+            _bulkActionResult = retry
+                ? await BulkOutboxActionService.RetryAsync(adminUserId, selectedIds)
+                : await BulkOutboxActionService.CancelAsync(adminUserId, selectedIds);
+            ClearOutboxSelection();
+            Snackbar.Add(_bulkActionResult.Message, _bulkActionResult.Failed > 0 ? Severity.Warning : Severity.Success);
+            await LoadMessagesAsync();
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        finally
+        {
+            _isBulkActionRunning = false;
+        }
+    }
+
+    private async Task<bool> ConfirmAsync(string title, string message, string confirmText, Color confirmColor, string icon)
+    {
+        var parameters = new DialogParameters
+        {
+            ["Title"] = title,
+            ["Message"] = message,
+            ["ConfirmText"] = confirmText,
+            ["ConfirmColor"] = confirmColor,
+            ["IconColor"] = confirmColor,
+            ["Icon"] = icon
+        };
+
+        var dialog = await DialogService.ShowAsync<ConfirmationDialog>(title, parameters);
+        var result = await dialog.Result;
+        return result is not null && !result.Canceled;
     }
 
     private async Task ProcessNowAsync()

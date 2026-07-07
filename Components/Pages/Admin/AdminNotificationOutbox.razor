@@ -135,8 +135,45 @@
         }
         else
         {
+            <BulkActionResultSummary Result="_bulkActionResult" OnDismiss="@(() => _bulkActionResult = null)" />
+
             <MudTable Items="_messages" Dense="true" Hover="true" Class="table-shell" RowsPerPage="15" Breakpoint="Breakpoint.Sm">
+                <ToolBarContent>
+                    <BulkSelectionToolbar Title="Outbox bulk actions"
+                                          SelectedCount="@VisibleSelectedOutboxIds.Count"
+                                          TotalVisibleCount="@_messages.Count"
+                                          IsAllVisibleSelected="@AreAllVisibleOutboxMessagesSelected"
+                                          Disabled="@_isBulkActionRunning"
+                                          OnSelectAllVisible="SelectAllVisibleOutboxMessagesAsync"
+                                          OnClearSelection="ClearOutboxSelection">
+                        <Actions>
+                            <MudButton Variant="Variant.Filled"
+                                       Color="Color.Warning"
+                                       Size="Size.Small"
+                                       StartIcon="@Icons.Material.Filled.Replay"
+                                       Disabled="@(_isBulkActionRunning || VisibleSelectedOutboxIds.Count == 0)"
+                                       OnClick="ConfirmBulkRetryAsync">
+                                Retry selected
+                            </MudButton>
+                            <MudButton Variant="Variant.Outlined"
+                                       Color="Color.Error"
+                                       Size="Size.Small"
+                                       StartIcon="@Icons.Material.Filled.Cancel"
+                                       Disabled="@(_isBulkActionRunning || VisibleSelectedOutboxIds.Count == 0)"
+                                       OnClick="ConfirmBulkCancelAsync">
+                                Cancel selected
+                            </MudButton>
+                        </Actions>
+                    </BulkSelectionToolbar>
+                </ToolBarContent>
                 <HeaderContent>
+                    <MudTh>
+                        <MudCheckBox T="bool"
+                                     Value="@AreAllVisibleOutboxMessagesSelected"
+                                     ValueChanged="SetAllVisibleOutboxMessagesSelectedAsync"
+                                     Disabled="@(_isBulkActionRunning || _messages.Count == 0)"
+                                     aria-label="Select all visible outbox messages" />
+                    </MudTh>
                     <MudTh>Queued</MudTh>
                     <MudTh>Status</MudTh>
                     <MudTh>Channel</MudTh>
@@ -147,6 +184,13 @@
                     <MudTh>Actions</MudTh>
                 </HeaderContent>
                 <RowTemplate>
+                    <MudTd DataLabel="Select">
+                        <MudCheckBox T="bool"
+                                     Value="@_selectedOutboxMessageIds.Contains(context.Id)"
+                                     ValueChanged="@((bool selected) => ToggleOutboxSelection(context.Id, selected))"
+                                     Disabled="_isBulkActionRunning"
+                                     aria-label="@($"Select outbox message {context.Id}")" />
+                    </MudTd>
                     <MudTd DataLabel="Queued">
                         <MudText Typo="Typo.body2">@FormatDateTime(context.CreatedAt)</MudText>
                         <MudText Typo="Typo.caption" Color="Color.Secondary">@FormatType(context.NotificationType)</MudText>

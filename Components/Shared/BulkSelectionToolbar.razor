@@ -1,0 +1,51 @@
+@if (SelectedCount > 0)
+{
+    <MudPaper Elevation="0" Class="bulk-selection-toolbar pa-3">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Spacing="2" Class="flex-wrap">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="flex-wrap">
+                <MudIcon Icon="@Icons.Material.Filled.Checklist" Color="Color.Primary" />
+                <MudText Typo="Typo.subtitle2">@Title</MudText>
+                <MudChip T="string" Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small">
+                    @SelectedCount selected
+                </MudChip>
+                @if (TotalVisibleCount > 0)
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        @SelectedCount of @TotalVisibleCount visible rows
+                    </MudText>
+                }
+            </MudStack>
+
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="flex-wrap">
+                <MudButton Variant="Variant.Text"
+                           Color="Color.Primary"
+                           Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.SelectAll"
+                           Disabled="@Disabled"
+                           OnClick="OnSelectAllVisible">
+                    @(IsAllVisibleSelected ? "All visible selected" : "Select visible")
+                </MudButton>
+                @Actions
+                <MudButton Variant="Variant.Text"
+                           Color="Color.Default"
+                           Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.Clear"
+                           Disabled="@Disabled"
+                           OnClick="OnClearSelection">
+                    Clear
+                </MudButton>
+            </MudStack>
+        </MudStack>
+    </MudPaper>
+}
+
+@code {
+    [Parameter] public string Title { get; set; } = "Bulk actions";
+    [Parameter] public int SelectedCount { get; set; }
+    [Parameter] public int TotalVisibleCount { get; set; }
+    [Parameter] public bool IsAllVisibleSelected { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public RenderFragment? Actions { get; set; }
+    [Parameter] public EventCallback OnSelectAllVisible { get; set; }
+    [Parameter] public EventCallback OnClearSelection { get; set; }
+}

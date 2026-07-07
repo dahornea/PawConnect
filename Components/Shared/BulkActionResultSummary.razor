@@ -1,0 +1,46 @@
+@if (Result is not null)
+{
+    <MudAlert Severity="@Severity"
+              Variant="Variant.Outlined"
+              Class="bulk-action-result">
+        <MudStack Spacing="1">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Spacing="1">
+                <MudText Typo="Typo.subtitle2">@Result.Message</MudText>
+                <MudIconButton Icon="@Icons.Material.Filled.Close"
+                               Size="Size.Small"
+                               Color="Color.Default"
+                               OnClick="OnDismiss"
+                               aria-label="Dismiss bulk action result" />
+            </MudStack>
+            <MudStack Row="true" Spacing="1" Class="flex-wrap">
+                <MudChip T="string" Size="Size.Small" Color="Color.Success">Succeeded: @Result.Succeeded</MudChip>
+                <MudChip T="string" Size="Size.Small" Color="Color.Warning">Skipped: @Result.Skipped</MudChip>
+                <MudChip T="string" Size="Size.Small" Color="Color.Error">Failed: @Result.Failed</MudChip>
+            </MudStack>
+
+            @if (Result.Items.Any(item => item.Status != BulkActionItemStatus.Succeeded))
+            {
+                <MudList T="BulkActionItemResultDto" Dense="true" Class="bulk-action-result-list">
+                    @foreach (var item in Result.Items.Where(item => item.Status != BulkActionItemStatus.Succeeded).Take(6))
+                    {
+                        <MudListItem T="BulkActionItemResultDto" Value="item">
+                            <MudText Typo="Typo.body2">@item.EntityName</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">@item.Message</MudText>
+                        </MudListItem>
+                    }
+                </MudList>
+            }
+        </MudStack>
+    </MudAlert>
+}
+
+@code {
+    [Parameter] public BulkActionResultDto? Result { get; set; }
+    [Parameter] public EventCallback OnDismiss { get; set; }
+
+    private Severity Severity => Result?.Failed > 0
+        ? Severity.Warning
+        : Result?.Skipped > 0
+            ? Severity.Info
+            : Severity.Success;
+}

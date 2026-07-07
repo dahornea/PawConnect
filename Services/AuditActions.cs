@@ -60,6 +60,8 @@ public static class AuditActions
     public const string VolunteerTaskCancelled = nameof(VolunteerTaskCancelled);
     public const string VolunteerTaskReopened = nameof(VolunteerTaskReopened);
     public const string VolunteerTaskCommentAdded = nameof(VolunteerTaskCommentAdded);
+    public const string BulkDogStatusUpdated = nameof(BulkDogStatusUpdated);
+    public const string BulkNotificationOutboxUpdated = nameof(BulkNotificationOutboxUpdated);
 
     public static readonly IReadOnlyList<string> All =
     [
@@ -120,7 +122,9 @@ public static class AuditActions
         VolunteerTaskCompleted,
         VolunteerTaskCancelled,
         VolunteerTaskReopened,
-        VolunteerTaskCommentAdded
+        VolunteerTaskCommentAdded,
+        BulkDogStatusUpdated,
+        BulkNotificationOutboxUpdated
     ];
 }
 

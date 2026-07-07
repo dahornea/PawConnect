@@ -162,6 +162,8 @@ builder.Services.AddScoped<IAdoptionRequestService, AdoptionRequestService>();
 builder.Services.AddScoped<IFavoriteDogService, FavoriteDogService>();
 builder.Services.AddScoped<ISavedDogSearchService, SavedDogSearchService>();
 builder.Services.AddScoped<ISavedViewService, SavedViewService>();
+builder.Services.AddScoped<IBulkDogActionService, BulkDogActionService>();
+builder.Services.AddScoped<IBulkNotificationOutboxActionService, BulkNotificationOutboxActionService>();
 builder.Services.AddScoped<IShelterService, ShelterService>();
 builder.Services.AddScoped<IShelterAvailabilityService, ShelterAvailabilityService>();
 builder.Services.AddScoped<IResourceStockService, ResourceStockService>();

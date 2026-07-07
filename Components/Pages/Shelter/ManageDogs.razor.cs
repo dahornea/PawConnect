@@ -30,6 +30,7 @@ public partial class ManageDogs
     [Inject] private ICsvImportService CsvImportService { get; set; } = default!;
     [Inject] private IBrowserFileDownloadService FileDownloadService { get; set; } = default!;
     [Inject] private IDogProfileCompletenessService DogProfileCompletenessService { get; set; } = default!;
+    [Inject] private IBulkDogActionService BulkDogActionService { get; set; } = default!;
     [Inject] private AuthenticationStateProvider AuthenticationStateProvider { get; set; } = default!;
     [Inject] private UserManager<ApplicationUser> UserManager { get; set; } = default!;
     [Inject] private ISnackbar Snackbar { get; set; } = default!;
@@ -40,6 +41,7 @@ public partial class ManageDogs
     private bool _isDeleting;
     private bool _isExporting;
     private bool _isImporting;
+    private bool _isBulkActionRunning;
     private string? _error;
     private string? _searchTerm;
     private DogStatus? _statusFilter;
@@ -52,6 +54,8 @@ public partial class ManageDogs
     private IBrowserFile? _dogImportFile;
     private CsvImportResult? _importResult;
     private int _dogImportInputKey;
+    private BulkActionResultDto? _bulkActionResult;
+    private readonly HashSet<int> _selectedDogIds = [];
     private const long MaxCsvFileSize = 2 * 1024 * 1024;
     private bool HasDogFilters =>
         !string.IsNullOrWhiteSpace(_searchTerm) ||
@@ -78,6 +82,13 @@ public partial class ManageDogs
         SavedViewJsonOptions);
     private string ManageDogsSavedViewSortStateJson => JsonSerializer.Serialize(new { sort = _sortOption }, SavedViewJsonOptions);
     private IReadOnlyList<string> ManageDogsSavedViewSummaryLabels => BuildManageDogsSavedViewSummaryLabels();
+    private IReadOnlyList<Dog> VisibleFilteredDogs => FilteredDogs.ToList();
+    private IReadOnlyList<int> VisibleSelectedDogIds => VisibleFilteredDogs
+        .Where(dog => _selectedDogIds.Contains(dog.Id))
+        .Select(dog => dog.Id)
+        .ToList();
+    private bool AreAllVisibleDogsSelected => VisibleFilteredDogs.Count > 0 &&
+        VisibleFilteredDogs.All(dog => _selectedDogIds.Contains(dog.Id));
 
     private IEnumerable<Dog> FilteredDogs
     {
@@ -132,6 +143,7 @@ public partial class ManageDogs
         _sizeFilter = null;
         _completenessFilter = null;
         _sortOption = "Name";
+        ClearDogSelection();
         return Task.CompletedTask;
     }
 
@@ -145,6 +157,7 @@ public partial class ManageDogs
             _sizeFilter = state?.Size;
             _completenessFilter = state?.Completeness;
             _sortOption = string.IsNullOrWhiteSpace(state?.SortOption) ? "Name" : state.SortOption;
+            ClearDogSelection();
         }
         catch (JsonException)
         {
@@ -152,6 +165,99 @@ public partial class ManageDogs
         }
 
         return Task.CompletedTask;
+    }
+
+    private Task SelectAllVisibleDogsAsync()
+    {
+        return SetAllVisibleDogsSelectedAsync(true);
+    }
+
+    private Task SetAllVisibleDogsSelectedAsync(bool selected)
+    {
+        foreach (var dog in VisibleFilteredDogs)
+        {
+            if (selected)
+            {
+                _selectedDogIds.Add(dog.Id);
+            }
+            else
+            {
+                _selectedDogIds.Remove(dog.Id);
+            }
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private void ToggleDogSelection(int dogId, bool selected)
+    {
+        if (selected)
+        {
+            _selectedDogIds.Add(dogId);
+        }
+        else
+        {
+            _selectedDogIds.Remove(dogId);
+        }
+    }
+
+    private void ClearDogSelection()
+    {
+        _selectedDogIds.Clear();
+    }
+
+    private async Task ConfirmBulkDogStatusAsync(DogStatus status)
+    {
+        var selectedIds = VisibleSelectedDogIds;
+        if (selectedIds.Count == 0)
+        {
+            Snackbar.Add("Select at least one visible dog first.", Severity.Info);
+            return;
+        }
+
+        if (!await ConfirmAsync(
+            $"Mark {selectedIds.Count} dogs as {status}",
+            $"This will update the status for selected visible dog records in your shelter. Adopted dogs and inaccessible records will be skipped or reported.",
+            "Update statuses",
+            Color.Warning,
+            Icons.Material.Filled.SyncAlt))
+        {
+            return;
+        }
+
+        await RunBulkDogStatusAsync(status, selectedIds);
+    }
+
+    private async Task RunBulkDogStatusAsync(DogStatus status, IReadOnlyCollection<int> selectedIds)
+    {
+        if (_shelterId is null)
+        {
+            Snackbar.Add("Current shelter profile could not be found.", Severity.Error);
+            return;
+        }
+
+        _isBulkActionRunning = true;
+        try
+        {
+            var userId = await GetCurrentUserIdAsync();
+            _bulkActionResult = await BulkDogActionService.UpdateShelterDogStatusAsync(
+                _shelterId.Value,
+                userId,
+                selectedIds,
+                status);
+            _dogs = await DogService.GetDogsForShelterAsync(_shelterId.Value);
+            RefreshCompleteness();
+            ClearDogSelection();
+            Snackbar.Add(_bulkActionResult.Message, _bulkActionResult.Failed > 0 ? Severity.Warning : Severity.Success);
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        finally
+        {
+            _isBulkActionRunning = false;
+        }
     }
 
     protected override async Task OnInitializedAsync()
@@ -415,6 +521,18 @@ public partial class ManageDogs
 
         var shelter = await ShelterService.GetShelterForUserAsync(user.Id);
         return shelter?.Id;
+    }
+
+    private async Task<string> GetCurrentUserIdAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var userId = authState.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            throw new InvalidOperationException("Current user could not be found.");
+        }
+
+        return userId;
     }
 
     private static string? GetImageUrl(Dog dog)
