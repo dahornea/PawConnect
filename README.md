@@ -50,7 +50,7 @@ PawConnect is a multi-role web application that connects adopters with animal sh
 - Use Adoption Copilot natural-language dog search at `/adopter/copilot`.
 - Submit, track, and cancel adoption requests at `/my-adoption-requests`.
 - Message shelters inside adoption-request conversations.
-- View notifications and notification preferences.
+- View the unified Notification Center and notification preferences.
 
 ### Shelter
 
@@ -104,6 +104,8 @@ PawConnect is a multi-role web application that connects adopters with animal sh
 - Global command palette with `Ctrl+K` / `Cmd+K`, role-aware navigation, scoped entity search, contextual commands, and recent commands.
 
 See [docs/COMMAND_PALETTE.md](docs/COMMAND_PALETTE.md) for the command palette behavior, security notes, and extension guide.
+
+See [docs/NOTIFICATIONS.md](docs/NOTIFICATIONS.md) for the in-app Notification Center, read/unread behavior, preferences, and outbox relationship.
 
 ## Tech Stack
 

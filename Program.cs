@@ -178,6 +178,7 @@ builder.Services.AddScoped<ICsvImportService, CsvImportService>();
 builder.Services.AddScoped<IBrowserFileDownloadService, BrowserFileDownloadService>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<INotificationCenterService, NotificationCenterService>();
 builder.Services.AddScoped<INotificationPreferenceService, NotificationPreferenceService>();
 builder.Services.AddScoped<INotificationDeliveryLogService, NotificationDeliveryLogService>();
 builder.Services.AddScoped<INotificationOutboxService, NotificationOutboxService>();

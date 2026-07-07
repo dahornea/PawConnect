@@ -49,7 +49,7 @@
             }
             else
             {
-                @foreach (var group in BuildDropdownItems().GroupBy(n => n.Category))
+                @foreach (var group in _notifications.GroupBy(n => n.Category))
                 {
                     <MudDivider />
                     <div class="notification-category">@GetCategoryLabel(group.Key)</div>
@@ -62,11 +62,7 @@
                             <span class="notification-copy">
                                 <span class="notification-title">@item.Title</span>
                                 <span class="notification-message">@item.Message</span>
-                                <span class="notification-time">@item.TimeText</span>
-                                @if (item.SimilarCount > 0)
-                                {
-                                    <span class="notification-similar">+@item.SimilarCount similar today</span>
-                                }
+                                <span class="notification-time">@item.RelativeTime</span>
                             </span>
                             @if (!item.IsRead)
                             {

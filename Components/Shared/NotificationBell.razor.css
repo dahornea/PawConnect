@@ -221,6 +221,13 @@
     background: rgba(102, 117, 111, 0.14);
 }
 
+.category-transfer,
+.category-volunteer,
+.category-saved-search {
+    color: #256d85;
+    background: rgba(37, 109, 133, 0.12);
+}
+
 .notification-copy {
     min-width: 0;
     display: flex;

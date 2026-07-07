@@ -1,27 +1,57 @@
-﻿@page "/notifications"
-@using System.Security.Claims
+@page "/notifications"
 @attribute [Authorize]
 
-<PageTitle>Notifications</PageTitle>
+<PageTitle>Notification Center</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.False" Class="px-0">
+<MudContainer MaxWidth="MaxWidth.False" Class="px-0 notification-center-page">
     <MudStack Spacing="3">
         <div class="page-header">
-            <MudText Typo="Typo.h4">Notifications</MudText>
+            <MudText Typo="Typo.h4">Notification Center</MudText>
             <MudText Typo="Typo.body2">Review important PawConnect updates for your account.</MudText>
         </div>
 
-        <MudPaper Elevation="0" Class="section-surface pa-3">
-            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Spacing="2" Class="flex-wrap">
-                <MudStack Row="true" Spacing="1" Class="flex-wrap">
-                    <MudButton Variant="@GetFilterVariant(null, false)" Color="Color.Primary" Size="Size.Small" OnClick="@(() => SetFilterAsync(null, false))">All</MudButton>
-                    <MudButton Variant="@(_unreadOnly ? Variant.Filled : Variant.Outlined)" Color="Color.Primary" Size="Size.Small" OnClick="@(() => SetFilterAsync(null, true))">Unread</MudButton>
-                    @foreach (var category in Enum.GetValues<NotificationCategory>())
+        <MudPaper Elevation="0" Class="section-surface notification-center-toolbar pa-3">
+            <MudGrid Spacing="2">
+                <MudItem xs="12" md="5">
+                    <MudTextField Label="Search notifications"
+                                  @bind-Value="_searchTerm"
+                                  @bind-Value:after="ApplySearchAsync"
+                                  Immediate="true"
+                                  DebounceInterval="250"
+                                  Variant="Variant.Outlined"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Search" />
+                </MudItem>
+                <MudItem xs="12" md="7">
+                    <MudStack Row="true" Justify="Justify.FlexEnd" AlignItems="AlignItems.Center" Spacing="1" Class="notification-toolbar-actions flex-wrap">
+                        <MudChip T="string" Color="Color.Primary" Variant="Variant.Outlined">@_unreadCount unread</MudChip>
+                        <MudButton Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.DoneAll" Disabled="@(_unreadCount == 0)" OnClick="MarkAllAsReadAsync">Mark all as read</MudButton>
+                        <MudButton Href="/notification-preferences" Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Tune">Preferences</MudButton>
+                    </MudStack>
+                </MudItem>
+            </MudGrid>
+
+            <MudDivider Class="my-3" />
+
+            <MudStack Spacing="2">
+                <MudStack Row="true" Spacing="1" Class="flex-wrap" AlignItems="AlignItems.Center">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Status</MudText>
+                    <MudButton Variant="@GetReadStateVariant(NotificationReadState.All)" Color="Color.Primary" Size="Size.Small" OnClick="@(() => SetReadStateAsync(NotificationReadState.All))">All</MudButton>
+                    <MudButton Variant="@GetReadStateVariant(NotificationReadState.Unread)" Color="Color.Warning" Size="Size.Small" OnClick="@(() => SetReadStateAsync(NotificationReadState.Unread))">Unread</MudButton>
+                    <MudButton Variant="@GetReadStateVariant(NotificationReadState.Read)" Color="Color.Default" Size="Size.Small" OnClick="@(() => SetReadStateAsync(NotificationReadState.Read))">Read</MudButton>
+                </MudStack>
+                <MudStack Row="true" Spacing="1" Class="flex-wrap" AlignItems="AlignItems.Center">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Category</MudText>
+                    <MudButton Variant="@GetCategoryVariant(null)" Color="Color.Primary" Size="Size.Small" OnClick="@(() => SetCategoryAsync(null))">All</MudButton>
+                    @foreach (var category in _availableCategories)
                     {
-                        <MudButton Variant="@GetFilterVariant(category, false)" Color="@GetCategoryColor(category)" Size="Size.Small" OnClick="@(() => SetFilterAsync(category, false))">@GetCategoryLabel(category)</MudButton>
+                        <MudButton Variant="@GetCategoryVariant(category)" Color="@GetCategoryColor(category)" Size="Size.Small" StartIcon="@GetCategoryIcon(category)" OnClick="@(() => SetCategoryAsync(category))">@GetCategoryLabel(category)</MudButton>
+                    }
+                    @if (HasActiveFilters)
+                    {
+                        <MudButton Variant="Variant.Text" Color="Color.Default" Size="Size.Small" StartIcon="@Icons.Material.Filled.FilterAltOff" OnClick="ClearFiltersAsync">Clear filters</MudButton>
                     }
                 </MudStack>
-                <MudButton Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.DoneAll" Disabled="@(_unreadCount == 0)" OnClick="MarkAllAsReadAsync">Mark all as read</MudButton>
             </MudStack>
         </MudPaper>
 
@@ -32,54 +62,83 @@
                 <MudText Typo="Typo.body2" Color="Color.Secondary">Loading notifications...</MudText>
             </MudStack>
         }
-        else if (_notifications.Count == 0)
+        else if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <MudAlert Severity="Severity.Error">@_error</MudAlert>
+        }
+        else if (_groups.Count == 0)
         {
             <MudPaper Elevation="0" Class="empty-state pa-5">
                 <MudStack AlignItems="AlignItems.Center" Spacing="2">
                     <MudIcon Icon="@Icons.Material.Filled.NotificationsNone" Color="Color.Secondary" Size="Size.Large" />
-                    <MudText Typo="Typo.h6">No notifications found</MudText>
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">Notifications for important actions will appear here.</MudText>
+                    <MudText Typo="Typo.h6">@(_readState == NotificationReadState.Unread ? "You're all caught up" : "No notifications found")</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Important updates about applications, saved searches, shelter activity, and account events will appear here.</MudText>
+                    @if (HasActiveFilters)
+                    {
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.FilterAltOff" OnClick="ClearFiltersAsync">Clear filters</MudButton>
+                    }
                 </MudStack>
             </MudPaper>
         }
         else
         {
-            @foreach (var group in _notifications.GroupBy(n => n.Category))
+            <MudText Typo="Typo.caption" Color="Color.Secondary">@_totalCount notification(s) shown</MudText>
+
+            @foreach (var group in _groups)
             {
-                <MudPaper Elevation="0" Class="section-surface pa-3">
+                <MudPaper Elevation="0" Class="section-surface notification-group pa-3">
                     <MudStack Spacing="2">
                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-                            <MudIcon Icon="@GetCategoryIcon(group.Key)" Color="@GetCategoryColor(group.Key)" />
-                            <MudText Typo="Typo.h6">@GetCategoryLabel(group.Key)</MudText>
+                            <MudIcon Icon="@Icons.Material.Filled.CalendarMonth" Color="Color.Primary" />
+                            <MudText Typo="Typo.h6">@group.Label</MudText>
                         </MudStack>
                         <MudDivider />
-                        @foreach (var notification in group)
+                        @foreach (var notification in group.Items)
                         {
                             <MudPaper Elevation="0" Class="@($"notification-row pa-3 {(notification.IsRead ? "is-read" : "is-unread")}")">
-                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="notification-row-content">
-                                    <MudIcon Icon="@GetTypeIcon(notification.Type)" Color="@GetTypeColor(notification.Type)" />
+                                <MudStack Row="true" AlignItems="AlignItems.Start" Spacing="2" Class="notification-row-content">
+                                    <div class="@($"notification-category-icon category-{notification.Category.ToString().ToLowerInvariant()}")">
+                                        <MudIcon Icon="@GetCategoryIcon(notification.Category)" Size="Size.Small" />
+                                    </div>
                                     <div class="notification-main">
                                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="flex-wrap">
                                             <MudText Typo="Typo.subtitle2">@notification.Title</MudText>
+                                            <MudChip T="string" Size="Size.Small" Color="@GetCategoryColor(notification.Category)" Variant="Variant.Outlined">@notification.CategoryLabel</MudChip>
+                                            <MudChip T="string" Size="Size.Small" Color="@GetTypeColor(notification.Type)" Variant="Variant.Outlined">@notification.SeverityLabel</MudChip>
                                             @if (!notification.IsRead)
                                             {
                                                 <MudChip T="string" Size="Size.Small" Color="Color.Warning">Unread</MudChip>
                                             }
                                         </MudStack>
                                         <MudText Typo="Typo.body2" Color="Color.Secondary">@notification.Message</MudText>
-                                        <MudText Typo="Typo.caption" Color="Color.Secondary">@notification.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudText>
+                                        <MudStack Row="true" Spacing="1" Class="flex-wrap notification-meta">
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">@notification.RelativeTime</MudText>
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">@notification.CreatedAtUtc.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudText>
+                                            @if (!string.IsNullOrWhiteSpace(notification.RelatedEntityDisplayName))
+                                            {
+                                                <MudText Typo="Typo.caption" Color="Color.Secondary">@notification.RelatedEntityDisplayName</MudText>
+                                            }
+                                        </MudStack>
                                     </div>
                                     <MudSpacer />
-                                    <MudStack Row="true" Spacing="1" Class="flex-wrap">
-                                        @if (!notification.IsRead)
+                                    <MudStack Row="true" Spacing="1" Class="notification-actions flex-wrap">
+                                        @if (notification.IsRead)
                                         {
-                                            <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" OnClick="@(() => MarkAsReadAsync(notification))">Mark as read</MudButton>
+                                            <MudButton Variant="Variant.Text" Color="Color.Default" Size="Size.Small" OnClick="@(() => MarkAsUnreadAsync(notification))">Mark unread</MudButton>
                                         }
-                                        @if (!string.IsNullOrWhiteSpace(notification.Link))
+                                        else
                                         {
-                                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Filled.OpenInNew" OnClick="@(() => OpenNotificationAsync(notification))">Open</MudButton>
+                                            <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" OnClick="@(() => MarkAsReadAsync(notification))">Mark read</MudButton>
                                         }
-                                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeleteNotificationAsync(notification))" aria-label="Delete notification" />
+                                        @if (!string.IsNullOrWhiteSpace(notification.RelatedUrl))
+                                        {
+                                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Filled.OpenInNew" OnClick="@(() => OpenNotificationAsync(notification))">@notification.ActionLabel</MudButton>
+                                        }
+                                        <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                                       Color="Color.Error"
+                                                       Size="Size.Small"
+                                                       OnClick="@(() => DismissAsync(notification))"
+                                                       aria-label="Dismiss notification" />
                                     </MudStack>
                                 </MudStack>
                             </MudPaper>
@@ -90,4 +149,3 @@
         }
     </MudStack>
 </MudContainer>
-
