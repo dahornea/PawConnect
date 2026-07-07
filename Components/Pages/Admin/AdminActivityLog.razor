@@ -71,20 +71,18 @@
 
         @if (_isLoading)
         {
-            <MudStack AlignItems="AlignItems.Center" Class="py-8">
-                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
-                <MudText Typo="Typo.body2" Color="Color.Secondary">Loading audit logs...</MudText>
-            </MudStack>
+            <AppLoadingState Message="Loading audit logs..." />
         }
         else if (_logs.Count == 0)
         {
-            <MudPaper Elevation="0" Class="empty-state pa-5">
-                <MudStack AlignItems="AlignItems.Center" Spacing="2">
-                    <MudIcon Icon="@Icons.Material.Filled.ManageSearch" Color="Color.Secondary" Size="Size.Large" />
-                    <MudText Typo="Typo.h6">No audit logs found.</MudText>
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">Important user, system, and Copilot events will appear here.</MudText>
-                </MudStack>
-            </MudPaper>
+            <AppEmptyState Title="@AuditEmptyTitle"
+                           Message="@AuditEmptyMessage"
+                           Icon="@Icons.Material.Filled.ManageSearch"
+                           IconColor="Color.Primary"
+                           PrimaryActionText="@AuditEmptyPrimaryActionText"
+                           PrimaryActionIcon="@Icons.Material.Filled.FilterAltOff"
+                           OnPrimaryAction="ClearFiltersAsync"
+                           Tips="@AuditEmptyTips" />
         }
         else
         {

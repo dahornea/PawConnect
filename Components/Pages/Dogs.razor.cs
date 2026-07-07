@@ -91,6 +91,15 @@ public partial class Dogs
         : _selectedShelterId.HasValue
         ? "Try another shelter or broaden your filters."
         : "Try clearing filters or broadening your search.";
+    private IReadOnlyList<string> EmptyStateTips => BuildEmptyStateTips();
+    private string EmptyStatePrimaryActionText => _nearbyOrigin is not null && SuggestedRadiusKm.HasValue
+        ? $"Increase radius to {SuggestedRadiusKm.Value} km"
+        : "Reset filters";
+    private string EmptyStatePrimaryActionIcon => _nearbyOrigin is not null && SuggestedRadiusKm.HasValue
+        ? Icons.Material.Filled.ZoomOutMap
+        : Icons.Material.Filled.Clear;
+    private string? EmptyStateSecondaryActionText => _nearbyOrigin is not null ? "Clear address" : null;
+    private string EmptyStateSecondaryActionIcon => Icons.Material.Filled.LocationOff;
     private string NearbyOriginLabel => _nearbyUsesBrowserLocation
         ? "your location"
         : _activeNearbyLabel ?? _nearbySearchTerm ?? "the selected location";
@@ -119,6 +128,40 @@ public partial class Dogs
     }
 
     private sealed record ActiveFilterChip(string Label, Func<Task> ClearAsync);
+
+    private IReadOnlyList<string> BuildEmptyStateTips()
+    {
+        var tips = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(NearestDogText))
+        {
+            tips.Add(NearestDogText);
+        }
+
+        if (HasActiveFilters)
+        {
+            tips.Add("Remove one filter at a time if you want to keep part of this search.");
+        }
+
+        if (_currentUserIsAdopter)
+        {
+            tips.Add("Try Adoption Copilot for a natural-language search if filters feel too strict.");
+        }
+
+        return tips;
+    }
+
+    private Task EmptyStatePrimaryActionAsync()
+    {
+        return _nearbyOrigin is not null && SuggestedRadiusKm.HasValue
+            ? IncreaseNearbyRadiusAsync(SuggestedRadiusKm.Value)
+            : ClearFiltersAsync();
+    }
+
+    private Task EmptyStateSecondaryActionAsync()
+    {
+        return ClearNearbyAsync();
+    }
 
     protected override async Task OnInitializedAsync()
     {

@@ -38,24 +38,22 @@
 
         @if (_isLoading)
         {
-            <MudStack AlignItems="AlignItems.Center" Class="py-8">
-                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
-                <MudText Typo="Typo.body2" Color="Color.Secondary">Loading adoption requests...</MudText>
-            </MudStack>
+            <AppLoadingState Message="Loading adoption requests..." />
         }
         else if (!string.IsNullOrWhiteSpace(_error))
         {
-            <MudAlert Severity="Severity.Error">@_error</MudAlert>
+            <AppErrorState Title="Adoption requests could not be loaded" Message="@_error" OnRetry="LoadAsync" />
         }
         else if (_requests.Count == 0)
         {
-            <MudPaper Elevation="0" Class="empty-state pa-5">
-                <MudStack AlignItems="AlignItems.Center" Spacing="2">
-                    <MudIcon Icon="@Icons.Material.Filled.MarkEmailUnread" Color="Color.Secondary" Size="Size.Large" />
-                    <MudText Typo="Typo.h6">No adoption requests yet</MudText>
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">New requests for your shelter dogs will appear here.</MudText>
-                </MudStack>
-            </MudPaper>
+            <AppEmptyState Title="No adoption requests waiting"
+                           Message="New requests for your shelter dogs will appear here with adopter details, visit actions, and messaging."
+                           Icon="@Icons.Material.Filled.MarkEmailUnread"
+                           IconColor="Color.Primary"
+                           PrimaryActionText="Review dog profiles"
+                           PrimaryActionHref="/shelter/dogs"
+                           PrimaryActionIcon="@Icons.Material.Filled.Pets"
+                           Tips="@(new[] { "Keep public dog profiles complete so adopters know what to expect.", "When a request arrives, use Details, Messages, and Manage to process it." })" />
         }
         else
         {

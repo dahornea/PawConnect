@@ -28,6 +28,20 @@ public partial class AdminNotificationOutbox
     private string? _error;
     private bool _isLoading = true;
     private bool _isProcessingNow;
+    private bool HasOutboxFilters =>
+        !string.IsNullOrWhiteSpace(_statusFilter) ||
+        !string.IsNullOrWhiteSpace(_channelFilter) ||
+        !string.IsNullOrWhiteSpace(_typeFilter) ||
+        !string.IsNullOrWhiteSpace(_search);
+    private string OutboxEmptyTitle => HasOutboxFilters ? "No outbox messages match these filters" : "Notification queue is clear";
+    private string OutboxEmptyMessage => HasOutboxFilters
+        ? "Clear one or more filters to inspect the full notification outbox."
+        : "Queued, retrying, and failed notification delivery work will appear here when there is something to process.";
+    private string OutboxEmptyPrimaryActionText => HasOutboxFilters ? "Clear filters" : "Refresh";
+    private string OutboxEmptyPrimaryActionIcon => HasOutboxFilters ? Icons.Material.Filled.FilterAltOff : Icons.Material.Filled.Refresh;
+    private IReadOnlyList<string> OutboxEmptyTips => HasOutboxFilters
+        ? ["Status, channel, type, and search filters are all applied together."]
+        : ["A clear queue is normal when notification jobs are caught up.", "Use Process due now only when pending work exists."];
 
     protected override async Task OnInitializedAsync()
     {
@@ -68,6 +82,11 @@ public partial class AdminNotificationOutbox
         _typeFilter = null;
         _search = null;
         await LoadMessagesAsync();
+    }
+
+    private Task OutboxEmptyPrimaryActionAsync()
+    {
+        return HasOutboxFilters ? ClearFiltersAsync() : LoadMessagesAsync();
     }
 
     private async Task SelectAsync(int id)

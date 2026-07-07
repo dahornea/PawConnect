@@ -290,33 +290,16 @@
         }
         else if (_dogs.Count == 0)
         {
-            <MudPaper Elevation="0" Class="empty-state pa-6">
-                <MudStack AlignItems="AlignItems.Center" Spacing="2">
-                    <MudIcon Icon="@Icons.Material.Filled.SearchOff" Color="Color.Secondary" Size="Size.Large" />
-                    <MudText Typo="Typo.h6">@EmptyStateTitle</MudText>
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">@EmptyStateSubtitle</MudText>
-                    @if (!string.IsNullOrWhiteSpace(NearestDogText))
-                    {
-                        <MudText Typo="Typo.body2" Class="nearby-nearest-text">@NearestDogText</MudText>
-                    }
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="1" Class="empty-state-actions">
-                        @if (_nearbyOrigin is not null && SuggestedRadiusKm.HasValue)
-                        {
-                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.ZoomOutMap" OnClick="@(() => IncreaseNearbyRadiusAsync(SuggestedRadiusKm.Value))">
-                                Increase radius to @SuggestedRadiusKm.Value km
-                            </MudButton>
-                        }
-                        @if (_nearbyOrigin is not null)
-                        {
-                            <MudButton Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.LocationOff" OnClick="ClearNearbyAsync">Clear address</MudButton>
-                        }
-                        else
-                        {
-                            <MudButton Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Clear" OnClick="ClearFiltersAsync">Reset Filters</MudButton>
-                        }
-                    </MudStack>
-                </MudStack>
-            </MudPaper>
+            <AppEmptyState Title="@EmptyStateTitle"
+                           Message="@EmptyStateSubtitle"
+                           Icon="@Icons.Material.Filled.SearchOff"
+                           Tips="@EmptyStateTips"
+                           PrimaryActionText="@EmptyStatePrimaryActionText"
+                           PrimaryActionIcon="@EmptyStatePrimaryActionIcon"
+                           OnPrimaryAction="EmptyStatePrimaryActionAsync"
+                           SecondaryActionText="@EmptyStateSecondaryActionText"
+                           SecondaryActionIcon="@EmptyStateSecondaryActionIcon"
+                           OnSecondaryAction="EmptyStateSecondaryActionAsync" />
         }
         else
         {

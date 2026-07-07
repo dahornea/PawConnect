@@ -54,9 +54,11 @@
                     <AppEmptyState Title="No saved searches yet"
                                    Message="Save your dog search criteria to get matching alerts later. Start from the dog list, choose filters, then save the search."
                                    Icon="@Icons.Material.Filled.SavedSearch"
-                                   IconColor="Color.Primary">
-                        <MudButton Href="/dogs" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Search">Create from dog filters</MudButton>
-                    </AppEmptyState>
+                                   IconColor="Color.Primary"
+                                   PrimaryActionText="Create from dog filters"
+                                   PrimaryActionHref="/dogs"
+                                   PrimaryActionIcon="@Icons.Material.Filled.Search"
+                                   Tips="@(new[] { "Filter by breed, size, location, or compatibility first.", "Saved searches can notify you when new public dogs match." })" />
                 }
                 else
                 {

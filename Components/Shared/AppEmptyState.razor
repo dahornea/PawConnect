@@ -1,11 +1,70 @@
 <MudPaper Elevation="0" Class="@ContainerClass">
-    <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="2">
+    <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="@StackSpacing">
         @if (!string.IsNullOrWhiteSpace(Icon))
         {
             <MudIcon Icon="@Icon" Color="@IconColor" Size="Size.Large" />
         }
         <MudText Typo="Typo.h6">@Title</MudText>
         <MudText Typo="Typo.body2" Color="Color.Secondary" Class="ui-state-message">@Message</MudText>
+        @if (Tips.Count > 0)
+        {
+            <MudStack Spacing="1" Class="ui-state-tips" AlignItems="AlignItems.Start">
+                @foreach (var tip in Tips)
+                {
+                    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Class="ui-state-tip">
+                        <MudIcon Icon="@Icons.Material.Filled.CheckCircleOutline" Color="Color.Primary" Size="Size.Small" />
+                        <MudText Typo="Typo.body2">@tip</MudText>
+                    </MudStack>
+                }
+            </MudStack>
+        }
+        @if (HasConfiguredActions)
+        {
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="1" Class="ui-state-actions">
+                @if (!string.IsNullOrWhiteSpace(PrimaryActionText))
+                {
+                    if (!string.IsNullOrWhiteSpace(PrimaryActionHref))
+                    {
+                        <MudButton Href="@PrimaryActionHref"
+                                   Color="@PrimaryActionColor"
+                                   Variant="Variant.Filled"
+                                   StartIcon="@PrimaryActionIcon">
+                            @PrimaryActionText
+                        </MudButton>
+                    }
+                    else if (OnPrimaryAction.HasDelegate)
+                    {
+                        <MudButton Variant="Variant.Filled"
+                                   Color="@PrimaryActionColor"
+                                   StartIcon="@PrimaryActionIcon"
+                                   OnClick="InvokePrimaryActionAsync">
+                            @PrimaryActionText
+                        </MudButton>
+                    }
+                }
+                @if (!string.IsNullOrWhiteSpace(SecondaryActionText))
+                {
+                    if (!string.IsNullOrWhiteSpace(SecondaryActionHref))
+                    {
+                        <MudButton Href="@SecondaryActionHref"
+                                   Variant="Variant.Outlined"
+                                   Color="@SecondaryActionColor"
+                                   StartIcon="@SecondaryActionIcon">
+                            @SecondaryActionText
+                        </MudButton>
+                    }
+                    else if (OnSecondaryAction.HasDelegate)
+                    {
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="@SecondaryActionColor"
+                                   StartIcon="@SecondaryActionIcon"
+                                   OnClick="InvokeSecondaryActionAsync">
+                            @SecondaryActionText
+                        </MudButton>
+                    }
+                }
+            </MudStack>
+        }
         @if (ChildContent is not null)
         {
             <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="1" Class="ui-state-actions">
@@ -22,6 +81,26 @@
     [Parameter] public Color IconColor { get; set; } = Color.Secondary;
     [Parameter] public string? Class { get; set; }
     [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public IReadOnlyList<string> Tips { get; set; } = [];
+    [Parameter] public bool Compact { get; set; }
+    [Parameter] public string? PrimaryActionText { get; set; }
+    [Parameter] public string? PrimaryActionHref { get; set; }
+    [Parameter] public string PrimaryActionIcon { get; set; } = Icons.Material.Filled.ArrowForward;
+    [Parameter] public Color PrimaryActionColor { get; set; } = Color.Primary;
+    [Parameter] public EventCallback OnPrimaryAction { get; set; }
+    [Parameter] public string? SecondaryActionText { get; set; }
+    [Parameter] public string? SecondaryActionHref { get; set; }
+    [Parameter] public string SecondaryActionIcon { get; set; } = Icons.Material.Filled.Tune;
+    [Parameter] public Color SecondaryActionColor { get; set; } = Color.Primary;
+    [Parameter] public EventCallback OnSecondaryAction { get; set; }
 
-    private string ContainerClass => string.Join(" ", new[] { "ui-state", "empty-state", Class }.Where(value => !string.IsNullOrWhiteSpace(value)));
+    private string ContainerClass => string.Join(" ", new[] { "ui-state", "empty-state", Compact ? "ui-state-compact" : null, Class }.Where(value => !string.IsNullOrWhiteSpace(value)));
+    private int StackSpacing => Compact ? 1 : 2;
+    private bool HasConfiguredActions =>
+        !string.IsNullOrWhiteSpace(PrimaryActionText) ||
+        !string.IsNullOrWhiteSpace(SecondaryActionText);
+
+    private Task InvokePrimaryActionAsync() => OnPrimaryAction.InvokeAsync();
+
+    private Task InvokeSecondaryActionAsync() => OnSecondaryAction.InvokeAsync();
 }

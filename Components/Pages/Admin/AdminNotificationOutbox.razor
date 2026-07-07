@@ -106,24 +106,22 @@
 
         @if (_isLoading)
         {
-            <MudStack AlignItems="AlignItems.Center" Class="py-8">
-                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
-                <MudText Typo="Typo.body2" Color="Color.Secondary">Loading outbox messages...</MudText>
-            </MudStack>
+            <AppLoadingState Message="Loading outbox messages..." />
         }
         else if (!string.IsNullOrWhiteSpace(_error))
         {
-            <MudAlert Severity="Severity.Error">@_error</MudAlert>
+            <AppErrorState Title="Notification outbox could not be loaded" Message="@_error" OnRetry="LoadMessagesAsync" />
         }
         else if (_messages.Count == 0)
         {
-            <MudPaper Elevation="0" Class="empty-state pa-5">
-                <MudStack AlignItems="AlignItems.Center" Spacing="2">
-                    <MudIcon Icon="@Icons.Material.Filled.Outbox" Color="Color.Secondary" Size="Size.Large" />
-                    <MudText Typo="Typo.h6">No outbox messages found</MudText>
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">Queued notification work will appear here.</MudText>
-                </MudStack>
-            </MudPaper>
+            <AppEmptyState Title="@OutboxEmptyTitle"
+                           Message="@OutboxEmptyMessage"
+                           Icon="@Icons.Material.Filled.Outbox"
+                           IconColor="Color.Primary"
+                           PrimaryActionText="@OutboxEmptyPrimaryActionText"
+                           PrimaryActionIcon="@OutboxEmptyPrimaryActionIcon"
+                           OnPrimaryAction="OutboxEmptyPrimaryActionAsync"
+                           Tips="@OutboxEmptyTips" />
         }
         else
         {

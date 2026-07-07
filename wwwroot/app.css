@@ -543,6 +543,11 @@ h1:focus {
     padding: 28px;
 }
 
+.ui-state-compact {
+    min-height: 120px;
+    padding: 20px;
+}
+
 .ui-state-loading {
     display: flex;
     align-items: center;
@@ -562,6 +567,19 @@ h1:focus {
     max-width: 100%;
     flex-wrap: wrap;
     margin-top: 4px;
+}
+
+.ui-state-tips {
+    width: min(100%, 560px);
+    margin-top: 2px;
+}
+
+.ui-state-tip {
+    color: #294139;
+}
+
+.ui-state-tip .mud-icon-root {
+    flex: 0 0 auto;
 }
 
 .ui-error-state {

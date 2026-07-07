@@ -35,8 +35,15 @@ public partial class MyAdoptionRequests
 
     protected override async Task OnInitializedAsync()
     {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
         try
         {
+            _isLoading = true;
+            _error = null;
             var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
             _currentUserId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 

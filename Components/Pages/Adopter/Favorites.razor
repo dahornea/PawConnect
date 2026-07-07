@@ -14,25 +14,24 @@
 
         @if (_isLoading)
         {
-            <MudStack AlignItems="AlignItems.Center" Class="py-8">
-                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
-                <MudText Typo="Typo.body2" Color="Color.Secondary">Loading favorites...</MudText>
-            </MudStack>
+            <AppLoadingState Message="Loading favorites..." />
         }
         else if (!string.IsNullOrWhiteSpace(_error))
         {
-            <MudAlert Severity="Severity.Error">@_error</MudAlert>
+            <AppErrorState Title="Favorite dogs could not be loaded" Message="@_error" OnRetry="LoadFavoritesAsync" />
         }
         else if (_favorites.Count == 0)
         {
-            <MudPaper Elevation="0" Class="empty-state pa-5">
-                <MudStack AlignItems="AlignItems.Center" Spacing="2">
-                    <MudIcon Icon="@Icons.Material.Filled.FavoriteBorder" Color="Color.Secondary" Size="Size.Large" />
-                    <MudText Typo="Typo.h6">No favorite dogs yet</MudText>
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">Browse dogs and save the profiles you want to revisit.</MudText>
-                    <MudButton Href="/dogs" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Search">Browse Dogs</MudButton>
-                </MudStack>
-            </MudPaper>
+            <AppEmptyState Title="No favorite dogs yet"
+                           Message="Save dogs you want to compare or revisit before submitting an adoption request."
+                           Icon="@Icons.Material.Filled.FavoriteBorder"
+                           PrimaryActionText="Browse dogs"
+                           PrimaryActionHref="/dogs"
+                           PrimaryActionIcon="@Icons.Material.Filled.Search"
+                           SecondaryActionText="Ask Copilot"
+                           SecondaryActionHref="/adopter/copilot"
+                           SecondaryActionIcon="@Icons.Material.Filled.Assistant"
+                           Tips="@(new[] { "Use the heart icon on dog cards to save a profile.", "Favorites also help recommendations understand what you like." })" />
         }
         else
         {

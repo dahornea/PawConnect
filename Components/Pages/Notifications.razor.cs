@@ -24,6 +24,17 @@ public partial class Notifications
     private int _totalCount;
     private NotificationCategory? _categoryFilter;
     private NotificationReadState _readState = NotificationReadState.All;
+    private string NotificationEmptyTitle => HasActiveFilters
+        ? "No notifications match these filters"
+        : _readState == NotificationReadState.Unread
+        ? "You're all caught up"
+        : "No notifications yet";
+    private string NotificationEmptyMessage => HasActiveFilters
+        ? "Try clearing the search, status, or category filters to see more notifications."
+        : "Important updates about applications, saved searches, shelter activity, and account events will appear here.";
+    private string? NotificationEmptyPrimaryActionText => HasActiveFilters ? "Clear filters" : null;
+    private string? NotificationEmptyPrimaryActionHref => HasActiveFilters ? null : "/notification-preferences";
+    private string NotificationEmptyPrimaryActionIcon => HasActiveFilters ? Icons.Material.Filled.FilterAltOff : Icons.Material.Filled.Tune;
 
     protected override async Task OnInitializedAsync()
     {
@@ -65,6 +76,13 @@ public partial class Notifications
         {
             _isLoading = false;
         }
+    }
+
+    private Task LoadAsync() => LoadNotificationsAsync();
+
+    private Task NotificationEmptyPrimaryActionAsync()
+    {
+        return HasActiveFilters ? ClearFiltersAsync() : Task.CompletedTask;
     }
 
     private async Task SetCategoryAsync(NotificationCategory? category)

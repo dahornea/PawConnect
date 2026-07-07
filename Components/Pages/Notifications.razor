@@ -57,28 +57,25 @@
 
         @if (_isLoading)
         {
-            <MudStack AlignItems="AlignItems.Center" Class="py-8">
-                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
-                <MudText Typo="Typo.body2" Color="Color.Secondary">Loading notifications...</MudText>
-            </MudStack>
+            <AppLoadingState Message="Loading notifications..." />
         }
         else if (!string.IsNullOrWhiteSpace(_error))
         {
-            <MudAlert Severity="Severity.Error">@_error</MudAlert>
+            <AppErrorState Title="Notifications could not be loaded" Message="@_error" OnRetry="LoadAsync" />
         }
         else if (_groups.Count == 0)
         {
-            <MudPaper Elevation="0" Class="empty-state pa-5">
-                <MudStack AlignItems="AlignItems.Center" Spacing="2">
-                    <MudIcon Icon="@Icons.Material.Filled.NotificationsNone" Color="Color.Secondary" Size="Size.Large" />
-                    <MudText Typo="Typo.h6">@(_readState == NotificationReadState.Unread ? "You're all caught up" : "No notifications found")</MudText>
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">Important updates about applications, saved searches, shelter activity, and account events will appear here.</MudText>
-                    @if (HasActiveFilters)
-                    {
-                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.FilterAltOff" OnClick="ClearFiltersAsync">Clear filters</MudButton>
-                    }
-                </MudStack>
-            </MudPaper>
+            <AppEmptyState Title="@NotificationEmptyTitle"
+                           Message="@NotificationEmptyMessage"
+                           Icon="@Icons.Material.Filled.NotificationsNone"
+                           IconColor="Color.Primary"
+                           PrimaryActionText="@NotificationEmptyPrimaryActionText"
+                           PrimaryActionHref="@NotificationEmptyPrimaryActionHref"
+                           PrimaryActionIcon="@NotificationEmptyPrimaryActionIcon"
+                           OnPrimaryAction="NotificationEmptyPrimaryActionAsync"
+                           SecondaryActionText="Notification preferences"
+                           SecondaryActionHref="/notification-preferences"
+                           SecondaryActionIcon="@Icons.Material.Filled.Tune" />
         }
         else
         {

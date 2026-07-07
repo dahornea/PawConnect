@@ -25,7 +25,8 @@
             <AppEmptyState Title="Volunteer profile not active yet"
                            Message="No volunteer profile is linked to this account yet. Ask an administrator or shelter team to activate your volunteer profile."
                            Icon="@Icons.Material.Filled.Badge"
-                           IconColor="Color.Info" />
+                           IconColor="Color.Info"
+                           Tips="@(new[] { "Volunteer access is enabled by staff so task assignments stay controlled.", "Once active, open tasks and assigned work appear on this board." })" />
         }
         else
         {
@@ -70,21 +71,27 @@
                             _openTasks,
                             showAccept: true,
                             "No available tasks right now",
-                            "Open shelter tasks that match your volunteer profile will appear here.")
+                            "Open shelter tasks that match your volunteer profile will appear here.",
+                            "Check back later",
+                            "Shelter teams can publish walking, event, and support tasks.")
                     </MudTabPanel>
                     <MudTabPanel Text="@($"Assigned to me ({AssignedTaskCount})")">
                         @RenderTaskTable(
                             _myTasks.Where(task => task.Status is VolunteerTaskStatus.Assigned or VolunteerTaskStatus.InProgress).ToList(),
                             showAccept: false,
                             "No assigned tasks",
-                            "Tasks you accept or shelter teams assign to you will appear here.")
+                            "Tasks you accept or shelter teams assign to you will appear here.",
+                            "Start from Available tasks",
+                            "Accepted tasks move into this tab automatically.")
                     </MudTabPanel>
                     <MudTabPanel Text="@($"Completed history ({CompletedTaskCount})")">
                         @RenderTaskTable(
                             _myTasks.Where(task => task.Status == VolunteerTaskStatus.Completed).ToList(),
                             showAccept: false,
                             "No completed tasks yet",
-                            "Completed volunteer work will appear here for your history.")
+                            "Completed volunteer work will appear here for your history.",
+                            "Complete assigned tasks",
+                            "This history helps shelters track volunteer contribution.")
                     </MudTabPanel>
                 </MudTabs>
             </MudPaper>
@@ -93,12 +100,14 @@
 </MudContainer>
 
 @code {
-    private RenderFragment RenderTaskTable(IReadOnlyList<VolunteerTaskDto> tasks, bool showAccept, string emptyTitle, string emptyDescription) => @<div class="pt-3">
+    private RenderFragment RenderTaskTable(IReadOnlyList<VolunteerTaskDto> tasks, bool showAccept, string emptyTitle, string emptyDescription, string emptyHint, string emptyTip) => @<div class="pt-3">
         @if (tasks.Count == 0)
         {
             <AppEmptyState Title="@emptyTitle"
                            Message="@emptyDescription"
-                           Icon="@Icons.Material.Filled.EventAvailable" />
+                           Icon="@Icons.Material.Filled.EventAvailable"
+                           Compact="true"
+                           Tips="@(new[] { emptyHint, emptyTip })" />
         }
         else
         {

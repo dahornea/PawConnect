@@ -53,6 +53,22 @@ public partial class AdminActivityLog
     private string? _eventTypeFilter;
     private DateTime? _fromDate;
     private DateTime? _toDate;
+    private bool HasAuditFilters =>
+        !string.IsNullOrWhiteSpace(_search) ||
+        !string.IsNullOrWhiteSpace(_actionFilter) ||
+        !string.IsNullOrWhiteSpace(_entityFilter) ||
+        !string.IsNullOrWhiteSpace(_severityFilter) ||
+        !string.IsNullOrWhiteSpace(_eventTypeFilter) ||
+        _fromDate.HasValue ||
+        _toDate.HasValue;
+    private string AuditEmptyTitle => HasAuditFilters ? "No audit logs match these filters" : "No audit logs recorded yet";
+    private string AuditEmptyMessage => HasAuditFilters
+        ? "Try widening the date range or clearing action, entity, severity, and event type filters."
+        : "Important user, system, and Copilot events will appear here as the platform is used.";
+    private string? AuditEmptyPrimaryActionText => HasAuditFilters ? "Clear filters" : null;
+    private IReadOnlyList<string> AuditEmptyTips => HasAuditFilters
+        ? ["Filters are combined, so a narrow date range plus entity filter can hide valid events."]
+        : ["Audit logs are created by key platform actions such as Copilot, exports, and workflow changes."];
 
     protected override async Task OnInitializedAsync()
     {

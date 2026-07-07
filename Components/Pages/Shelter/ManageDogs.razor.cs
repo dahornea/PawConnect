@@ -47,6 +47,26 @@ public partial class ManageDogs
     private CsvImportResult? _importResult;
     private int _dogImportInputKey;
     private const long MaxCsvFileSize = 2 * 1024 * 1024;
+    private bool HasDogFilters =>
+        !string.IsNullOrWhiteSpace(_searchTerm) ||
+        _statusFilter.HasValue ||
+        _sizeFilter.HasValue ||
+        !string.IsNullOrWhiteSpace(_completenessFilter);
+    private string ManageDogsEmptyTitle => _dogs.Count == 0
+        ? "No dogs have been added yet"
+        : "No dogs match the current filters";
+    private string ManageDogsEmptyMessage => _dogs.Count == 0
+        ? "Start by creating your first dog profile or importing a CSV file for your shelter."
+        : "The shelter has dog records, but the current filters are hiding them.";
+    private string ManageDogsEmptyIcon => _dogs.Count == 0
+        ? Icons.Material.Filled.Pets
+        : Icons.Material.Filled.SearchOff;
+    private string ManageDogsPrimaryActionText => HasDogFilters ? "Clear filters" : "Add dog";
+    private string? ManageDogsPrimaryActionHref => HasDogFilters ? null : "/shelter/dogs/create";
+    private string ManageDogsPrimaryActionIcon => HasDogFilters ? Icons.Material.Filled.FilterAltOff : Icons.Material.Filled.Add;
+    private IReadOnlyList<string> ManageDogsEmptyTips => _dogs.Count == 0
+        ? ["Use the CSV import when you already have a shelter spreadsheet.", "Complete breed, images, medical, and compatibility fields for better public profiles."]
+        : ["Clear filters to return to the full shelter dog list.", "Try changing only one filter if you want to keep part of this view."];
 
     private IEnumerable<Dog> FilteredDogs
     {
@@ -82,6 +102,21 @@ public partial class ManageDogs
                 _ => query.OrderBy(d => d.Name)
             };
         }
+    }
+
+    private Task ManageDogsPrimaryActionAsync()
+    {
+        if (!HasDogFilters)
+        {
+            return Task.CompletedTask;
+        }
+
+        _searchTerm = null;
+        _statusFilter = null;
+        _sizeFilter = null;
+        _completenessFilter = null;
+        _sortOption = "Name";
+        return Task.CompletedTask;
     }
 
     protected override async Task OnInitializedAsync()

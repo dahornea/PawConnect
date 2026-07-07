@@ -28,15 +28,22 @@ public partial class Favorites
     [Inject] private UserManager<ApplicationUser> UserManager { get; set; } = default!;
     [Inject] private ISnackbar Snackbar { get; set; } = default!;
 
-private List<FavoriteDog> _favorites = [];
+    private List<FavoriteDog> _favorites = [];
     private bool _isLoading = true;
     private string? _error;
     private string? _currentUserId;
 
     protected override async Task OnInitializedAsync()
     {
+        await LoadFavoritesAsync();
+    }
+
+    private async Task LoadFavoritesAsync()
+    {
         try
         {
+            _isLoading = true;
+            _error = null;
             var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
             var user = await UserManager.GetUserAsync(authState.User);
             _currentUserId = user?.Id;
