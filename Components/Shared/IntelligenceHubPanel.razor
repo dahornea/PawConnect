@@ -3,30 +3,36 @@
 @using System.Text.Json
 
 <MudStack Spacing="3" Class="intelligence-hub">
-    <section class="intelligence-header pa-5">
-        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Class="intelligence-header-row">
-            <span class="intelligence-header-icon"><MudIcon Icon="@Icons.Material.Filled.TipsAndUpdates" /></span>
-            <div>
-                <MudText Typo="Typo.caption" Class="dashboard-kicker">Explainable decision support</MudText>
-                <MudText Typo="Typo.h4">@Title</MudText>
-                <MudText Typo="Typo.body1">@Subtitle</MudText>
-            </div>
-            <MudSpacer />
-            <MudStack Row="true" Spacing="1" Class="intelligence-header-actions">
-                @if (!string.IsNullOrWhiteSpace(MethodologyRoute))
-                {
-                    <MudButton Href="@MethodologyRoute" Variant="Variant.Text" Color="Color.Inherit" StartIcon="@Icons.Material.Filled.Info">Methodology</MudButton>
-                }
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Refresh" Disabled="_isRefreshing" OnClick="RefreshAsync">
-                    @(_isRefreshing ? "Refreshing..." : "Refresh insights")
-                </MudButton>
-            </MudStack>
+    <header class="intelligence-workspace-header">
+        <div>
+            <MudText Typo="Typo.caption" Class="dashboard-kicker">Explainable decision support</MudText>
+            <MudText Typo="Typo.h4">@Title</MudText>
+            <MudText Typo="Typo.body1" Color="Color.Secondary">@Subtitle</MudText>
+        </div>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="intelligence-header-actions">
+            <MudText Typo="Typo.caption" Color="Color.Secondary">Last refreshed @FormatRefreshTime(_summary.LastRefreshedAtUtc)</MudText>
+            @if (!string.IsNullOrWhiteSpace(MethodologyRoute))
+            {
+                <MudIconButton Href="@MethodologyRoute" Icon="@Icons.Material.Outlined.Info" aria-label="View intelligence methodology" />
+            }
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Refresh" Disabled="_isRefreshing" OnClick="RefreshAsync">
+                @(_isRefreshing ? "Refreshing..." : "Refresh")
+            </MudButton>
         </MudStack>
-    </section>
+    </header>
 
     @if (_isLoading)
     {
-        <AppLoadingState Message="Evaluating operational signals..." />
+        <div class="intelligence-loading-shell">
+            <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="88px" />
+            <MudGrid Spacing="2">
+                @for (var index = 0; index < 4; index++)
+                {
+                    <MudItem xs="6" md="3"><MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="82px" /></MudItem>
+                }
+            </MudGrid>
+            <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="420px" />
+        </div>
     }
     else if (!string.IsNullOrWhiteSpace(_error))
     {
@@ -34,174 +40,104 @@
     }
     else
     {
-        <MudGrid Spacing="2">
-            <MudItem xs="6" md="2"><MudPaper Elevation="0" Class="intelligence-stat pa-3"><MudText Typo="Typo.caption">@(IsAdopterView ? "Next-step status" : "Workload")</MudText><MudText Typo="Typo.h6">@(IsAdopterView ? (_summary.Total == 0 ? "Caught up" : "Action ready") : _summary.WorkloadLabel)</MudText></MudPaper></MudItem>
-            <MudItem xs="6" md="2"><MudPaper Elevation="0" Class="intelligence-stat pa-3"><MudText Typo="Typo.caption">@(IsAdopterView ? "Updates" : "Active priorities")</MudText><MudText Typo="Typo.h6">@_summary.Total</MudText></MudPaper></MudItem>
-            <MudItem xs="6" md="2"><MudPaper Elevation="0" Class="intelligence-stat critical pa-3"><MudText Typo="Typo.caption">Critical</MudText><MudText Typo="Typo.h6">@_summary.Critical</MudText></MudPaper></MudItem>
-            <MudItem xs="6" md="2"><MudPaper Elevation="0" Class="intelligence-stat high pa-3"><MudText Typo="Typo.caption">High priority</MudText><MudText Typo="Typo.h6">@_summary.High</MudText></MudPaper></MudItem>
-            <MudItem xs="6" md="2"><MudPaper Elevation="0" Class="intelligence-stat pa-3"><MudText Typo="Typo.caption">Acknowledged</MudText><MudText Typo="Typo.h6">@_summary.Acknowledged</MudText></MudPaper></MudItem>
-            <MudItem xs="6" md="2"><MudPaper Elevation="0" Class="intelligence-stat pa-3"><MudText Typo="Typo.caption">Last refreshed</MudText><MudText Typo="Typo.body2">@FormatRefreshTime(_summary.LastRefreshedAtUtc)</MudText></MudPaper></MudItem>
-        </MudGrid>
+        <IntelligenceSummaryCards Summary="_summary" IsAdopterView="IsAdopterView" />
 
-        <MudPaper Elevation="0" Class="section-surface pa-3">
-            <MudGrid Spacing="2">
-                <MudItem xs="12" sm="6" md="3">
-                    <MudTextField T="string" Label="Search priorities" @bind-Value="_search" Variant="Variant.Outlined" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
-                </MudItem>
-                <MudItem xs="12" sm="6" md="2">
-                    <MudSelect T="IntelligenceSeverity?" Label="Severity" @bind-Value="_severity" Clearable="true" Variant="Variant.Outlined">
-                        @foreach (var severity in Enum.GetValues<IntelligenceSeverity>())
-                        {
-                            <MudSelectItem T="IntelligenceSeverity?" Value="@((IntelligenceSeverity?)severity)">@FormatEnum(severity.ToString())</MudSelectItem>
-                        }
-                    </MudSelect>
-                </MudItem>
-                <MudItem xs="12" sm="6" md="3">
-                    <MudSelect T="IntelligenceCategory?" Label="Category" @bind-Value="_category" Clearable="true" Variant="Variant.Outlined">
-                        @foreach (var category in Enum.GetValues<IntelligenceCategory>())
-                        {
-                            <MudSelectItem T="IntelligenceCategory?" Value="@((IntelligenceCategory?)category)">@FormatEnum(category.ToString())</MudSelectItem>
-                        }
-                    </MudSelect>
-                </MudItem>
-                <MudItem xs="12" sm="6" md="2">
-                    <MudSelect T="IntelligenceInsightStatus?" Label="Lifecycle" @bind-Value="_status" Clearable="true" Variant="Variant.Outlined">
-                        @foreach (var status in Enum.GetValues<IntelligenceInsightStatus>())
-                        {
-                            <MudSelectItem T="IntelligenceInsightStatus?" Value="@((IntelligenceInsightStatus?)status)">@FormatEnum(status.ToString())</MudSelectItem>
-                        }
-                    </MudSelect>
-                </MudItem>
-                <MudItem xs="12" md="2">
-                    <MudStack Row="true" Spacing="1">
-                        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ApplyFiltersAsync">Apply</MudButton>
-                        <MudIconButton Icon="@Icons.Material.Filled.FilterAltOff" Color="Color.Default" OnClick="ClearFiltersAsync" aria-label="Clear intelligence filters" />
-                    </MudStack>
-                </MudItem>
-            </MudGrid>
+        <MudPaper Elevation="0" Class="intelligence-control-surface pa-3">
+            <IntelligenceFilterToolbar Search="_search"
+                                       SearchChanged="OnSearchChanged"
+                                       Severity="_severity"
+                                       SeverityChanged="OnSeverityChanged"
+                                       Category="_category"
+                                       CategoryChanged="OnCategoryChanged"
+                                       ActiveLabels="ActiveFilterLabels"
+                                       OnApply="ApplyFiltersAsync"
+                                       OnClear="ClearFiltersAsync" />
+            <MudDivider Class="my-2" />
+            <SavedViewControls PageKey="@SavedViewPageKey"
+                               RoleScope="@SavedViewRoleScope"
+                               CurrentFilterStateJson="@SavedViewFilterStateJson"
+                               CurrentSummaryLabels="@SavedViewSummaryLabels"
+                               Disabled="@(_isLoading || _isRefreshing)"
+                               Compact="true"
+                               OnApply="ApplySavedViewAsync"
+                               OnClear="ClearFiltersAsync" />
         </MudPaper>
 
-        <SavedViewControls PageKey="@SavedViewPageKey"
-                           RoleScope="@SavedViewRoleScope"
-                           Title="Intelligence views"
-                           CurrentFilterStateJson="@SavedViewFilterStateJson"
-                           CurrentSummaryLabels="@SavedViewSummaryLabels"
-                           Disabled="@(_isLoading || _isRefreshing)"
-                           OnApply="ApplySavedViewAsync"
-                           OnClear="ClearFiltersAsync" />
+        <section class="intelligence-workspace">
+            <div class="intelligence-master">
+                <div class="intelligence-lifecycle-tabs" role="tablist" aria-label="Priority lifecycle">
+                    @foreach (var tab in LifecycleTabs)
+                    {
+                        <button type="button"
+                                role="tab"
+                                aria-selected="@(_status == tab.Status ? "true" : "false")"
+                                class="@(_status == tab.Status ? "active" : null)"
+                                @onclick="@(() => ChangeLifecycleAsync(tab.Status))">
+                            <span>@tab.Label</span>
+                            <strong>@GetLifecycleCount(tab.Status)</strong>
+                        </button>
+                    }
+                </div>
 
-        @if (_insights.Count == 0)
-        {
-            <AppEmptyState Title="@EmptyTitle" Message="@EmptyMessage" Icon="@Icons.Material.Filled.TaskAlt" IconColor="Color.Success" PrimaryActionText="Refresh checks" PrimaryActionIcon="@Icons.Material.Filled.Refresh" OnPrimaryAction="RefreshAsync" />
-        }
-        else
-        {
-            <MudGrid Spacing="2">
-                <MudItem xs="12" lg="@(_selected is null ? 12 : 7)">
-                    <MudStack Spacing="2">
-                        @foreach (var insight in _insights)
-                        {
-                            <MudPaper Elevation="0" Class="@GetInsightCardClass(insight)">
-                                <MudStack Spacing="2">
-                                    <MudStack Row="true" AlignItems="AlignItems.Center" Class="flex-wrap" Spacing="1">
-                                        <MudChip T="string" Size="Size.Small" Color="@GetSeverityColor(insight.Severity)" Variant="Variant.Filled">@FormatEnum(insight.Severity.ToString())</MudChip>
-                                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@FormatEnum(insight.Category.ToString())</MudChip>
-                                        <MudText Typo="Typo.caption" Color="Color.Secondary">@insight.SourceModule</MudText>
-                                        <MudSpacer />
-                                        @if (!IsAdopterView)
-                                        {
-                                            <MudText Typo="Typo.subtitle2">@insight.PriorityScore / 100</MudText>
-                                        }
-                                    </MudStack>
-                                    @if (!IsAdopterView)
-                                    {
-                                        <MudProgressLinear Value="@insight.PriorityScore" Color="@GetSeverityColor(insight.Severity)" Rounded="true" />
-                                    }
-                                    <div>
-                                        <MudText Typo="Typo.h6">@insight.Title</MudText>
-                                        <MudText Typo="Typo.body2">@insight.Summary</MudText>
-                                    </div>
-                                    <MudStack Row="true" Class="flex-wrap" Spacing="1">
-                                        @foreach (var evidence in insight.Evidence.Take(3))
-                                        {
-                                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.FactCheck">@evidence</MudChip>
-                                        }
-                                    </MudStack>
-                                    <MudStack Row="true" AlignItems="AlignItems.Center" Class="intelligence-card-actions flex-wrap" Spacing="1">
-                                        @foreach (var action in insight.RecommendedActions.Where(action => action.IsPrimary).Take(1))
-                                        {
-                                            <MudButton Href="@(action.IsAvailable ? action.Route : null)" Disabled="@(!action.IsAvailable)" Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Filled.ArrowForward">@action.Label</MudButton>
-                                        }
-                                        <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" OnClick="@(() => SelectInsight(insight))">View explanation</MudButton>
-                                        <MudSpacer />
-                                        @if (insight.Status == IntelligenceInsightStatus.Active)
-                                        {
-                                            <MudButton Variant="Variant.Text" Color="Color.Default" Size="Size.Small" OnClick="@(() => AcknowledgeAsync(insight.Id))">Acknowledge</MudButton>
-                                            <MudButton Variant="Variant.Text" Color="Color.Default" Size="Size.Small" OnClick="@(() => SnoozeAsync(insight.Id, insight.Severity == IntelligenceSeverity.Critical ? TimeSpan.FromHours(1) : TimeSpan.FromDays(1)))">@(insight.Severity == IntelligenceSeverity.Critical ? "Snooze 1 hour" : "Snooze 1 day")</MudButton>
-                                        }
-                                        else if (insight.Status == IntelligenceInsightStatus.Resolved)
-                                        {
-                                            <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" OnClick="@(() => ReopenAsync(insight.Id))">Reopen</MudButton>
-                                        }
-                                    </MudStack>
-                                </MudStack>
-                            </MudPaper>
-                        }
-                    </MudStack>
-                </MudItem>
-
-                @if (_selected is not null)
+                @if (_status == IntelligenceInsightStatus.Active)
                 {
-                    <MudItem xs="12" lg="5">
-                        <MudPaper Elevation="0" Class="intelligence-details pa-4">
-                            <MudStack Spacing="3">
-                                <MudStack Row="true" AlignItems="AlignItems.Center">
-                                    <MudText Typo="Typo.h6">Why this is a priority</MudText>
-                                    <MudSpacer />
-                                    <MudIconButton Icon="@Icons.Material.Filled.Close" OnClick="@(() => _selected = null)" aria-label="Close insight explanation" />
-                                </MudStack>
-                                <MudText Typo="Typo.body2">@_selected.Explanation</MudText>
-                                <MudDivider />
-                                <div>
-                                    <MudText Typo="Typo.subtitle2" Class="mb-2">Evidence</MudText>
-                                    <MudList T="string" Dense="true">
-                                        @foreach (var evidence in _selected.Evidence)
-                                        {
-                                            <MudListItem T="string" Icon="@Icons.Material.Filled.CheckCircleOutline">@evidence</MudListItem>
-                                        }
-                                    </MudList>
-                                </div>
-                                @if (!IsAdopterView)
-                                {
-                                    <div>
-                                        <MudText Typo="Typo.subtitle2" Class="mb-2">Score breakdown</MudText>
-                                        @foreach (var factor in _selected.ScoreBreakdown)
-                                        {
-                                            <MudStack Row="true" AlignItems="AlignItems.Center" Class="score-factor mb-2">
-                                                <div><MudText Typo="Typo.body2">@factor.Label</MudText><MudText Typo="Typo.caption" Color="Color.Secondary">@factor.Explanation</MudText></div>
-                                                <MudSpacer />
-                                                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">+@factor.Points</MudChip>
-                                            </MudStack>
-                                        }
-                                    </div>
-                                }
-                                @if (!IsAdopterView && _selected.Status is IntelligenceInsightStatus.Active or IntelligenceInsightStatus.Acknowledged && _selected.Severity != IntelligenceSeverity.Critical && _selected.Category is not IntelligenceCategory.Notifications and not IntelligenceCategory.PlatformHealth)
-                                {
-                                    <MudDivider />
-                                    <div>
-                                        <MudText Typo="Typo.subtitle2">Manual resolution</MudText>
-                                        <MudText Typo="Typo.caption" Color="Color.Secondary">Use this only when the work was handled outside the linked workflow. A future refresh can reopen the insight if the condition still exists.</MudText>
-                                        <MudTextField T="string" Label="Resolution reason" @bind-Value="_resolutionReason" Variant="Variant.Outlined" MaxLength="500" Class="mt-2" />
-                                        <MudButton Variant="Variant.Outlined" Color="Color.Success" Size="Size.Small" Class="mt-2" Disabled="@string.IsNullOrWhiteSpace(_resolutionReason)" OnClick="@(() => ResolveAsync(_selected.Id))">Mark resolved</MudButton>
-                                    </div>
-                                }
-                                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">These priorities assist workflow decisions. They do not approve or reject adoption applications.</MudAlert>
-                            </MudStack>
-                        </MudPaper>
-                    </MudItem>
+                    <div class="intelligence-quick-filters" aria-label="Quick severity filters">
+                        <MudButton Variant="@(_urgentOnly ? Variant.Filled : Variant.Text)" Color="Color.Primary" Size="Size.Small" OnClick="ShowUrgentAsync">Critical + High</MudButton>
+                        <MudButton Variant="@(!_urgentOnly && !_severity.HasValue ? Variant.Filled : Variant.Text)" Color="Color.Primary" Size="Size.Small" OnClick="ShowAllSeveritiesAsync">All</MudButton>
+                        @foreach (var severity in new[] { IntelligenceSeverity.Critical, IntelligenceSeverity.High, IntelligenceSeverity.Medium, IntelligenceSeverity.Low })
+                        {
+                            <MudButton Variant="@(!_urgentOnly && _severity == severity ? Variant.Filled : Variant.Text)"
+                                       Color="@IntelligenceUi.SeverityColor(severity)"
+                                       Size="Size.Small"
+                                       OnClick="@(() => ShowSeverityAsync(severity))">
+                                @IntelligenceUi.SeverityLabel(severity)
+                            </MudButton>
+                        }
+                    </div>
                 }
-            </MudGrid>
-        }
+
+                <div class="intelligence-list-summary">
+                    <div>
+                        <MudText Typo="Typo.h6">@CurrentListTitle</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@FilteredInsights.Count @Pluralize(FilteredInsights.Count, "priority", "priorities")</MudText>
+                    </div>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Sorted by urgency, then age</MudText>
+                </div>
+
+                @if (FilteredInsights.Count == 0)
+                {
+                    <AppEmptyState Title="@CurrentEmptyTitle"
+                                   Message="@CurrentEmptyMessage"
+                                   Icon="@Icons.Material.Filled.TaskAlt"
+                                   IconColor="Color.Success"
+                                   PrimaryActionText="Clear filters"
+                                   PrimaryActionIcon="@Icons.Material.Filled.FilterAltOff"
+                                   OnPrimaryAction="ClearFiltersAsync" />
+                }
+                else
+                {
+                    <IntelligenceInsightList Insights="FilteredInsights"
+                                             SelectedId="_selected?.Id"
+                                             IsAdopterView="IsAdopterView"
+                                             OnSelect="SelectInsightAsync"
+                                             OnAcknowledge="AcknowledgeAsync"
+                                             OnSnooze="SnoozeAsync"
+                                             OnReopen="ReopenAsync" />
+                }
+            </div>
+
+            <IntelligenceInsightDetailsPanel Insight="_selected"
+                                                     IsLoading="_isLoadingDetails"
+                                                     IsAdopterView="IsAdopterView"
+                                                     MobileOpen="_mobileDetailsOpen"
+                                                     ResolutionReason="_resolutionReason"
+                                                     ResolutionReasonChanged="OnResolutionReasonChanged"
+                                                     OnClose="CloseDetails"
+                                                     OnAcknowledge="AcknowledgeAsync"
+                                                     OnSnooze="SnoozeAsync"
+                                                     OnReopen="ReopenAsync"
+                                                     OnResolve="ResolveAsync" />
+        </section>
     }
 </MudStack>
 
@@ -209,23 +145,31 @@
     [Parameter, EditorRequired] public IntelligenceScope Scope { get; set; } = default!;
     [Parameter, EditorRequired] public string ActorUserId { get; set; } = string.Empty;
     [Parameter] public string Title { get; set; } = "Operations Intelligence";
-    [Parameter] public string Subtitle { get; set; } = "Prioritized operational signals with evidence and safe next actions.";
+    [Parameter] public string Subtitle { get; set; } = "What needs attention, why it matters, and what to do next.";
     [Parameter] public string? MethodologyRoute { get; set; }
     [Parameter] public string EmptyTitle { get; set; } = "All urgent priorities are under control";
     [Parameter] public string EmptyMessage { get; set; } = "No active operational issues were detected during the latest evaluation.";
 
     private bool _isLoading = true;
     private bool _isRefreshing;
+    private bool _isLoadingDetails;
+    private bool _mobileDetailsOpen;
+    private bool _urgentOnly = true;
     private string? _error;
     private string? _search;
     private IntelligenceSeverity? _severity;
     private IntelligenceCategory? _category;
-    private IntelligenceInsightStatus? _status;
-    private List<OperationalInsightDto> _insights = [];
+    private IntelligenceInsightStatus _status = IntelligenceInsightStatus.Active;
+    private List<OperationalInsightListItemDto> _insights = [];
     private OperationalInsightDto? _selected;
     private string? _resolutionReason;
+    private CancellationTokenSource? _detailsCts;
     private IntelligenceSummaryDto _summary = new(0, 0, 0, 0, 0, 0, 0, null, "Normal", new Dictionary<IntelligenceCategory, int>());
+
     private bool IsAdopterView => Scope.AudienceType == IntelligenceAudienceType.Adopter;
+    private IReadOnlyList<OperationalInsightListItemDto> FilteredInsights => _urgentOnly && _status == IntelligenceInsightStatus.Active
+        ? _insights.Where(insight => insight.Severity is IntelligenceSeverity.Critical or IntelligenceSeverity.High).ToList()
+        : _insights;
     private string SavedViewPageKey => Scope.AudienceType switch
     {
         IntelligenceAudienceType.Shelter => "Shelter.Intelligence",
@@ -239,14 +183,31 @@
         _ => SavedViewRoleScope.Admin
     };
     private static readonly JsonSerializerOptions SavedViewJsonOptions = new(JsonSerializerDefaults.Web);
-    private string SavedViewFilterStateJson => JsonSerializer.Serialize(new IntelligenceSavedViewState(_search, _severity, _category, _status), SavedViewJsonOptions);
-    private IReadOnlyList<string> SavedViewSummaryLabels =>
+    private string SavedViewFilterStateJson => JsonSerializer.Serialize(new IntelligenceSavedViewState(_search, _severity, _category, _status, _urgentOnly), SavedViewJsonOptions);
+    private IReadOnlyList<string> SavedViewSummaryLabels => ActiveFilterLabels;
+    private IReadOnlyList<string> ActiveFilterLabels =>
     [
         .. string.IsNullOrWhiteSpace(_search) ? [] : new[] { $"Search: {_search}" },
-        .. _severity.HasValue ? new[] { $"Severity: {FormatEnum(_severity.Value.ToString())}" } : [],
-        .. _category.HasValue ? new[] { $"Category: {FormatEnum(_category.Value.ToString())}" } : [],
-        .. _status.HasValue ? new[] { $"Lifecycle: {FormatEnum(_status.Value.ToString())}" } : []
+        .. _urgentOnly && _status == IntelligenceInsightStatus.Active ? new[] { "Priority: Critical + High" } : [],
+        .. _severity.HasValue ? new[] { $"Severity: {IntelligenceUi.SeverityLabel(_severity.Value)}" } : [],
+        .. _category.HasValue ? new[] { $"Category: {IntelligenceUi.CategoryLabel(_category.Value)}" } : [],
+        .. _status != IntelligenceInsightStatus.Active ? new[] { $"Lifecycle: {IntelligenceUi.StatusLabel(_status)}" } : []
     ];
+    private IReadOnlyList<LifecycleTab> LifecycleTabs =>
+    [
+        new("Needs attention", IntelligenceInsightStatus.Active),
+        new("Acknowledged", IntelligenceInsightStatus.Acknowledged),
+        new("Snoozed", IntelligenceInsightStatus.Snoozed),
+        new("Resolved", IntelligenceInsightStatus.Resolved)
+    ];
+    private string CurrentListTitle => _status switch
+    {
+        IntelligenceInsightStatus.Active when _urgentOnly => "Urgent priorities",
+        _ => IntelligenceUi.StatusLabel(_status)
+    };
+    private string CurrentEmptyTitle => HasExplicitFilters ? "No priorities match the selected filters" : _status == IntelligenceInsightStatus.Active ? EmptyTitle : $"No {IntelligenceUi.StatusLabel(_status).ToLowerInvariant()} priorities";
+    private string CurrentEmptyMessage => HasExplicitFilters ? "Clear or change the current filters to widen the results." : _status == IntelligenceInsightStatus.Active ? EmptyMessage : "There are no priorities in this lifecycle state.";
+    private bool HasExplicitFilters => !string.IsNullOrWhiteSpace(_search) || _category.HasValue || _severity.HasValue || !_urgentOnly || _status != IntelligenceInsightStatus.Active;
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 
@@ -262,9 +223,25 @@
                 await InsightService.RefreshAsync(Scope, ActorUserId);
                 _summary = await InsightService.GetSummaryAsync(Scope);
             }
-            var result = await InsightService.GetInsightsAsync(Scope, new IntelligenceInsightQuery(_severity, _category, _status, Search: _search, IncludeSnoozed: _status == IntelligenceInsightStatus.Snoozed, PageSize: 50));
+
+            var includeSnoozed = _status == IntelligenceInsightStatus.Snoozed;
+            var result = await InsightService.GetInsightSummariesAsync(
+                Scope,
+                new IntelligenceInsightQuery(_severity, _category, _status, Search: _search, IncludeSnoozed: includeSnoozed, PageSize: 50));
             _insights = result.Items.ToList();
-            if (_selected is not null) _selected = _insights.FirstOrDefault(item => item.Id == _selected.Id);
+
+            var visible = FilteredInsights;
+            var selectedSummary = _selected is null ? null : visible.FirstOrDefault(item => item.Id == _selected.Id);
+            selectedSummary ??= visible.FirstOrDefault();
+            if (selectedSummary is null)
+            {
+                _selected = null;
+                _mobileDetailsOpen = false;
+            }
+            else
+            {
+                await LoadDetailsAsync(selectedSummary.Id, openMobile: false);
+            }
         }
         catch (Exception ex)
         {
@@ -277,6 +254,35 @@
             _isLoading = false;
         }
     }
+
+    private async Task LoadDetailsAsync(int insightId, bool openMobile)
+    {
+        _detailsCts?.Cancel();
+        _detailsCts?.Dispose();
+        _detailsCts = new CancellationTokenSource();
+        var token = _detailsCts.Token;
+
+        try
+        {
+            _isLoadingDetails = true;
+            if (openMobile) _mobileDetailsOpen = true;
+            var details = await InsightService.GetInsightDetailsAsync(insightId, Scope, token);
+            if (!token.IsCancellationRequested)
+            {
+                _selected = details;
+                _resolutionReason = null;
+            }
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+        }
+        finally
+        {
+            if (!token.IsCancellationRequested) _isLoadingDetails = false;
+        }
+    }
+
+    private async Task SelectInsightAsync(OperationalInsightListItemDto insight) => await LoadDetailsAsync(insight.Id, openMobile: true);
 
     private async Task RefreshAsync()
     {
@@ -292,8 +298,34 @@
         finally { _isRefreshing = false; }
     }
 
+    private Task OnSearchChanged(string? value) { _search = value; return Task.CompletedTask; }
+    private Task OnCategoryChanged(IntelligenceCategory? value) { _category = value; return Task.CompletedTask; }
+    private Task OnResolutionReasonChanged(string? value) { _resolutionReason = value; return Task.CompletedTask; }
+    private Task OnSeverityChanged(IntelligenceSeverity? value) { _severity = value; _urgentOnly = false; return Task.CompletedTask; }
     private Task ApplyFiltersAsync() => LoadAsync();
-    private async Task ClearFiltersAsync() { _search = null; _severity = null; _category = null; _status = null; await LoadAsync(); }
+
+    private async Task ClearFiltersAsync()
+    {
+        _search = null;
+        _severity = null;
+        _category = null;
+        _status = IntelligenceInsightStatus.Active;
+        _urgentOnly = true;
+        await LoadAsync();
+    }
+
+    private async Task ChangeLifecycleAsync(IntelligenceInsightStatus status)
+    {
+        _status = status;
+        _urgentOnly = status == IntelligenceInsightStatus.Active;
+        _severity = null;
+        await LoadAsync();
+    }
+
+    private async Task ShowUrgentAsync() { _urgentOnly = true; _severity = null; await LoadAsync(); }
+    private async Task ShowAllSeveritiesAsync() { _urgentOnly = false; _severity = null; await LoadAsync(); }
+    private async Task ShowSeverityAsync(IntelligenceSeverity severity) { _urgentOnly = false; _severity = severity; await LoadAsync(); }
+
     private async Task ApplySavedViewAsync(SavedViewDto view)
     {
         try
@@ -302,7 +334,8 @@
             _search = state?.Search;
             _severity = state?.Severity;
             _category = state?.Category;
-            _status = state?.Status;
+            _status = state?.Status ?? IntelligenceInsightStatus.Active;
+            _urgentOnly = state?.UrgentOnly ?? false;
             await LoadAsync();
         }
         catch (JsonException)
@@ -310,36 +343,50 @@
             Snackbar.Add("This saved intelligence view is no longer valid.", Severity.Warning);
         }
     }
-    private void SelectInsight(OperationalInsightDto insight) { _selected = insight; _resolutionReason = null; }
 
-    private async Task AcknowledgeAsync(int id) { await RunLifecycleAsync(() => InsightService.AcknowledgeAsync(id, Scope, ActorUserId), "Insight acknowledged."); }
-    private async Task SnoozeAsync(int id, TimeSpan duration) { await RunLifecycleAsync(() => InsightService.SnoozeAsync(id, Scope, ActorUserId, duration), "Insight snoozed for one day."); }
-    private async Task ReopenAsync(int id) { await RunLifecycleAsync(() => InsightService.ReopenAsync(id, Scope, ActorUserId), "Insight reopened."); }
-    private async Task ResolveAsync(int id)
+    private Task AcknowledgeAsync(int id) => RunLifecycleAsync(() => InsightService.AcknowledgeAsync(id, Scope, ActorUserId), "Priority acknowledged.");
+    private Task SnoozeAsync(IntelligenceSnoozeRequest request) => RunLifecycleAsync(
+        () => InsightService.SnoozeAsync(request.InsightId, Scope, ActorUserId, request.Duration),
+        request.Duration < TimeSpan.FromDays(1) ? "Priority snoozed for one hour." : $"Priority snoozed for {(int)request.Duration.TotalDays} day{(request.Duration.TotalDays == 1 ? string.Empty : "s")}.");
+    private Task ReopenAsync(int id) => RunLifecycleAsync(() => InsightService.ReopenAsync(id, Scope, ActorUserId), "Priority reopened.");
+
+    private async Task ResolveAsync(IntelligenceResolveRequest request)
     {
-        if (string.IsNullOrWhiteSpace(_resolutionReason)) return;
-        await RunLifecycleAsync(() => InsightService.ResolveAsync(id, Scope, ActorUserId, _resolutionReason), "Insight marked as resolved.");
+        await RunLifecycleAsync(() => InsightService.ResolveAsync(request.InsightId, Scope, ActorUserId, request.Reason), "Priority marked as resolved.");
         _resolutionReason = null;
     }
 
     private async Task RunLifecycleAsync(Func<Task> action, string success)
     {
-        try { await action(); await LoadAsync(); Snackbar.Add(success, Severity.Success); }
+        try
+        {
+            await action();
+            _mobileDetailsOpen = false;
+            await LoadAsync();
+            Snackbar.Add(success, Severity.Success);
+        }
         catch (InvalidOperationException ex) { Snackbar.Add(ex.Message, Severity.Warning); }
-        catch { Snackbar.Add("The insight could not be updated.", Severity.Error); }
+        catch { Snackbar.Add("The priority could not be updated.", Severity.Error); }
     }
 
-    private static Color GetSeverityColor(IntelligenceSeverity severity) => severity switch
+    private void CloseDetails()
     {
-        IntelligenceSeverity.Critical => Color.Error,
-        IntelligenceSeverity.High => Color.Warning,
-        IntelligenceSeverity.Medium => Color.Info,
-        IntelligenceSeverity.Low => Color.Secondary,
-        _ => Color.Success
+        _mobileDetailsOpen = false;
+        _selected = null;
+    }
+
+    private int GetLifecycleCount(IntelligenceInsightStatus status) => status switch
+    {
+        IntelligenceInsightStatus.Active => Math.Max(0, _summary.Total - _summary.Acknowledged - _summary.Snoozed),
+        IntelligenceInsightStatus.Acknowledged => _summary.Acknowledged,
+        IntelligenceInsightStatus.Snoozed => _summary.Snoozed,
+        IntelligenceInsightStatus.Resolved => _summary.Resolved,
+        _ => 0
     };
 
-    private static string GetInsightCardClass(OperationalInsightDto insight) => $"intelligence-card pa-4 severity-{insight.Severity.ToString().ToLowerInvariant()}";
-    private static string FormatRefreshTime(DateTime? value) => value.HasValue ? value.Value.ToLocalTime().ToString("dd MMM HH:mm") : "Not yet";
-    private static string FormatEnum(string value) => System.Text.RegularExpressions.Regex.Replace(value, "([a-z])([A-Z])", "$1 $2");
-    private sealed record IntelligenceSavedViewState(string? Search, IntelligenceSeverity? Severity, IntelligenceCategory? Category, IntelligenceInsightStatus? Status);
+    private static string FormatRefreshTime(DateTime? value) => value.HasValue ? value.Value.ToLocalTime().ToString("dd MMM, HH:mm") : "not yet";
+    private static string Pluralize(int count, string singular, string plural) => count == 1 ? singular : plural;
+
+    private sealed record LifecycleTab(string Label, IntelligenceInsightStatus Status);
+    private sealed record IntelligenceSavedViewState(string? Search, IntelligenceSeverity? Severity, IntelligenceCategory? Category, IntelligenceInsightStatus? Status, bool? UrgentOnly = null);
 }

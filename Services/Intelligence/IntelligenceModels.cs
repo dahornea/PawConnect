@@ -115,6 +115,21 @@ public sealed record OperationalInsightDto(
     DateTime? ResolvedAtUtc,
     string? ResolutionReason);
 
+public sealed record OperationalInsightListItemDto(
+    int Id,
+    IntelligenceCategory Category,
+    string EntityType,
+    string? EntityDisplayName,
+    string Title,
+    string Summary,
+    IntelligenceSeverity Severity,
+    int PriorityScore,
+    IReadOnlyList<string> EvidencePreview,
+    int EvidenceCount,
+    IReadOnlyList<RecommendedActionDto> RecommendedActions,
+    IntelligenceInsightStatus Status,
+    DateTime FirstDetectedAtUtc);
+
 public sealed record IntelligenceSummaryDto(
     int Total,
     int Critical,

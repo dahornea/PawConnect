@@ -1,0 +1,38 @@
+<div class="intelligence-priority-list" role="listbox" aria-label="Operational priorities">
+    @foreach (var group in GroupedInsights)
+    {
+        <section class="intelligence-category-group" aria-labelledby="@($"insight-group-{group.Key}")">
+            <div class="intelligence-group-heading">
+                <MudText Typo="Typo.subtitle2" id="@($"insight-group-{group.Key}")">@IntelligenceUi.CategoryLabel(group.Key)</MudText>
+                <span>@group.Count()</span>
+            </div>
+            <div class="intelligence-group-items">
+                @foreach (var insight in group)
+                {
+                    <IntelligenceInsightListItem Insight="insight"
+                                                 IsSelected="@(SelectedId == insight.Id)"
+                                                 IsAdopterView="IsAdopterView"
+                                                 OnSelect="OnSelect"
+                                                 OnAcknowledge="OnAcknowledge"
+                                                 OnSnooze="OnSnooze"
+                                                 OnReopen="OnReopen" />
+                }
+            </div>
+        </section>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<OperationalInsightListItemDto> Insights { get; set; } = [];
+    [Parameter] public int? SelectedId { get; set; }
+    [Parameter] public bool IsAdopterView { get; set; }
+    [Parameter] public EventCallback<OperationalInsightListItemDto> OnSelect { get; set; }
+    [Parameter] public EventCallback<int> OnAcknowledge { get; set; }
+    [Parameter] public EventCallback<IntelligenceSnoozeRequest> OnSnooze { get; set; }
+    [Parameter] public EventCallback<int> OnReopen { get; set; }
+
+    private IEnumerable<IGrouping<IntelligenceCategory, OperationalInsightListItemDto>> GroupedInsights =>
+        Insights.GroupBy(insight => insight.Category)
+            .OrderBy(group => group.Min(insight => -(int)insight.Severity))
+            .ThenBy(group => IntelligenceUi.CategoryLabel(group.Key));
+}

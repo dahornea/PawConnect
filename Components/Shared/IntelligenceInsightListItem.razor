@@ -1,0 +1,96 @@
+<article class="@RowClass" role="option" aria-selected="@(IsSelected ? "true" : "false")">
+    <button type="button"
+            class="intelligence-row-content"
+            @onclick="SelectAsync"
+            aria-label="@($"View details for {Insight.Title}")">
+        <span class="intelligence-severity-marker @IntelligenceUi.SeverityCss(Insight.Severity)" aria-hidden="true"></span>
+        <span class="intelligence-row-copy">
+            <span class="intelligence-row-heading">
+                <span class="intelligence-severity-badge @IntelligenceUi.SeverityCss(Insight.Severity)">@IntelligenceUi.SeverityLabel(Insight.Severity)</span>
+                <span class="intelligence-row-title">@Insight.Title</span>
+            </span>
+            <span class="intelligence-row-summary">@Insight.Summary</span>
+            <span class="intelligence-row-meta">
+                <span>@IntelligenceUi.CategoryLabel(Insight.Category)</span>
+                @if (!string.IsNullOrWhiteSpace(Insight.EntityDisplayName))
+                {
+                    <span aria-hidden="true">&middot;</span>
+                    <span>@Insight.EntityDisplayName</span>
+                }
+                <span aria-hidden="true">&middot;</span>
+                <span>@IntelligenceUi.FormatAge(Insight.FirstDetectedAtUtc)</span>
+            </span>
+            @if (Insight.EvidencePreview.Count > 0)
+            {
+                <span class="intelligence-row-evidence">
+                    @foreach (var evidence in Insight.EvidencePreview)
+                    {
+                        <span>@evidence</span>
+                    }
+                    @if (Insight.EvidenceCount > Insight.EvidencePreview.Count)
+                    {
+                        <span>+@(Insight.EvidenceCount - Insight.EvidencePreview.Count) more</span>
+                    }
+                </span>
+            }
+        </span>
+        @if (!IsAdopterView)
+        {
+            <span class="intelligence-score-pill" title="Priority score">@Insight.PriorityScore <span>priority</span></span>
+        }
+    </button>
+
+    <div class="intelligence-row-actions">
+        @if (PrimaryAction is not null)
+        {
+            <MudButton Href="@(PrimaryAction.IsAvailable ? PrimaryAction.Route : null)"
+                       Disabled="@(!PrimaryAction.IsAvailable)"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       Size="Size.Small"
+                       EndIcon="@Icons.Material.Filled.ArrowForward">
+                @PrimaryAction.Label
+            </MudButton>
+        }
+        <MudMenu Icon="@Icons.Material.Filled.MoreVert"
+                 Size="Size.Small"
+                 Dense="true"
+                 AnchorOrigin="Origin.BottomRight"
+                 TransformOrigin="Origin.TopRight"
+                 aria-label="@($"More actions for {Insight.Title}")">
+            <MudMenuItem Icon="@Icons.Material.Filled.Subject" OnClick="SelectAsync">View details</MudMenuItem>
+            @if (Insight.Status == IntelligenceInsightStatus.Active)
+            {
+                <MudMenuItem Icon="@Icons.Material.Filled.Done" OnClick="AcknowledgeAsync">Acknowledge</MudMenuItem>
+                <MudMenuItem Icon="@Icons.Material.Filled.Snooze" OnClick="@(() => SnoozeAsync(TimeSpan.FromHours(1)))">Snooze 1 hour</MudMenuItem>
+                @if (Insight.Severity != IntelligenceSeverity.Critical)
+                {
+                    <MudMenuItem Icon="@Icons.Material.Filled.Today" OnClick="@(() => SnoozeAsync(TimeSpan.FromDays(1)))">Snooze 1 day</MudMenuItem>
+                    <MudMenuItem Icon="@Icons.Material.Filled.DateRange" OnClick="@(() => SnoozeAsync(TimeSpan.FromDays(3)))">Snooze 3 days</MudMenuItem>
+                }
+            }
+            else if (Insight.Status == IntelligenceInsightStatus.Resolved)
+            {
+                <MudMenuItem Icon="@Icons.Material.Filled.RestartAlt" OnClick="ReopenAsync">Reopen</MudMenuItem>
+            }
+        </MudMenu>
+    </div>
+</article>
+
+@code {
+    [Parameter, EditorRequired] public OperationalInsightListItemDto Insight { get; set; } = default!;
+    [Parameter] public bool IsSelected { get; set; }
+    [Parameter] public bool IsAdopterView { get; set; }
+    [Parameter] public EventCallback<OperationalInsightListItemDto> OnSelect { get; set; }
+    [Parameter] public EventCallback<int> OnAcknowledge { get; set; }
+    [Parameter] public EventCallback<IntelligenceSnoozeRequest> OnSnooze { get; set; }
+    [Parameter] public EventCallback<int> OnReopen { get; set; }
+
+    private RecommendedActionDto? PrimaryAction => Insight.RecommendedActions.FirstOrDefault(action => action.IsPrimary);
+    private string RowClass => $"intelligence-row {IntelligenceUi.SeverityCss(Insight.Severity)}{(IsSelected ? " selected" : string.Empty)}";
+
+    private Task SelectAsync() => OnSelect.InvokeAsync(Insight);
+    private Task AcknowledgeAsync() => OnAcknowledge.InvokeAsync(Insight.Id);
+    private Task SnoozeAsync(TimeSpan duration) => OnSnooze.InvokeAsync(new IntelligenceSnoozeRequest(Insight.Id, duration));
+    private Task ReopenAsync() => OnReopen.InvokeAsync(Insight.Id);
+}

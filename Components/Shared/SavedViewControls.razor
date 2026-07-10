@@ -2,6 +2,76 @@
 
 @if (_isAuthenticated)
 {
+    @if (Compact)
+    {
+        <div class="saved-view-compact">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="saved-view-compact-row">
+                <MudSelect T="int?"
+                           Label="Views"
+                           Value="_selectedViewId"
+                           ValueChanged="OnSelectedViewChangedAsync"
+                           Disabled="@Disabled"
+                           Dense="true"
+                           Margin="Margin.Dense"
+                           Variant="Variant.Outlined"
+                           Class="saved-view-select saved-view-compact-select">
+                    <MudSelectItem T="int?" Value="@((int?)null)">Choose view</MudSelectItem>
+                    @foreach (var view in _views)
+                    {
+                        <MudSelectItem T="int?" Value="@((int?)view.Id)">@GetViewLabel(view)</MudSelectItem>
+                    }
+                </MudSelect>
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Primary"
+                           Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           Disabled="@Disabled"
+                           OnClick="OpenSaveViewDialogAsync">
+                    Save current view
+                </MudButton>
+                <MudMenu Icon="@Icons.Material.Filled.MoreVert"
+                         Size="Size.Small"
+                         Dense="true"
+                         Disabled="@(Disabled || _activeView is null)"
+                         AnchorOrigin="Origin.BottomRight"
+                         TransformOrigin="Origin.TopRight"
+                         aria-label="Manage active saved view">
+                    @if (_activeView is { IsSystemView: false })
+                    {
+                        <MudMenuItem Icon="@Icons.Material.Filled.Edit" OnClick="OpenEditViewDialogAsync">Rename and settings</MudMenuItem>
+                        <MudMenuItem Icon="@Icons.Material.Filled.Update" OnClick="UpdateActiveViewAsync">Update with current filters</MudMenuItem>
+                        <MudMenuItem Icon="@(_activeView.IsPinned ? Icons.Material.Outlined.PushPin : Icons.Material.Filled.PushPin)" OnClick="ToggleActivePinnedAsync">@(_activeView.IsPinned ? "Unpin" : "Pin")</MudMenuItem>
+                        <MudMenuItem Icon="@Icons.Material.Filled.Delete" IconColor="Color.Error" OnClick="DeleteActiveViewAsync">Delete</MudMenuItem>
+                    }
+                </MudMenu>
+                @if (_activeView is not null)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">@_activeView.Name</MudChip>
+                }
+            </MudStack>
+
+            @if (_views.Any(view => view.IsPinned))
+            {
+                <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Class="saved-view-pinned-row mt-1">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Pinned</MudText>
+                    @foreach (var view in _views.Where(view => view.IsPinned).Take(5))
+                    {
+                        <MudChip T="string"
+                                 Size="Size.Small"
+                                 Variant="Variant.Outlined"
+                                 Color="Color.Primary"
+                                 Disabled="@Disabled"
+                                 OnClick="@(() => ApplyViewAsync(view))"
+                                 Icon="@Icons.Material.Filled.PushPin">
+                            @view.Name
+                        </MudChip>
+                    }
+                </MudStack>
+            }
+        </div>
+    }
+    else
+    {
     <MudPaper Elevation="0" Class="saved-view-toolbar pa-3">
         <MudStack Spacing="2">
             <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Spacing="2" Class="flex-wrap">
@@ -126,6 +196,7 @@
             }
         </MudStack>
     </MudPaper>
+    }
 }
 
 @code {
@@ -133,6 +204,7 @@
     [Inject] private AuthenticationStateProvider AuthenticationStateProvider { get; set; } = default!;
     [Inject] private ISnackbar Snackbar { get; set; } = default!;
     [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+    [Inject] private IDialogService DialogService { get; set; } = default!;
 
     [Parameter, EditorRequired] public string PageKey { get; set; } = string.Empty;
     [Parameter, EditorRequired] public SavedViewRoleScope RoleScope { get; set; } = SavedViewRoleScope.Global;
@@ -143,6 +215,7 @@
     [Parameter] public string? ViewMode { get; set; }
     [Parameter] public IReadOnlyList<string> CurrentSummaryLabels { get; set; } = [];
     [Parameter] public bool Disabled { get; set; }
+    [Parameter] public bool Compact { get; set; }
     [Parameter] public bool AutoApplyDefault { get; set; } = true;
     [Parameter] public int? InitialViewId { get; set; }
     [Parameter] public EventCallback<SavedViewDto> OnApply { get; set; }
@@ -264,6 +337,63 @@
         _activeView = null;
         await OnClear.InvokeAsync();
         Snackbar.Add("Filters reset.", Severity.Info);
+    }
+
+    private async Task OpenSaveViewDialogAsync()
+    {
+        var options = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
+        var dialog = await DialogService.ShowAsync<SavedViewEditorDialog>("Save current view", options);
+        var result = await dialog.Result;
+        if (result is not { Canceled: false, Data: SavedViewEditorResult editor }) return;
+
+        _newViewName = editor.Name;
+        _savePinned = editor.IsPinned;
+        _saveDefault = editor.IsDefault;
+        await SaveCurrentViewAsync();
+    }
+
+    private async Task OpenEditViewDialogAsync()
+    {
+        if (_activeView is null || _activeView.IsSystemView || string.IsNullOrWhiteSpace(_userId)) return;
+
+        var parameters = new DialogParameters<SavedViewEditorDialog>
+        {
+            { dialog => dialog.InitialName, _activeView.Name },
+            { dialog => dialog.InitialPinned, _activeView.IsPinned },
+            { dialog => dialog.InitialDefault, _activeView.IsDefault },
+            { dialog => dialog.ConfirmText, "Save changes" }
+        };
+        var options = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
+        var dialog = await DialogService.ShowAsync<SavedViewEditorDialog>("Edit saved view", parameters, options);
+        var result = await dialog.Result;
+        if (result is not { Canceled: false, Data: SavedViewEditorResult editor }) return;
+
+        try
+        {
+            var updated = await SavedViewService.UpdateViewAsync(
+                _activeView.Id,
+                _userId,
+                _roles,
+                new SavedViewUpdateRequest(
+                    editor.Name,
+                    _activeView.Description,
+                    _activeView.FilterStateJson,
+                    _activeView.SortStateJson,
+                    _activeView.ColumnStateJson,
+                    _activeView.ViewMode,
+                    editor.IsPinned,
+                    editor.IsDefault,
+                    _activeView.SummaryLabels));
+
+            await LoadViewsAsync();
+            _activeView = updated;
+            _selectedViewId = updated.Id;
+            Snackbar.Add("Saved view updated.", Severity.Success);
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
     }
 
     private async Task SaveCurrentViewAsync()

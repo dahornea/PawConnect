@@ -1,0 +1,33 @@
+<MudGrid Spacing="2" Class="intelligence-summary-grid">
+    <MudItem xs="6" md="3">
+        <MudPaper Elevation="0" Class="intelligence-stat pa-3">
+            <MudText Typo="Typo.caption">@(IsAdopterView ? "Next-step status" : "Workload")</MudText>
+            <MudText Typo="Typo.h6">@(IsAdopterView ? (Summary.Total == 0 ? "Caught up" : "Action ready") : Summary.WorkloadLabel)</MudText>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="6" md="3">
+        <MudPaper Elevation="0" Class="intelligence-stat critical pa-3">
+            <MudText Typo="Typo.caption">Critical</MudText>
+            <MudText Typo="Typo.h6">@Summary.Critical</MudText>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="6" md="3">
+        <MudPaper Elevation="0" Class="intelligence-stat high pa-3">
+            <MudText Typo="Typo.caption">High priority</MudText>
+            <MudText Typo="Typo.h6">@Summary.High</MudText>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="6" md="3">
+        <MudPaper Elevation="0" Class="intelligence-stat pa-3">
+            <MudText Typo="Typo.caption">@(IsAdopterView ? "Updates" : "Active priorities")</MudText>
+            <MudText Typo="Typo.h6">@ActiveCount</MudText>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@code {
+    [Parameter, EditorRequired] public IntelligenceSummaryDto Summary { get; set; } = default!;
+    [Parameter] public bool IsAdopterView { get; set; }
+
+    private int ActiveCount => Math.Max(0, Summary.Total - Summary.Acknowledged - Summary.Snoozed);
+}

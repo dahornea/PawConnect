@@ -1,0 +1,68 @@
+<div class="intelligence-filter-toolbar">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="intelligence-filter-row">
+        <MudTextField T="string"
+                      Value="Search"
+                      ValueChanged="SearchChanged"
+                      Placeholder="Search priorities..."
+                      Variant="Variant.Outlined"
+                      Margin="Margin.Dense"
+                      Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Search"
+                      Immediate="true"
+                      Class="intelligence-search"
+                      aria-label="Search priorities" />
+        <MudSelect T="IntelligenceSeverity?"
+                   Value="Severity"
+                   ValueChanged="SeverityChanged"
+                   Label="Severity"
+                   Clearable="true"
+                   Dense="true"
+                   Margin="Margin.Dense"
+                   Variant="Variant.Outlined"
+                   Class="intelligence-filter-select">
+            @foreach (var severity in Enum.GetValues<IntelligenceSeverity>().Reverse())
+            {
+                <MudSelectItem T="IntelligenceSeverity?" Value="@((IntelligenceSeverity?)severity)">@IntelligenceUi.SeverityLabel(severity)</MudSelectItem>
+            }
+        </MudSelect>
+        <MudSelect T="IntelligenceCategory?"
+                   Value="Category"
+                   ValueChanged="CategoryChanged"
+                   Label="Category"
+                   Clearable="true"
+                   Dense="true"
+                   Margin="Margin.Dense"
+                   Variant="Variant.Outlined"
+                   Class="intelligence-filter-select intelligence-category-select">
+            @foreach (var category in Enum.GetValues<IntelligenceCategory>())
+            {
+                <MudSelectItem T="IntelligenceCategory?" Value="@((IntelligenceCategory?)category)">@IntelligenceUi.CategoryLabel(category)</MudSelectItem>
+            }
+        </MudSelect>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" OnClick="OnApply" StartIcon="@Icons.Material.Filled.FilterAlt">Apply</MudButton>
+        <MudIconButton Icon="@Icons.Material.Filled.FilterAltOff" Size="Size.Small" OnClick="OnClear" aria-label="Clear intelligence filters" />
+    </MudStack>
+
+    @if (ActiveLabels.Count > 0)
+    {
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="intelligence-active-filters mt-2">
+            <MudText Typo="Typo.caption" Color="Color.Secondary">Active filters</MudText>
+            @foreach (var label in ActiveLabels)
+            {
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@label</MudChip>
+            }
+        </MudStack>
+    }
+</div>
+
+@code {
+    [Parameter] public string? Search { get; set; }
+    [Parameter] public EventCallback<string?> SearchChanged { get; set; }
+    [Parameter] public IntelligenceSeverity? Severity { get; set; }
+    [Parameter] public EventCallback<IntelligenceSeverity?> SeverityChanged { get; set; }
+    [Parameter] public IntelligenceCategory? Category { get; set; }
+    [Parameter] public EventCallback<IntelligenceCategory?> CategoryChanged { get; set; }
+    [Parameter] public IReadOnlyList<string> ActiveLabels { get; set; } = [];
+    [Parameter] public EventCallback OnApply { get; set; }
+    [Parameter] public EventCallback OnClear { get; set; }
+}

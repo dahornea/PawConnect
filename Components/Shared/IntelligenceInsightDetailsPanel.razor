@@ -1,0 +1,212 @@
+@using Microsoft.AspNetCore.Components.Web
+
+@if (MobileOpen)
+{
+    <button type="button" class="intelligence-details-backdrop" aria-label="Close priority details" @onclick="CloseAsync"></button>
+}
+
+<aside class="@PanelClass"
+       aria-label="Selected priority details"
+       aria-live="polite"
+       tabindex="-1"
+       @onkeydown="HandleKeyDownAsync">
+    @if (IsLoading)
+    {
+        <div class="intelligence-details-loading">
+            <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Medium" />
+            <MudText Typo="Typo.body2">Loading priority details...</MudText>
+        </div>
+    }
+    else if (Insight is null)
+    {
+        <div class="intelligence-details-empty">
+            <span><MudIcon Icon="@Icons.Material.Filled.TouchApp" /></span>
+            <MudText Typo="Typo.h6">Select a priority</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Select a priority to view its evidence and recommended next step.</MudText>
+        </div>
+    }
+    else
+    {
+        <div class="intelligence-details-header @IntelligenceUi.SeverityCss(Insight.Severity)">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                <span class="intelligence-severity-badge @IntelligenceUi.SeverityCss(Insight.Severity)">@IntelligenceUi.SeverityLabel(Insight.Severity)</span>
+                <MudText Typo="Typo.caption">@IntelligenceUi.CategoryLabel(Insight.Category)</MudText>
+                <MudSpacer />
+                <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" OnClick="CloseAsync" aria-label="Close priority details" />
+            </MudStack>
+            <MudText Typo="Typo.h5" Class="mt-2">@Insight.Title</MudText>
+            @if (!string.IsNullOrWhiteSpace(Insight.EntityDisplayName))
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary">@Insight.EntityDisplayName</MudText>
+            }
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mt-3 flex-wrap">
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@IntelligenceUi.StatusLabel(Insight.Status)</MudChip>
+                @if (!IsAdopterView)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="@IntelligenceUi.SeverityColor(Insight.Severity)" Variant="Variant.Outlined">@Insight.PriorityScore / 100 priority</MudChip>
+                }
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@Insight.ConfidenceLabel confidence</MudChip>
+            </MudStack>
+        </div>
+
+        <div class="intelligence-details-body">
+            <section>
+                <MudText Typo="Typo.subtitle1">Why this needs attention</MudText>
+                <MudText Typo="Typo.body2" Class="mt-1">@Insight.Explanation</MudText>
+            </section>
+
+            <MudDivider />
+
+            <section>
+                <MudText Typo="Typo.subtitle1">Evidence</MudText>
+                <dl class="intelligence-evidence-list mt-2">
+                    @foreach (var evidence in Insight.Evidence)
+                    {
+                        <div>
+                            <dt><MudIcon Icon="@Icons.Material.Filled.CheckCircleOutline" Size="Size.Small" /></dt>
+                            <dd>@evidence</dd>
+                        </div>
+                    }
+                </dl>
+            </section>
+
+            @if (!IsAdopterView && Insight.ScoreBreakdown.Count > 0)
+            {
+                <MudDivider />
+                <section>
+                    <MudStack Row="true" AlignItems="AlignItems.Center">
+                        <MudText Typo="Typo.subtitle1">Score breakdown</MudText>
+                        <MudSpacer />
+                        <MudText Typo="Typo.subtitle2">@Insight.PriorityScore / 100</MudText>
+                    </MudStack>
+                    <div class="intelligence-score-list mt-2">
+                        @foreach (var factor in Insight.ScoreBreakdown)
+                        {
+                            <div class="intelligence-score-row">
+                                <div>
+                                    <MudText Typo="Typo.body2">@factor.Label</MudText>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">@factor.Explanation</MudText>
+                                </div>
+                                <span>+@factor.Points</span>
+                            </div>
+                        }
+                    </div>
+                </section>
+            }
+
+            @if (PrimaryAction is not null)
+            {
+                <MudDivider />
+                <section class="intelligence-next-step">
+                    <MudText Typo="Typo.subtitle1">Recommended next step</MudText>
+                    <MudText Typo="Typo.body2" Class="mt-1">@PrimaryAction.Description</MudText>
+                    <MudButton Href="@(PrimaryAction.IsAvailable ? PrimaryAction.Route : null)"
+                               Disabled="@(!PrimaryAction.IsAvailable)"
+                               Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               EndIcon="@Icons.Material.Filled.ArrowForward"
+                               Class="mt-3">
+                        @PrimaryAction.Label
+                    </MudButton>
+                    @if (!PrimaryAction.IsAvailable && !string.IsNullOrWhiteSpace(PrimaryAction.UnavailableReason))
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1">@PrimaryAction.UnavailableReason</MudText>
+                    }
+                </section>
+            }
+
+            <MudDivider />
+
+            <section>
+                <MudText Typo="Typo.subtitle1">Priority controls</MudText>
+                <MudStack Row="true" Spacing="1" Class="mt-2 flex-wrap">
+                    @if (Insight.Status == IntelligenceInsightStatus.Active)
+                    {
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Filled.Done" OnClick="AcknowledgeAsync">Acknowledge</MudButton>
+                        <MudMenu Label="Snooze"
+                                 StartIcon="@Icons.Material.Filled.Snooze"
+                                 Variant="Variant.Outlined"
+                                 Size="Size.Small"
+                                 Dense="true">
+                            <MudMenuItem OnClick="@(() => SnoozeAsync(TimeSpan.FromHours(1)))">1 hour</MudMenuItem>
+                            @if (Insight.Severity != IntelligenceSeverity.Critical)
+                            {
+                                <MudMenuItem OnClick="@(() => SnoozeAsync(TimeSpan.FromDays(1)))">1 day</MudMenuItem>
+                                <MudMenuItem OnClick="@(() => SnoozeAsync(TimeSpan.FromDays(3)))">3 days</MudMenuItem>
+                            }
+                        </MudMenu>
+                    }
+                    else if (Insight.Status == IntelligenceInsightStatus.Resolved)
+                    {
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Filled.RestartAlt" OnClick="ReopenAsync">Reopen</MudButton>
+                    }
+                </MudStack>
+
+                @if (CanResolve)
+                {
+                    <div class="intelligence-resolution mt-3">
+                        <MudTextField T="string" Label="Resolution reason" Value="ResolutionReason" ValueChanged="ResolutionReasonChanged" Variant="Variant.Outlined" Margin="Margin.Dense" MaxLength="500" />
+                        <MudButton Variant="Variant.Text" Color="Color.Success" Size="Size.Small" Disabled="@string.IsNullOrWhiteSpace(ResolutionReason)" OnClick="ResolveAsync">Mark resolved</MudButton>
+                    </div>
+                }
+            </section>
+
+            <MudDivider />
+
+            <section>
+                <MudText Typo="Typo.subtitle1">Timeline</MudText>
+                <dl class="intelligence-timeline mt-2">
+                    <div><dt>First detected</dt><dd>@IntelligenceUi.FormatLocalDateTime(Insight.FirstDetectedAtUtc)</dd></div>
+                    <div><dt>Last detected</dt><dd>@IntelligenceUi.FormatLocalDateTime(Insight.LastDetectedAtUtc)</dd></div>
+                    <div><dt>Last evaluated</dt><dd>@IntelligenceUi.FormatLocalDateTime(Insight.LastEvaluatedAtUtc)</dd></div>
+                    @if (Insight.AcknowledgedAtUtc.HasValue)
+                    {
+                        <div><dt>Acknowledged</dt><dd>@IntelligenceUi.FormatLocalDateTime(Insight.AcknowledgedAtUtc.Value)</dd></div>
+                    }
+                    @if (Insight.SnoozedUntilUtc.HasValue)
+                    {
+                        <div><dt>Snoozed until</dt><dd>@IntelligenceUi.FormatLocalDateTime(Insight.SnoozedUntilUtc.Value)</dd></div>
+                    }
+                    @if (Insight.ResolvedAtUtc.HasValue)
+                    {
+                        <div><dt>Resolved</dt><dd>@IntelligenceUi.FormatLocalDateTime(Insight.ResolvedAtUtc.Value)</dd></div>
+                    }
+                </dl>
+            </section>
+
+            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true">These priorities support decisions. They do not approve or reject adoption applications.</MudAlert>
+        </div>
+    }
+</aside>
+
+@code {
+    [Parameter] public OperationalInsightDto? Insight { get; set; }
+    [Parameter] public bool IsLoading { get; set; }
+    [Parameter] public bool IsAdopterView { get; set; }
+    [Parameter] public bool MobileOpen { get; set; }
+    [Parameter] public string? ResolutionReason { get; set; }
+    [Parameter] public EventCallback<string?> ResolutionReasonChanged { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback<int> OnAcknowledge { get; set; }
+    [Parameter] public EventCallback<IntelligenceSnoozeRequest> OnSnooze { get; set; }
+    [Parameter] public EventCallback<int> OnReopen { get; set; }
+    [Parameter] public EventCallback<IntelligenceResolveRequest> OnResolve { get; set; }
+
+    private RecommendedActionDto? PrimaryAction => Insight?.RecommendedActions.FirstOrDefault(action => action.IsPrimary);
+    private bool CanResolve => Insight is not null
+        && !IsAdopterView
+        && Insight.Status is IntelligenceInsightStatus.Active or IntelligenceInsightStatus.Acknowledged
+        && Insight.Severity != IntelligenceSeverity.Critical
+        && Insight.Category is not IntelligenceCategory.Notifications and not IntelligenceCategory.PlatformHealth;
+    private string PanelClass => $"intelligence-details-panel{(MobileOpen ? " mobile-open" : string.Empty)}";
+
+    private Task CloseAsync() => OnClose.InvokeAsync();
+    private Task AcknowledgeAsync() => Insight is null ? Task.CompletedTask : OnAcknowledge.InvokeAsync(Insight.Id);
+    private Task SnoozeAsync(TimeSpan duration) => Insight is null ? Task.CompletedTask : OnSnooze.InvokeAsync(new IntelligenceSnoozeRequest(Insight.Id, duration));
+    private Task ReopenAsync() => Insight is null ? Task.CompletedTask : OnReopen.InvokeAsync(Insight.Id);
+    private Task ResolveAsync() => Insight is null || string.IsNullOrWhiteSpace(ResolutionReason)
+        ? Task.CompletedTask
+        : OnResolve.InvokeAsync(new IntelligenceResolveRequest(Insight.Id, ResolutionReason));
+
+    private Task HandleKeyDownAsync(KeyboardEventArgs args) => args.Key == "Escape" ? CloseAsync() : Task.CompletedTask;
+}

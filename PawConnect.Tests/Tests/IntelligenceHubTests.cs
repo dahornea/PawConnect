@@ -160,6 +160,40 @@ public class IntelligenceHubTests
     }
 
     [Fact]
+    public async Task InsightService_ListProjectionReturnsEvidencePreviewAndLoadsFullDetailsSeparately()
+    {
+        var databaseName = TestDbContextFactory.CreateDatabaseName();
+        var factory = TestDbContextFactory.CreateContextFactory(databaseName);
+        await using (var context = TestDbContextFactory.CreateContext(databaseName))
+        {
+            var insight = CreatePersistedInsight("compact-list", TestDbContextFactory.ShelterId);
+            insight.EvidenceJson = "[\"First\",\"Second\",\"Third\"]";
+            insight.Explanation = "Full detail explanation.";
+            insight.ScoreBreakdownJson = "[{\"label\":\"Urgency\",\"points\":20,\"explanation\":\"Full score detail.\"}]";
+            context.OperationalInsights.Add(insight);
+            await context.SaveChangesAsync();
+        }
+        var service = new IntelligenceInsightService(
+            factory,
+            new StubEngine(),
+            new IntelligenceRecommendationService(factory),
+            new TestAuditLogService(),
+            Options.Create(new IntelligenceHubOptions()));
+        var scope = new IntelligenceScope(IntelligenceAudienceType.Shelter, ShelterId: TestDbContextFactory.ShelterId);
+
+        var list = await service.GetInsightSummariesAsync(scope, new IntelligenceInsightQuery(Status: IntelligenceInsightStatus.Active));
+        var summary = Assert.Single(list.Items);
+        var details = await service.GetInsightDetailsAsync(summary.Id, scope);
+
+        Assert.Equal(["First", "Second"], summary.EvidencePreview);
+        Assert.Equal(3, summary.EvidenceCount);
+        Assert.NotNull(details);
+        Assert.Equal("Full detail explanation.", details.Explanation);
+        Assert.Equal(3, details.Evidence.Count);
+        Assert.Single(details.ScoreBreakdown);
+    }
+
+    [Fact]
     public async Task Engine_ProviderFailureDoesNotResolveExistingInsightFromThatProvider()
     {
         var databaseName = TestDbContextFactory.CreateDatabaseName();

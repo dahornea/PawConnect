@@ -1,0 +1,48 @@
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="2">
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Save the current filters so this workspace can be restored in one click.</MudText>
+            <MudTextField T="string"
+                          Label="View name"
+                          @bind-Value="_name"
+                          Variant="Variant.Outlined"
+                          Immediate="true"
+                          MaxLength="80"
+                          Required="true"
+                          AutoFocus="true" />
+            <MudCheckBox T="bool" @bind-Value="_isPinned" Color="Color.Primary" Label="Show as a pinned shortcut" />
+            <MudCheckBox T="bool" @bind-Value="_isDefault" Color="Color.Primary" Label="Use as my default view" />
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@string.IsNullOrWhiteSpace(_name)" OnClick="Save">@ConfirmText</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public string? InitialName { get; set; }
+    [Parameter] public bool InitialPinned { get; set; }
+    [Parameter] public bool InitialDefault { get; set; }
+    [Parameter] public string ConfirmText { get; set; } = "Save view";
+
+    private string? _name;
+    private bool _isPinned;
+    private bool _isDefault;
+
+    protected override void OnInitialized()
+    {
+        _name = InitialName;
+        _isPinned = InitialPinned;
+        _isDefault = InitialDefault;
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private void Save()
+    {
+        if (string.IsNullOrWhiteSpace(_name)) return;
+        MudDialog.Close(DialogResult.Ok(new SavedViewEditorResult(_name.Trim(), _isPinned, _isDefault)));
+    }
+}

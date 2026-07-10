@@ -18,6 +18,65 @@ public sealed class IntelligenceInsightService(
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly IntelligenceHubOptions settings = options.Value;
 
+    public async Task<PagedResult<OperationalInsightListItemDto>> GetInsightSummariesAsync(
+        IntelligenceScope scope,
+        IntelligenceInsightQuery query,
+        CancellationToken cancellationToken = default)
+    {
+        var (page, pageSize) = PagedResult<OperationalInsightListItemDto>.Normalize(query.Page, query.PageSize);
+        await using var db = await contextFactory.CreateDbContextAsync(cancellationToken);
+        var insights = ApplyQuery(ApplyScope(db.OperationalInsights.AsNoTracking(), scope), query);
+        var total = await insights.CountAsync(cancellationToken);
+        var rows = await insights.OrderByDescending(item => item.Severity)
+            .ThenByDescending(item => item.PriorityScore)
+            .ThenBy(item => item.FirstDetectedAtUtc)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(item => new
+            {
+                item.Id,
+                item.Category,
+                item.EntityType,
+                item.EntityDisplayName,
+                item.Title,
+                item.Summary,
+                item.Severity,
+                item.PriorityScore,
+                item.EvidenceJson,
+                item.RecommendedActionsJson,
+                item.Status,
+                item.FirstDetectedAtUtc
+            })
+            .ToListAsync(cancellationToken);
+
+        var items = new List<OperationalInsightListItemDto>(rows.Count);
+        foreach (var row in rows)
+        {
+            var evidence = Deserialize<IReadOnlyList<string>>(row.EvidenceJson, []);
+            var actions = Deserialize<IReadOnlyList<RecommendedActionDto>>(row.RecommendedActionsJson, [])
+                .Where(action => action.IsPrimary)
+                .Take(1)
+                .ToList();
+            var validatedActions = await recommendationService.ValidateActionsAsync(actions, scope, cancellationToken);
+            items.Add(new OperationalInsightListItemDto(
+                row.Id,
+                row.Category,
+                row.EntityType,
+                row.EntityDisplayName,
+                row.Title,
+                row.Summary,
+                row.Severity,
+                row.PriorityScore,
+                evidence.Take(2).ToList(),
+                evidence.Count,
+                validatedActions,
+                row.Status,
+                row.FirstDetectedAtUtc));
+        }
+
+        return new PagedResult<OperationalInsightListItemDto>(items, page, pageSize, total, total == 0 ? 0 : (int)Math.Ceiling(total / (double)pageSize));
+    }
+
     public async Task<PagedResult<OperationalInsightDto>> GetInsightsAsync(
         IntelligenceScope scope,
         IntelligenceInsightQuery query,
@@ -25,18 +84,7 @@ public sealed class IntelligenceInsightService(
     {
         var (page, pageSize) = PagedResult<OperationalInsightDto>.Normalize(query.Page, query.PageSize);
         await using var db = await contextFactory.CreateDbContextAsync(cancellationToken);
-        var insights = ApplyScope(db.OperationalInsights.AsNoTracking(), scope);
-
-        if (query.Severity.HasValue) insights = insights.Where(item => item.Severity == query.Severity);
-        if (query.Category.HasValue) insights = insights.Where(item => item.Category == query.Category);
-        if (query.Status.HasValue) insights = insights.Where(item => item.Status == query.Status);
-        else insights = insights.Where(item => item.Status == IntelligenceInsightStatus.Active || item.Status == IntelligenceInsightStatus.Acknowledged || (query.IncludeSnoozed && item.Status == IntelligenceInsightStatus.Snoozed));
-        if (!string.IsNullOrWhiteSpace(query.EntityType)) insights = insights.Where(item => item.EntityType == query.EntityType.Trim());
-        if (!string.IsNullOrWhiteSpace(query.Search))
-        {
-            var search = query.Search.Trim();
-            insights = insights.Where(item => item.Title.Contains(search) || item.Summary.Contains(search) || (item.EntityDisplayName != null && item.EntityDisplayName.Contains(search)));
-        }
+        var insights = ApplyQuery(ApplyScope(db.OperationalInsights.AsNoTracking(), scope), query);
 
         var total = await insights.CountAsync(cancellationToken);
         var entities = await insights.OrderByDescending(item => item.Severity)
@@ -202,6 +250,22 @@ public sealed class IntelligenceInsightService(
             IntelligenceAudienceType.Admin => query,
             _ => query.Where(_ => false)
         };
+    }
+
+    private static IQueryable<OperationalInsight> ApplyQuery(IQueryable<OperationalInsight> insights, IntelligenceInsightQuery query)
+    {
+        if (query.Severity.HasValue) insights = insights.Where(item => item.Severity == query.Severity);
+        if (query.Category.HasValue) insights = insights.Where(item => item.Category == query.Category);
+        if (query.Status.HasValue) insights = insights.Where(item => item.Status == query.Status);
+        else insights = insights.Where(item => item.Status == IntelligenceInsightStatus.Active || item.Status == IntelligenceInsightStatus.Acknowledged || (query.IncludeSnoozed && item.Status == IntelligenceInsightStatus.Snoozed));
+        if (!string.IsNullOrWhiteSpace(query.EntityType)) insights = insights.Where(item => item.EntityType == query.EntityType.Trim());
+        if (!string.IsNullOrWhiteSpace(query.Search))
+        {
+            var search = query.Search.Trim();
+            insights = insights.Where(item => item.Title.Contains(search) || item.Summary.Contains(search) || (item.EntityDisplayName != null && item.EntityDisplayName.Contains(search)));
+        }
+
+        return insights;
     }
 
     private static T Deserialize<T>(string json, T fallback)

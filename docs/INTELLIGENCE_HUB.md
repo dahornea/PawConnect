@@ -78,6 +78,10 @@ Users can acknowledge an insight without changing the underlying condition. They
 
 Shelters see only their own dogs, applications, tasks, and transfers. Adopters see only their own saved searches and requests. Admins see platform-level data. Recommended actions are validated against the same scope before rendering.
 
+The dashboard uses a master-detail operations layout. The compact queue is grouped by category and initially focuses on Critical and High priorities. Selecting a row loads its full explanation, evidence, score factors, recommended next step, lifecycle controls, and timeline in a sticky details panel. On tablet and mobile widths, the same details open as a bottom sheet. Acknowledged, snoozed, and resolved work is separated into lifecycle tabs, while saved views and filters remain available in a compact toolbar.
+
+The queue uses a lightweight database projection and does not load every full explanation or score breakdown. Full detail is requested only for the selected, role-scoped insight.
+
 ## REST API
 
 Protected endpoints are documented in Swagger:

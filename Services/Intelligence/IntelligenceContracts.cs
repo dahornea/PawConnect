@@ -22,6 +22,7 @@ public interface IIntelligenceEngine
 
 public interface IIntelligenceInsightService
 {
+    Task<PagedResult<OperationalInsightListItemDto>> GetInsightSummariesAsync(IntelligenceScope scope, IntelligenceInsightQuery query, CancellationToken cancellationToken = default);
     Task<PagedResult<OperationalInsightDto>> GetInsightsAsync(IntelligenceScope scope, IntelligenceInsightQuery query, CancellationToken cancellationToken = default);
     Task<OperationalInsightDto?> GetInsightDetailsAsync(int insightId, IntelligenceScope scope, CancellationToken cancellationToken = default);
     Task<IntelligenceSummaryDto> GetSummaryAsync(IntelligenceScope scope, CancellationToken cancellationToken = default);
