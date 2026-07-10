@@ -52,6 +52,12 @@ public class Shelter
 
     public bool VisitsAllowedSunday { get; set; }
 
+    [Range(1, 1000)]
+    public int DogCapacity { get; set; } = 30;
+
+    [Range(0, 1000)]
+    public int ReservedEmergencySpaces { get; set; } = 2;
+
     public string? ApplicationUserId { get; set; }
 
     public ApplicationUser? ApplicationUser { get; set; }
@@ -61,4 +67,6 @@ public class Shelter
     public ICollection<ResourceStock> ResourceStocks { get; set; } = new List<ResourceStock>();
 
     public ICollection<ShelterAvailabilitySlot> AvailabilitySlots { get; set; } = new List<ShelterAvailabilitySlot>();
+
+    public ICollection<ShelterSimulationScenario> SimulationScenarios { get; set; } = [];
 }

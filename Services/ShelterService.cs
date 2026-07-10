@@ -138,6 +138,8 @@ public class ShelterService(
         existingShelter.VisitsAllowedFriday = shelter.VisitsAllowedFriday;
         existingShelter.VisitsAllowedSaturday = shelter.VisitsAllowedSaturday;
         existingShelter.VisitsAllowedSunday = shelter.VisitsAllowedSunday;
+        existingShelter.DogCapacity = shelter.DogCapacity;
+        existingShelter.ReservedEmergencySpaces = shelter.ReservedEmergencySpaces;
 
         var dogIds = await context.Dogs
             .Where(dog => dog.ShelterId == existingShelter.Id)
@@ -155,6 +157,16 @@ public class ShelterService(
 
     private static void ValidateShelterProfile(Shelter shelter)
     {
+        if (shelter.DogCapacity < 1)
+        {
+            throw new InvalidOperationException("Dog capacity must be at least 1.");
+        }
+
+        if (shelter.ReservedEmergencySpaces < 0 || shelter.ReservedEmergencySpaces >= shelter.DogCapacity)
+        {
+            throw new InvalidOperationException("Reserved emergency spaces must be zero or greater and lower than total dog capacity.");
+        }
+
         if (string.IsNullOrWhiteSpace(shelter.Name))
         {
             throw new InvalidOperationException("Shelter name is required.");

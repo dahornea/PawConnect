@@ -103,7 +103,9 @@ public partial class AdminShelters
             VisitsAllowedThursday = shelter.VisitsAllowedThursday,
             VisitsAllowedFriday = shelter.VisitsAllowedFriday,
             VisitsAllowedSaturday = shelter.VisitsAllowedSaturday,
-            VisitsAllowedSunday = shelter.VisitsAllowedSunday
+            VisitsAllowedSunday = shelter.VisitsAllowedSunday,
+            DogCapacity = shelter.DogCapacity,
+            ReservedEmergencySpaces = shelter.ReservedEmergencySpaces
         };
         _savedLatitude = shelter.Latitude;
         _savedLongitude = shelter.Longitude;

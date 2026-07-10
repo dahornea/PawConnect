@@ -87,6 +87,10 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
     public DbSet<OperationalInsight> OperationalInsights => Set<OperationalInsight>();
 
+    public DbSet<ShelterSimulationScenario> ShelterSimulationScenarios => Set<ShelterSimulationScenario>();
+
+    public DbSet<ShelterSimulationRun> ShelterSimulationRuns => Set<ShelterSimulationRun>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -1486,6 +1490,59 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         builder.Entity<OperationalInsight>()
             .Property(insight => insight.UpdatedAtUtc)
             .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<ShelterSimulationScenario>()
+            .HasOne(scenario => scenario.CreatedByUser)
+            .WithMany()
+            .HasForeignKey(scenario => scenario.CreatedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Shelter>()
+            .Property(shelter => shelter.DogCapacity)
+            .HasDefaultValue(30);
+
+        builder.Entity<Shelter>()
+            .Property(shelter => shelter.ReservedEmergencySpaces)
+            .HasDefaultValue(2);
+
+        builder.Entity<ShelterSimulationScenario>()
+            .HasOne(scenario => scenario.Shelter)
+            .WithMany(shelter => shelter.SimulationScenarios)
+            .HasForeignKey(scenario => scenario.ShelterId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<ShelterSimulationScenario>()
+            .HasIndex(scenario => new { scenario.CreatedByUserId, scenario.ScopeType, scenario.Status });
+
+        builder.Entity<ShelterSimulationScenario>()
+            .HasIndex(scenario => new { scenario.ShelterId, scenario.UpdatedAtUtc });
+
+        builder.Entity<ShelterSimulationRun>()
+            .HasOne(run => run.Scenario)
+            .WithMany(scenario => scenario.Runs)
+            .HasForeignKey(run => run.ScenarioId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<ShelterSimulationRun>()
+            .HasOne(run => run.RunByUser)
+            .WithMany()
+            .HasForeignKey(run => run.RunByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<ShelterSimulationRun>()
+            .HasOne(run => run.Shelter)
+            .WithMany()
+            .HasForeignKey(run => run.ShelterId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<ShelterSimulationRun>()
+            .HasIndex(run => new { run.ScenarioId, run.CreatedAtUtc });
+
+        builder.Entity<ShelterSimulationRun>()
+            .HasIndex(run => new { run.ShelterId, run.CreatedAtUtc });
         SeedLookupData(builder);
     }
 

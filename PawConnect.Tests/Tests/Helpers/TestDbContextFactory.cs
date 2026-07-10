@@ -110,6 +110,8 @@ public static class TestDbContextFactory
                 City = "Bucharest",
                 Email = "shelter@test.com",
                 PhoneNumber = "123",
+                DogCapacity = 12,
+                ReservedEmergencySpaces = 2,
                 ApplicationUserId = ShelterUserId
             },
             new Shelter
@@ -120,6 +122,8 @@ public static class TestDbContextFactory
                 City = "Cluj",
                 Email = "other-shelter@test.com",
                 PhoneNumber = "456",
+                DogCapacity = 18,
+                ReservedEmergencySpaces = 2,
                 ApplicationUserId = OtherShelterUserId
             });
 

@@ -57,6 +57,16 @@
 
             <MudDivider />
 
+            @if (!IsAdopterView && SimulatorRoute is not null)
+            {
+                <section class="intelligence-next-step">
+                    <MudText Typo="Typo.subtitle1">Test a what-if scenario</MudText>
+                    <MudText Typo="Typo.body2" Class="mt-1">Model a related operational change before acting. The simulator never changes live PawConnect data.</MudText>
+                    <MudButton Href="@SimulatorRoute" Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.ModelTraining" Class="mt-3">Simulate impact</MudButton>
+                </section>
+                <MudDivider />
+            }
+
             <section>
                 <MudText Typo="Typo.subtitle1">Evidence</MudText>
                 <dl class="intelligence-evidence-list mt-2">
@@ -193,12 +203,29 @@
     [Parameter] public EventCallback<IntelligenceResolveRequest> OnResolve { get; set; }
 
     private RecommendedActionDto? PrimaryAction => Insight?.RecommendedActions.FirstOrDefault(action => action.IsPrimary);
+    private string? SimulatorRoute => Insight?.Category switch
+    {
+        IntelligenceCategory.Workload => BuildSimulatorRoute("intake-surge"),
+        IntelligenceCategory.Volunteer => BuildSimulatorRoute("volunteer-shortage"),
+        IntelligenceCategory.Transfer => BuildSimulatorRoute("incoming-transfer"),
+        IntelligenceCategory.ApplicationReview => BuildSimulatorRoute("review-backlog"),
+        IntelligenceCategory.DogProfileQuality => BuildSimulatorRoute("profile-campaign"),
+        IntelligenceCategory.Notifications => BuildSimulatorRoute("notification-failure"),
+        _ => null
+    };
     private bool CanResolve => Insight is not null
         && !IsAdopterView
         && Insight.Status is IntelligenceInsightStatus.Active or IntelligenceInsightStatus.Acknowledged
         && Insight.Severity != IntelligenceSeverity.Critical
         && Insight.Category is not IntelligenceCategory.Notifications and not IntelligenceCategory.PlatformHealth;
     private string PanelClass => $"intelligence-details-panel{(MobileOpen ? " mobile-open" : string.Empty)}";
+
+    private string BuildSimulatorRoute(string template)
+    {
+        var baseRoute = Insight?.AudienceType == IntelligenceAudienceType.Admin ? "/admin/simulator" : "/shelter/simulator";
+        var shelterPart = Insight?.AudienceType == IntelligenceAudienceType.Admin && Insight.ShelterId.HasValue ? $"&shelterId={Insight.ShelterId.Value}" : string.Empty;
+        return $"{baseRoute}?template={template}{shelterPart}";
+    }
 
     private Task CloseAsync() => OnClose.InvokeAsync();
     private Task AcknowledgeAsync() => Insight is null ? Task.CompletedTask : OnAcknowledge.InvokeAsync(Insight.Id);

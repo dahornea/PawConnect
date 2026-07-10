@@ -1,0 +1,128 @@
+@if (Result is not null)
+{
+    <section class="simulation-results" aria-live="polite">
+        <div class="simulation-section-heading">
+            <div>
+                <MudText Typo="Typo.h5">Projected impact</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Baseline compared with day @Result.HorizonDays. Scores are deterministic indicators, not predictions.</MudText>
+            </div>
+            <MudChip T="string" Color="@WorkloadColor" Variant="Variant.Filled">@Result.ProjectedWorkloadScore / 100 workload</MudChip>
+        </div>
+
+        <div class="simulation-metric-grid">
+            <article><span>Dogs in care</span><strong>@Result.Baseline.CurrentDogs → @Result.ProjectedState.CurrentDogs</strong></article>
+            <article><span>Normal spaces left</span><strong>@BaselineSpaces → @Result.ProjectedState.AvailableNormalSpaces</strong></article>
+            <article><span>Active volunteers</span><strong>@Result.Baseline.ActiveVolunteers → @Result.ProjectedState.ActiveVolunteers</strong></article>
+            <article><span>Pending applications</span><strong>@Result.Baseline.PendingApplications → @Result.ProjectedState.PendingApplications</strong></article>
+            <article><span>Active risks</span><strong>@Result.BaselineRisks.Count → @Result.ProjectedRisks.Count</strong></article>
+        </div>
+
+        <MudPaper Class="simulation-panel pa-4" Elevation="0">
+            <MudText Typo="Typo.h6">Operational dimensions</MudText>
+            <div class="simulation-dimension-list mt-3">
+                @foreach (var dimension in Result.Dimensions)
+                {
+                    <div class="simulation-dimension-row">
+                        <div>
+                            <strong>@dimension.Label</strong>
+                            <span>@dimension.Explanation</span>
+                        </div>
+                        <div class="simulation-dimension-values">
+                            <span>@dimension.BaselineLabel <small>@dimension.BaselineScore</small></span>
+                            <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Size="Size.Small" />
+                            <span>@dimension.ProjectedLabel <small>@dimension.ProjectedScore</small></span>
+                        </div>
+                    </div>
+                }
+            </div>
+        </MudPaper>
+
+        <MudPaper Class="simulation-panel pa-4" Elevation="0">
+            <MudText Typo="Typo.h6">Workload factors</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">The final score is the sum of these contributions, clamped between 0 and 100.</MudText>
+            <div class="simulation-factor-table mt-3">
+                @foreach (var factor in Result.WorkloadFactors)
+                {
+                    <div><span><strong>@factor.Label</strong><small>@factor.Formula</small></span><span>@factor.BaselineContribution</span><MudIcon Icon="@Icons.Material.Filled.ArrowForward" Size="Size.Small" /><span>@factor.ProjectedContribution</span></div>
+                }
+            </div>
+        </MudPaper>
+
+        <MudPaper Class="simulation-panel pa-4" Elevation="0">
+            <MudText Typo="Typo.h6">Timeline</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Workload changes only when an assumption becomes effective.</MudText>
+            <div class="simulation-timeline mt-3" role="img" aria-label="Projected workload timeline">
+                @foreach (var point in TimelinePoints)
+                {
+                    <div class="simulation-timeline-point" title="Day @point.Day: workload @point.WorkloadScore">
+                        <div style="height: @(Math.Max(8, point.WorkloadScore))%"></div>
+                        <span>@point.Day</span>
+                    </div>
+                }
+            </div>
+        </MudPaper>
+
+        <div class="simulation-two-column">
+            <MudPaper Class="simulation-panel pa-4" Elevation="0">
+                <MudText Typo="Typo.h6">Risk movement</MudText>
+                @if (Result.RiskChanges.Count == 0)
+                {
+                    <AppEmptyState Title="No material risk movement" Message="The assumptions do not create or resolve a scored operational risk." Compact="true" />
+                }
+                else
+                {
+                    <div class="simulation-risk-list mt-3">
+                        @foreach (var change in Result.RiskChanges.OrderBy(ChangeOrder))
+                        {
+                            <article>
+                                <MudChip T="string" Size="Size.Small" Color="@ImpactColor(change.Impact)" Variant="Variant.Outlined">@ImpactLabel(change.Impact)</MudChip>
+                                <strong>@change.Title</strong>
+                                <span>@change.Explanation</span>
+                                @if (change.Projected is not null)
+                                {
+                                    <small>@change.Projected.Category · @change.Projected.Severity · @(change.Projected.EffectiveDay == 0 ? "Current baseline" : $"from day {change.Projected.EffectiveDay}")</small>
+                                }
+                            </article>
+                        }
+                    </div>
+                }
+            </MudPaper>
+
+            <MudPaper Class="simulation-panel pa-4" Elevation="0">
+                <MudText Typo="Typo.h6">Recommended preparation</MudText>
+                <div class="simulation-recommendation-list mt-3">
+                    @foreach (var recommendation in Result.Recommendations)
+                    {
+                        <article>
+                            <div><strong>@recommendation.Title</strong><span>@recommendation.Explanation</span></div>
+                            <MudIconButton Icon="@Icons.Material.Filled.ArrowForward" Href="@recommendation.Route" Size="Size.Small" aria-label="Open recommended workspace" />
+                        </article>
+                    }
+                </div>
+            </MudPaper>
+        </div>
+
+        <MudExpansionPanels Class="simulation-methodology" Elevation="0">
+            <MudExpansionPanel Text="Assumptions and methodology">
+                <MudText Typo="Typo.body2">The simulator takes a read-only baseline, applies each assumption to an isolated in-memory state, and compares deterministic risk signals using the same severity bands as Operations Intelligence. It does not modify operational records.</MudText>
+                <ul>
+                    @foreach (var assumption in Result.AppliedAssumptions)
+                    {
+                        <li>Day @assumption.EffectiveDay: @FormatAssumption(assumption)</li>
+                    }
+                </ul>
+            </MudExpansionPanel>
+        </MudExpansionPanels>
+    </section>
+}
+
+@code {
+    [Parameter, EditorRequired] public SimulationResultDto? Result { get; set; }
+    private int BaselineSpaces => Result is null ? 0 : Result.Baseline.DogCapacity - Result.Baseline.ReservedEmergencySpaces - Result.Baseline.CurrentDogs;
+    private Color WorkloadColor => Result?.ProjectedWorkloadScore switch { >= 80 => Color.Error, >= 60 => Color.Warning, >= 40 => Color.Info, _ => Color.Success };
+    private IEnumerable<SimulationTimelinePointDto> TimelinePoints => Result?.Timeline.Where((_, index) => index == 0 || index == Result.Timeline.Count - 1 || index % Math.Max(1, Result.HorizonDays / 7) == 0) ?? [];
+    private static int ChangeOrder(SimulationRiskChangeDto change) => change.Impact switch { SimulationImpactType.NewRisk => 0, SimulationImpactType.EscalatedRisk => 1, SimulationImpactType.ReducedRisk => 2, SimulationImpactType.ResolvedRisk => 3, _ => 4 };
+    private static string ImpactLabel(SimulationImpactType value) => value switch { SimulationImpactType.NewRisk => "New risk", SimulationImpactType.EscalatedRisk => "Escalated", SimulationImpactType.ReducedRisk => "Reduced", SimulationImpactType.ResolvedRisk => "Resolved", _ => "Stable" };
+    private static Color ImpactColor(SimulationImpactType value) => value switch { SimulationImpactType.NewRisk or SimulationImpactType.EscalatedRisk => Color.Error, SimulationImpactType.ReducedRisk or SimulationImpactType.ResolvedRisk => Color.Success, _ => Color.Default };
+    private static string FormatAssumption(SimulationAssumptionDto value) => $"{value.Type} ({value.Quantity})";
+}

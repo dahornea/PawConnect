@@ -98,6 +98,10 @@ Protected endpoints are documented in Swagger:
 
 The API returns DTOs rather than EF entities and uses ASP.NET Core Identity role checks plus object-level scoping.
 
+## What-if simulation
+
+Relevant shelter and platform insights expose a **Simulate impact** action. It opens `/shelter/simulator` or `/admin/simulator` with a matching template, such as intake surge, volunteer shortage, transfer, review backlog, profile improvement, or notification failure. The simulator reuses `StandardIntelligenceRule` for score and severity consistency but does not persist projected insights or alter live records. See [SCENARIO_SIMULATOR.md](SCENARIO_SIMULATOR.md).
+
 ## Background Refresh and Failure Isolation
 
 `IntelligenceRefreshHostedService` runs at the configured interval. A local semaphore prevents overlapping full evaluations. Each provider is wrapped independently: a failed optional provider is logged and the remaining providers continue. Manual refresh is rate-limited per audience scope.

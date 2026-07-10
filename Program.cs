@@ -20,6 +20,7 @@ using PawConnect.Services;
 using PawConnect.Services.Caching;
 using PawConnect.Services.CommandPalette;
 using PawConnect.Services.Intelligence;
+using PawConnect.Services.Simulation;
 using Quartz;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -175,6 +176,17 @@ builder.Services.AddScoped<IIntelligenceSignalProvider, VolunteerTaskSignalProvi
 builder.Services.AddScoped<IIntelligenceSignalProvider, TransferSignalProvider>();
 builder.Services.AddScoped<IIntelligenceSignalProvider, NotificationReliabilitySignalProvider>();
 builder.Services.AddScoped<IIntelligenceSignalProvider, AdopterNextStepSignalProvider>();
+builder.Services.AddScoped<ISimulationValidationService, SimulationValidationService>();
+builder.Services.AddScoped<ISimulationImpactAnalyzer, SimulationImpactAnalyzer>();
+builder.Services.AddScoped<ISimulationRecommendationService, SimulationRecommendationService>();
+builder.Services.AddScoped<ISimulationEngine, SimulationEngine>();
+builder.Services.AddScoped<IShelterSimulationService, ShelterSimulationService>();
+builder.Services.AddScoped<ISimulationAssumptionApplier, DogOperationsAssumptionApplier>();
+builder.Services.AddScoped<ISimulationAssumptionApplier, VolunteerCapacityAssumptionApplier>();
+builder.Services.AddScoped<ISimulationAssumptionApplier, AdoptionWorkflowAssumptionApplier>();
+builder.Services.AddScoped<ISimulationAssumptionApplier, ProfileQualityAssumptionApplier>();
+builder.Services.AddScoped<ISimulationAssumptionApplier, NotificationReliabilityAssumptionApplier>();
+builder.Services.AddScoped<ISimulationAssumptionApplier, ShelterCapacityAssumptionApplier>();
 builder.Services.AddScoped<IShelterService, ShelterService>();
 builder.Services.AddScoped<IShelterAvailabilityService, ShelterAvailabilityService>();
 builder.Services.AddScoped<IResourceStockService, ResourceStockService>();
