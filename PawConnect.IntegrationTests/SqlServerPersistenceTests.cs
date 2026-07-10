@@ -281,6 +281,45 @@ public class SqlServerPersistenceTests(SqlServerTestcontainerFixture fixture)
         Assert.Equal("integration-correlation", log.CorrelationId);
     }
 
+    [DockerFact]
+    public async Task OperationalInsight_ShouldPersistScopeEvidenceAndLifecycle()
+    {
+        var databaseName = SqlServerTestcontainerFixture.CreateDatabaseName();
+        await using var context = await fixture.CreateMigratedContextAsync(databaseName);
+        await IntegrationTestData.SeedIdentityAndShelterAsync(context);
+        var shelterId = await context.Shelters.Select(shelter => shelter.Id).SingleAsync();
+        context.OperationalInsights.Add(new OperationalInsight
+        {
+            Fingerprint = $"Shelter:shelter:{shelterId}:Integration:1",
+            AudienceType = IntelligenceAudienceType.Shelter,
+            ShelterId = shelterId,
+            Category = IntelligenceCategory.Workload,
+            InsightType = "Integration",
+            SourceModule = "IntegrationTests",
+            EntityType = "Shelter",
+            EntityId = shelterId.ToString(),
+            EntityDisplayName = "Integration Paws Shelter",
+            Title = "Integration workload insight",
+            Summary = "A persisted integration signal needs review.",
+            Severity = IntelligenceSeverity.High,
+            PriorityScore = 76,
+            ConfidenceLabel = "High",
+            Explanation = "The score is based on persisted integration evidence.",
+            EvidenceJson = "[\"Evidence persisted\"]",
+            ScoreBreakdownJson = "[{\"label\":\"Workload\",\"points\":76,\"explanation\":\"Integration evidence\"}]",
+            RecommendedActionsJson = "[]"
+        });
+        await context.SaveChangesAsync();
+
+        await using var verification = await fixture.CreateMigratedContextAsync(databaseName);
+        var saved = await verification.OperationalInsights.SingleAsync();
+
+        Assert.Equal(shelterId, saved.ShelterId);
+        Assert.Equal(IntelligenceInsightStatus.Active, saved.Status);
+        Assert.Equal(76, saved.PriorityScore);
+        Assert.Contains("Evidence persisted", saved.EvidenceJson, StringComparison.Ordinal);
+    }
+
     private static NotificationOutboxCreateRequest CreateOutboxRequest(int maxAttempts = 5)
     {
         return new NotificationOutboxCreateRequest(

@@ -1,0 +1,77 @@
+@using System.Security.Claims
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IShelterService ShelterService
+@inject IIntelligenceInsightService InsightService
+
+@if (_summary is not null)
+{
+    <MudPaper Elevation="0" Class="intelligence-widget section-surface pa-4">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="intelligence-widget-row">
+            <span class="stat-icon"><MudIcon Icon="@Icons.Material.Filled.TipsAndUpdates" /></span>
+            <div>
+                <MudText Typo="Typo.h6">@WidgetTitle</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">@GetSummaryText()</MudText>
+            </div>
+            <MudSpacer />
+            @if (_summary.Critical > 0)
+            {
+                <MudChip T="string" Color="Color.Error" Variant="Variant.Filled" Size="Size.Small">@_summary.Critical critical</MudChip>
+            }
+            else if (_summary.High > 0)
+            {
+                <MudChip T="string" Color="Color.Warning" Variant="Variant.Outlined" Size="Size.Small">@_summary.High high priority</MudChip>
+            }
+            <MudButton Href="@HubRoute" Variant="Variant.Filled" Color="Color.Primary" EndIcon="@Icons.Material.Filled.ArrowForward">Open</MudButton>
+        </MudStack>
+    </MudPaper>
+}
+
+@code {
+    [Parameter, EditorRequired] public IntelligenceAudienceType AudienceType { get; set; }
+    [Parameter] public string WidgetTitle { get; set; } = "Priority intelligence";
+
+    private IntelligenceSummaryDto? _summary;
+    private string HubRoute => AudienceType switch
+    {
+        IntelligenceAudienceType.Shelter => "/shelter/intelligence",
+        IntelligenceAudienceType.Adopter => "/adopter/insights",
+        _ => "/admin/intelligence"
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var principal = (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User;
+            var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrWhiteSpace(userId)) return;
+            IntelligenceScope? scope = AudienceType switch
+            {
+                IntelligenceAudienceType.Admin => new IntelligenceScope(IntelligenceAudienceType.Admin),
+                IntelligenceAudienceType.Adopter => new IntelligenceScope(IntelligenceAudienceType.Adopter, UserId: userId),
+                IntelligenceAudienceType.Shelter => await BuildShelterScopeAsync(userId),
+                _ => null
+            };
+            if (scope is not null) _summary = await InsightService.GetSummaryAsync(scope);
+        }
+        catch
+        {
+            _summary = null;
+        }
+    }
+
+    private async Task<IntelligenceScope?> BuildShelterScopeAsync(string userId)
+    {
+        var shelter = await ShelterService.GetShelterForUserAsync(userId);
+        return shelter is null ? null : new IntelligenceScope(IntelligenceAudienceType.Shelter, ShelterId: shelter.Id);
+    }
+
+    private string GetSummaryText()
+    {
+        if (_summary is null) return string.Empty;
+        return _summary.Total == 0
+            ? "No urgent next steps detected."
+            : $"{_summary.Total} active item{(_summary.Total == 1 ? string.Empty : "s")} - workload {_summary.WorkloadLabel.ToLowerInvariant()}.";
+    }
+}
+

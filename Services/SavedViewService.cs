@@ -21,6 +21,9 @@ public sealed class SavedViewService(ApplicationDbContext context) : ISavedViewS
             ["Admin.Notifications.Outbox"] = new("Admin.Notifications.Outbox", "Notification outbox", [SavedViewRoleScope.Admin]),
             ["Admin.Audit"] = new("Admin.Audit", "Audit logs", [SavedViewRoleScope.Admin]),
             ["Notifications.Center"] = new("Notifications.Center", "Notification center", [SavedViewRoleScope.Global, SavedViewRoleScope.Adopter, SavedViewRoleScope.Shelter, SavedViewRoleScope.Admin, SavedViewRoleScope.Volunteer])
+            , ["Shelter.Intelligence"] = new("Shelter.Intelligence", "Shelter operations intelligence", [SavedViewRoleScope.Shelter])
+            , ["Admin.Intelligence"] = new("Admin.Intelligence", "Platform intelligence", [SavedViewRoleScope.Admin])
+            , ["Adopter.Insights"] = new("Adopter.Insights", "Adopter insights", [SavedViewRoleScope.Adopter])
         };
 
     public async Task<IReadOnlyList<SavedViewDto>> GetViewsForPageAsync(

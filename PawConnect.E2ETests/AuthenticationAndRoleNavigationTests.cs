@@ -59,4 +59,37 @@ public class AuthenticationAndRoleNavigationTests : PawConnectPageTest
             Timeout = 2_000
         });
     }
+
+    [E2EFact]
+    public async Task Shelter_ShouldOpenOperationsIntelligence_FromRoleNavigation()
+    {
+        await LoginAsync(DemoUsers.Shelter);
+
+        await Page.GetByRole(AriaRole.Link, new() { Name = "Operations Intelligence" }).ClickAsync();
+
+        await ExpectTextVisibleAsync("Operations Intelligence");
+        await ExpectTextVisibleAsync("Explainable decision support");
+    }
+
+    [E2EFact]
+    public async Task Admin_ShouldOpenPlatformIntelligence_FromRoleNavigation()
+    {
+        await LoginAsync(DemoUsers.Admin);
+
+        await Page.GetByRole(AriaRole.Link, new() { Name = "Platform Intelligence" }).ClickAsync();
+
+        await ExpectTextVisibleAsync("Platform Intelligence");
+        await ExpectTextVisibleAsync("Explainable decision support");
+    }
+
+    [E2EFact]
+    public async Task Adopter_ShouldOpenOwnInsights_FromRoleNavigation()
+    {
+        await LoginAsync(DemoUsers.Adopter);
+
+        await Page.GetByRole(AriaRole.Link, new() { Name = "My Insights" }).ClickAsync();
+
+        await ExpectTextVisibleAsync("Your Next Steps");
+        await ExpectTextVisibleAsync("Explainable decision support");
+    }
 }

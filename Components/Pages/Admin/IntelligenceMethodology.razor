@@ -1,0 +1,79 @@
+@page "/admin/intelligence/methodology"
+@using Microsoft.Extensions.Options
+@attribute [Authorize(Roles = "Admin,Shelter")]
+@inject IOptions<IntelligenceHubOptions> Options
+
+<PageTitle>Intelligence Methodology</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="px-0">
+    <MudStack Spacing="3">
+        <div class="page-header">
+            <MudText Typo="Typo.h4">Intelligence Hub Methodology</MudText>
+            <MudText Typo="Typo.body2">How PawConnect turns factual workflow signals into explainable priorities.</MudText>
+        </div>
+
+        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+            The Intelligence Hub prioritizes operational work. It does not decide whether an adopter is suitable and never approves or rejects an application automatically.
+        </MudAlert>
+
+        <MudGrid Spacing="2">
+            <MudItem xs="12" md="4"><MudPaper Elevation="0" Class="section-surface pa-4 h-100"><MudText Typo="Typo.h6">1. Signals</MudText><MudText Typo="Typo.body2">Providers read existing PawConnect records and produce factual observations, such as a pending application age, profile completeness score, overdue task, transfer state, or failed outbox count.</MudText></MudPaper></MudItem>
+            <MudItem xs="12" md="4"><MudPaper Elevation="0" Class="section-surface pa-4 h-100"><MudText Typo="Typo.h6">2. Rules and score</MudText><MudText Typo="Typo.body2">Deterministic rules add visible urgency, impact, time-sensitivity, reliability, and confidence points. The displayed score is the sum of those named factors, capped at 100.</MudText></MudPaper></MudItem>
+            <MudItem xs="12" md="4"><MudPaper Elevation="0" Class="section-surface pa-4 h-100"><MudText Typo="Typo.h6">3. Lifecycle</MudText><MudText Typo="Typo.body2">A stable fingerprint prevents duplicates. Insights update while a condition exists, resolve automatically when it disappears, and can reopen if the condition returns.</MudText></MudPaper></MudItem>
+        </MudGrid>
+
+        <MudPaper Elevation="0" Class="section-surface pa-4">
+            <MudText Typo="Typo.h6" Class="mb-3">Severity thresholds</MudText>
+            <MudTable Items="_severityRows" Dense="true" Hover="true">
+                <HeaderContent><MudTh>Score</MudTh><MudTh>Severity</MudTh><MudTh>Meaning</MudTh></HeaderContent>
+                <RowTemplate><MudTd DataLabel="Score">@context.Score</MudTd><MudTd DataLabel="Severity">@context.Severity</MudTd><MudTd DataLabel="Meaning">@context.Meaning</MudTd></RowTemplate>
+            </MudTable>
+        </MudPaper>
+
+        <MudPaper Elevation="0" Class="section-surface pa-4">
+            <MudText Typo="Typo.h6" Class="mb-3">Configured operational thresholds</MudText>
+            <MudGrid Spacing="2">
+                @foreach (var threshold in Thresholds)
+                {
+                    <MudItem xs="12" sm="6" md="4"><MudPaper Elevation="0" Class="intelligence-threshold pa-3"><MudText Typo="Typo.caption">@threshold.Label</MudText><MudText Typo="Typo.subtitle1">@threshold.Value</MudText></MudPaper></MudItem>
+                }
+            </MudGrid>
+        </MudPaper>
+
+        <MudPaper Elevation="0" Class="section-surface pa-4">
+            <MudText Typo="Typo.h6">Privacy and fairness boundaries</MudText>
+            <MudList T="string" Dense="true">
+                <MudListItem T="string" Icon="@Icons.Material.Filled.CheckCircle">Shelters see only insights for their own records; adopters see only their own next steps.</MudListItem>
+                <MudListItem T="string" Icon="@Icons.Material.Filled.CheckCircle">No protected personal characteristic contributes to a score.</MudListItem>
+                <MudListItem T="string" Icon="@Icons.Material.Filled.CheckCircle">Questionnaire answers and private shelter notes are not copied into insight evidence.</MudListItem>
+                <MudListItem T="string" Icon="@Icons.Material.Filled.CheckCircle">No paid API or external AI service is required.</MudListItem>
+                <MudListItem T="string" Icon="@Icons.Material.Filled.CheckCircle">Recommended actions navigate to existing authorized workflows and are validated again before display.</MudListItem>
+            </MudList>
+        </MudPaper>
+    </MudStack>
+</MudContainer>
+
+@code {
+    private IntelligenceHubOptions Settings => Options.Value;
+    private readonly (string Score, string Severity, string Meaning)[] _severityRows =
+    [
+        ("85-100", "Critical", "Immediate operational or reliability attention"),
+        ("70-84", "High", "Important work that should be prioritized"),
+        ("50-69", "Medium", "Relevant follow-up with moderate urgency"),
+        ("25-49", "Low", "Useful improvement or early warning"),
+        ("0-24", "Informational", "Positive opportunity or low-pressure next step")
+    ];
+
+    private IEnumerable<(string Label, string Value)> Thresholds =>
+    [
+        ("Application review warning", $"{Settings.ApplicationReviewWarningHours} hours"),
+        ("Application review critical", $"{Settings.ApplicationReviewCriticalHours} hours"),
+        ("Dog adoption delay warning", $"{Settings.DogNoApplicationWarningDays} days"),
+        ("Low profile completeness", $"Below {Settings.LowProfileCompletenessThreshold}%"),
+        ("Volunteer task overdue", $"{Settings.VolunteerTaskOverdueWarningHours} hours"),
+        ("Transfer response warning", $"{Settings.TransferPendingWarningHours} hours"),
+        ("Outbox failed warning", $"{Settings.OutboxFailedWarningCount} messages"),
+        ("Background refresh", $"Every {Settings.GetSafeRefreshMinutes()} minutes")
+    ];
+}
+

@@ -123,6 +123,7 @@ public sealed class CommandPaletteService(ApplicationDbContext context) : IComma
         {
             yield return Command("adopter-dashboard", "Adopter Dashboard", "Open your adopter overview.", Navigation, "/adopter/dashboard", Icons.Material.Filled.Dashboard, "adopter", "dashboard");
             yield return Command("adopter-profile", "My Profile", "Edit adopter profile and home information.", Navigation, "/adopter/profile", Icons.Material.Filled.AccountCircle, "profile", "housing");
+            yield return Command("adopter-insights", "My Adoption Insights", "Open saved-search matches and adoption next steps.", Applications, "/adopter/insights", Icons.Material.Filled.TipsAndUpdates, "insights", "next steps", "matches");
             yield return Command("adopter-recommendations", "Recommended Dogs", "View recommendation-based dog matches.", Dogs, "/adopter/recommendations", Icons.Material.Filled.AutoAwesome, "recommended", "matches");
             yield return Command("adopter-copilot", "Adoption Copilot", "Search for dogs with natural language.", Dogs, "/adopter/copilot", Icons.Material.Filled.AutoFixHigh, "copilot", "assistant");
             yield return Command("adopter-favorites", "Favorite Dogs", "Open your saved favorite dogs.", Dogs, "/favorites", Icons.Material.Filled.Favorite, "favorites", "saved dogs");
@@ -133,6 +134,7 @@ public sealed class CommandPaletteService(ApplicationDbContext context) : IComma
         if (isShelter)
         {
             yield return Command("shelter-dashboard", "Shelter Dashboard", "Open the shelter operations overview.", ShelterOperations, "/shelter/dashboard", Icons.Material.Filled.Dashboard, "shelter", "dashboard");
+            yield return Command("shelter-intelligence", "Operations Intelligence", "Open explainable shelter priorities and recommended actions.", ShelterOperations, "/shelter/intelligence", Icons.Material.Filled.TipsAndUpdates, "intelligence", "priorities", "risk");
             yield return Command("shelter-analytics", "Shelter Analytics", "View shelter performance and adoption metrics.", ShelterOperations, "/shelter/analytics", Icons.Material.Filled.Analytics, "analytics", "metrics");
             yield return Command("shelter-assistant", "Shelter Assistant", "Open the AI-assisted shelter operations assistant.", ShelterOperations, "/shelter/assistant", Icons.Material.Filled.SupportAgent, "assistant", "operations");
             yield return Command("shelter-dogs", "Manage Dogs", "Open shelter dog management.", Dogs, "/shelter/dogs", Icons.Material.Filled.Pets, "manage dogs", "profiles");
@@ -154,6 +156,7 @@ public sealed class CommandPaletteService(ApplicationDbContext context) : IComma
         if (isAdmin)
         {
             yield return Command("admin-dashboard", "Admin Dashboard", "Open the platform admin overview.", Admin, "/admin/dashboard", Icons.Material.Filled.AdminPanelSettings, "admin", "dashboard");
+            yield return Command("admin-intelligence", "Platform Intelligence", "Review platform risks, shelter workload, and notification reliability.", Admin, "/admin/intelligence", Icons.Material.Filled.TipsAndUpdates, "intelligence", "platform risk", "workload");
             yield return Command("admin-analytics", "Admin Analytics", "View platform analytics.", Admin, "/admin/analytics", Icons.Material.Filled.Analytics, "analytics", "metrics");
             yield return Command("admin-users", "Manage Users", "Review platform user accounts.", Admin, "/admin/users", Icons.Material.Filled.Group, "users", "identity");
             yield return Command("admin-shelters", "Manage Shelters", "Review and manage shelters.", Admin, "/admin/shelters", Icons.Material.Filled.HomeWork, "shelters");
@@ -617,6 +620,9 @@ public sealed class CommandPaletteService(ApplicationDbContext context) : IComma
             "Admin.Notifications.Outbox" => "/admin/notification-outbox",
             "Admin.Audit" => "/admin/audit-logs",
             "Notifications.Center" => "/notifications",
+            "Shelter.Intelligence" => "/shelter/intelligence",
+            "Admin.Intelligence" => "/admin/intelligence",
+            "Adopter.Insights" => "/adopter/insights",
             _ => null
         };
 
@@ -647,6 +653,9 @@ public sealed class CommandPaletteService(ApplicationDbContext context) : IComma
             "Admin.Notifications.Outbox" => "notification outbox",
             "Admin.Audit" => "audit logs",
             "Notifications.Center" => "notifications",
+            "Shelter.Intelligence" => "shelter intelligence",
+            "Admin.Intelligence" => "platform intelligence",
+            "Adopter.Insights" => "adopter insights",
             _ => "this page"
         };
     }

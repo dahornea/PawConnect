@@ -85,6 +85,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
     public DbSet<VolunteerTaskActivity> VolunteerTaskActivities => Set<VolunteerTaskActivity>();
 
+    public DbSet<OperationalInsight> OperationalInsights => Set<OperationalInsight>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -1437,6 +1439,53 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
         builder.Entity<VolunteerTaskActivity>()
             .HasIndex(activity => activity.ActorUserId);
+
+        builder.Entity<OperationalInsight>()
+            .HasOne(insight => insight.User)
+            .WithMany()
+            .HasForeignKey(insight => insight.UserId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<OperationalInsight>()
+            .HasOne(insight => insight.Shelter)
+            .WithMany()
+            .HasForeignKey(insight => insight.ShelterId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<OperationalInsight>()
+            .HasIndex(insight => insight.Fingerprint)
+            .IsUnique();
+
+        builder.Entity<OperationalInsight>()
+            .HasIndex(insight => new { insight.AudienceType, insight.UserId, insight.Status });
+
+        builder.Entity<OperationalInsight>()
+            .HasIndex(insight => new { insight.AudienceType, insight.ShelterId, insight.Status });
+
+        builder.Entity<OperationalInsight>()
+            .HasIndex(insight => new { insight.Severity, insight.PriorityScore });
+
+        builder.Entity<OperationalInsight>()
+            .HasIndex(insight => insight.Category);
+
+        builder.Entity<OperationalInsight>()
+            .HasIndex(insight => new { insight.EntityType, insight.EntityId });
+
+        builder.Entity<OperationalInsight>()
+            .HasIndex(insight => insight.LastDetectedAtUtc);
+
+        builder.Entity<OperationalInsight>()
+            .HasIndex(insight => insight.SnoozedUntilUtc);
+
+        builder.Entity<OperationalInsight>()
+            .Property(insight => insight.CreatedAtUtc)
+            .HasDefaultValueSql("GETUTCDATE()");
+
+        builder.Entity<OperationalInsight>()
+            .Property(insight => insight.UpdatedAtUtc)
+            .HasDefaultValueSql("GETUTCDATE()");
         SeedLookupData(builder);
     }
 

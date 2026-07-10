@@ -1,0 +1,32 @@
+@page "/shelter/intelligence"
+@using System.Security.Claims
+@attribute [Authorize(Roles = "Shelter")]
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IShelterService ShelterService
+
+<PageTitle>Operations Intelligence</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.False" Class="px-0">
+    @if (_scope is null)
+    {
+        <AppLoadingState Message="Preparing shelter intelligence..." />
+    }
+    else
+    {
+        <IntelligenceHubPanel Scope="_scope" ActorUserId="_userId" Title="Operations Intelligence" Subtitle="See what needs attention, why it matters, and where to act next." MethodologyRoute="/admin/intelligence/methodology" EmptyTitle="All urgent priorities are under control" EmptyMessage="No critical shelter operations issues were detected during the latest evaluation." />
+    }
+</MudContainer>
+
+@code {
+    private IntelligenceScope? _scope;
+    private string _userId = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User;
+        _userId = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+        var shelter = string.IsNullOrWhiteSpace(_userId) ? null : await ShelterService.GetShelterForUserAsync(_userId);
+        if (shelter is not null) _scope = new IntelligenceScope(IntelligenceAudienceType.Shelter, ShelterId: shelter.Id);
+    }
+}
+

@@ -48,6 +48,7 @@ PawConnect is a multi-role web application that connects adopters with animal sh
 - Track recently viewed dogs.
 - View personalized recommendations at `/adopter/recommendations`.
 - Use Adoption Copilot natural-language dog search at `/adopter/copilot`.
+- Review explainable saved-search and adoption next steps at `/adopter/insights`.
 - Submit, track, and cancel adoption requests at `/my-adoption-requests`.
 - Message shelters inside adoption-request conversations.
 - View the unified Notification Center and notification preferences.
@@ -62,6 +63,7 @@ PawConnect is a multi-role web application that connects adopters with animal sh
 - Configure visit availability at `/shelter/availability`.
 - Manage resources and low-stock thresholds at `/shelter/resources`.
 - Use shelter analytics at `/shelter/analytics`.
+- Review deterministic operational priorities, evidence, and safe next actions at `/shelter/intelligence`.
 - Use shelter operations assistant and natural-language operational search at `/shelter/assistant` and `/shelter/search`.
 - Export shelter-scoped data and import CSV data where supported.
 - Message adopters in adoption-request conversations.
@@ -74,6 +76,7 @@ PawConnect is a multi-role web application that connects adopters with animal sh
 - Moderate Lost & Found posts at `/admin/lost-found`.
 - Review message reports at `/admin/message-reports`.
 - View platform analytics at `/admin/analytics`.
+- Review platform risks, cross-shelter workload, and notification reliability at `/admin/intelligence`.
 - Review report history, activity/audit logs, and notification delivery logs.
 - Rebuild and inspect the dog search index at `/admin/search-index`.
 - Evaluate Adoption Copilot results at `/admin/copilot-evaluation`.
@@ -102,10 +105,13 @@ PawConnect is a multi-role web application that connects adopters with animal sh
 - CSV import/export and PDF/CSV report history.
 - SignalR messaging for adoption-request conversations.
 - Global command palette with `Ctrl+K` / `Cmd+K`, role-aware navigation, scoped entity search, contextual commands, and recent commands.
+- Operations Intelligence Hub with persisted fingerprints, explainable scoring, lifecycle actions, scoped background refresh, and no paid AI dependency.
 
 See [docs/COMMAND_PALETTE.md](docs/COMMAND_PALETTE.md) for the command palette behavior, security notes, and extension guide.
 
 See [docs/NOTIFICATIONS.md](docs/NOTIFICATIONS.md) for the in-app Notification Center, read/unread behavior, preferences, and outbox relationship.
+
+See [docs/INTELLIGENCE_HUB.md](docs/INTELLIGENCE_HUB.md) for signal providers, deterministic scoring, lifecycle behavior, authorization boundaries, and extension guidance.
 
 ## Tech Stack
 

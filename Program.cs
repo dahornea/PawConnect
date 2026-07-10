@@ -19,6 +19,7 @@ using PawConnect.Repositories;
 using PawConnect.Services;
 using PawConnect.Services.Caching;
 using PawConnect.Services.CommandPalette;
+using PawConnect.Services.Intelligence;
 using Quartz;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -164,6 +165,16 @@ builder.Services.AddScoped<ISavedDogSearchService, SavedDogSearchService>();
 builder.Services.AddScoped<ISavedViewService, SavedViewService>();
 builder.Services.AddScoped<IBulkDogActionService, BulkDogActionService>();
 builder.Services.AddScoped<IBulkNotificationOutboxActionService, BulkNotificationOutboxActionService>();
+builder.Services.AddScoped<IIntelligenceEngine, IntelligenceEngine>();
+builder.Services.AddScoped<IIntelligenceInsightService, IntelligenceInsightService>();
+builder.Services.AddScoped<IIntelligenceRecommendationService, IntelligenceRecommendationService>();
+builder.Services.AddScoped<IIntelligenceRule, StandardIntelligenceRule>();
+builder.Services.AddScoped<IIntelligenceSignalProvider, DogOperationsSignalProvider>();
+builder.Services.AddScoped<IIntelligenceSignalProvider, AdoptionReviewSignalProvider>();
+builder.Services.AddScoped<IIntelligenceSignalProvider, VolunteerTaskSignalProvider>();
+builder.Services.AddScoped<IIntelligenceSignalProvider, TransferSignalProvider>();
+builder.Services.AddScoped<IIntelligenceSignalProvider, NotificationReliabilitySignalProvider>();
+builder.Services.AddScoped<IIntelligenceSignalProvider, AdopterNextStepSignalProvider>();
 builder.Services.AddScoped<IShelterService, ShelterService>();
 builder.Services.AddScoped<IShelterAvailabilityService, ShelterAvailabilityService>();
 builder.Services.AddScoped<IResourceStockService, ResourceStockService>();
@@ -221,8 +232,10 @@ builder.Services.Configure<ScheduledReportSettings>(builder.Configuration.GetSec
 builder.Services.Configure<VisitReminderSettings>(builder.Configuration.GetSection("VisitReminders"));
 builder.Services.Configure<OpenAiSettings>(builder.Configuration.GetSection("OpenAI"));
 builder.Services.Configure<DogImageStorageOptions>(builder.Configuration.GetSection("DogImageStorage"));
+builder.Services.Configure<IntelligenceHubOptions>(builder.Configuration.GetSection("IntelligenceHub"));
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 builder.Services.AddHostedService<NotificationOutboxHostedService>();
+builder.Services.AddHostedService<IntelligenceRefreshHostedService>();
 builder.Services.AddScoped<IEmailSender<ApplicationUser>, PawConnectIdentityEmailSender>();
 builder.Services.AddScoped<IDogImageStorageService, LocalDogImageStorageService>();
 builder.Services.AddHttpClient<IGeocodingService, NominatimGeocodingService>(client =>

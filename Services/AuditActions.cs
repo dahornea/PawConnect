@@ -62,6 +62,14 @@ public static class AuditActions
     public const string VolunteerTaskCommentAdded = nameof(VolunteerTaskCommentAdded);
     public const string BulkDogStatusUpdated = nameof(BulkDogStatusUpdated);
     public const string BulkNotificationOutboxUpdated = nameof(BulkNotificationOutboxUpdated);
+    public const string IntelligenceInsightGenerated = nameof(IntelligenceInsightGenerated);
+    public const string IntelligenceSeverityEscalated = nameof(IntelligenceSeverityEscalated);
+    public const string IntelligenceInsightAcknowledged = nameof(IntelligenceInsightAcknowledged);
+    public const string IntelligenceInsightSnoozed = nameof(IntelligenceInsightSnoozed);
+    public const string IntelligenceInsightManuallyResolved = nameof(IntelligenceInsightManuallyResolved);
+    public const string IntelligenceInsightAutoResolved = nameof(IntelligenceInsightAutoResolved);
+    public const string IntelligenceInsightReopened = nameof(IntelligenceInsightReopened);
+    public const string IntelligenceManualRefresh = nameof(IntelligenceManualRefresh);
 
     public static readonly IReadOnlyList<string> All =
     [
@@ -124,7 +132,15 @@ public static class AuditActions
         VolunteerTaskReopened,
         VolunteerTaskCommentAdded,
         BulkDogStatusUpdated,
-        BulkNotificationOutboxUpdated
+        BulkNotificationOutboxUpdated,
+        IntelligenceInsightGenerated,
+        IntelligenceSeverityEscalated,
+        IntelligenceInsightAcknowledged,
+        IntelligenceInsightSnoozed,
+        IntelligenceInsightManuallyResolved,
+        IntelligenceInsightAutoResolved,
+        IntelligenceInsightReopened,
+        IntelligenceManualRefresh
     ];
 }
 

@@ -1,0 +1,22 @@
+@page "/adopter/insights"
+@using System.Security.Claims
+@attribute [Authorize(Roles = "Adopter")]
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>My Insights</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.False" Class="px-0">
+    @if (string.IsNullOrWhiteSpace(_userId))
+    {
+        <AppLoadingState Message="Preparing your next steps..." />
+    }
+    else
+    {
+        <IntelligenceHubPanel Scope="@(new IntelligenceScope(IntelligenceAudienceType.Adopter, UserId: _userId))" ActorUserId="_userId" Title="Your Next Steps" Subtitle="New matches and useful adoption actions based only on your PawConnect activity." EmptyTitle="You're all caught up" EmptyMessage="New matches and adoption actions will appear here when something needs your attention." />
+    }
+</MudContainer>
+
+@code {
+    private string _userId = string.Empty;
+    protected override async Task OnInitializedAsync() => _userId = (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+}

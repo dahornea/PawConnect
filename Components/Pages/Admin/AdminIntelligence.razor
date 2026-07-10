@@ -1,0 +1,23 @@
+@page "/admin/intelligence"
+@using System.Security.Claims
+@attribute [Authorize(Roles = "Admin")]
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>Platform Intelligence</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.False" Class="px-0">
+    @if (string.IsNullOrWhiteSpace(_userId))
+    {
+        <AppLoadingState Message="Preparing platform intelligence..." />
+    }
+    else
+    {
+        <IntelligenceHubPanel Scope="@(new IntelligenceScope(IntelligenceAudienceType.Admin))" ActorUserId="_userId" Title="Platform Intelligence" Subtitle="Review cross-shelter bottlenecks, workload signals, and notification reliability with visible evidence." MethodologyRoute="/admin/intelligence/methodology" EmptyTitle="No critical platform risks detected" EmptyMessage="The latest evaluation found no active platform-level operational risks." />
+    }
+</MudContainer>
+
+@code {
+    private string _userId = string.Empty;
+    protected override async Task OnInitializedAsync() => _userId = (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+}
+

@@ -665,6 +665,87 @@ h1:focus {
     max-width: 720px;
 }
 
+/* Operations Intelligence */
+.intelligence-header {
+    background: linear-gradient(120deg, #173f39 0%, #2f7666 62%, #d7a54a 100%);
+    color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 14px 30px rgba(24, 62, 55, 0.16);
+}
+
+.intelligence-header-icon {
+    width: 48px;
+    height: 48px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.16);
+    flex: 0 0 auto;
+}
+
+.intelligence-stat,
+.intelligence-threshold {
+    height: 100%;
+    border: 1px solid #dce7e2;
+    background: #fff;
+    border-radius: 8px;
+}
+
+.intelligence-stat.critical {
+    border-left: 4px solid #c23b3b;
+}
+
+.intelligence-stat.high {
+    border-left: 4px solid #d78928;
+}
+
+.intelligence-card {
+    border: 1px solid #dce7e2;
+    border-left: 5px solid #639386;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 8px 20px rgba(31, 64, 57, 0.06);
+}
+
+.intelligence-card.severity-critical {
+    border-left-color: #c23b3b;
+}
+
+.intelligence-card.severity-high {
+    border-left-color: #d78928;
+}
+
+.intelligence-card.severity-medium {
+    border-left-color: #287f99;
+}
+
+.intelligence-card.severity-low {
+    border-left-color: #71817d;
+}
+
+.intelligence-card.severity-informational {
+    border-left-color: #2f8a51;
+}
+
+.intelligence-details {
+    position: sticky;
+    top: 76px;
+    border: 1px solid #dce7e2;
+    border-radius: 8px;
+    background: #fbfdfc;
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+}
+
+.score-factor {
+    min-height: 44px;
+}
+
+.intelligence-widget {
+    border-left: 4px solid #2f7666;
+}
+
 .flex-wrap,
 .responsive-actions,
 .form-action-row {
@@ -711,5 +792,22 @@ h1:focus {
     .saved-view-name-field,
     .saved-view-toolbar .mud-button-root {
         width: 100%;
+    }
+
+    .intelligence-header-row,
+    .intelligence-widget-row,
+    .intelligence-card-actions {
+        align-items: stretch !important;
+        flex-direction: column !important;
+    }
+
+    .intelligence-header-actions {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+
+    .intelligence-details {
+        position: static;
+        max-height: none;
     }
 }
