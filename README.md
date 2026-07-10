@@ -64,6 +64,7 @@ PawConnect is a multi-role web application that connects adopters with animal sh
 - Manage resources and low-stock thresholds at `/shelter/resources`.
 - Use shelter analytics at `/shelter/analytics`.
 - Review deterministic operational priorities, evidence, and safe next actions at `/shelter/intelligence`.
+- Model intake, volunteer, transfer, application, profile, and notification assumptions without changing live data at `/shelter/simulator`.
 - Use shelter operations assistant and natural-language operational search at `/shelter/assistant` and `/shelter/search`.
 - Export shelter-scoped data and import CSV data where supported.
 - Message adopters in adoption-request conversations.
@@ -77,6 +78,7 @@ PawConnect is a multi-role web application that connects adopters with animal sh
 - Review message reports at `/admin/message-reports`.
 - View platform analytics at `/admin/analytics`.
 - Review platform risks, cross-shelter workload, and notification reliability at `/admin/intelligence`.
+- Compare shelter-level or platform-wide capacity and workload scenarios at `/admin/simulator`.
 - Review report history, activity/audit logs, and notification delivery logs.
 - Rebuild and inspect the dog search index at `/admin/search-index`.
 - Evaluate Adoption Copilot results at `/admin/copilot-evaluation`.
@@ -106,12 +108,15 @@ PawConnect is a multi-role web application that connects adopters with animal sh
 - SignalR messaging for adoption-request conversations.
 - Global command palette with `Ctrl+K` / `Cmd+K`, role-aware navigation, scoped entity search, contextual commands, and recent commands.
 - Operations Intelligence Hub with persisted fingerprints, explainable scoring, lifecycle actions, scoped background refresh, and no paid AI dependency.
+- Deterministic what-if Scenario Simulator with isolated projections, saved run snapshots, role-scoped comparisons, and no paid AI dependency.
 
 See [docs/COMMAND_PALETTE.md](docs/COMMAND_PALETTE.md) for the command palette behavior, security notes, and extension guide.
 
 See [docs/NOTIFICATIONS.md](docs/NOTIFICATIONS.md) for the in-app Notification Center, read/unread behavior, preferences, and outbox relationship.
 
 See [docs/INTELLIGENCE_HUB.md](docs/INTELLIGENCE_HUB.md) for signal providers, deterministic scoring, lifecycle behavior, authorization boundaries, and extension guidance.
+
+See [docs/SCENARIO_SIMULATOR.md](docs/SCENARIO_SIMULATOR.md) for simulator assumptions, formulas, isolation guarantees, saved runs, authorization, and API routes.
 
 ## Tech Stack
 

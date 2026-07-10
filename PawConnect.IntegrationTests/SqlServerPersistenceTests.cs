@@ -41,6 +41,48 @@ public class SqlServerPersistenceTests(SqlServerTestcontainerFixture fixture)
     }
 
     [DockerFact]
+    public async Task SimulationScenario_ShouldPersistSnapshots_WithoutChangingDogRecords()
+    {
+        var databaseName = SqlServerTestcontainerFixture.CreateDatabaseName();
+        await using var context = await fixture.CreateMigratedContextAsync(databaseName);
+        await IntegrationTestData.SeedIdentityAndShelterAsync(context);
+        var shelterId = await context.Shelters.Select(shelter => shelter.Id).SingleAsync();
+        context.Dogs.Add(IntegrationTestData.CreateDog(shelterId, "Simulation baseline dog"));
+        var scenario = new ShelterSimulationScenario
+        {
+            Name = "SQL intake scenario",
+            CreatedByUserId = IntegrationTestData.ShelterUserId,
+            ShelterId = shelterId,
+            ScopeType = SimulationScopeType.Shelter,
+            HorizonDays = 7,
+            Status = SimulationScenarioStatus.Completed,
+            AssumptionsJson = "[{\"type\":0,\"quantity\":5,\"effectiveDay\":1}]"
+        };
+        context.ShelterSimulationScenarios.Add(scenario);
+        context.ShelterSimulationRuns.Add(new ShelterSimulationRun
+        {
+            Scenario = scenario,
+            RunByUserId = IntegrationTestData.ShelterUserId,
+            ShelterId = shelterId,
+            HorizonDays = 7,
+            BaselineSnapshotJson = "{\"currentDogs\":1}",
+            AssumptionsSnapshotJson = scenario.AssumptionsJson,
+            ResultSummaryJson = "{\"projectedDogs\":6}",
+            RiskDeltaJson = "[]",
+            CapacityDeltaJson = "{\"availableSpaces\":4}",
+            RecommendationSummaryJson = "[]",
+            StartedAtUtc = DateTime.UtcNow,
+            CompletedAtUtc = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
+
+        await using var verificationContext = await fixture.CreateMigratedContextAsync(databaseName);
+        Assert.Single(await verificationContext.ShelterSimulationScenarios.ToListAsync());
+        Assert.Single(await verificationContext.ShelterSimulationRuns.ToListAsync());
+        Assert.Single(await verificationContext.Dogs.ToListAsync());
+    }
+
+    [DockerFact]
     public async Task AdoptionApplication_ShouldPersist_StatusTransition()
     {
         await using var context = await fixture.CreateMigratedContextAsync();

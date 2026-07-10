@@ -265,8 +265,51 @@ public static class IdentitySeedData
         await ReplacePresentationTransferRequestsAsync(context);
         await ReplacePresentationVolunteerTasksAsync(context);
         await SeedFavoritesAndRecentViewsAsync(context);
+        await SeedSimulationScenariosAsync(context);
 
         await context.SaveChangesAsync();
+    }
+
+    private static async Task SeedSimulationScenariosAsync(ApplicationDbContext context)
+    {
+        var happyPawsId = await context.Shelters
+            .Where(shelter => shelter.Name == "Happy Paws Shelter")
+            .Select(shelter => (int?)shelter.Id)
+            .FirstOrDefaultAsync();
+
+        if (happyPawsId.HasValue && !await context.ShelterSimulationScenarios.AnyAsync(scenario => scenario.Name == "Weekend intake readiness"))
+        {
+            context.ShelterSimulationScenarios.Add(new ShelterSimulationScenario
+            {
+                Name = "Weekend intake readiness",
+                Description = "Saved planning scenario for additional weekend intake and reduced volunteer coverage.",
+                CreatedByUserId = ShelterUserId,
+                ShelterId = happyPawsId.Value,
+                ScopeType = SimulationScopeType.Shelter,
+                HorizonDays = 7,
+                Status = SimulationScenarioStatus.Draft,
+                AssumptionsJson = "[{\"type\":0,\"quantity\":3,\"effectiveDay\":1},{\"type\":1,\"quantity\":1,\"effectiveDay\":2}]",
+                IsPinned = true,
+                CreatedAtUtc = new DateTime(2026, 6, 1, 9, 0, 0, DateTimeKind.Utc),
+                UpdatedAtUtc = new DateTime(2026, 6, 1, 9, 0, 0, DateTimeKind.Utc)
+            });
+        }
+
+        if (!await context.ShelterSimulationScenarios.AnyAsync(scenario => scenario.Name == "Platform volunteer coverage"))
+        {
+            context.ShelterSimulationScenarios.Add(new ShelterSimulationScenario
+            {
+                Name = "Platform volunteer coverage",
+                Description = "Cross-shelter planning scenario for temporary volunteer unavailability.",
+                CreatedByUserId = AdminUserId,
+                ScopeType = SimulationScopeType.Platform,
+                HorizonDays = 14,
+                Status = SimulationScenarioStatus.Draft,
+                AssumptionsJson = "[{\"type\":1,\"quantity\":4,\"effectiveDay\":1}]",
+                CreatedAtUtc = new DateTime(2026, 6, 2, 10, 0, 0, DateTimeKind.Utc),
+                UpdatedAtUtc = new DateTime(2026, 6, 2, 10, 0, 0, DateTimeKind.Utc)
+            });
+        }
     }
 
     private static async Task UpsertAdopterProfileAsync(ApplicationDbContext context, AdopterProfileSeed seed)
@@ -317,8 +360,21 @@ public static class IdentitySeedData
         shelter.VisitsAllowedFriday = seed.WeekdayVisits;
         shelter.VisitsAllowedSaturday = seed.SaturdayVisits;
         shelter.VisitsAllowedSunday = false;
+        (shelter.DogCapacity, shelter.ReservedEmergencySpaces) = GetShelterCapacity(seed.Name);
         shelter.ApplicationUserId = seed.ApplicationUserId;
     }
+
+    private static (int Capacity, int EmergencySpaces) GetShelterCapacity(string shelterName) => shelterName switch
+    {
+        "Happy Paws Shelter" => (18, 2),
+        "Hope Tails Rescue" => (14, 2),
+        "Safe Haven Dogs" => (12, 1),
+        "Green Yard Animal Care" => (24, 3),
+        "Second Chance Paws" => (16, 2),
+        "Friendly Tails Center" => (15, 2),
+        "North Star Animal Shelter" => (20, 2),
+        _ => (30, 2)
+    };
 
     private static async Task<Shelter?> FindShelterForSeedAsync(ApplicationDbContext context, ShelterSeed seed)
     {

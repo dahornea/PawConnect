@@ -135,6 +135,8 @@ public sealed class CommandPaletteService(ApplicationDbContext context) : IComma
         {
             yield return Command("shelter-dashboard", "Shelter Dashboard", "Open the shelter operations overview.", ShelterOperations, "/shelter/dashboard", Icons.Material.Filled.Dashboard, "shelter", "dashboard");
             yield return Command("shelter-intelligence", "Operations Intelligence", "Open explainable shelter priorities and recommended actions.", ShelterOperations, "/shelter/intelligence", Icons.Material.Filled.TipsAndUpdates, "intelligence", "priorities", "risk");
+            yield return Command("shelter-simulator", "Scenario Simulator", "Model capacity, workload, and operational assumptions without changing live data.", ShelterOperations, "/shelter/simulator", Icons.Material.Filled.ModelTraining, "simulation", "what if", "capacity");
+            yield return Command("shelter-simulator-intake", "Simulate Intake Surge", "Open the simulator with the intake surge template.", QuickActions, "/shelter/simulator?template=intake-surge", Icons.Material.Filled.AddHomeWork, "simulate", "intake", "capacity");
             yield return Command("shelter-analytics", "Shelter Analytics", "View shelter performance and adoption metrics.", ShelterOperations, "/shelter/analytics", Icons.Material.Filled.Analytics, "analytics", "metrics");
             yield return Command("shelter-assistant", "Shelter Assistant", "Open the AI-assisted shelter operations assistant.", ShelterOperations, "/shelter/assistant", Icons.Material.Filled.SupportAgent, "assistant", "operations");
             yield return Command("shelter-dogs", "Manage Dogs", "Open shelter dog management.", Dogs, "/shelter/dogs", Icons.Material.Filled.Pets, "manage dogs", "profiles");
@@ -157,6 +159,8 @@ public sealed class CommandPaletteService(ApplicationDbContext context) : IComma
         {
             yield return Command("admin-dashboard", "Admin Dashboard", "Open the platform admin overview.", Admin, "/admin/dashboard", Icons.Material.Filled.AdminPanelSettings, "admin", "dashboard");
             yield return Command("admin-intelligence", "Platform Intelligence", "Review platform risks, shelter workload, and notification reliability.", Admin, "/admin/intelligence", Icons.Material.Filled.TipsAndUpdates, "intelligence", "platform risk", "workload");
+            yield return Command("admin-simulator", "Scenario Simulator", "Compare shelter and platform what-if scenarios.", Admin, "/admin/simulator", Icons.Material.Filled.ModelTraining, "simulation", "what if", "capacity");
+            yield return Command("admin-simulator-volunteers", "Simulate Volunteer Shortage", "Open the platform simulator with a volunteer shortage template.", QuickActions, "/admin/simulator?template=volunteer-shortage", Icons.Material.Filled.Groups, "simulate", "volunteer", "shortage");
             yield return Command("admin-analytics", "Admin Analytics", "View platform analytics.", Admin, "/admin/analytics", Icons.Material.Filled.Analytics, "analytics", "metrics");
             yield return Command("admin-users", "Manage Users", "Review platform user accounts.", Admin, "/admin/users", Icons.Material.Filled.Group, "users", "identity");
             yield return Command("admin-shelters", "Manage Shelters", "Review and manage shelters.", Admin, "/admin/shelters", Icons.Material.Filled.HomeWork, "shelters");

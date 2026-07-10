@@ -1,0 +1,336 @@
+@using System.Security.Claims
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IShelterService ShelterService
+@inject IShelterSimulationService SimulationService
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="simulation-workspace px-0">
+    <header class="simulation-page-header">
+        <div>
+            <MudText Typo="Typo.h3">Scenario Simulator</MudText>
+            <MudText Typo="Typo.body1" Color="Color.Secondary">Test capacity and workload assumptions before making an operational decision.</MudText>
+        </div>
+        <MudButton Href="@(IsAdmin ? "/admin/intelligence" : "/shelter/intelligence")" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.TipsAndUpdates">Intelligence Hub</MudButton>
+    </header>
+
+    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.Science" Class="simulation-warning">
+        <strong>Simulation only — no real PawConnect data will be changed.</strong>
+    </MudAlert>
+
+    @if (_loading)
+    {
+        <AppLoadingState Message="Preparing simulation baseline..." />
+    }
+    else if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <MudAlert Severity="Severity.Error">@_error</MudAlert>
+    }
+    else
+    {
+        <MudTabs Rounded="false" ApplyEffectsToContainer="true" Class="simulation-tabs" @bind-ActivePanelIndex="_activeTab">
+            <MudTabPanel Text="Build scenario" Icon="@Icons.Material.Filled.Tune">
+                <div class="simulation-builder-grid">
+                    <MudPaper Class="simulation-panel pa-4" Elevation="0">
+                        <MudText Typo="Typo.h5">Scenario setup</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Start from current PawConnect data, then add assumptions that occur inside the selected horizon.</MudText>
+
+                        @if (IsAdmin)
+                        {
+                            <MudSelect T="SimulationScopeType" Label="Scope" Value="_scopeType" ValueChanged="ScopeChangedAsync" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mt-4">
+                                <MudSelectItem Value="SimulationScopeType.Platform">Entire platform</MudSelectItem>
+                                <MudSelectItem Value="SimulationScopeType.Shelter">One shelter</MudSelectItem>
+                            </MudSelect>
+                            @if (_scopeType == SimulationScopeType.Shelter)
+                            {
+                                <MudSelect T="int?" Label="Shelter" @bind-Value="_selectedShelterId" Variant="Variant.Outlined" Margin="Margin.Dense">
+                                    @foreach (var shelter in _shelters)
+                                    {
+                                        <MudSelectItem T="int?" Value="@((int?)shelter.Id)">@shelter.Name</MudSelectItem>
+                                    }
+                                </MudSelect>
+                            }
+                        }
+
+                        <MudSelect T="int" Label="Horizon" @bind-Value="_horizonDays" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mt-2">
+                            <MudSelectItem Value="7">7 days</MudSelectItem>
+                            <MudSelectItem Value="14">14 days</MudSelectItem>
+                            <MudSelectItem Value="30">30 days</MudSelectItem>
+                        </MudSelect>
+
+                        <MudSelect T="string" Label="Start from template" Value="_selectedTemplateKey" ValueChanged="ApplyTemplateAsync" Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Class="mt-2">
+                            @foreach (var template in _templates)
+                            {
+                                <MudSelectItem Value="@template.Key">@template.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+
+                        <MudDivider Class="my-4" />
+                        <MudText Typo="Typo.subtitle1">Add assumption</MudText>
+                        <div class="simulation-assumption-form mt-2">
+                            <MudSelect T="SimulationAssumptionType" Label="Change" @bind-Value="_assumptionType" Variant="Variant.Outlined" Margin="Margin.Dense">
+                                @foreach (var type in Enum.GetValues<SimulationAssumptionType>())
+                                {
+                                    <MudSelectItem Value="@type">@AssumptionLabel(type)</MudSelectItem>
+                                }
+                            </MudSelect>
+                            <MudNumericField T="int" Label="Quantity" @bind-Value="_assumptionQuantity" Min="1" Max="1000" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                            <MudNumericField T="int" Label="Effective day" @bind-Value="_assumptionDay" Min="1" Max="@_horizonDays" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Add" Color="Color.Primary" Variant="Variant.Filled" OnClick="AddAssumption" aria-label="Add assumption" />
+                        </div>
+
+                        @if (_assumptions.Count == 0)
+                        {
+                            <AppEmptyState Title="No assumptions yet" Message="Add a change or choose a template to compare it with the current baseline." Compact="true" />
+                        }
+                        else
+                        {
+                            <div class="simulation-assumption-list mt-3">
+                                @for (var index = 0; index < _assumptions.Count; index++)
+                                {
+                                    var itemIndex = index;
+                                    var item = _assumptions[index];
+                                    <article>
+                                        <span><strong>@AssumptionLabel(item.Type)</strong><small>Quantity @item.Quantity · day @item.EffectiveDay</small></span>
+                                        <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" OnClick="@(() => RemoveAssumption(itemIndex))" aria-label="Remove assumption" />
+                                    </article>
+                                }
+                            </div>
+                        }
+
+                        <div class="simulation-builder-actions mt-4">
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PlayArrow" Disabled="@(_running || _assumptions.Count == 0)" OnClick="RunAsync">Run simulation</MudButton>
+                            <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.RestartAlt" Disabled="@_running" OnClick="ResetBuilder">Reset</MudButton>
+                        </div>
+                    </MudPaper>
+
+                    <MudPaper Class="simulation-panel simulation-baseline pa-4" Elevation="0">
+                        <MudText Typo="Typo.h5">Current baseline</MudText>
+                        @if (_baseline is null)
+                        {
+                            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-2">Run a scenario to capture the current scoped baseline.</MudText>
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">@_baseline.ScopeName · captured @FormatDate(_baseline.CapturedAtUtc)</MudText>
+                            <dl class="simulation-baseline-list mt-3">
+                                <div><dt>Dogs in care</dt><dd>@_baseline.CurrentDogs / @_baseline.DogCapacity</dd></div>
+                                <div><dt>Emergency spaces</dt><dd>@_baseline.ReservedEmergencySpaces</dd></div>
+                                <div><dt>Active volunteers</dt><dd>@_baseline.ActiveVolunteers</dd></div>
+                                <div><dt>Open tasks</dt><dd>@_baseline.OpenVolunteerTasks</dd></div>
+                                <div><dt>Pending applications</dt><dd>@_baseline.PendingApplications</dd></div>
+                                <div><dt>Incomplete profiles</dt><dd>@_baseline.IncompleteProfiles</dd></div>
+                            </dl>
+                        }
+                    </MudPaper>
+                </div>
+
+                @if (_running)
+                {
+                    <AppLoadingState Message="Applying assumptions to an isolated scenario..." />
+                }
+                else if (_result is not null)
+                {
+                    <SimulationResultPanel Result="_result" />
+                    <MudPaper Class="simulation-panel simulation-save-panel pa-4" Elevation="0">
+                        <div>
+                            <MudText Typo="Typo.h6">Save this scenario</MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">Saving stores assumptions and result snapshots only. It never applies projected changes.</MudText>
+                        </div>
+                        <MudTextField T="string" Label="Scenario name" @bind-Value="_scenarioName" Variant="Variant.Outlined" Margin="Margin.Dense" MaxLength="140" />
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save" Disabled="@_saving" OnClick="SaveAsync">Save scenario</MudButton>
+                    </MudPaper>
+                }
+            </MudTabPanel>
+
+            <MudTabPanel Text="Saved scenarios" Icon="@Icons.Material.Filled.Bookmarks">
+                @if (_scenarios.Count == 0)
+                {
+                    <AppEmptyState Title="No saved scenarios" Message="Run and save a scenario to create a reusable operational planning record." PrimaryActionLabel="Build a scenario" PrimaryActionIcon="@Icons.Material.Filled.Add" OnPrimaryAction="ActivateBuildTab" />
+                }
+                else
+                {
+                    <div class="simulation-saved-list">
+                        @foreach (var scenario in _scenarios)
+                        {
+                            <article class="simulation-saved-item">
+                                <div>
+                                    <MudIcon Icon="@(scenario.IsPinned ? Icons.Material.Filled.PushPin : Icons.Material.Outlined.BookmarkBorder)" Color="@(scenario.IsPinned ? Color.Primary : Color.Default)" />
+                                    @if (_renamingScenarioId == scenario.Id)
+                                    {
+                                        <MudTextField T="string" @bind-Value="_renameValue" Variant="Variant.Outlined" Margin="Margin.Dense" MaxLength="140" aria-label="Scenario name" />
+                                    }
+                                    else
+                                    {
+                                        <span><strong>@scenario.Name</strong><small>@scenario.ScopeType | @scenario.HorizonDays days | @scenario.Assumptions.Count assumptions | @FormatDate(scenario.UpdatedAtUtc)</small></span>
+                                    }
+                                </div>
+                                <MudStack Row="true" Spacing="1">
+                                    @if (_renamingScenarioId == scenario.Id)
+                                    {
+                                        <MudIconButton Icon="@Icons.Material.Filled.Check" Color="Color.Success" Size="Size.Small" OnClick="@(() => SaveRenameAsync(scenario.Id))" aria-label="Save scenario name" />
+                                        <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" OnClick="CancelRename" aria-label="Cancel rename" />
+                                    }
+                                    else
+                                    {
+                                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="@(() => BeginRename(scenario))" aria-label="Rename scenario" />
+                                    }
+                                    <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Replay" OnClick="@(() => RerunAsync(scenario.Id))">Rerun</MudButton>
+                                    <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" Size="Size.Small" OnClick="@(() => DuplicateAsync(scenario))" aria-label="Duplicate scenario" />
+                                    <MudIconButton Icon="@(scenario.IsPinned ? Icons.Material.Filled.PushPin : Icons.Material.Outlined.PushPin)" Size="Size.Small" OnClick="@(() => TogglePinnedAsync(scenario))" aria-label="Toggle pinned scenario" />
+                                    <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeleteAsync(scenario.Id))" aria-label="Delete scenario" />
+                                </MudStack>
+                            </article>
+                        }
+                    </div>
+                }
+            </MudTabPanel>
+
+            <MudTabPanel Text="Compare" Icon="@Icons.Material.Filled.CompareArrows">
+                <MudPaper Class="simulation-panel pa-4" Elevation="0">
+                    <MudText Typo="Typo.h5">Compare saved scenarios</MudText>
+                    <div class="simulation-compare-controls mt-3">
+                        <MudSelect T="int?" Label="First scenario" @bind-Value="_firstScenarioId" Variant="Variant.Outlined" Margin="Margin.Dense">
+                            @foreach (var scenario in _scenarios) { <MudSelectItem T="int?" Value="@((int?)scenario.Id)">@scenario.Name</MudSelectItem> }
+                        </MudSelect>
+                        <MudSelect T="int?" Label="Second scenario" @bind-Value="_secondScenarioId" Variant="Variant.Outlined" Margin="Margin.Dense">
+                            @foreach (var scenario in _scenarios) { <MudSelectItem T="int?" Value="@((int?)scenario.Id)">@scenario.Name</MudSelectItem> }
+                        </MudSelect>
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!_firstScenarioId.HasValue || !_secondScenarioId.HasValue)" OnClick="CompareAsync">Compare</MudButton>
+                    </div>
+                    @if (_comparison is not null)
+                    {
+                        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mt-4">@_comparison.Summary</MudAlert>
+                        <div class="simulation-comparison-grid mt-3">
+                            <article class="simulation-comparison-card">
+                                <strong>@_comparison.First.Name</strong>
+                                <span>@_comparison.FirstResult.ProjectedWorkloadScore / 100 workload</span>
+                                <span>@_comparison.FirstResult.ProjectedState.AvailableNormalSpaces normal spaces left</span>
+                                <span>@_comparison.FirstResult.ProjectedRisks.Count projected risks</span>
+                            </article>
+                            <article class="simulation-comparison-card">
+                                <strong>@_comparison.Second.Name</strong>
+                                <span>@_comparison.SecondResult.ProjectedWorkloadScore / 100 workload</span>
+                                <span>@_comparison.SecondResult.ProjectedState.AvailableNormalSpaces normal spaces left</span>
+                                <span>@_comparison.SecondResult.ProjectedRisks.Count projected risks</span>
+                            </article>
+                        </div>
+                    }
+                </MudPaper>
+            </MudTabPanel>
+        </MudTabs>
+    }
+</MudContainer>
+
+@code {
+    [Parameter] public bool IsAdmin { get; set; }
+    [SupplyParameterFromQuery(Name = "template")] public string? TemplateKey { get; set; }
+    [SupplyParameterFromQuery(Name = "shelterId")] public int? ShelterId { get; set; }
+
+    private SimulationAccessContext? _access;
+    private List<Shelter> _shelters = [];
+    private List<SimulationTemplateDto> _templates = [];
+    private List<SimulationScenarioListItemDto> _scenarios = [];
+    private readonly List<SimulationAssumptionDto> _assumptions = [];
+    private SimulationScopeType _scopeType = SimulationScopeType.Shelter;
+    private int? _selectedShelterId;
+    private int _horizonDays = 14;
+    private string? _selectedTemplateKey;
+    private SimulationAssumptionType _assumptionType = SimulationAssumptionType.DogIntake;
+    private int _assumptionQuantity = 1;
+    private int _assumptionDay = 1;
+    private SimulationBaselineDto? _baseline;
+    private SimulationResultDto? _result;
+    private SimulationComparisonDto? _comparison;
+    private string _scenarioName = string.Empty;
+    private int? _firstScenarioId;
+    private int? _secondScenarioId;
+    private int _activeTab;
+    private int? _renamingScenarioId;
+    private string _renameValue = string.Empty;
+    private bool _loading = true;
+    private bool _running;
+    private bool _saving;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var user = (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User;
+            var userId = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? throw new InvalidOperationException("The current user could not be identified.");
+            _shelters = IsAdmin ? await ShelterService.GetAllSheltersAsync() : [];
+            if (IsAdmin)
+            {
+                _selectedShelterId = ShelterId.HasValue && _shelters.Any(shelter => shelter.Id == ShelterId.Value) ? ShelterId : null;
+                _scopeType = _selectedShelterId.HasValue ? SimulationScopeType.Shelter : SimulationScopeType.Platform;
+                _access = new SimulationAccessContext(userId, true);
+            }
+            else
+            {
+                var shelter = await ShelterService.GetShelterForUserAsync(userId) ?? throw new InvalidOperationException("No shelter profile is linked to this account.");
+                _selectedShelterId = shelter.Id;
+                _access = new SimulationAccessContext(userId, false, shelter.Id);
+            }
+
+            _templates = (await SimulationService.GetTemplatesAsync()).ToList();
+            await RefreshScenariosAsync();
+            if (!string.IsNullOrWhiteSpace(TemplateKey)) await ApplyTemplateAsync(TemplateKey);
+        }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _loading = false; }
+    }
+
+    private SimulationRunRequestDto BuildRequest() => new(_scopeType == SimulationScopeType.Shelter ? _selectedShelterId : null, _scopeType, _horizonDays, _assumptions.ToList());
+    private Task ScopeChangedAsync(SimulationScopeType value) { _scopeType = value; if (value == SimulationScopeType.Shelter && !_selectedShelterId.HasValue) _selectedShelterId = _shelters.FirstOrDefault()?.Id; return Task.CompletedTask; }
+    private Task ApplyTemplateAsync(string? key)
+    {
+        _selectedTemplateKey = key;
+        var template = _templates.FirstOrDefault(item => item.Key == key);
+        if (template is not null) { _horizonDays = template.HorizonDays; _assumptions.Clear(); _assumptions.AddRange(template.Assumptions); _scenarioName = template.Name; }
+        return Task.CompletedTask;
+    }
+    private void AddAssumption() { _assumptions.Add(new SimulationAssumptionDto(_assumptionType, Math.Max(1, _assumptionQuantity), Math.Clamp(_assumptionDay, 1, _horizonDays))); _assumptionQuantity = 1; }
+    private void RemoveAssumption(int index) { if (index >= 0 && index < _assumptions.Count) _assumptions.RemoveAt(index); }
+    private void ResetBuilder() { _assumptions.Clear(); _result = null; _baseline = null; _scenarioName = string.Empty; _selectedTemplateKey = null; }
+    private Task ActivateBuildTab() { _activeTab = 0; return Task.CompletedTask; }
+
+    private async Task RunAsync()
+    {
+        if (_access is null) return;
+        try { _running = true; _result = await SimulationService.RunAsync(BuildRequest(), _access); _baseline = _result.Baseline; if (string.IsNullOrWhiteSpace(_scenarioName)) _scenarioName = $"{_result.Baseline.ScopeName} scenario {_result.GeneratedAtUtc:dd MMM}"; }
+        catch (Exception ex) { Snackbar.Add(ex.Message, Severity.Error); }
+        finally { _running = false; }
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_access is null || _result is null) return;
+        try { _saving = true; await SimulationService.SaveAndRunAsync(new SimulationSaveRequestDto(null, _scenarioName, null, BuildRequest()), _access); await RefreshScenariosAsync(); Snackbar.Add("Scenario saved. Operational data was not changed.", Severity.Success); }
+        catch (Exception ex) { Snackbar.Add(ex.Message, Severity.Error); }
+        finally { _saving = false; }
+    }
+
+    private async Task RerunAsync(int id) { if (_access is null) return; try { var saved = await SimulationService.RerunAsync(id, _access); _result = saved.Result; _baseline = saved.Result.Baseline; _activeTab = 0; await RefreshScenariosAsync(); Snackbar.Add("Scenario rerun from the current baseline.", Severity.Success); } catch (Exception ex) { Snackbar.Add(ex.Message, Severity.Error); } }
+    private async Task TogglePinnedAsync(SimulationScenarioListItemDto scenario) { if (_access is null) return; await SimulationService.SetPinnedAsync(scenario.Id, !scenario.IsPinned, _access); await RefreshScenariosAsync(); }
+    private async Task DeleteAsync(int id) { if (_access is null) return; try { await SimulationService.DeleteAsync(id, _access); await RefreshScenariosAsync(); Snackbar.Add("Scenario deleted.", Severity.Success); } catch (Exception ex) { Snackbar.Add(ex.Message, Severity.Error); } }
+    private void BeginRename(SimulationScenarioListItemDto scenario) { _renamingScenarioId = scenario.Id; _renameValue = scenario.Name; }
+    private void CancelRename() { _renamingScenarioId = null; _renameValue = string.Empty; }
+    private async Task SaveRenameAsync(int id) { if (_access is null) return; try { await SimulationService.RenameAsync(id, _renameValue, _access); CancelRename(); await RefreshScenariosAsync(); Snackbar.Add("Scenario renamed.", Severity.Success); } catch (Exception ex) { Snackbar.Add(ex.Message, Severity.Error); } }
+    private async Task DuplicateAsync(SimulationScenarioListItemDto scenario)
+    {
+        if (_access is null) return;
+        try
+        {
+            await SimulationService.SaveAndRunAsync(new SimulationSaveRequestDto(null, $"Copy of {scenario.Name}", scenario.Description, new SimulationRunRequestDto(scenario.ShelterId, scenario.ScopeType, scenario.HorizonDays, scenario.Assumptions)), _access);
+            await RefreshScenariosAsync();
+            Snackbar.Add("Scenario duplicated and rerun from the current baseline.", Severity.Success);
+        }
+        catch (Exception ex) { Snackbar.Add(ex.Message, Severity.Error); }
+    }
+    private async Task RefreshScenariosAsync() { if (_access is not null) _scenarios = (await SimulationService.GetScenariosAsync(_access)).ToList(); }
+    private async Task CompareAsync() { if (_access is null || !_firstScenarioId.HasValue || !_secondScenarioId.HasValue) return; try { _comparison = await SimulationService.CompareAsync(_firstScenarioId.Value, _secondScenarioId.Value, _access); } catch (Exception ex) { Snackbar.Add(ex.Message, Severity.Error); } }
+    private static string FormatDate(DateTime value) => value.ToLocalTime().ToString("dd MMM yyyy, HH:mm");
+    private static string AssumptionLabel(SimulationAssumptionType type) => type switch { SimulationAssumptionType.DogIntake => "Additional dog intake", SimulationAssumptionType.VolunteerUnavailable => "Volunteers unavailable", SimulationAssumptionType.VolunteerAdded => "Additional volunteers", SimulationAssumptionType.IncomingTransfer => "Incoming transfer", SimulationAssumptionType.OutgoingTransfer => "Outgoing transfer", SimulationAssumptionType.ApplicationsReviewed => "Applications reviewed", SimulationAssumptionType.NewApplications => "New applications", SimulationAssumptionType.ProfileImprovement => "Profiles completed", SimulationAssumptionType.NotificationFailuresAdded => "Notification failures", SimulationAssumptionType.NotificationBacklogCleared => "Notification backlog cleared", SimulationAssumptionType.TemporaryCapacityChange => "Temporary capacity added", SimulationAssumptionType.TemporaryCapacityUnavailable => "Temporary capacity unavailable", _ => type.ToString() };
+
+}

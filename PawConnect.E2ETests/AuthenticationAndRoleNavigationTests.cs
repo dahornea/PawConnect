@@ -83,6 +83,28 @@ public class AuthenticationAndRoleNavigationTests : PawConnectPageTest
     }
 
     [E2EFact]
+    public async Task Shelter_ShouldOpenScenarioSimulator_FromRoleNavigation()
+    {
+        await LoginAsync(DemoUsers.Shelter);
+
+        await Page.GetByRole(AriaRole.Link, new() { Name = "Scenario Simulator" }).ClickAsync();
+
+        await ExpectTextVisibleAsync("Scenario Simulator");
+        await ExpectTextVisibleAsync("Simulation only");
+        await ExpectTextVisibleAsync("Scenario setup");
+    }
+
+    [E2EFact]
+    public async Task Admin_ShouldOpenPlatformScenarioSimulator()
+    {
+        await LoginAsync(DemoUsers.Admin, "/admin/simulator");
+
+        await ExpectTextVisibleAsync("Scenario Simulator");
+        await ExpectTextVisibleAsync("Entire platform");
+        await ExpectTextVisibleAsync("Simulation only");
+    }
+
+    [E2EFact]
     public async Task Adopter_ShouldOpenOwnInsights_FromRoleNavigation()
     {
         await LoginAsync(DemoUsers.Adopter);

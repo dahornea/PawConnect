@@ -248,6 +248,12 @@
                                 <MudItem xs="12">
                                     <MudTextField Label="Description" @bind-Value="_editShelter.Description" Lines="3" Variant="Variant.Outlined" />
                                 </MudItem>
+                                <MudItem xs="12" md="6">
+                                    <MudNumericField T="int" Label="Dog capacity" @bind-Value="_editShelter.DogCapacity" Min="1" Max="1000" Required="true" HelperText="Total safe dog spaces used by the scenario simulator." Variant="Variant.Outlined" />
+                                </MudItem>
+                                <MudItem xs="12" md="6">
+                                    <MudNumericField T="int" Label="Reserved emergency spaces" @bind-Value="_editShelter.ReservedEmergencySpaces" Min="0" Max="1000" Required="true" HelperText="Spaces kept outside normal intake capacity." Variant="Variant.Outlined" />
+                                </MudItem>
                                 <MudItem xs="12">
                                     <MudPaper Elevation="0" Class="section-surface pa-3">
                                         <MudStack Spacing="2">
