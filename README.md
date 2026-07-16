@@ -7,10 +7,13 @@ A full-stack ASP.NET Core Blazor Server platform for stray dog adoption and shel
 
 PawConnect is a multi-role web application that connects adopters with animal shelters and supports the adoption process from public dog discovery to request review, visit confirmation, messaging, reporting, and shelter operations. It is built as a portfolio-ready ASP.NET Core project with role-based workflows, service-layer business rules, SQL Server persistence, maps, notifications, reports, automated tests, Docker support, and optional OpenAI-assisted discovery features.
 
+The repository also includes an API-first React + TypeScript adopter portal under `clients/pawconnect-react`. It consumes the same ASP.NET Core services, Identity session, public-safety rules, and SQL data as the existing Blazor application.
+
 ## Table of Contents
 
 - [Features](#features)
 - [Tech Stack](#tech-stack)
+- [React Adopter Portal](#react-adopter-portal)
 - [Architecture Overview](#architecture-overview)
 - [User Roles](#user-roles)
 - [Main Workflows](#main-workflows)
@@ -123,6 +126,7 @@ See [docs/SCENARIO_SIMULATOR.md](docs/SCENARIO_SIMULATOR.md) for simulator assum
 | Area | Technology | Purpose |
 | ---- | ---------- | ------- |
 | Backend/UI | ASP.NET Core Blazor Server | Interactive server-rendered web UI |
+| Adopter client | React, TypeScript, Vite, TanStack Query | API-first public discovery and adopter workflows |
 | Language | C# / .NET 10 | Main application and service logic |
 | Data access | Entity Framework Core | SQL Server persistence and migrations |
 | Database | SQL Server / LocalDB | Stores users, dogs, shelters, requests, reports, messages, resources, and search data |
@@ -137,6 +141,21 @@ See [docs/SCENARIO_SIMULATOR.md](docs/SCENARIO_SIMULATOR.md) for simulator assum
 | Testing | xUnit, EF Core InMemory | Service-level and integration-style tests |
 | DevOps | GitHub Actions | Continuous integration |
 | Local infra | Docker / Docker Compose | App, SQL Server, and smtp4dev local environment |
+
+## React Adopter Portal
+
+Card 104 adds a focused React adopter experience while keeping Blazor as the full multi-role application. The client includes public dog discovery, details and lightbox, favorites, saved searches, adoption applications, notifications, profile editing, explainable insights, and Adoption Copilot. Its TypeScript models are generated from the backend OpenAPI document rather than duplicated by hand.
+
+Run the backend and client in separate terminals:
+
+```powershell
+dotnet run --project PawConnect.csproj --launch-profile http
+cd clients/pawconnect-react
+npm ci
+npm run dev
+```
+
+Open `http://localhost:5173`. See [React Adopter Portal architecture and routes](docs/REACT_ADOPTER_PORTAL.md) and the [client README](clients/pawconnect-react/README.md) for authentication, API generation, testing, and Docker details.
 
 ## Architecture Overview
 
@@ -465,9 +484,9 @@ $env:PAWCONNECT_SKIP_DOCKER_TESTS = "1"
 dotnet test PawConnect.sln
 ```
 
-The default GitHub Actions test job also sets `PAWCONNECT_SKIP_DOCKER_TESTS=1` so the normal push/pull-request CI path remains stable and does not depend on starting Docker containers during the main test step. The SQL Server integration tests are still kept in the repository and can be run locally with Docker Desktop or from GitHub Actions by starting the workflow manually and selecting `run-sqlserver-integration=true`.
+The default GitHub Actions test job also sets `PAWCONNECT_SKIP_DOCKER_TESTS=1` so the normal push/pull-request CI path remains stable and does not depend on starting Docker containers during the main test step. A separate React job installs the locked npm dependencies, type-checks, lints, tests, and builds the adopter portal. The SQL Server integration tests are still kept in the repository and can be run locally with Docker Desktop or from GitHub Actions by starting the workflow manually and selecting `run-sqlserver-integration=true`.
 
-`PawConnect.E2ETests` contains browser-based Playwright tests for the most important user-facing flows: app smoke loading, login, role-specific navigation, public dog browsing/details, shelter dog management, and admin notification outbox access.
+`PawConnect.E2ETests` contains browser-based Playwright tests for the most important user-facing flows: app smoke loading, login, role-specific navigation, public dog browsing/details, shelter dog management, admin notification outbox access, and the React adopter portal's filtering and authentication boundaries.
 
 Install the Playwright browser binaries after building the E2E project:
 
@@ -495,6 +514,15 @@ Run one E2E test class:
 ```powershell
 $env:PAWCONNECT_RUN_E2E = "1"
 dotnet test PawConnect.E2ETests\PawConnect.E2ETests.csproj --filter "FullyQualifiedName~CoreUserFlowTests"
+```
+
+With the ASP.NET Core backend at `http://localhost:5180` and Vite at `http://127.0.0.1:5173`, run only the React portal browser checks:
+
+```powershell
+$env:PAWCONNECT_RUN_E2E = "1"
+$env:PAWCONNECT_E2E_BASE_URL = "http://localhost:5180"
+$env:PAWCONNECT_REACT_E2E_BASE_URL = "http://127.0.0.1:5173"
+dotnet test PawConnect.E2ETests\PawConnect.E2ETests.csproj --filter "FullyQualifiedName~ReactAdopterPortalTests"
 ```
 
 If `PAWCONNECT_RUN_E2E` is not set, or if PawConnect is not reachable at `/health`, the E2E tests are skipped so normal CI and local unit/service test runs remain stable. The E2E tests use the seeded demo accounts: `adopter@mail.com`, `shelter@mail.com`, and `admin@mail.com`.

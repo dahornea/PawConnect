@@ -41,6 +41,7 @@ public class SavedSearchesController(ISavedDogSearchService savedDogSearchServic
     }
 
     [HttpPost]
+    [ValidateAntiForgeryToken]
     [ProducesResponseType(typeof(SavedDogSearchDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<SavedDogSearchDto>> CreateSavedSearch(
@@ -65,6 +66,7 @@ public class SavedSearchesController(ISavedDogSearchService savedDogSearchServic
     }
 
     [HttpPut("{id:int}")]
+    [ValidateAntiForgeryToken]
     [ProducesResponseType(typeof(SavedDogSearchDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<SavedDogSearchDto>> UpdateSavedSearch(
@@ -89,6 +91,7 @@ public class SavedSearchesController(ISavedDogSearchService savedDogSearchServic
     }
 
     [HttpDelete("{id:int}")]
+    [ValidateAntiForgeryToken]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> DeleteSavedSearch(int id, CancellationToken cancellationToken)
     {
@@ -103,6 +106,7 @@ public class SavedSearchesController(ISavedDogSearchService savedDogSearchServic
     }
 
     [HttpPost("{id:int}/evaluate")]
+    [ValidateAntiForgeryToken]
     [ProducesResponseType(typeof(SavedDogSearchDetailsDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<SavedDogSearchDetailsDto>> EvaluateSavedSearch(int id, CancellationToken cancellationToken)
     {
@@ -117,6 +121,7 @@ public class SavedSearchesController(ISavedDogSearchService savedDogSearchServic
     }
 
     [HttpPatch("{id:int}/alerts")]
+    [ValidateAntiForgeryToken]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> SetAlerts(int id, [FromBody] SetSavedSearchAlertsRequest request, CancellationToken cancellationToken)
     {
@@ -131,6 +136,7 @@ public class SavedSearchesController(ISavedDogSearchService savedDogSearchServic
     }
 
     [HttpPatch("matches/{matchId:int}/seen")]
+    [ValidateAntiForgeryToken]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> MarkMatchSeen(int matchId, CancellationToken cancellationToken)
     {
@@ -145,6 +151,7 @@ public class SavedSearchesController(ISavedDogSearchService savedDogSearchServic
     }
 
     [HttpPatch("matches/{matchId:int}/dismiss")]
+    [ValidateAntiForgeryToken]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> DismissMatch(int matchId, CancellationToken cancellationToken)
     {

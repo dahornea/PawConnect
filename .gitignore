@@ -34,6 +34,12 @@ TestResults/
 coverage/
 wwwroot/uploads/
 
+# React client output and local tooling
+clients/**/node_modules/
+clients/**/dist/
+clients/**/coverage/
+clients/**/.vite/
+
 # ASP.NET / Blazor generated files
 *.csproj.nuget.g.props
 *.csproj.nuget.g.targets

@@ -1,0 +1,17 @@
+export const queryKeys = {
+  session: ['session'] as const,
+  dogs: (search: string) => ['dogs', search] as const,
+  dog: (id: number) => ['dogs', id] as const,
+  shelters: ['shelters'] as const,
+  favorites: ['favorites'] as const,
+  favoriteIds: ['favorites', 'ids'] as const,
+  savedSearches: ['saved-searches'] as const,
+  savedSearch: (id: number) => ['saved-searches', id] as const,
+  applications: ['applications'] as const,
+  application: (id: number) => ['applications', id] as const,
+  notifications: (filter: string) => ['notifications', filter] as const,
+  unreadNotifications: ['notifications', 'unread-count'] as const,
+  notificationPreferences: ['notification-preferences'] as const,
+  profile: ['profile'] as const,
+  insights: ['adopter-insights'] as const,
+} as const

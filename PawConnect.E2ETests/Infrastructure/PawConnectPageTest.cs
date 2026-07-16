@@ -50,6 +50,12 @@ public abstract class PawConnectPageTest : IAsyncLifetime
         return $"{E2ETestSettings.BaseUrl}{normalizedPath}";
     }
 
+    protected static string ReactAppUrl(string path)
+    {
+        var normalizedPath = path.StartsWith('/') ? path : $"/{path}";
+        return $"{E2ETestSettings.ReactBaseUrl}{normalizedPath}";
+    }
+
     protected async Task LoginAsync(DemoUser user, string? returnPath = null)
     {
         var targetPath = returnPath ?? user.DashboardPath;

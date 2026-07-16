@@ -4,6 +4,7 @@ public static class E2ETestSettings
 {
     public const string RunEnvironmentVariable = "PAWCONNECT_RUN_E2E";
     public const string BaseUrlEnvironmentVariable = "PAWCONNECT_E2E_BASE_URL";
+    public const string ReactBaseUrlEnvironmentVariable = "PAWCONNECT_REACT_E2E_BASE_URL";
 
     public static bool ShouldRun => string.Equals(
         Environment.GetEnvironmentVariable(RunEnvironmentVariable),
@@ -11,6 +12,9 @@ public static class E2ETestSettings
         StringComparison.OrdinalIgnoreCase);
 
     public static string BaseUrl => (Environment.GetEnvironmentVariable(BaseUrlEnvironmentVariable) ?? "https://localhost:7125")
+        .TrimEnd('/');
+
+    public static string ReactBaseUrl => (Environment.GetEnvironmentVariable(ReactBaseUrlEnvironmentVariable) ?? "http://127.0.0.1:5173")
         .TrimEnd('/');
 
     public static bool Headless => !string.Equals(
