@@ -32,12 +32,44 @@ builder.Logging.AddDebug();
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 builder.Services.AddSignalR();
-builder.Services.AddControllers()
+builder.Services.AddControllersWithViews()
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddAntiforgery(options =>
+{
+    options.HeaderName = "X-XSRF-TOKEN";
+    options.Cookie.Name = "PawConnect.Antiforgery";
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SameSite = SameSiteMode.Lax;
+    options.Cookie.SecurePolicy = builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Docker")
+        ? CookieSecurePolicy.SameAsRequest
+        : CookieSecurePolicy.Always;
+});
+
+var reactClientOrigins = builder.Configuration
+    .GetSection("ReactClient:AllowedOrigins")
+    .Get<string[]>()?
+    .Where(origin => Uri.TryCreate(origin, UriKind.Absolute, out _))
+    .Distinct(StringComparer.OrdinalIgnoreCase)
+    .ToArray() ?? [];
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("ReactClient", policy =>
+    {
+        if (reactClientOrigins.Length > 0)
+        {
+            policy
+                .WithOrigins(reactClientOrigins)
+                .AllowAnyHeader()
+                .AllowAnyMethod()
+                .AllowCredentials();
+        }
+    });
+});
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -68,7 +100,7 @@ builder.Services.AddSwaggerGen(options =>
     {
         Title = "PawConnect Public API",
         Version = "v1",
-        Description = "REST API for public dog discovery, shelters, adoption applications, notification preferences, and selected admin summaries.",
+        Description = "REST API shared by the Blazor backoffice and React adopter portal for dog discovery, adopter workflows, shelters, and selected administrative operations.",
         Contact = new OpenApiContact
         {
             Name = "PawConnect"
@@ -378,6 +410,11 @@ app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseHttpsRedirection();
 
 app.UseStaticFiles();
+
+if (reactClientOrigins.Length > 0)
+{
+    app.UseCors("ReactClient");
+}
 
 app.UseAuthentication();
 app.UseAuthorization();

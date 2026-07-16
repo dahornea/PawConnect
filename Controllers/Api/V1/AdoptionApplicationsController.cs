@@ -64,6 +64,7 @@ public class AdoptionApplicationsController(
 
     [HttpPost("~/api/v1/dogs/{dogId:int}/adoption-applications")]
     [Authorize(Roles = IdentitySeedData.AdopterRole)]
+    [ValidateAntiForgeryToken]
     [ProducesResponseType(typeof(AdoptionApplicationApiDto), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -110,6 +111,7 @@ public class AdoptionApplicationsController(
 
     [HttpDelete("{id:int}")]
     [Authorize(Roles = IdentitySeedData.AdopterRole)]
+    [ValidateAntiForgeryToken]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

@@ -4,13 +4,13 @@ using PawConnect.Entities;
 namespace PawConnect.DTOs.Api;
 
 public sealed record CreateAdoptionApplicationApiRequest(
-    [property: Required]
-    [property: StringLength(1000, MinimumLength = 10)]
+    [param: Required]
+    [param: StringLength(1000, MinimumLength = 10)]
     string ReasonForAdoption,
-    [property: Range(0, 24)]
+    [param: Range(0, 24)]
     int? HoursAlonePerDay,
     DateTime? PreferredVisitDateTime,
-    [property: StringLength(1000)]
+    [param: StringLength(1000)]
     string? AdditionalInformation);
 
 public sealed record AdoptionApplicationApiDto(

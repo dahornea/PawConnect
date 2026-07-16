@@ -30,6 +30,7 @@ public class NotificationPreferencesController(
     }
 
     [HttpPut]
+    [ValidateAntiForgeryToken]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> SavePreferences(

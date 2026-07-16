@@ -1,4 +1,15 @@
 services:
+  pawconnect-react:
+    build:
+      context: ./clients/pawconnect-react
+      dockerfile: Dockerfile
+    depends_on:
+      pawconnect:
+        condition: service_started
+    ports:
+      - "${REACT_HTTP_PORT:-5173}:80"
+    restart: unless-stopped
+
   pawconnect:
     build:
       context: .
